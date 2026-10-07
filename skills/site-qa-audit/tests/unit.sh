@@ -60,4 +60,6 @@ set +e; "$PY" "$S/url_guard.py" action --text "×" --name Delete --context "todo
 "$PY" "$S/url_guard.py" action --text "×" --name Delete --context "todos" --config "$HERE/../templates/run-config.example.yaml" >/dev/null; c2=$?; set -e
 [ $c -eq 0 ] && [ $c2 -eq 2 ] && ok "url_guard: иконка удаления confirm, с preapproved — allow" || bad "url_guard preapproved ($c/$c2)"
 
+node -e "const s=require('fs').readFileSync(process.argv[1],'utf8').replace('__ALLOWED_RE__','^https://example\\.com/?(#.*)?$'); const f=new Function('return ('+s.replace(/^\s*\/\/.*$/mg,'')+')')(); if (typeof f!=='function') process.exit(1)" "$S/nav_lock.js" && ok "nav_lock.js: синтаксис" || bad "nav_lock.js: синтаксис"
+
 echo "unit: PASS $pass, FAIL $fail"; [ $fail -eq 0 ]
