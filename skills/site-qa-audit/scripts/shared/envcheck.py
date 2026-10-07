@@ -124,7 +124,8 @@ def print_table(rows, file=None):
             ("fix", "Как исправить")]
     lines = ["| " + " | ".join(h for _, h in cols) + " |", "|" + "|".join("---" for _ in cols) + "|"]
     for r in rows:
-        lines.append("| " + " | ".join(str(r.get(k, "")).replace("|", "\\|") for k, _ in cols) + " |")
+        vals = {k: ("" if k == "fix" and r.get("status") == OK else str(r.get(k, ""))) for k, _ in cols}
+        lines.append("| " + " | ".join(vals[k].replace("|", "\\|") for k, _ in cols) + " |")
     text = "\n".join(lines)
     print(text, file=file)
     return text
