@@ -1,0 +1,87 @@
+# run-config.yaml — конфиг одного прогона site-qa-audit.
+# Создаётся скилом по итогам опроса (references/intake.md) в ./qa-runs/<YYYY-MM-DD>-<host>/.
+# Формат — подмножество YAML (shared/scripts/miniyaml.py): без якорей и inline-словарей.
+# Секреты сюда НЕ пишутся — только имена переменных окружения.
+
+version: 1
+mode: dry-run                 # live | dry-run (dry-run: всё, кроме публикации; черновики в drafts/)
+language: ru                  # язык отчётов и issues
+
+site:
+  start_urls:
+    - https://example.com/
+  # Навигация: только эти хосты. "*.example.com" — любой поддомен, "example.com" — ровно хост.
+  allowed_domains:
+    - example.com
+    - "*.example.com"
+  # Загрузка сторонних ресурсов (CDN, тайлы, API, шрифты) разрешена всегда, если не запрещена ниже.
+  # Список заполняется на разведке — для отчёта, не для блокировки.
+  third_party_resources: []
+
+auth:
+  mode: none                  # none | test-account | manual
+  login_url: null
+  username_env: QA_USERNAME   # только имена переменных окружения
+  password_env: QA_PASSWORD
+
+scope:
+  type: whole-site            # whole-site | section | url-list | current-screen
+  section_prefix: null        # для section, например /catalog/
+  urls: []                    # для url-list
+  page_limit: 50              # для глубины standard
+  exclude_patterns: []        # регэкспы URL, исключённые пользователем после разведки
+
+directions:                   # functional, logic-state, ux, visual-ui, responsive-cross-browser,
+  - functional                # accessibility, performance, seo-content, security-passive, product
+  - ux
+  - accessibility
+
+depth: smoke                  # smoke | standard | deep
+
+devices:                      # по умолчанию — из depth-matrix.md
+  viewports:
+    - name: desktop
+      width: 1440
+      height: 900
+    - name: mobile
+      width: 375
+      height: 812
+  browsers:
+    - chromium
+
+repos: []
+# Пример записи репозитория:
+#  - url: https://github.com/owner/repo
+#    roles: [check]              # check | write-new | copies | comment (одна или несколько)
+#    style: brief                # brief | detailed
+#    labels: existing            # existing | create | inline
+#    confirm_before_publish: true
+#    screenshots: none           # commit | none
+#    screenshots_path: runs      # куда класть при commit: runs/<дата>/
+
+rules:
+  # Базовые запреты (references/safety-rules.md) действуют всегда и здесь не перечисляются.
+  forbidden_domains: []       # хосты/маски: навигация И загрузка ресурсов блокируются
+  forbidden_url_patterns: []  # регэкспы по полному URL: навигация блокируется
+  forbidden_actions: []
+  # Пример:
+  #  - id: U1
+  #    source: "не нажимать да при подключении steam"
+  #    texts: ["Да", "Yes", "Allow", "Разрешить"]   # текст кнопок/ссылок, все языки сайта
+  #    roles: [button, link]
+  #    selectors: []
+  #    context: "steam"          # действует, если на странице/в диалоге есть этот текст
+  #    url_pattern: null         # или регэксп раздела, например "/profile"
+  require_confirmation_actions: []
+  # Те же поля, что у forbidden_actions; действие выполняется только после «да» пользователя.
+  preapproved_actions: []
+  # Те же поля; заранее одобренные действия уровня confirm (например, удаление записей, созданных прогоном).
+  # Запреты (deny) не снимают.
+
+plugins:
+  policy: all-installed       # all-installed | selected | own-only
+  selected: []
+
+parallel:
+  max_workers: 1              # по умолчанию — из references/environment-notes.md
+  throttle_ms: 1500           # пауза между действиями в браузере

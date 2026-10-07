@@ -1,0 +1,6 @@
+{"issues": [
+  {"repo": "owner/repo", "number": 5, "title": "Низкий контраст счётчика задач", "state": "closed", "state_reason": "completed",
+   "fix_claimed": true, "body": "Контраст счётчика 3:1 на /items\n<!-- site-qa-audit:fp=FPPLACEHOLDER -->", "comments": []},
+  {"repo": "owner/repo", "number": 9, "title": "Ошибка JS на главной при загрузке", "state": "open", "state_reason": null,
+   "fix_claimed": false, "body": "TypeError в консоли на главной странице", "comments": []}
+]}

@@ -1,0 +1,21 @@
+{
+  "name": "site-qa-audit-node",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Небраузерные проверки site-qa-audit: axe, Lighthouse, заголовки, ссылки",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "a11y": "node a11y.js",
+    "lighthouse": "node lighthouse.js",
+    "headers": "node headers.js",
+    "links": "node links.js"
+  },
+  "dependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "lighthouse": "13.5.0",
+    "playwright": "1.63.0"
+  }
+}

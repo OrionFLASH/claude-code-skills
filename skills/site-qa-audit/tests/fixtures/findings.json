@@ -1,0 +1,17 @@
+{
+  "run": {"id": "2026-01-01-example.com", "site": "https://example.com/", "depth": "smoke", "mode": "dry-run", "started_at": "2026-01-01T10:00:00Z"},
+  "not_checked": [{"what": "https://other.example.net/", "reason": "внешняя ссылка — не проверялась", "rule": "base:outside-allowlist", "direction": "functional"}],
+  "findings": [
+    {"id": "F-001", "direction": "accessibility", "check_id": "a11y.axe.color-contrast", "type": "a11y", "severity": "medium",
+     "title": "Недостаточный контраст текста счётчика", "url": "https://example.com/items/42?x=1", "element": "span.todo-count",
+     "steps": ["Открыть https://example.com/items/42", "Добавить задачу"], "expected": "Контраст ≥ 4.5:1", "actual": "Контраст 3.2:1",
+     "environment": {"browser": "chromium", "browser_version": "153", "viewport": "1440x900", "os": "macOS", "auth": "none", "date": "2026-01-01"},
+     "screenshots": ["screenshots/F-001.png"], "console": [], "network": [], "evidence": {"axe": "color-contrast"},
+     "hypothesis": "Цвет #999 на белом", "suggestion": "Затемнить до #666", "sources": ["own:script:a11y.js"]},
+    {"id": "F-002", "direction": "accessibility", "check_id": "a11y.axe.color-contrast", "type": "a11y", "severity": "high",
+     "title": "Контраст: счётчик задач", "url": "https://example.com/items/7", "element": "span.todo-count",
+     "actual": "Контраст 3.2:1, контакт admin@acme-corp.test", "sources": ["plugin:ux-audit"]},
+    {"id": "F-003", "direction": "functional", "check_id": "fn.console-errors", "type": "bug", "severity": "low",
+     "title": "Ошибка JS при загрузке", "url": "https://example.com/", "actual": "TypeError в консоли", "sources": ["own:checklist"]}
+  ]
+}

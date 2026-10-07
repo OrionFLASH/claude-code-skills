@@ -1,0 +1,66 @@
+# Эталонный run-config для tests/dry-run-todomvc.md (с 1.0.1 — с preapproved_actions)
+version: 1
+mode: dry-run
+language: ru
+
+site:
+  start_urls:
+    - https://demo.playwright.dev/todomvc/
+  allowed_domains:
+    - demo.playwright.dev
+  third_party_resources: []
+
+auth:
+  mode: none
+  login_url: null
+  username_env: null
+  password_env: null
+
+scope:
+  type: whole-site
+  section_prefix: /todomvc/
+  urls: []
+  page_limit: 20
+  exclude_patterns: []
+
+directions:
+  - functional
+  - ux
+  - accessibility
+
+depth: smoke
+
+devices:
+  viewports:
+    - name: desktop
+      width: 1440
+      height: 900
+    - name: mobile
+      width: 375
+      height: 812
+  browsers:
+    - chromium
+
+repos: []
+
+rules:
+  forbidden_domains: []
+  forbidden_url_patterns: []
+  forbidden_actions: []
+  require_confirmation_actions: []
+  preapproved_actions:
+    - id: P1
+      source: "можно удалять задачи, созданные самим прогоном"
+      texts: ["×", "Delete", "Clear completed"]
+      context: "todos"
+  parsed_from_user:
+    - source: "не выходить за домен"
+      rule: "allowed_domains = [demo.playwright.dev] (строго один хост, без поддоменов)"
+
+plugins:
+  policy: all-installed
+  selected: []
+
+parallel:
+  max_workers: 2
+  throttle_ms: 1000

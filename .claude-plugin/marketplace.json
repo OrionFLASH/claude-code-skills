@@ -5,5 +5,23 @@
   "owner": {
     "name": "OrionFLASH"
   },
-  "plugins": []
+  "plugins": [
+    {
+      "name": "site-qa-audit",
+      "source": "./skills/site-qa-audit",
+      "description": "Универсальный QA-аудит любого сайта через браузер: функциональность, логика, UX, UI, адаптивность, доступность, производительность, SEO, пассивная безопасность, продуктовые предложения; сверка с issues и публикация по правилам",
+      "version": "1.0.1",
+      "keywords": [
+        "qa",
+        "testing",
+        "audit",
+        "accessibility",
+        "performance",
+        "seo",
+        "ux",
+        "playwright",
+        "github-issues"
+      ]
+    }
+  ]
 }
