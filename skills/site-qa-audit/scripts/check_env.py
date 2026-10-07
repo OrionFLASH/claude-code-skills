@@ -11,6 +11,7 @@
 """
 import argparse
 import json
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -49,6 +50,29 @@ BANNED = {
     "submit-learnings": "публикует issue в репозиторий плагина",
 }
 
+
+
+def find_chrome_native_host():
+    """Мост Claude Code ↔ расширение Claude in Chrome (native messaging host).
+
+    Читаем конкретную папку через os.listdir: на macOS папка профиля Chrome защищена (TCC),
+    и Path.glob, обходящий родительские каталоги, молча возвращает пустой список.
+    """
+    home = Path.home()
+    dirs = [home / "Library/Application Support/Google/Chrome/NativeMessagingHosts",
+            home / ".config/google-chrome/NativeMessagingHosts",
+            home / ".config/chromium/NativeMessagingHosts"]
+    for d in dirs:
+        try:
+            if any(f.startswith("com.anthropic") for f in os.listdir(d)):
+                return True
+        except OSError:
+            continue
+    if sys.platform == "win32":  # на Windows host регистрируется в реестре
+        code, _ = ec.run(["reg", "query",
+                          r"HKCU\Software\Google\Chrome\NativeMessagingHosts\com.anthropic.claude_code_browser_extension"])
+        return code == 0
+    return False
 
 
 def check_node_deps(rows):
@@ -115,11 +139,12 @@ def main():
     rows.append(ec.Row("Playwright MCP", "", ec.OK if mcp_ok else ec.FAIL, "" if mcp_ok else "не подключён",
                        "/plugin install playwright@claude-plugins-official  или  claude mcp add --transport stdio "
                        "--scope user playwright -- npx -y @playwright/mcp@latest"))
-    chrome_host = list(Path.home().glob("Library/Application Support/Google/Chrome/NativeMessagingHosts/com.anthropic*")) + \
-        list(Path.home().glob(".config/google-chrome/NativeMessagingHosts/com.anthropic*"))
+    chrome_host = find_chrome_native_host()
     rows.append(ec.Row("Claude in Chrome", "", ec.OK if chrome_host else ec.WARN,
-                       "" if chrome_host else "нет native host — режим current-screen только через Playwright",
-                       "расширение Claude in Chrome + /chrome"))
+                       "native host есть; инструменты mcp__claude-in-chrome__* появляются в сессии, запущенной с "
+                       "включённым Chrome (claude --chrome или /chrome)" if chrome_host
+                       else "нет native host — режим current-screen только через Playwright",
+                       "расширение Claude (Anthropic) в Chrome + запуск `claude --chrome` или /chrome"))
 
     available = {}
     skills = set(ec.user_skills())

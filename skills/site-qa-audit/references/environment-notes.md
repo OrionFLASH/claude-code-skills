@@ -45,6 +45,13 @@ Firefox 155 (сборка playwright 1.63) на macOS 27 не стартует: 
 - Профиль MCP по умолчанию **постоянный**: localStorage/cookies сохраняются между прогонами и сессиями (в прогон попали задачи из опыта параллельности). На старте прогона — чистое состояние для целевого origin (см. SKILL.md шаг 4).
 - Относительные пути `filename` у `browser_take_screenshot`/`browser_snapshot` разрешаются от папки, где запущен Claude Code, а не от текущей папки Bash. Всегда передавать абсолютный путь `<RUN_DIR>/screenshots/…`.
 
+## Claude in Chrome (проверено 2026-10-07)
+- Подключение = расширение «Claude» (Anthropic) в Chrome + native host, который Claude Code регистрирует при `claude --chrome` или `/chrome`. Без перезапуска сессии с включённым Chrome инструменты `mcp__claude-in-chrome__*` не появляются, даже если расширение стоит.
+- Папка профиля Chrome на macOS защищена (TCC): список расширений прочитать нельзя, поэтому `check_env` определяет подключение по файлу native host (`os.listdir` конкретной папки — `Path.glob` молча возвращает пусто).
+- Работа идёт в отдельной группе вкладок; свои вкладки закрывать (`tabs_close_mcp`). Перед использованием загружать скил `claude-in-chrome`.
+- Консоль отслеживается с первого вызова `read_console_messages` — для ошибок загрузки страницу перезагрузить после первого вызова.
+- Это браузер пользователя с его сессиями и cookies: только наблюдение и навигация в пределах правил; любые действия — под `url_guard` и с подтверждением на боевом аккаунте.
+
 ## Песочница Claude Code
 Внутри песочницы Bash нет доступа к профилю Chrome (`Operation not permitted`), а браузеры из node-скриптов запускаются. Если скрипт падает на запуске браузера — повторить вне песочницы.
 
@@ -58,6 +65,6 @@ Firefox 155 (сборка playwright 1.63) на macOS 27 не стартует: 
 | qa-skills (neonwatty) | плагин `qa-skills@neonwatty-qa` + `@playwright/cli` | adversarial-audit и resilience-audit — только пассивно (без интерактивной проверки); агент `adversarial-breaker` и `/run-qa adversarial` **запрещены** |
 | browser-devtools-mcp | плагин установлен и **отключён** | 2 своих MCP + свой Chromium, `settings.json` назначает свой главный агент, телеметрия по умолчанию. Включать вручную под конкретный прогон, с `TELEMETRY_ENABLE=false`; не одновременно с MCP-потоком Playwright |
 | frontend-design | официальный плагин | предложения по редизайну |
-| Claude in Chrome | не был настроен на момент проверки | см. `setup.md`; режим «текущий экран» — когда `check_env` видит native host |
+| Claude in Chrome | расширение Claude 1.0.98 в Google Chrome 154 + native host `com.anthropic.claude_code_browser_extension` | подключён и проверен (навигация, JS, чтение страницы); режим «текущий экран» доступен |
 
 Источник каждой копии скила — файл `.source` в его папке (репозиторий, путь, коммит).
