@@ -52,6 +52,7 @@ def drop_empty(text):
     text = re.sub(r"<details><summary>[^<]+</summary>\s*```(text|json)\s*```\s*</details>\n?", "", text)
     text = re.sub(r"<details><summary>Сеть</summary>\s*\|[^\n]*\n\|[^\n]*\n\s*</details>\n?", "", text)
     text = re.sub(r"^- [^:\n]+:\s*$\n?", "", text, flags=re.M)
+    text = re.sub(r"([^\n])\n(#{2,} )", r"\1\n\n\2", text)  # пустая строка перед заголовком
     return re.sub(r"\n{3,}", "\n\n", text).strip() + "\n"
 
 
@@ -87,8 +88,11 @@ def common_values(f, run):
     }
 
 
-def render_detailed(f, run, related=None, screenshot_base=None):
+def render_detailed(f, run, related=None, screenshot_base=None, rel_prefix=""):
+    """rel_prefix — путь от файла черновика до папки прогона (для локальных ссылок на скриншоты)."""
     v = common_values(f, run)
+    if rel_prefix and not screenshot_base:
+        v["screenshots_md"] = "\n".join(f"![{Path(s).stem}]({rel_prefix}{s})" for s in f.get("screenshots") or [])
     if screenshot_base:
         v["screenshots_md"] = "\n".join(f"![{Path(s).stem}]({screenshot_base.rstrip('/')}/{Path(s).name}?raw=true)"
                                         for s in f.get("screenshots") or [])
@@ -142,7 +146,7 @@ def main():
         if not a.run_dir:
             ap.error("нужен --run-dir")
         for i, f in enumerate(findings, 1):
-            title, body = render_detailed(f, run, screenshot_base=a.screenshot_base)
+            title, body = render_detailed(f, run, screenshot_base=a.screenshot_base, rel_prefix="../../")
             write(Path(a.run_dir) / "drafts" / "copies" / f"{i:02d}-{f.get('status') or 'NEW'}-{f.get('fingerprint', f['id'])}.md",
                   title, body)
         return

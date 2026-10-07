@@ -51,4 +51,13 @@ assert r['title']=='[Bug]: Кнопка не работает', r['title']
 assert '### Page URL\n\nhttps://example.com' in r['body'] and '\`\`\`text' in r['body'] and r['labels']==['bug','triage']
 " "$TMP/r.json" && ok "read_templates parse+render (issue form)" || bad "read_templates render"
 
+"$PY" "$S/validate_findings.py" "$TMP/f.json" >/dev/null && ok "validate_findings: валидный файл" || bad "validate_findings: валидный файл"
+"$PY" -c "import json,sys; d=json.load(open(sys.argv[1])); d['findings'][0]['severity']='urgent'; json.dump(d,open(sys.argv[2],'w'))" "$TMP/f.json" "$TMP/bad.json"
+set +e; "$PY" "$S/validate_findings.py" "$TMP/bad.json" >/dev/null; c=$?; set -e
+[ $c -eq 1 ] && ok "validate_findings: ловит неверный enum" || bad "validate_findings: неверный enum ($c)"
+
+set +e; "$PY" "$S/url_guard.py" action --text "×" --name Delete --context "todos" --config "$F/dry-run-todomvc.run-config.yaml" >/dev/null; c=$?
+"$PY" "$S/url_guard.py" action --text "×" --name Delete --context "todos" --config "$HERE/../templates/run-config.example.yaml" >/dev/null; c2=$?; set -e
+[ $c -eq 0 ] && [ $c2 -eq 2 ] && ok "url_guard: иконка удаления confirm, с preapproved — allow" || bad "url_guard preapproved ($c/$c2)"
+
 echo "unit: PASS $pass, FAIL $fail"; [ $fail -eq 0 ]

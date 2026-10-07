@@ -4,7 +4,7 @@
 Команды (все печатают JSON, код выхода 0 = allow, 2 = confirm, 3 = deny):
   url_guard.py nav URL --config run-config.yaml        переход на страницу
   url_guard.py resource URL --config ...               загрузка ресурса (скрипт, тайл, шрифт)
-  url_guard.py action --text "Купить" [--role button] [--selector "#buy"]
+  url_guard.py action --text "Купить" [--name "<aria-label>"] [--role button] [--selector "#buy"]
                [--url URL] [--context "текст диалога/страницы"] --config ...
   url_guard.py blocked-origins --config ...            строка для --blocked-origins Playwright MCP
   url_guard.py export --config ... [--out rules.json]  правила в JSON (для node-скриптов)
@@ -72,6 +72,8 @@ BASE_ACTION_RULES = [
     ("agreement", DENY, r"(принимаю|я согласен|согласиться|accept (the )?(terms|agreement|eula)|i agree|"
                         r"подписать соглашение)"),
     ("destructive", CONFIRM, r"\b(удалить|стереть|очистить все|delete|remove all|clear all|erase|wipe)\b"),
+    # Кнопки-иконки без текста: ×, ✕, 🗑 и т.п. — по смыслу удаление/закрытие с потерей данных.
+    ("destructive-icon", CONFIRM, r"^[\s×✕✖✗❌🗑\ufe0f-]+$"),
     ("send-to-people", CONFIRM, r"(отправить|send|submit|пожаловаться|report|написать|post|опубликовать|"
                                 r"publish|reply|ответить|invite|пригласить)"),
     ("settings", CONFIRM, r"(сохранить настройки|save settings|изменить пароль|change password|"
@@ -125,6 +127,8 @@ def rules_of(cfg):
         "exclude_patterns": (cfg.get("scope") or {}).get("exclude_patterns") or [],
         "forbidden_actions": r.get("forbidden_actions") or [],
         "require_confirmation_actions": r.get("require_confirmation_actions") or [],
+        # Заранее одобренные пользователем действия: снимают только уровень confirm, никогда deny.
+        "preapproved_actions": r.get("preapproved_actions") or [],
     }
 
 
@@ -187,10 +191,25 @@ def _user_rule_hits(rule, text_n, role, selector, url, context_n):
     return bool(texts or sels or rule.get("url_pattern"))
 
 
-def check_action(text, cfg, role=None, selector=None, url=None, context=None):
+def check_action(text, cfg, role=None, selector=None, url=None, context=None, name=None):
+    """text — видимый текст; name — доступное имя (aria-label/title/alt). Проверяются оба."""
+    res = _check_action(text, cfg, role, selector, url, context, name)
+    if res["decision"] == CONFIRM:
+        rules = rules_of(cfg)
+        text_n = norm(" ".join(x for x in (text, name) if x))
+        for rule in rules["preapproved_actions"]:
+            if _user_rule_hits(rule, text_n, role, selector, url, norm(context)) or (
+                    name and _user_rule_hits(rule, norm(name), role, selector, url, norm(context))):
+                return result(ALLOW, "action", res["target"], f"заранее одобрено пользователем: "
+                              f"{rule.get('source') or rule.get('id')} (было: {res['reason']})",
+                              f"user:preapproved:{rule.get('id')}")
+    return res
+
+
+def _check_action(text, cfg, role=None, selector=None, url=None, context=None, name=None):
     rules = rules_of(cfg)
-    text_n, context_n = norm(text), norm(context)
-    target = {"text": text, "role": role, "selector": selector, "url": url}
+    text_n, context_n = norm(" ".join(x for x in (text, name) if x)), norm(context)
+    target = {"text": text, "name": name, "role": role, "selector": selector, "url": url}
     if url:
         nav = check_url(url, cfg, "nav")
         if nav["decision"] == DENY and nav["rule"] not in ("base:outside-allowlist",):
@@ -203,7 +222,8 @@ def check_action(text, cfg, role=None, selector=None, url=None, context=None):
         return result(DENY, "action", target, "подтверждение в диалоге OAuth/оплаты/удаления — базовый запрет",
                       "base:dialog-confirm")
     for category, decision, rx in BASE_ACTION_RULES:
-        if re.search(rx, text_n, re.I):
+        probe = norm(text) if category == "destructive-icon" else text_n
+        if probe and re.search(rx, probe, re.I):
             if category == "send-to-people" and not SEND_CONTEXT.search(context_n + " " + text_n + " " + (url or "")):
                 continue
             if decision == DENY:
@@ -249,6 +269,9 @@ def selftest():
             "require_confirmation_actions": [{"id": "C1", "texts": ["Сохранить"]}],
         },
     }
+    cfg_pre = {"site": cfg["site"], "rules": {"preapproved_actions": [
+        {"id": "P1", "source": "можно удалять собственные тестовые задачи", "texts": ["×", "Delete", "Купить"],
+         "context": "todos"}]}}
     cases = [
         (check_url("https://example.com/a", cfg), ALLOW),
         (check_url("https://sub.example.com/a", cfg), ALLOW),
@@ -270,6 +293,10 @@ def selftest():
         (check_action("Сохранить", cfg), CONFIRM),
         (check_action("Открыть", cfg, url="https://example.com/profile"), DENY),
         (check_action("Clear completed", cfg), ALLOW),
+        (check_action("×", cfg), CONFIRM),
+        (check_action("", cfg, name="Delete", role="button"), CONFIRM),
+        (check_action("×", cfg_pre, name="Delete", context="todos list"), ALLOW),
+        (check_action("Купить", cfg_pre), DENY),
     ]
     failed = [(c, exp) for c, exp in cases if c["decision"] != exp]
     for c, exp in failed:
@@ -288,6 +315,7 @@ def main():
     ap.add_argument("--selector")
     ap.add_argument("--url")
     ap.add_argument("--context")
+    ap.add_argument("--name", help="доступное имя элемента: aria-label / title / alt")
     ap.add_argument("--out")
     a = ap.parse_args()
     if a.command == "selftest":
@@ -298,9 +326,9 @@ def main():
             ap.error("нужен URL")
         res = check_url(a.target, cfg, a.command)
     elif a.command == "action":
-        if a.text is None and a.selector is None:
-            ap.error("нужен --text или --selector")
-        res = check_action(a.text or "", cfg, a.role, a.selector, a.url, a.context)
+        if a.text is None and a.selector is None and a.name is None:
+            ap.error("нужен --text, --name или --selector")
+        res = check_action(a.text or "", cfg, a.role, a.selector, a.url, a.context, a.name)
     elif a.command == "blocked-origins":
         print(blocked_origins(cfg))
         return

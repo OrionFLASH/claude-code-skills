@@ -74,6 +74,9 @@ rules:
   #    url_pattern: null         # или регэксп раздела, например "/profile"
   require_confirmation_actions: []
   # Те же поля, что у forbidden_actions; действие выполняется только после «да» пользователя.
+  preapproved_actions: []
+  # Те же поля; заранее одобренные действия уровня confirm (например, удаление записей, созданных прогоном).
+  # Запреты (deny) не снимают.
 
 plugins:
   policy: all-installed       # all-installed | selected | own-only
