@@ -20,6 +20,7 @@ README = ROOT / "README.md"
 SKELETON = ROOT / "shared" / "templates" / "skill-skeleton"
 NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+$")
+SHARED_SCRIPTS = ROOT / "shared" / "scripts"
 TABLE_START, TABLE_END = "<!-- skills-table:start -->", "<!-- skills-table:end -->"
 
 # Шаблоны секретов. Совпадение — ошибка validate.
@@ -96,6 +97,27 @@ def skill_status(skill):
     return path.read_text(encoding="utf-8").strip() if path.exists() else "в разработке"
 
 
+# ---------- shared ----------
+# Скил перечисляет нужные общие файлы в <skill>/.shared (по одному пути от shared/scripts).
+# Они копируются в <skill>/scripts/shared/: при установке из маркетплейса копируется
+# только папка плагина, поэтому ссылаться на ../../shared нельзя. Источник правды — shared/.
+
+def shared_list(skill):
+    path = skill / ".shared"
+    if not path.exists():
+        return []
+    return [ln.strip() for ln in path.read_text(encoding="utf-8").splitlines()
+            if ln.strip() and not ln.startswith("#")]
+
+
+def vendor_shared(skill):
+    for rel in shared_list(skill):
+        src, dst = SHARED_SCRIPTS / rel, skill / "scripts" / "shared" / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(src, dst)
+        print(f"shared: {src.relative_to(ROOT)} -> {dst.relative_to(ROOT)}")
+
+
 # ---------- sync ----------
 
 def sync(names=None):
@@ -103,6 +125,7 @@ def sync(names=None):
     market = load_json(MARKETPLACE)
     plugins = {p["name"]: p for p in market.get("plugins", [])}
     for skill in skill_dirs(names):
+        vendor_shared(skill)
         info = plugin_info(skill)
         entry = plugins.get(info["name"], {})
         entry.update({
@@ -231,6 +254,12 @@ def validate(names=None):
                 e("source в marketplace.json не указывает на папку скила")
         if f"](skills/{n}/)" not in readme:
             e("нет в таблице README.md (tools/validate --fix или new-skill)")
+        for rel in shared_list(skill):
+            src, dst = SHARED_SCRIPTS / rel, skill / "scripts" / "shared" / rel
+            if not src.exists():
+                e(f"shared/scripts/{rel} не существует (.shared)")
+            elif not dst.exists() or dst.read_bytes() != src.read_bytes():
+                e(f"scripts/shared/{rel} устарел или отсутствует — запустите tools/validate.sh --fix")
         for p in scan_secrets(skill):
             e(p)
     for w in warnings:
