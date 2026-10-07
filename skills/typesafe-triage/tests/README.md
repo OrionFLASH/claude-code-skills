@@ -4,8 +4,12 @@
 
 ```bash
 S=skills/typesafe-triage/scripts
-python3 -m pytest $S -q -p no:cacheprovider      # офлайн: политика, защита, сквозные на поддельном сервере
-python3 $S/typesafe_triage.py --selftest         # эталонные задачи triage_cases.json, нужны сеть и ключ
+python3 -m pytest $S -q -p no:cacheprovider      # офлайн: политика 4 уровней, подтверждение haiku/fable, эвристика, защита,
+                                                 # сквозные тесты хука на поддельном сервере
+python3 $S/typesafe_triage.py --selftest --heuristic   # эталонные задачи только по эвристике (офлайн)
+python3 $S/typesafe_triage.py --selftest         # эталонные задачи triage_cases.json через TypeSafe, нужны сеть и ключ
 ```
 
-Ожидание: все тесты зелёные; в `--selftest` «ниже ожидаемого» и `DEVMISS` равны 0.
+Чтобы живой `--selftest` не трогал рабочее состояние в `~/.claude/typesafe-triage/`, задайте временный каталог: `TYPESAFE_TRIAGE_HOME=/tmp/ts-selftest`.
+
+Ожидание: все тесты зелёные; в обоих `--selftest` «ниже ожидаемого» равно 0 (код возврата 0).
