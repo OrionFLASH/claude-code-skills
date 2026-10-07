@@ -40,7 +40,14 @@ ENHANCERS = {
     "agent:design-qa": ("agent", "browser-devtools", ["visual-ui"]),
 }
 # Никогда не используются (активные атаки / нагрузка) — см. references/plugins-map.md.
-BANNED = {"agent:adversarial-breaker": "активные атаки (XSS/SQLi/удаления)", "perf-test": "k6 — нагрузочное тестирование"}
+BANNED = {
+    "agent:adversarial-breaker": "активные атаки (XSS/SQLi/удаления)",
+    "agent:security-auditor": "смешивает пассивные и активные проверки без контроля",
+    "perf-test": "k6 — нагрузочное тестирование",
+    "security-scan": "сканер уязвимостей",
+    "run-qa": "сам запускает агентов без правил скила",
+    "submit-learnings": "публикует issue в репозиторий плагина",
+}
 
 
 

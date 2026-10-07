@@ -1,10 +1,22 @@
 {
   "name": "site-qa-audit",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Универсальный QA-аудит любого сайта через браузер: функциональность, логика, UX, UI, адаптивность, доступность, производительность, SEO, пассивная безопасность, продуктовые предложения; сверка с issues и публикация по правилам",
   "author": {
     "name": "OrionFLASH"
   },
-  "skills": ["./"],
-  "keywords": []
+  "skills": [
+    "./"
+  ],
+  "keywords": [
+    "qa",
+    "testing",
+    "audit",
+    "accessibility",
+    "performance",
+    "seo",
+    "ux",
+    "playwright",
+    "github-issues"
+  ]
 }

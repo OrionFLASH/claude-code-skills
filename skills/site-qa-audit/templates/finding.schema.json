@@ -1,0 +1,361 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "site-qa-audit/finding.schema.json",
+  "title": "site-qa-audit findings.json",
+  "description": "Файл находок прогона. Находки субагентов и плагинов приводятся к этому формату; id и fingerprint проставляет оркестратор (fingerprint.py compute).",
+  "type": "object",
+  "required": [
+    "run",
+    "findings"
+  ],
+  "properties": {
+    "run": {
+      "type": "object",
+      "required": [
+        "id",
+        "site",
+        "depth",
+        "mode"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "<YYYY-MM-DD>-<host>"
+        },
+        "site": {
+          "type": "string"
+        },
+        "depth": {
+          "enum": [
+            "smoke",
+            "standard",
+            "deep"
+          ]
+        },
+        "mode": {
+          "enum": [
+            "live",
+            "dry-run"
+          ]
+        },
+        "started_at": {
+          "type": "string"
+        },
+        "finished_at": {
+          "type": "string"
+        }
+      }
+    },
+    "not_checked": {
+      "type": "array",
+      "description": "Что не проверено и почему (запрет, авторизация, браузер, плагин, внешняя ссылка)",
+      "items": {
+        "type": "object",
+        "required": [
+          "what",
+          "reason"
+        ],
+        "properties": {
+          "what": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "rule": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "id правила url_guard, если причина — запрет"
+          },
+          "direction": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/finding"
+      }
+    }
+  },
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "required": [
+        "id",
+        "direction",
+        "check_id",
+        "type",
+        "severity",
+        "title",
+        "url",
+        "actual",
+        "sources"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^F-\\d{3,}$",
+          "description": "F-001…, уникален в прогоне"
+        },
+        "fingerprint": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$"
+        },
+        "direction": {
+          "enum": [
+            "functional",
+            "logic-state",
+            "ux",
+            "visual-ui",
+            "responsive-cross-browser",
+            "accessibility",
+            "performance",
+            "seo-content",
+            "security-passive",
+            "product"
+          ]
+        },
+        "check_id": {
+          "type": "string",
+          "description": "id пункта чек-листа, например fn.broken-links, a11y.axe.color-contrast"
+        },
+        "type": {
+          "enum": [
+            "bug",
+            "ux-issue",
+            "a11y",
+            "performance",
+            "seo",
+            "content",
+            "security",
+            "visual",
+            "proposal",
+            "suggestion",
+            "user-story"
+          ]
+        },
+        "severity": {
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low",
+            "info"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Что не так и где, без оценок: «Поиск: пустой результат при запросе с пробелом в конце»"
+        },
+        "url": {
+          "type": "string"
+        },
+        "element": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Стабильный локатор: role+name или CSS без nth-child"
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Шаги воспроизведения с начала (с URL)"
+        },
+        "expected": {
+          "type": "string"
+        },
+        "actual": {
+          "type": "string"
+        },
+        "environment": {
+          "type": "object",
+          "properties": {
+            "browser": {
+              "type": "string"
+            },
+            "browser_version": {
+              "type": "string"
+            },
+            "viewport": {
+              "type": "string",
+              "description": "WxH"
+            },
+            "os": {
+              "type": "string"
+            },
+            "auth": {
+              "enum": [
+                "none",
+                "test-account",
+                "manual"
+              ]
+            },
+            "date": {
+              "type": "string"
+            }
+          }
+        },
+        "environment_list": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Все окружения, где воспроизводится: chromium@375x812 …"
+        },
+        "screenshots": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Пути относительно папки прогона"
+        },
+        "console": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Релевантные сообщения консоли (замаскированные)"
+        },
+        "network": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "url": {
+                "type": "string"
+              },
+              "method": {
+                "type": "string"
+              },
+              "status": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "evidence": {
+          "type": "object",
+          "description": "Направленческие данные: axe rule/nodes, метрики Lighthouse, заголовки и т.п."
+        },
+        "hypothesis": {
+          "type": "string",
+          "description": "Гипотеза причины (без доступа к коду — помечать как гипотезу)"
+        },
+        "suggestion": {
+          "type": "string",
+          "description": "Предложение по исправлению/улучшению"
+        },
+        "priority": {
+          "enum": [
+            "quick-win",
+            "major-project",
+            "fill-in",
+            "thankless",
+            null
+          ],
+          "description": "Для product: матрица эффект/усилия"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "own:checklist | own:script:<name> | plugin:<name>"
+        },
+        "merged_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "enum": [
+            "NEW",
+            "DUPLICATE-OPEN",
+            "FIXED-OK",
+            "FIXED-INSUFFICIENT",
+            "REGRESSION",
+            "ALREADY-COPIED",
+            "UNSURE-MATCH",
+            null
+          ]
+        },
+        "status_reason": {
+          "type": "string",
+          "description": "Почему такой статус; для FIXED-INSUFFICIENT — чего не хватает в исправлении"
+        },
+        "matches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "repo": {
+                "type": "string"
+              },
+              "number": {
+                "type": "integer"
+              },
+              "url": {
+                "type": "string"
+              },
+              "how": {
+                "enum": [
+                  "marker",
+                  "fuzzy",
+                  "manual"
+                ]
+              }
+            }
+          }
+        },
+        "question": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Открытый вопрос пользователю (баг или задумано и т.п.)"
+        },
+        "published": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "repo": {
+                "type": "string"
+              },
+              "number": {
+                "type": "integer"
+              },
+              "url": {
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "issue",
+                  "comment",
+                  "draft"
+                ]
+              }
+            }
+          }
+        },
+        "related": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "id связанных находок (для proposal/user-story — основание)"
+        }
+      }
+    }
+  }
+}

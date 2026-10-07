@@ -252,7 +252,7 @@ def selftest():
     cases = [
         (check_url("https://example.com/a", cfg), ALLOW),
         (check_url("https://sub.example.com/a", cfg), ALLOW),
-        (check_url("https://evil.com/", cfg), DENY),
+        (check_url("https://evil.test/", cfg), DENY),
         (check_url("https://example.com/profile/1", cfg), DENY),
         (check_url("https://steamcommunity.com/openid/login?x=1", cfg), DENY),
         (check_url("https://example.com/checkout", cfg), DENY),
