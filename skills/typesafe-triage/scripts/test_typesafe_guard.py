@@ -176,9 +176,9 @@ def test_triage_402_pauses_and_second_call_makes_no_network(monkeypatch):
     calls = []
     monkeypatch.setattr(t, "ask_typesafe", lambda *a, **k: calls.append(1) or (_ for _ in ()).throw(http(402, '{"detail":"payment required"}')))
     r = t.triage("Исправь тест test_login", key="k")
-    assert r["model"] is None and r["paused"] == "billing" and "--resume" in r["notice"] and len(calls) == 1
+    assert r["source"] == "heuristic" and r["paused"] == "billing" and "--resume" in r["notice"] and len(calls) == 1
     r2 = t.triage("Исправь тест test_login", key="k")
-    assert r2["model"] is None and r2["paused"] == "billing" and len(calls) == 1      # сеть не тронута
+    assert r2["source"] == "heuristic" and r2["paused"] == "billing" and len(calls) == 1   # сеть не тронута, уровень — по эвристике
     assert t.triage("Исправь тест test_login", key="k")["notice"] is None            # напоминание не чаще раза в 6 ч
 
 
@@ -195,7 +195,7 @@ def test_triage_success_records_tokens_and_budget_warning(monkeypatch):
     g.set_budget(0.001)
     monkeypatch.setattr(t, "ask_typesafe", lambda *a, **k: dict(answers(), usage={"input_tokens": 20000}))
     r = t.triage("Исправь тест", key="k")
-    assert r["model"] and r["notice"] and "потолка" in r["notice"] and r["tokens"] == 20000
+    assert r["source"] == "typesafe" and r["notice"] and "потолка" in r["notice"] and r["tokens"] == 20000
     assert g.summary()["usage"]["tokens"] == 20000
 
 
@@ -207,9 +207,12 @@ def test_hook_shows_system_message_once_then_stays_quiet(monkeypatch, capsys):
     assert t.run_hook() == 0
     out = json.loads(capsys.readouterr().out)
     assert "ПРИОСТАНОВЛЕНО" in out["systemMessage"] and "сообщи пользователю" in out["hookSpecificOutput"]["additionalContext"]
+    assert "только эвристика" in out["hookSpecificOutput"]["additionalContext"]          # уровень всё равно есть
     monkeypatch.setattr(t.sys, "stdin", io.StringIO(prompt))
     assert t.run_hook() == 0
-    assert capsys.readouterr().out == ""                                    # второй запрос — тишина, без сети
+    out = json.loads(capsys.readouterr().out)                               # второй запрос — без сети и без предупреждения,
+    ctx = out["hookSpecificOutput"]["additionalContext"]                    # но с уровнем по эвристике
+    assert "systemMessage" not in out and "ВАЖНО" not in ctx and "только эвристика" in ctx
 
 
 def test_hook_never_blocks_prompt(monkeypatch, capsys):

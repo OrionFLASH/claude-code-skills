@@ -139,7 +139,7 @@ def classify_http(code, body, headers=None):
 def message(kind, detail="", until=None, failures=0, cost=None, cap=None):
     d = (" Ответ сервиса: %s" % detail.strip()[:200]) if detail and detail.strip() else ""
     if kind == "billing":
-        return ("TypeSafe: похоже, закончились средства или лимит.%s Использование ПРИОСТАНОВЛЕНО (совет по модели не работает), "
+        return ("TypeSafe: похоже, закончились средства или лимит.%s Использование ПРИОСТАНОВЛЕНО (уровень модели — только по локальной эвристике), "
                 "чтобы не уйти в минус. Пополните баланс / проверьте лимиты на %s и выполните: python3 %s --resume" % (d, CONSOLE_URL, SCRIPT))
     if kind == "auth":
         return ("TypeSafe: ключ API не принят (401).%s Использование приостановлено. Проверьте TYPESAFE_API_KEY (%s/keys); "
