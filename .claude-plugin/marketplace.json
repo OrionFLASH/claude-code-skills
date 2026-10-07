@@ -1,0 +1,9 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "claude-code-skills",
+  "description": "Личные скилы OrionFLASH для Claude Code, каждый скил — отдельный плагин",
+  "owner": {
+    "name": "OrionFLASH"
+  },
+  "plugins": []
+}
