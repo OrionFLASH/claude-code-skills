@@ -1,0 +1,10 @@
+{
+  "name": "typesafe-triage",
+  "version": "1.0.0",
+  "description": "Триаж задач разработки через TypeSafe (Jev): выбор уровня модели haiku/sonnet/opus и запуск отдельного агента",
+  "author": {
+    "name": "OrionFLASH"
+  },
+  "skills": ["./"],
+  "keywords": ["typesafe", "triage", "model-routing", "hook"]
+}
