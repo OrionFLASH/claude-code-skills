@@ -2,6 +2,12 @@
 
 Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/), версии — SemVer, теги `site-qa-audit/vX.Y.Z`.
 
+## [1.0.2] — 2026-10-07
+### Исправлено
+- check_env: Claude in Chrome не обнаруживался на macOS — `Path.glob` молча возвращал пусто из-за защиты папки профиля Chrome (TCC); теперь `os.listdir` конкретной папки native host, плюс Linux (chromium) и Windows (реестр).
+### Изменено
+- setup.md и environment-notes: подключение Claude in Chrome проверено (навигация, JS, чтение страницы), правила работы в группе вкладок MCP, особенность чтения консоли, перезапуск с `--chrome`.
+
 ## [1.0.1] — 2026-10-07
 По итогам dry-run на demo.playwright.dev/todomvc (этап 9).
 ### Исправлено

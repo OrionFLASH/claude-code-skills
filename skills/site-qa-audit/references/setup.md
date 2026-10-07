@@ -17,7 +17,7 @@ pwsh <SKILL_DIR>/scripts/check_env.ps1 --json <RUN_DIR>/env.json    # Windows
 | node-зависимости в `scripts/node` | да | `cd <SKILL_DIR>/scripts/node && npm install` (локально) |
 | Браузеры Chromium / WebKit / Firefox | Chromium — да | `cd <SKILL_DIR>/scripts/node && npx playwright install <browser>`; не запускающийся браузер → «не проверено» в отчёте |
 | playwright-cli | нет | `npm i -g @playwright/cli@latest`; без него браузерный поток один |
-| Claude in Chrome | нет | расширение «Claude» (Anthropic) в Google Chrome + `/chrome`; без него режим «текущий экран» — через Playwright |
+| Claude in Chrome | нет | расширение «Claude» (Anthropic) в Google Chrome + перезапуск `claude --chrome` (или `/chrome`); native host есть, а инструментов в сессии нет → перезапустить сессию с `--chrome`; без него режим «текущий экран» — через Playwright |
 | Плагины-усилители | нет | работа по собственным чек-листам |
 
 Проверка браузеров — реальный запуск (`node/probe.js`), а не поиск файлов.
@@ -29,5 +29,5 @@ pwsh <SKILL_DIR>/scripts/check_env.ps1 --json <RUN_DIR>/env.json    # Windows
 - `env.json` → источник списка реально доступных усилителей (`enhancers`) и запрещённых (`banned`) для `plugins-map.md`.
 
 ## Режим «текущий экран»
-- Есть Claude in Chrome (`claude_in_chrome: true` и инструменты `mcp__claude-in-chrome__*` в сессии) → сначала загрузить скил `claude-in-chrome`, работать во вкладке пользователя; **только чтение и навигация в пределах правил**; никаких действий от имени пользователя на боевом аккаунте без подтверждения каждого.
+- Есть Claude in Chrome (`claude_in_chrome: true` и инструменты `mcp__claude-in-chrome__*` в сессии) → сначала загрузить скил `claude-in-chrome`, `tabs_context_mcp`, работать в своей вкладке группы MCP (вкладку пользователя — только если он явно попросил); консоль — `read_console_messages` с первого вызова, затем перезагрузка; **только чтение и навигация в пределах правил**; никаких действий от имени пользователя на боевом аккаунте без подтверждения каждого.
 - Нет → спросить URL текущего экрана и открыть его в Playwright (если нужен вход — режим ручного входа).
