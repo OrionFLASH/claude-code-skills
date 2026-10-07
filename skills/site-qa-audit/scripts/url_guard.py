@@ -61,7 +61,9 @@ BASE_BLOCKED_ORIGINS = [
 BASE_ACTION_RULES = [
     ("purchase", DENY, r"\b(купить|оплатить|оплата|оформить заказ|в корзину|заказать|подписаться на|оформить подписку|"
                        r"пожертвовать|задонатить|донат|buy|purchase|pay|checkout|place order|add to cart|"
-                       r"subscribe|upgrade|donate|tip|go premium|start trial|оформить|купить сейчас)\b"),
+                       r"subscribe|upgrade|donate|tip|go premium|start trial|оформить|купить сейчас|"
+                       r"поддержать|поддержи(те)? (проект|автора)|support (us|the project|the author)|"
+                       r"become a (patron|supporter)|buy me a coffee)\b"),
     ("oauth", DENY, r"(войти через|sign in (with|through|via)|log ?in (with|through|via)|continue with|"
                     r"привязать|connect (your )?(steam|google|discord|apple|facebook|twitch|vk|github|account)|"
                     r"link (your )?(steam|google|discord|account)|подключить (steam|google|discord|аккаунт)|"
@@ -79,6 +81,13 @@ BASE_ACTION_RULES = [
     ("settings", CONFIRM, r"(сохранить настройки|save settings|изменить пароль|change password|"
                           r"сменить e-?mail|change e-?mail)"),
 ]
+# Кнопка с названием провайдера входа рядом с фразой «войдите через…» = OAuth → запрет.
+OAUTH_PROVIDERS = re.compile(
+    r"^(google|яндекс|yandex|vk|вконтакте|vkontakte|steam|discord|apple|facebook|twitch|github|telegram|"
+    r"microsoft|x|twitter|mail\.ru|ok|одноклассники|сбер ?id|госуслуги|battle\.net|epic games|xbox|playstation)$", re.I)
+OAUTH_CONTEXT = re.compile(
+    r"(войд(ите|и|ём)|войти|вход|авториз|регистрац|sign ?in|log ?in|continue|connect|продолжить) "
+    r"(через|с помощью|with|via|using|through)", re.I)
 # В диалогах с этим контекстом «Да/OK/Allow» = подтверждение OAuth или оплаты → запрет.
 BASE_DIALOG_DENY_CONTEXT = re.compile(
     r"(steam|openid|oauth|google|discord|apple id|facebook|twitch|оплат|payment|card|карт[аы]|"
@@ -218,6 +227,9 @@ def _check_action(text, cfg, role=None, selector=None, url=None, context=None, n
         if _user_rule_hits(rule, text_n, role, selector, url, context_n):
             return result(DENY, "action", target, f"запрет пользователя: {rule.get('source') or rule.get('id')}",
                           f"user:forbidden_actions:{rule.get('id')}")
+    if OAUTH_PROVIDERS.match(norm(text) or norm(name)) and OAUTH_CONTEXT.search(context_n):
+        return result(DENY, "action", target, "кнопка входа через внешний аккаунт (провайдер + «войдите через…») — "
+                      "базовый запрет", "base:action:oauth-provider")
     if CONFIRM_WORDS.match(text_n) and BASE_DIALOG_DENY_CONTEXT.search(context_n):
         return result(DENY, "action", target, "подтверждение в диалоге OAuth/оплаты/удаления — базовый запрет",
                       "base:dialog-confirm")
@@ -297,6 +309,11 @@ def selftest():
         (check_action("", cfg, name="Delete", role="button"), CONFIRM),
         (check_action("×", cfg_pre, name="Delete", context="todos list"), ALLOW),
         (check_action("Купить", cfg_pre), DENY),
+        (check_action("Google", cfg, role="button", context="Или войдите через Google Яндекс VK"), DENY),
+        (check_action("VK", cfg, context="Sign in with"), DENY),
+        (check_action("Google", cfg, context="Карта. Источник: Google Maps"), ALLOW),
+        (check_action("Поддержать", cfg), DENY),
+        (check_action("Поддержать проект ♥", cfg), DENY),
     ]
     failed = [(c, exp) for c, exp in cases if c["decision"] != exp]
     for c, exp in failed:

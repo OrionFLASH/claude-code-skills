@@ -2,6 +2,15 @@
 
 Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/), версии — SemVer, теги `site-qa-audit/vX.Y.Z`.
 
+## [1.0.3] — 2026-10-07
+По итогам первого боевого прогона (одна страница реального сайта, standard).
+### Исправлено
+- url_guard: кнопки провайдеров входа («Google», «Яндекс», «VK», «Steam»…) рядом с «войдите через / sign in with» теперь deny (`base:action:oauth-provider`) — раньше проходили как allow, потому что правило искало только «войти через»; «Поддержать / Support us» — в категории донатов.
+### Добавлено
+- `scripts/nav_lock.js` — замок навигации для Playwright MCP: обрывает переходы документа вне разрешённых URL и блокирует pushState/replaceState/window.open SPA-роутеров; описан в safety-rules §3.11 и SKILL.md.
+- environment-notes: playwright-cli требует свою сборку WebKit; запасной путь — локальный Playwright скила.
+- tests: проверки oauth-provider/«Поддержать» в selftest (29), синтаксис nav_lock.js в unit.sh.
+
 ## [1.0.2] — 2026-10-07
 ### Исправлено
 - check_env: Claude in Chrome не обнаруживался на macOS — `Path.glob` молча возвращал пусто из-за защиты папки профиля Chrome (TCC); теперь `os.listdir` конкретной папки native host, плюс Linux (chromium) и Windows (реестр).
