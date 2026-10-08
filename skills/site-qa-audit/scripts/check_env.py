@@ -24,9 +24,14 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE / "shared"))
+sys.path.insert(0, str(HERE))
 import envcheck as ec  # noqa: E402
+import skill_dir as sd  # noqa: E402
 
-NODE_DIR = HERE / "node"
+# SKILL_DIR of the run (S-1): SITE_QA_AUDIT_DIR / this copy / installed plugin — never a developer working copy if an
+# installed one exists. Fix commands below point at it.
+SKILL = sd.find()
+NODE_DIR = (Path(SKILL["skill_dir"]) if SKILL["skill_dir"] else HERE.parent) / "scripts" / "node"
 
 # Внешние усилители: имя -> (тип, где искать, направления). Используются, только если найдены.
 ENHANCERS = {
@@ -221,6 +226,16 @@ def main():
         sys.exit(0 if bres["usable_now"] or session is None else 1)
 
     rows = [ec.Row("ОС", ec.os_name())]
+    if SKILL["skill_dir"]:
+        note = f"источник: {SKILL['source']}, версия {SKILL['version'] or '?'}; проверено: папка есть"
+        if SKILL["warnings"]:
+            note += "; " + "; ".join(SKILL["warnings"])
+        rows.append(ec.Row("SKILL_DIR", SKILL["skill_dir"], ec.WARN if SKILL["source"] == "dev-checkout" or
+                           (os.environ.get(sd.ENV) and SKILL["source"] != "env") else ec.OK, note,
+                           f'для постоянного пути: ~/.claude/settings.json → "env": {{"{sd.ENV}": "<путь>"}}'))
+    else:
+        rows.append(ec.Row("SKILL_DIR", "", ec.FAIL, "установленный site-qa-audit не найден", "INSTALL.md (маркетплейс) "
+                           f"или {sd.ENV}"))
     rows.append(ec.tool_version("git", fix="https://git-scm.com"))
     rows.append(ec.tool_version("node", min_version=(18, 0, 0), fix="https://nodejs.org (LTS)"))
     rows.append(ec.tool_version("npm"))
@@ -275,17 +290,22 @@ def main():
 
     brows, bres = browser_tools(session, mcp_ok, bool(chrome_host), cdp)
     print(f"## Окружение site-qa-audit\n")
+    print(f"SKILL_DIR: {SKILL['skill_dir'] or 'не найден'}" + (f"  ({SKILL['source']}, {SKILL['version']})" if SKILL["skill_dir"] else "")
+          + "\nЭтот путь подставляется в блок правил §4 и задания исполнителей; перед работой исполнитель проверяет "
+          "его: python3 <SKILL_DIR>/scripts/skill_dir.py --check <SKILL_DIR>\n")
     ec.print_table(rows)
     print("\n## Браузерные инструменты\n")
     ec.print_table(brows)
     print("\n" + usable_line(bres, session))
-    required = {"git", "node", "npm", "npx", py, "gh", "gh auth", "Playwright MCP", "браузер chromium",
+    required = {"SKILL_DIR", "git", "node", "npm", "npx", py, "gh", "gh auth", "Playwright MCP", "браузер chromium",
                 "playwright", "@axe-core/playwright", "lighthouse"}
     fails = [r for r in rows if r["status"] == ec.FAIL and r["component"] in required]
     print(f"\nИтог: {'можно работать' if not fails else 'нужно исправить: ' + ', '.join(r['component'] for r in fails)}")
     if a.json:
         Path(a.json).parent.mkdir(parents=True, exist_ok=True)
-        Path(a.json).write_text(json.dumps({"rows": rows, "browsers": browsers, "playwright_mcp": mcp_ok,
+        Path(a.json).write_text(json.dumps({"skill_dir": SKILL["skill_dir"], "skill_dir_source": SKILL["source"],
+                                            "skill_version": SKILL["version"],
+                                            "rows": rows, "browsers": browsers, "playwright_mcp": mcp_ok,
                                             "playwright_cli": bool(shutil.which("playwright-cli")),
                                             "claude_in_chrome": bool(chrome_host), "output_dir": out_root, "enhancers": available,
                                             "banned": BANNED, "disabled_plugins": disabled, "browser_tools": bres},

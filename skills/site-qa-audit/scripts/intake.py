@@ -23,6 +23,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent / "shared"))
 import miniyaml  # noqa: E402
 import qa_gitignore  # noqa: E402 — commit_permission(): explicit permission to commit the results
 
+
+def skill_dir_of_run():
+    """SKILL_DIR for the run config (S-1): the installed skill folder, see scripts/skill_dir.py."""
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import skill_dir  # noqa: E402
+        return skill_dir.find()["skill_dir"]
+    except Exception:  # noqa: BLE001 — a draft must still be produced
+        return None
+
 DIRECTIONS = {
     "functional": r"функционал|functional|работоспособн",
     "logic-state": r"логик|состояни|logic|state",
@@ -82,7 +92,7 @@ def strip_www(h):
 def parse(text, output_dir=None):
     low = text.lower()
     notes, missing = [], []
-    cfg = {"version": 1, "output_dir": output_dir, "mode": "dry-run", "language": "ru"}
+    cfg = {"version": 1, "output_dir": output_dir, "skill_dir": skill_dir_of_run(), "mode": "dry-run", "language": "ru"}
 
     # repositories
     repos = {}

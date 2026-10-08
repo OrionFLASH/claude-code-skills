@@ -6,6 +6,8 @@
 pwsh <SKILL_DIR>/scripts/check_env.ps1 --json <RUN_DIR>/env.json    # Windows
 ```
 `<SKILL_DIR>` — папка этого скила (где лежит SKILL.md). До опроса папки прогона ещё нет — тогда без `--json`, а после создания папки повторить с `--fast --no-browsers --json` (быстро).
+
+**Один путь скила на весь прогон (SKILL_DIR).** `check_env` печатает первой строкой `SKILL_DIR: <путь> (<источник>, <версия>)` и проверяет, что папка есть; тот же путь даёт `python3 <SKILL_DIR>/scripts/skill_dir.py` (`--json` — все варианты). Порядок поиска: переменная `SITE_QA_AUDIT_DIR` → папка самого скрипта (если это не рабочая копия репозитория скилов) → установленный плагин (`installed_plugins.json` → `installPath`) → кэш плагина `~/.claude/plugins/cache/claude-code-skills/site-qa-audit/<новейшая версия>/` → `~/.claude/skills/site-qa-audit` → `.claude/skills` проекта → рабочая копия разработчика (только если ничего не установлено, с предупреждением). Этот путь записывается в `run-config.yaml → skill_dir` (`intake.py` делает это сам), подставляется в блок правил §4 и в задания исполнителей; исполнитель **до первого действия** выполняет `python3 <SKILL_DIR>/scripts/skill_dir.py --check <SKILL_DIR>` и `url_guard.py selftest` — ошибка или «No such file» = стоп (`safety-rules.md` §3 п. 0). Путь плагина меняется при обновлении (папка версии) — для постоянного пути задайте `SITE_QA_AUDIT_DIR` (`INSTALL.md`).
 Если Bash работает в песочнице и запуск браузеров падает — повторить вне песочницы (см. environment-notes.md).
 
 ## Что проверяется

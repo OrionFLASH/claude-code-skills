@@ -6,6 +6,8 @@
 
 version: 1
 output_dir: /abs/path/to/results   # OUTPUT_ROOT: путь из запроса / SITE_QA_OUTPUT_DIR / <cwd>; результаты в <OUTPUT_ROOT>/qa-runs/
+skill_dir: /abs/path/to/site-qa-audit  # SKILL_DIR прогона: python3 <скил>/scripts/skill_dir.py (SITE_QA_AUDIT_DIR / плагин);
+                              # подставляется в блок §4 и задания исполнителей, исполнитель проверяет его до работы
 mode: dry-run                 # live | dry-run (dry-run: всё, кроме публикации; черновики в drafts/)
 language: ru                  # язык отчётов и issues
 
