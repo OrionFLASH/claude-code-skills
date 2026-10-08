@@ -15,6 +15,8 @@
 | `--confirmed` (для `--run`) | нет | — | пользователь явно подтвердил haiku/fable |
 
 ## Установка
+Подробная пошаговая инструкция (macOS, Linux, Windows, маркетплейс, ключ, хук) — в [INSTALL.md](INSTALL.md). Кратко:
+
 1. Поставить скил: `/plugin install typesafe-triage@claude-code-skills` или `tools/install.sh typesafe-triage` (симлинк в `~/.claude/skills/typesafe-triage`).
 2. Задать `TYPESAFE_API_KEY`.
 3. Добавить хук в `~/.claude/settings.json` (плагином он не ставится):
