@@ -134,7 +134,10 @@ H_CRITICAL_OPUS = 2         # без TypeSafe: столько разных гр�
 H_INTENT_OPUS = 0.6         # без TypeSafe: одна группа риска + намерение не легче «проверить/сравнить» — opus
 H_INTENT_ALONE_OPUS = 0.8   # без TypeSafe: намерение «доказать» само по себе — opus
 AGENT_TIMEOUT_S = 1800
-HOOK_TIMEOUT_S = 3
+HOOK_TIMEOUT_S = 5            # замеры: медиана ответа ~0.7 с, редкие всплески 5-20 с; бюджет хука в settings.json - 10 с
+TRANSIENT_HTTP = (500, 502, 503, 504, 529)   # один быстрый повтор, если остаётся бюджет времени
+RETRY_MIN_LEFT_S = 1.5
+RETRY_PAUSE_S = 0.4
 # Уверенность считаем по осям, несущим выбор уровня: «неясность» и «объём» — вспомогательные (их уверенность системно ниже).
 CONF_AXES = ("complexity", "reasoning", "risk")
 EFFORT_CONF_AXES = ("reasoning", "shallow_cost", "planning")   # уверенность второй оси
@@ -356,6 +359,19 @@ def make_digest(text, hard=HARD_CHARS):
     mark = "\n[… середина пропущена, всего %d знаков …]\n" % len(text)
     head = (hard - len(mark)) * 55 // 100
     return text[:head] + mark + text[len(text) - (hard - len(mark) - head):]
+
+
+def ask_with_retry(task, key, timeout=TIMEOUT_S):
+    """ask_typesafe + один быстрый повтор при временной ошибке сервиса (5xx/529), если в бюджете timeout остаётся время."""
+    started = time.monotonic()
+    try:
+        return ask_typesafe(task, key, timeout)
+    except urllib.error.HTTPError as e:
+        left = timeout - (time.monotonic() - started) - RETRY_PAUSE_S
+        if e.code not in TRANSIENT_HTTP or left < RETRY_MIN_LEFT_S:
+            raise
+        time.sleep(RETRY_PAUSE_S)
+        return ask_typesafe(task, key, left)
 
 
 def ask_typesafe(task, key, timeout=TIMEOUT_S):
@@ -591,7 +607,7 @@ def triage(task, key=None, timeout=TIMEOUT_S, **ctx):
     info = lambda: {"chars": len(task), "sent": len(sent)}
     try:
         try:
-            resp = ask_typesafe(sent, key, timeout)
+            resp = ask_with_retry(sent, key, timeout)
         except urllib.error.HTTPError as e:
             # слишком большой вход (400 max_tokens_exceeded): один повтор с более коротким дайджестом
             if e.code == 400 and "max_tokens" in http_detail(e):
