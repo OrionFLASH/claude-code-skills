@@ -10,7 +10,7 @@
       "name": "site-qa-audit",
       "source": "./skills/site-qa-audit",
       "description": "Универсальный QA-аудит любого сайта через браузер: функциональность, логика, UX, UI, адаптивность, доступность, производительность, SEO, тексты и локализация, пассивная безопасность, продуктовые предложения; сверка с issues, перепроверка исправлений и публикация по правилам",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "keywords": [
         "qa",
         "testing",
@@ -27,7 +27,7 @@
       "name": "typesafe-triage",
       "source": "./skills/typesafe-triage",
       "description": "Универсальный триаж любых задач через TypeSafe (Jev) и локальные сигналы: выбор уровня модели haiku/sonnet/opus/fable и reasoning effort low…max (haiku, fable, low и max — только с подтверждения пользователя), заметка хука и запуск отдельного агента",
-      "version": "2.1.2",
+      "version": "2.1.3",
       "keywords": [
         "typesafe",
         "triage",

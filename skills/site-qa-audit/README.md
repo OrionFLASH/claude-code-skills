@@ -4,6 +4,10 @@
 
 Внутри скила нет конкретных сайтов, репозиториев, логинов и токенов: всё передаётся на входе.
 
+**Установка и обновление** (macOS, Windows, промпты для Claude Code) — [INSTALL.md](INSTALL.md).
+
+**Запуск.** Командой `/site-qa-audit` или обычной просьбой протестировать, проверить, найти баги на сайте, в веб-приложении, интерфейсе (вёрстка, адаптивность, доступность, скорость, SEO), в том числе с URL. Если скил подхвачен по смыслу запроса, он сначала спрашивает: «Похоже, вы хотите протестировать <что понял>. Запустить QA-аудит?» — при «Нет, это другое» ничего не создаёт. На разработку сайта и написание кода тестов не срабатывает.
+
 ## Что проверяется
 | Направление | Кратко |
 |-------------|--------|
@@ -25,24 +29,27 @@
 | # | Параметр | По умолчанию |
 |---|----------|--------------|
 | 1 | Стартовые URL | — (обязательно) |
-| 2 | Разрешённые домены для навигации | домен сайта и поддомены; сторонние ресурсы (CDN, тайлы, API, шрифты) грузятся, переходы на чужие страницы — нет |
+| 1a | Что тестируем (сценарии, раздел, форма, адаптив, доступность, скорость, SEO) и что считать успехом (`goal`) | основные сценарии; список проблем с приоритетами |
+| 2 | Разрешённые домены для навигации; куда не переходить (разделы, URL, поддомены) | домен сайта и поддомены; сторонние ресурсы (CDN, тайлы, API, шрифты) грузятся, переходы на чужие страницы — нет |
 | 3 | Авторизация: нет / тестовый аккаунт (env) / ручной вход / `manual-cdp` (пользователь уже вошёл в своём Chrome, подключение по CDP без очистки cookies) | нет |
 | 4 | Охват: весь сайт / раздел / список URL / текущий экран | весь сайт |
 | 5 | Направления | все |
 | 6 | Глубина: smoke / standard / deep | standard (лимит страниц 50) |
 | 7 | Устройства и браузеры | по глубине (`references/depth-matrix.md`) |
 | 8 | Репозитории: URL, роли (`check`, `write-new`, `copies`, `comment`), стиль, метки, подтверждение, скриншоты (`commit` / `web-upload` / `none`), раскрытие (`disclosure`, `marker`), ссылки между репозиториями (`cross_links`), недоработка в закрытом issue (`closed_claims`), шкала серьёзности (`severity_map`) | нет |
-| 9 | Запреты пользователя (свободный текст + чек-лист) | только базовые |
+| 9 | Запреты пользователя (свободный текст + чек-лист: покупки, оплата, регистрация, отправка форм, удаление, настройки аккаунта, рассылки, внешние ссылки…) | только базовые |
 | 10 | Плагины: все установленные / выбрать / только свои чек-листы | все установленные |
 | 11 | Язык отчётов и issues | русский |
-| 12 | Параллельные браузерные потоки | 2 (через playwright-cli) |
+| 12 | Параллельные потоки: независимые направления, группы страниц, гипотезы (`parallel.max_workers`, 1–4) | 2 (через playwright-cli; общая сессия входа — 1) |
 | 13 | Режим: dry-run / боевой | dry-run |
 | 14 | Побочные эффекты (публичный рейтинг, рассылка, необратимая загрузка) и защита от них (`side_effects`, `invariants`) | нет |
-| 15 | Папка результатов | путь из запроса / `SITE_QA_OUTPUT_DIR` / вопрос |
+| 15 | Папка результатов | путь из запроса / `SITE_QA_OUTPUT_DIR` / `<cwd>/qa-runs/` |
+| 16 | Откуда узнать о сайте (сам сайт, документация, GitHub, файл, описание) и что важно изучить (`context`) | сам сайт; сохранённая память о сайте — по выбору |
+| 17 | Куда записать итоги, кроме локальной папки: другая папка, GitHub issues, страница-артефакт Claude (`report_destinations`) | только локальная папка |
 
 Свободный запрос можно сразу разобрать в черновик конфига: `scripts/intake.py from-text` (черновик показывается на подтверждение).
 
-Результаты — в `<OUTPUT_ROOT>/qa-runs/<YYYY-MM-DD>-<host>/` (`<OUTPUT_ROOT>` — путь из запроса, иначе переменная `SITE_QA_OUTPUT_DIR`, иначе скил спросит; в репозиторий скилов не пишется): `run-config.yaml`, `findings.json`, `report.md`, `journal.md`, `claims-plan.md`, `rechecks.json`, `side_effects.md`, `screenshots/`, `drafts/`, `raw/`, `logs/`.
+Результаты — в `<OUTPUT_ROOT>/qa-runs/<YYYY-MM-DD>-<host>/` (`<OUTPUT_ROOT>` — путь из запроса, иначе переменная `SITE_QA_OUTPUT_DIR`, иначе папка запуска Claude Code; в репозиторий скилов не пишется): `run-config.yaml`, `findings.json`, `report.md`, `summary.md`, `journal.md`, `claims-plan.md`, `rechecks.json`, `side_effects.md`, `screenshots/`, `drafts/`, `raw/`, `logs/`. Память о сайте (назначение, роли, сценарии, термины, источники) — `<OUTPUT_ROOT>/qa-runs/.site-context/<host>/context.md`: при следующем прогоне скил показывает её и спрашивает «как есть / обновить / изучить заново». Если `qa-runs/` оказалась внутри git-репозитория и не игнорируется, в конце прогона скил один раз спрашивает, добавить ли её в `.gitignore` (или в `.git/info/exclude`).
 
 ## Примеры вызова
 ```text
@@ -57,7 +64,7 @@ Find bugs on https://example.org, standard depth, English report.
 скриншоты загрузить через веб-форму, без упоминания скила и без ссылок на другие репозитории.
 ```
 
-## Команды (основные, новое в 1.1.0)
+## Команды (основные)
 Все пути — абсолютные; `<SKILL_DIR>` — папка скила, `<RUN_DIR>` — папка прогона. Подробности — в указанных `references/`.
 ```bash
 # свободный запрос → черновик run-config.yaml (intake.md)
@@ -74,6 +81,10 @@ python3 <SKILL_DIR>/scripts/render_draft.py detailed <RUN_DIR>/findings.json --i
 # сводная таблица перед публикацией и отчёт (run-files.md)
 python3 <SKILL_DIR>/scripts/build_report.py publish-table <RUN_DIR>
 python3 <SKILL_DIR>/scripts/build_report.py report <RUN_DIR>
+python3 <SKILL_DIR>/scripts/build_report.py summary <RUN_DIR>        # summary.md для других мест (report_destinations)
+# qa-runs/ и git: 0 — ничего, 1 — спросить пользователя; apply — только после ответа (run-files.md)
+python3 <SKILL_DIR>/scripts/gitignore_helper.py check <OUTPUT_ROOT>
+python3 <SKILL_DIR>/scripts/gitignore_helper.py apply <OUTPUT_ROOT> --mode gitignore   # или exclude / keep
 # проверка элемента правилами безопасности (browser-guard.md): код 0 allow, 2 confirm, 3 deny
 node <SKILL_DIR>/scripts/node/guard.js check --url https://example.com/ --selector "text=Поддержать" --rules <RUN_DIR>/rules.json
 # действие с побочным эффектом под инвариантом (side-effects.md)
@@ -117,7 +128,7 @@ node <SKILL_DIR>/scripts/node/comment_web.mjs --repo owner/repo --number 42 --bo
 
 ## Ограничения
 - Только то, что видно через браузер: причина дефекта — гипотеза, код не анализируется.
-- Playwright MCP нельзя делить между параллельными субагентами; параллельный браузер — только через `playwright-cli`.
+- Playwright MCP нельзя делить между параллельными субагентами; параллельный браузер — только через `playwright-cli`, не больше 4 потоков (на опыте проверено 2).
 - `--allowed-origins`/`--blocked-origins` Playwright MCP — не граница безопасности; основная защита — проверка `url_guard` перед каждым действием. Она не заменяет здравый смысл исполнителя.
 - Капча, 2FA, вход через внешние аккаунты — только ручной вход пользователя.
 - gh не прикладывает картинки к issue: скриншоты коммитятся в свой репозиторий (`commit`), загружаются через веб-форму GitHub в браузере пользователя (`web-upload`, нужен вход пользователя и Chrome с CDP-портом; интерфейс GitHub может измениться — тогда скрипт останавливается) или остаются локально.
@@ -131,15 +142,16 @@ node <SKILL_DIR>/scripts/node/comment_web.mjs --repo owner/repo --number 42 --bo
 ## Структура
 ```text
 SKILL.md                порядок работы
+INSTALL.md              установка и обновление (macOS, Windows), промпты для Claude Code
 references/             setup, intake, safety-rules, depth-matrix, parallelism, plugins-map, repo-sync,
                         severity, environment-notes, screenshots, claims, run-files, browser-guard,
                         side-effects, layout-detectors, devices-auth, web-upload, checklists/ (11 направлений)
 templates/              run-config.example.yaml, finding.schema.json, issue-detailed.md,
-                        issue-comment.md, user-story.md, run-report.md
+                        issue-comment.md, user-story.md, run-report.md, site-context.md
 scripts/                check_env, url_guard, intake, journal, fetch_issues, read_templates, claims,
-                        fingerprint, render_draft, validate_findings, build_report, nav_lock, snap_mcp,
+                        fingerprint, render_draft, validate_findings, build_report, gitignore_helper, nav_lock, snap_mcp,
                         snap_cdp, node/ (a11y, lighthouse, headers, links, probe, annotate, shot, guard,
                         invariants, occlusion, reachability, device_context, frames, publish_web,
                         comment_web), shared/ (вендоренные модули)
-tests/                  unit.sh (офлайн + наборы test_stream_a/b/c), фикстуры, сценарий dry-run
+tests/                  unit.sh (офлайн + наборы test_stream_a, test_v12, test_stream_b/c), фикстуры, сценарий dry-run
 ```

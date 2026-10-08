@@ -62,3 +62,30 @@
 - Проверки: tools/validate.sh — 0 ошибок; tests/unit.sh — 34 PASS (A 32, B 29, C 34); url_guard selftest 29/29; validate_findings на findings.json и findings-v11.json — 0 ошибок.
 - Осталось: коммит, тег site-qa-audit/v1.1.0, merge в main, push (делает пользователь); проверка на скриншотах реального прогона.
 - Следующий шаг: git add skills/site-qa-audit README.md CHANGELOG.md .claude-plugin/marketplace.json TASKS.md → commit → tag → merge.
+
+## 2026-10-08 универсальность и установка (1.2.0)
+Ветка feature/site-qa-universal-install (от fix/default-output-cwd). Чужая правка `scripts/node/device_context.js` не трогается.
+База до правок: validate — 1 ошибка (marketplace 1.1.0 ≠ plugin.json 1.1.2), unit.sh — 34 PASS.
+- [x] A1 grep на личные/конкретные упоминания (SKILL, references, templates, README, scripts)
+- [x] A2 description: автозапуск по смыслу (RU/EN), когда НЕ использовать, ≤ 1024 символов
+- [x] A3 подтверждение намерения при автозапуске (SKILL.md, intake.md)
+- [x] A4 расширенный опрос в intake.md (что тестируем, запреты, куда не ходить, вход, устройства, глубина, успех)
+- [x] A5 параллельность до 4 (parallelism.md, SKILL.md, intake.md, run-config, intake.py + тест)
+- [x] B1 куда писать итоги (`report_destinations`): intake, run-config, SKILL.md шаг «Отчёт»
+- [x] B2 qa-runs/ и .gitignore: вопрос в конце прогона, `scripts/gitignore_helper.py` + тест
+- [x] C1 источники о сайте: вопросы в intake, `context.*` в run-config
+- [x] C2 память о сайте: `.site-context/<host>/context.md`, шаблон, SKILL.md (разведка), run-files.md
+- [x] D1 site-qa-audit/INSTALL.md (macOS/Windows, промпты установки и обновления)
+- [x] D2 typesafe-triage: INSTALL.md + UPDATE.md → один INSTALL.md, UPDATE.md удалить, ссылки
+- [x] D3 ссылки на INSTALL.md в README (корневой и скилов)
+- [x] Найдено по дороге: `<OUTPUT_ROOT>` по умолчанию = `<cwd>` (результаты в `<cwd>/qa-runs/`), устаревшие тексты «скил спросит» в README/setup/check_env — исправить
+- [x] E версии: site-qa-audit 1.2.0, typesafe-triage patch, CHANGELOG, sync README/marketplace
+- [x] E validate 0 ошибок, unit.sh зелёный, коммит(ы) в ветке
+- [ ] Не делалось (решение пользователя): merge в main, push, теги `site-qa-audit/v1.2.0` и `typesafe-triage/v2.1.3`
+
+### Где остановился
+2026-10-08, всё по пунктам A–E сделано в ветке feature/site-qa-universal-install (два коммита: typesafe-triage 2.1.3, site-qa-audit 1.2.0 + корневые файлы).
+- Сделано: description и подтверждение намерения; расширенный опрос (`goal`, куда не переходить, запреты по семантике url_guard, источники о сайте, `report_destinations`); память о сайте `.site-context/<host>/` + шаблон; `gitignore_helper.py` (check/apply gitignore|exclude|keep); `build_report.py summary`; до 4 потоков (`intake.py`, run-config, parallelism.md); INSTALL.md site-qa-audit; единый INSTALL.md typesafe-triage (UPDATE.md удалён); версии 1.2.0 и 2.1.3, CHANGELOG, sync README/marketplace.
+- Проверки: `tools/validate.sh` — 0 ошибок, 0 предупреждений; `tests/unit.sh` — PASS 36, FAIL 0 (A 32, v1.2 24, B 29, C 34); pytest typesafe-triage — 200 passed.
+- Осталось: merge fix/default-output-cwd и этой ветки в main, push, теги (делает вызывающий); живой прогон автозапуска и подтверждения намерения в новой сессии Claude Code (здесь не проверялся); промпты INSTALL.md на чистой машине не прогонялись.
+- Следующий шаг: влить ветку, затем в новой сессии сказать «проверь вёрстку https://example.com» и убедиться, что скил спрашивает подтверждение.

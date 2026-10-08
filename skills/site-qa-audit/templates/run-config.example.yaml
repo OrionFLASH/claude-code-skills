@@ -5,7 +5,7 @@
 # Секреты сюда НЕ пишутся — только имена переменных окружения.
 
 version: 1
-output_dir: /abs/path/to/results   # OUTPUT_ROOT: путь из запроса / SITE_QA_OUTPUT_DIR / ответ пользователя
+output_dir: /abs/path/to/results   # OUTPUT_ROOT: путь из запроса / SITE_QA_OUTPUT_DIR / <cwd>; результаты в <OUTPUT_ROOT>/qa-runs/
 mode: dry-run                 # live | dry-run (dry-run: всё, кроме публикации; черновики в drafts/)
 language: ru                  # язык отчётов и issues
 
@@ -36,6 +36,25 @@ scope:
   urls: []                    # для url-list
   page_limit: 50              # для глубины standard
   exclude_patterns: []        # регэкспы URL, исключённые пользователем после разведки
+
+goal:                         # что тестируем и что считать успехом (references/intake.md, вопросы 2 и 10)
+  focus: [main-flows]         # main-flows | section | form | responsive | accessibility | performance | seo | content | all
+  notes: null                 # уточнение: какие сценарии, раздел или форма
+  success: findings           # findings (список проблем) | scenarios (сценарии проходят) | release-gate (блокеров нет) | custom
+  success_notes: null         # свой критерий; для scenarios — какие сценарии должны проходить
+
+context:                      # что известно о сайте (intake.md → «Память о сайте», вопросы 11–11a)
+  reuse: new                  # new | as-is | update | relearn — при наличии <OUTPUT_ROOT>/qa-runs/.site-context/<host>/context.md
+  sources:                    # откуда узнать о сайте
+    - type: site              # site | docs | github | file | chat | none
+  notes: null                 # что важно изучить: роли, платные функции, терминология (свободный текст)
+  # Пример источников:
+  #  - type: docs
+  #    ref: https://example.com/help/
+  #  - type: github
+  #    ref: owner/repo
+  #  - type: file
+  #    ref: /abs/path/to/notes.md
 
 directions:                   # functional, logic-state, ux, visual-ui, responsive-cross-browser,
   - functional                # accessibility, performance, seo-content, content-i18n, security-passive, product
@@ -81,6 +100,17 @@ repos: []
 #      medium: Обычно
 #      low: Незначительно
 #      info: Незначительно
+
+report_destinations:          # куда записать итоги, кроме <RUN_DIR> (intake.md, вопрос 18; SKILL.md, шаг 11)
+  - type: local               # local | folder | github | artifact | custom
+# Пример:
+#  - type: folder
+#    path: /abs/path/to/reports   # копии report.md и summary.md в <path>/<YYYY-MM-DD>-<host>/
+#  - type: github
+#    repo: owner/repo             # итоговый issue со сводкой (references/repo-sync.md §4–5); репозиторий — и в repos
+#  - type: artifact               # страница из report.md через инструмент Artifact, если он есть в сессии; иначе пропуск
+#  - type: custom
+#    note: "что сделать с итогами"  # выполняется только после подтверждения
 
 rules:
   # Базовые запреты (references/safety-rules.md) действуют всегда и здесь не перечисляются.
@@ -130,5 +160,5 @@ plugins:
   selected: []
 
 parallel:
-  max_workers: 1              # по умолчанию — из references/environment-notes.md
+  max_workers: 2              # 1–4 параллельных браузерных потока (максимум 4); manual / manual-cdp — 1 (references/parallelism.md)
   throttle_ms: 1500           # пауза между действиями в браузере

@@ -82,3 +82,5 @@ python3 scripts/fetch_issues.py sync owner/repo --cache qa-runs/.cache/issues   
 
 ## 5. Итоговый issue
 Если есть репозиторий с ролью `copies` — после всех находок создать итоговый issue «QA-аудит <host> от <дата>» по `templates/run-report.md` со ссылками на все созданные issues. Маркер: `<!-- site-qa-audit:run=<YYYY-MM-DD>-<host> -->`; при повторном прогоне в тот же день — комментарий к нему, а не новый issue.
+
+То же для репозитория из `report_destinations` (`type: github`, `intake.md`, вопрос 18), даже без роли `copies`: итоговый issue с телом из `summary.md` (`build_report.py summary`, без локальных путей) и ссылками на созданные issues; права — как для `write-new` (§1), раскрытие и маркер — из `repos[]` этого репозитория; показывается в сводной таблице и ждёт подтверждения, в dry-run — черновик `drafts/<owner>__<repo>/summary.md`.

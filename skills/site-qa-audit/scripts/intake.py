@@ -5,7 +5,8 @@
       Extracts: start URLs and allowed domains, GitHub repositories with roles and publication settings
       (disclosure, cross links, closed_claims), devices and browsers, auth mode, account states,
       depth, mode, directions, prohibitions (→ rules.forbidden_actions / require_confirmation_actions),
-      side-effect hints. Everything not recognised is listed under "needs confirmation".
+      side-effect hints, parallel threads (parallel.max_workers: 1..4, default 2, shared login session -> 1).
+      Everything not recognised is listed under "needs confirmation".
       The draft is NOT final: show the summary to the user and wait for "старт" (references/intake.md).
 
 Exit codes: 0 ok, 2 empty input.
@@ -54,6 +55,11 @@ REPO_URL = re.compile(r"https?://github\.com/([\w.-]+/[\w.-]+?)(?:\.git)?(?=[/\s
 REPO_BARE = re.compile(r"(?<![\w/.@-])([A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9_.-]+)(?![\w/])")
 URL_RX = re.compile(r"https?://[^\s,;)»\"']+")
 SIDE_EFFECT = re.compile(r"(загруз\w* (файл|сохранени|сейв)|рейтинг|публичн|рассылк|upload|leaderboard)", re.I)
+MAX_WORKERS = 4  # parallel browser threads, references/parallelism.md
+WORD_NUM = {"один": 1, "одном": 1, "два": 2, "двух": 2, "три": 3, "трёх": 3, "трех": 3, "четыре": 4, "четырёх": 4,
+            "четырех": 4, "пять": 5, "пяти": 5, "шесть": 6, "шести": 6, "восемь": 8, "восьми": 8, "десять": 10}
+WORKERS_RX = re.compile(r"\b(\d+|" + "|".join(WORD_NUM) + r")(?:-?х)?\s+(?:параллельн\w+\s+)?"
+                        r"(?:поток\w*|воркер\w*|workers?|threads?)\b|\b(?:max_workers|parallel)\s*[:=]?\s*(\d+)", re.I)
 
 
 def clauses(text):
@@ -197,11 +203,21 @@ def parse(text, output_dir=None):
         cfg["side_effects_hints"] = side
         notes.append("есть действия с побочными эффектами — спросить про side_effects и invariants")
     cfg["plugins"] = {"policy": "all-installed", "selected": []}
-    cfg["parallel"] = {"max_workers": 1 if auth in ("manual", "manual-cdp") else 2, "throttle_ms": 1500}
+    # parallel threads: "в 3 потока", "четыре потока", "parallel: 4", "последовательно"; at most MAX_WORKERS
+    m = WORKERS_RX.search(low)
+    num = m and (m.group(1) or m.group(2))
+    asked = (int(num) if num.isdigit() else WORD_NUM[num]) if num else \
+        (1 if re.search(r"\bпоследовательно\b|без параллельн|\bsequential", low) else None)
+    workers = 2 if asked is None else max(1, min(MAX_WORKERS, asked))
+    if asked and asked > MAX_WORKERS:
+        notes.append(f"запрошено потоков: {asked} — максимум {MAX_WORKERS} (max_workers: {MAX_WORKERS})")
     if auth in ("manual", "manual-cdp"):
-        notes.append("общая сессия входа — параллельные браузерные потоки не используются (max_workers: 1)")
+        workers = 1
+        notes.append("общая сессия входа — параллельные браузерные потоки не используются (max_workers: 1)"
+                     + (f"; запрошено {asked}" if asked and asked > 1 else ""))
+    cfg["parallel"] = {"max_workers": workers, "throttle_ms": 1500}
     if not output_dir:
-        missing.append("output_dir — папка результатов (SITE_QA_OUTPUT_DIR; иначе <cwd>/qa-runs)")
+        missing.append("output_dir — OUTPUT_ROOT (SITE_QA_OUTPUT_DIR; иначе <cwd>, результаты в <cwd>/qa-runs/)")
     return cfg, notes, missing
 
 

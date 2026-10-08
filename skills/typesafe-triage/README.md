@@ -25,7 +25,7 @@
 | `--tier …` / `--effort …` (для `--run`) | нет | рекомендация | модель / effort вручную |
 
 ## Установка
-Подробная пошаговая инструкция (macOS, Linux, Windows, маркетплейс, ключ, хук, правило для CLAUDE.md, промпт для самостоятельной установки) — в [INSTALL.md](INSTALL.md), обновление — [UPDATE.md](UPDATE.md). Кратко:
+Установка и обновление — одна инструкция [INSTALL.md](INSTALL.md): macOS, Linux, Windows, маркетплейс, ключ, хук, правило для CLAUDE.md, промпты для Claude Code (установка и обновление), проверка и откат. Кратко:
 
 1. Поставить скил: `/plugin install typesafe-triage@claude-code-skills` (хук приходит с плагином: `hooks/hooks.json`) **или** `tools/install.sh typesafe-triage` (симлинк в `~/.claude/skills/typesafe-triage`, хук — вручную).
 2. Задать `TYPESAFE_API_KEY`.
