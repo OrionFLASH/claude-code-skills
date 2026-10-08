@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+## 2026-10-09
+### Добавлено
+- `site-qa-audit` 1.3.0 — по обратной связи боевого прогона (S-1…S-9, G-1…G-12): fail closed у `url_guard.py`/`guard.js` (код 4 = стоп), `nav --read-only`, стабильный `SKILL_DIR` (`skill_dir.py`, `SITE_QA_AUDIT_DIR`), безопасная выгрузка состояния входа (фильтр cookie, localStorage, chmod 600, удаление), эмуляция телефона с проверкой `pointer: coarse`, находки JSON-блоком (`ingest_findings.py`), реестр вкладок `tabs.py`, поле `repro` и обязательная перепроверка (`recheck.py`), предусловия аккаунта в `claims.py`, направление `legal-ui` (`legal_guest.js`, `--locales`), `rtl.js`, `targets.js`, фильтры `occlusion.js`, группировка и тип `suggestion`, режим `direct` публикации, `publish_web.mjs --attach-to`, видимое окно браузера по умолчанию (`SITE_QA_HEADLESS`, `SITE_QA_SLOWMO`).
+- `android-qa-audit` 1.1.0 — перенос: fail closed (`guard.py`, `adb_helpers.py` код 6), находки блоком, `repro`/`recheck`, direct-publish, реестр стендов, запрет `adb kill-server`.
+- `typesafe-triage` 2.2.0 — хук не молчит без причины («триаж пропущен: …»), метка обработки в два состояния, `--where`, пути через `${CLAUDE_SKILL_DIR}`, активная задача из `TASKS.md`, тип `qa`, сигнал общего интерактивного состояния, наследование оценки короткими «продолжай».
+- Общие модули `shared/scripts`: `qa_ingest.py`, `qa_recheck.py`, `qa_direct.py`.
+### Исправлено
+- `site-qa-audit`: пустой `site.allowed_domains` больше не пропускает внешние хосты в `url_guard.py nav`.
+
 ## 2026-10-08 (6)
 ### Исправлено
 - `android-qa-audit` 1.0.1 — по первому боевому прогону: падения чужих процессов (UiAutomation от `dump-ui`, сервисы Google, system_server) больше не считаются падениями приложения (`other_processes`); `dump-ui` после поворота берёт фактический размер экрана (нет ложных `visual.offscreen`); `matrix.py` с `hardware: []` строит только свои профили; `install-image --run-dir`; шум Java -ea скрывается при успешной команде; logcat по умолчанию только по приложению (`--all` — весь); `text --translit` / `--adbkeyboard`; темы запретов (камера, QR, точка доступа, микрофон, геолокация, уведомления…) сразу с типовыми текстами; правило «запрет против сценария»; новый скил виден только в новой сессии — как продолжить.

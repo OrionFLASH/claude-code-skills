@@ -28,6 +28,8 @@ check "url_guard export без конфига -> код 4 (rules.json не со�
 out=$("$PY" "$UG" nav https://example.com/ --config "$TMP/nope.yaml")
 check "url_guard код 4: JSON decision=unavailable, rule guard:unavailable, слово СТОП" sh -c "echo '$out' | grep -q '\"decision\": \"unavailable\"' && echo '$out' | grep -q 'guard:unavailable' && echo '$out' | grep -q 'СТОП'"
 check "url_guard: обычные решения не изменились (allow 0 / deny 3)" sh -c "test \$('$PY' '$UG' nav https://example.com/ --config '$CFG' >/dev/null; echo \$?) = 0 && test \$('$PY' '$UG' nav https://evil.test/ --config '$CFG' >/dev/null; echo \$?) = 3"
+printf 'mode: x\n' > "$TMP/noallow.yaml"
+check "url_guard: пустой site.allowed_domains -> переход запрещён (3), не allow" test "$(rc "$PY" "$UG" nav https://evil.test/ --config "$TMP/noallow.yaml")" = 3
 
 # ---------- S-8: nav --read-only ----------
 check "read-only: /donate без флага -> 3, с --read-only -> 0 и read_only:true" sh -c "

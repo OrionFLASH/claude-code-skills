@@ -240,6 +240,9 @@ def check_url(url, cfg, kind="nav", read_only=False):
                 continue
             return result(DENY, kind, url, f"исключено из охвата: /{pat}/", f"user:exclude_patterns:{pat}")
     allowed = rules["allowed_domains"]
+    if kind == "nav" and not allowed:  # fail closed: без списка разрешённых доменов переход не выполняется
+        return result(DENY, kind, url, "site.allowed_domains не задан — без списка доменов переход не разрешён",
+                      "base:no-allowlist")
     if allowed and not any(host_matches(host, p) for p in allowed):
         return result(DENY, kind, url, f"хост {host} вне allowed_domains — внешняя страница, не проверялась",
                       "base:outside-allowlist")
