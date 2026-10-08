@@ -22,6 +22,9 @@
 | `content-i18n` | смешение языков, форматы чисел и дат, терминология, дефис и тире, склонения, непереведённые строки |
 | `security-passive` | HTTPS, HSTS, CSP и др. заголовки, mixed content, утечки, sourcemaps — **только пассивно** |
 | `product` | user stories с критериями приёмки, предложения, редизайн с приоритетом эффект/усилия |
+| `legal-ui` (по запросу) | что сайт сохраняет у гостя до согласия, сторонние сервисы, cookie-баннер и его кнопки, согласия при входе, документы, сведения об операторе, возрастная маркировка — **только факты**; нормы права — со второй проверкой и пометкой «проверить юристом» |
+
+**Главные гарантии 1.3.0.** Защита не открывается при сбое (код 4 «guard недоступен» = стоп), один путь скила на прогон (`SKILL_DIR`), состояние входа — только cookie проверяемого сайта, телефон — с настоящей эмуляцией касаний (`pointer: coarse`), каждая находка перепроверяется независимо до публикации (`repro` + `recheck.py`), исполнители возвращают находки текстом (блок `qa-findings`) и не плодят вкладки.
 
 ## Входные параметры (опрос)
 Если параметр не передан в запросе, скил спросит его с вариантами ответа (подробно — `references/intake.md`).
@@ -32,6 +35,7 @@
 | 1a | Что тестируем (сценарии, раздел, форма, адаптив, доступность, скорость, SEO) и что считать успехом (`goal`) | основные сценарии; список проблем с приоритетами |
 | 2 | Разрешённые домены для навигации; куда не переходить (разделы, URL, поддомены) | домен сайта и поддомены; сторонние ресурсы (CDN, тайлы, API, шрифты) грузятся, переходы на чужие страницы — нет |
 | 3 | Авторизация: нет / тестовый аккаунт (env) / ручной вход / `manual-cdp` (пользователь уже вошёл в своём Chrome, подключение по CDP без очистки cookies) | нет |
+| 3a | Платные уровни и состояния аккаунта (гость / без Pro / с Pro), можно ли переключать — **заранее**; план проходится в каждом состоянии (`auth.paid_tiers`, `auth.account_states`) | только текущее |
 | 4 | Охват: весь сайт / раздел / список URL / текущий экран | весь сайт |
 | 5 | Направления | все |
 | 6 | Глубина: smoke / standard / deep | standard (лимит страниц 50) |
@@ -41,7 +45,7 @@
 | 10 | Плагины: все установленные / выбрать / только свои чек-листы | все установленные |
 | 11 | Язык отчётов и issues | русский |
 | 12 | Параллельные потоки: независимые направления, группы страниц, гипотезы (`parallel.max_workers`, 1–4) | 2 (через playwright-cli; общая сессия входа — 1) |
-| 13 | Режим: dry-run / боевой | dry-run |
+| 13 | Режим: dry-run / боевой; в боевом — черновики и сводная таблица (`publish_mode: batch`) или прямая публикация по одной находке (`direct`: воспроизвести дважды → дубли → issue → скриншоты) | dry-run, batch |
 | 14 | Побочные эффекты (публичный рейтинг, рассылка, необратимая загрузка) и защита от них (`side_effects`, `invariants`) | нет |
 | 15 | Папка результатов | путь из запроса / `SITE_QA_OUTPUT_DIR` / `<cwd>/qa-runs/` |
 | 16 | Откуда узнать о сайте (сам сайт, документация, GitHub, файл, описание) и что важно изучить (`context`) | сам сайт; сохранённая память о сайте — по выбору |
@@ -62,11 +66,16 @@ Find bugs on https://example.org, standard depth, English report.
 Перепроверь исправления из owner/repo на https://app.example.com: я уже вошёл в своём Chrome (порт 9222),
 телефон Pixel 7 и десктоп, не нажимай «Поддержать». Недоработки — комментарием в закрытых issues,
 скриншоты загрузить через веб-форму, без упоминания скила и без ссылок на другие репозитории.
+Проверь юридически значимые элементы https://example.com для гостя: cookie-баннер, согласия, документы,
+на русском, английском и немецком. Страницы входа и оплаты — только прочитать.
+Протестируй https://app.example.com без Pro и с Pro и заводи находки сразу в репозиторий owner/feedback.
 ```
 
 ## Команды (основные)
 Все пути — абсолютные; `<SKILL_DIR>` — папка скила, `<RUN_DIR>` — папка прогона. Подробности — в указанных `references/`.
 ```bash
+# путь установленного скила для run-config и заданий исполнителей (setup.md)
+python3 <SKILL_DIR>/scripts/skill_dir.py                       # --json — все варианты, --check PATH — проверка
 # свободный запрос → черновик run-config.yaml (intake.md)
 python3 <SKILL_DIR>/scripts/intake.py from-text --file request.txt --output-dir <OUTPUT_ROOT> --out <RUN_DIR>/run-config.yaml
 # журнал прогона для продолжения после обрыва (run-files.md)
@@ -87,7 +96,7 @@ python3 <SKILL_DIR>/scripts/gitignore_helper.py ensure <OUTPUT_ROOT>            
 python3 <SKILL_DIR>/scripts/gitignore_helper.py untrack <OUTPUT_ROOT> --yes          # только после «да» пользователя
 # report_destinations: folder — только итоговые файлы и скриншоты находок
 python3 <SKILL_DIR>/scripts/export_results.py <RUN_DIR> --to /abs/path/reports
-# проверка элемента правилами безопасности (browser-guard.md): код 0 allow, 2 confirm, 3 deny
+# проверка элемента правилами безопасности (browser-guard.md): код 0 allow, 2 confirm, 3 deny, 4 guard недоступен (стоп)
 node <SKILL_DIR>/scripts/node/guard.js check --url https://example.com/ --selector "text=Поддержать" --rules <RUN_DIR>/rules.json
 # действие с побочным эффектом под инвариантом (side-effects.md)
 node <SKILL_DIR>/scripts/node/invariants.js preflight --config <RUN_DIR>/run-config.yaml --url https://example.com/upload --run-dir <RUN_DIR>
@@ -96,13 +105,37 @@ node <SKILL_DIR>/scripts/node/invariants.js exec --config <RUN_DIR>/run-config.y
 node <SKILL_DIR>/scripts/node/occlusion.js https://example.com/ --sizes 1440x900,1024x768,720x450 --device pixel7,iphone15 --frames all --rules <RUN_DIR>/rules.json --out <RUN_DIR>/raw/occlusion.json
 node <SKILL_DIR>/scripts/node/reachability.js https://example.com/ --sizes 720x450 --device pixel7-landscape --out <RUN_DIR>/raw/reachability.json
 # устройства со входом пользователя (devices-auth.md)
-node <SKILL_DIR>/scripts/node/device_context.js state --cdp http://127.0.0.1:9222 --out <RUN_DIR>/logs/auth-state.json
+node <SKILL_DIR>/scripts/node/device_context.js state --cdp http://127.0.0.1:9222 --rules <RUN_DIR>/rules.json --out <RUN_DIR>/logs/auth-state.json
 node <SKILL_DIR>/scripts/node/device_context.js run --devices pixel7,iphone15 --url https://example.com/ --state <RUN_DIR>/logs/auth-state.json --rules <RUN_DIR>/rules.json --out <RUN_DIR>/raw/devices.json
 # снимок с разметкой в одном вызове (screenshots.md)
 node <SKILL_DIR>/scripts/node/shot.js --cdp http://127.0.0.1:9222 --page-match example.com --out <RUN_DIR>/screenshots/F-001-bell.png "#bell|Кнопка закрывает легенду|error" ".legend|@avoid"
 # скриншоты в чужой/приватный репозиторий через веб-форму (web-upload.md): без --confirm-publish — только план
 node <SKILL_DIR>/scripts/node/publish_web.mjs --repo owner/repo --title "<заголовок>" --body-file <RUN_DIR>/drafts/owner__repo/01.md --shot <RUN_DIR>/screenshots/F-001-annotated.png --cdp http://127.0.0.1:9222
 node <SKILL_DIR>/scripts/node/comment_web.mjs --repo owner/repo --number 42 --body-file <RUN_DIR>/drafts/owner__repo/42-comment.md --shot <RUN_DIR>/screenshots/F-007-annotated.png --cdp http://127.0.0.1:9222
+node <SKILL_DIR>/scripts/node/publish_web.mjs --attach-to 12 --repo owner/repo --shots-dir <RUN_DIR>/screenshots   # в существующий issue
+# находки исполнителя из блока qa-findings его последнего сообщения (parallelism.md)
+python3 <SKILL_DIR>/scripts/ingest_findings.py <RUN_DIR> --from <RUN_DIR>/raw/qa-ux-message.md --thread qa-ux
+# независимая перепроверка и допуск к публикации; правовые нормы — вторая проверка (parallelism.md, legal-ui.md)
+python3 <SKILL_DIR>/scripts/recheck.py run <RUN_DIR>
+python3 <SKILL_DIR>/scripts/recheck.py set <RUN_DIR> --id F-004 --status confirmed --by "qa-verify: Chrome 1440×900, шаги 1–3"
+python3 <SKILL_DIR>/scripts/recheck.py legal <RUN_DIR> --id F-007 --by "второй исполнитель qa-legal" --result confirmed
+python3 <SKILL_DIR>/scripts/recheck.py gate <RUN_DIR>
+# мелкие находки по теме — один issue; прямая публикация (repo-sync.md)
+python3 <SKILL_DIR>/scripts/render_draft.py group <RUN_DIR>/findings.json --ids F-003,F-007,F-009 --out <RUN_DIR>/drafts/owner__repo/group.md
+python3 <SKILL_DIR>/scripts/direct_publish.py check <RUN_DIR> --id F-001 --repo owner/repo
+python3 <SKILL_DIR>/scripts/direct_publish.py record <RUN_DIR> --id F-001 --repo owner/repo --number 12 --url https://github.com/owner/repo/issues/12
+# вкладки прогона: одна на профиль устройства, уборка только своих (parallelism.md)
+python3 <SKILL_DIR>/scripts/tabs.py open <RUN_DIR> --owner qa-ux --profile pixel7 --tool cli
+python3 <SKILL_DIR>/scripts/tabs.py cleanup <RUN_DIR> --owner qa-ux
+# страница покупки/входа только для чтения (safety-rules.md §3.13)
+python3 <SKILL_DIR>/scripts/url_guard.py nav https://example.com/donate --config <RUN_DIR>/run-config.yaml --read-only --log <RUN_DIR>/logs/read-only.jsonl
+# цели нажатия, юридически значимые элементы, RTL (layout-detectors.md, legal-ui.md, content-i18n.md)
+node <SKILL_DIR>/scripts/node/targets.js https://example.com/ --device pixel7 --rules <RUN_DIR>/rules.json --out <RUN_DIR>/raw/targets.json
+node <SKILL_DIR>/scripts/node/legal_guest.js https://example.com/ --rules <RUN_DIR>/rules.json --locales ru-RU,en-US,de-DE --out <RUN_DIR>/raw/legal-guest.json
+node <SKILL_DIR>/scripts/node/rtl.js https://example.com/ --locales ar-SA --rules <RUN_DIR>/rules.json --out <RUN_DIR>/raw/rtl.json
+# проверка эмуляции касаний и удаление файла состояния входа (devices-auth.md)
+node <SKILL_DIR>/scripts/node/device_context.js media --devices pixel7,412x915@mobile
+node <SKILL_DIR>/scripts/node/device_context.js state-rm --out <RUN_DIR>/logs/auth-state.json
 ```
 
 ## Базовые запреты (всегда)
@@ -137,7 +170,10 @@ node <SKILL_DIR>/scripts/node/comment_web.mjs --repo owner/repo --number 42 --bo
 - `guard.js` применяет правила проверяемого сайта; к браузеру GitHub при `web-upload` он не применяется — там защита: замок хоста, только кнопка «Comment», никогда Close/Reopen, явное `--confirm-publish`.
 - `manual-cdp`: работа идёт в браузере пользователя — параллельные потоки запрещены, cookies не очищаются, файл `logs/auth-state.json` — секрет и удаляется в конце.
 - Детекторы перекрытий и достижимости находят кандидатов; итоговую находку подтверждает исполнитель по скриншоту. В мобильном WebKit жесты недоступны — достижимость проверяется эмуляцией того же устройства в Chromium.
-- Новые возможности 1.1.0 проверены на локальных фикстурах (`tests/`), не на реальных сайтах и не на github.com.
+- Новые возможности 1.1.0–1.3.0 проверены на локальных фикстурах (`tests/`), не на реальных сайтах и не на github.com.
+- `legal-ui` фиксирует факты, а не даёт юридическое заключение: нормы права — «возможно применимо», вторая проверка другим исполнителем и юристом обязательна.
+- `recheck.py` запускает только скрипты скила; многошаговые сценарии перепроверяет отдельный исполнитель (`recheck.py set`).
+- `rtl.js` и `legal_guest.js` дают кандидатов и факты для ручной проверки по скриншоту.
 - Firefox может не запускаться в некоторых окружениях (см. `references/environment-notes.md`) — тогда помечается «не проверено».
 - Безопасность — только пассивная; это не пентест.
 
@@ -147,14 +183,15 @@ SKILL.md                порядок работы
 INSTALL.md              установка и обновление (macOS, Windows), промпты для Claude Code
 references/             setup, intake, safety-rules, depth-matrix, parallelism, plugins-map, repo-sync,
                         severity, environment-notes, screenshots, claims, run-files, browser-guard,
-                        side-effects, layout-detectors, devices-auth, web-upload, checklists/ (11 направлений)
+                        side-effects, layout-detectors, devices-auth, web-upload, checklists/ (12 направлений)
 templates/              run-config.example.yaml, finding.schema.json, issue-detailed.md,
                         issue-comment.md, user-story.md, run-report.md, site-context.md
-scripts/                check_env, url_guard, intake, journal, fetch_issues, read_templates, claims,
+scripts/                check_env, skill_dir, url_guard, intake, journal, fetch_issues, read_templates, claims,
                         fingerprint, render_draft, validate_findings, build_report, gitignore_helper, export_results,
-                        nav_lock, snap_mcp,
+                        ingest_findings, recheck, direct_publish, tabs, nav_lock, snap_mcp,
                         snap_cdp, node/ (a11y, lighthouse, headers, links, probe, annotate, shot, guard,
-                        invariants, occlusion, reachability, device_context, frames, publish_web,
-                        comment_web), shared/ (вендоренные модули)
-tests/                  unit.sh (офлайн + наборы test_stream_a, test_v12, test_stream_b/c), фикстуры, сценарий dry-run
+                        invariants, occlusion, reachability, targets, legal_guest, rtl, repro, device_context,
+                        frames, publish_web, comment_web), shared/ (вендоренные модули)
+tests/                  unit.sh (офлайн + наборы test_stream_a, test_v12, test_v121, test_v130, test_stream_b/c,
+                        test_v130_browser), фикстуры, сценарий dry-run
 ```

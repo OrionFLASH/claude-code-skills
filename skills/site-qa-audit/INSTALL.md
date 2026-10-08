@@ -47,7 +47,8 @@ https://github.com/OrionFLASH/claude-code-skills (папка skills/site-qa-audi
    куда ведет), .claude/skills текущего проекта, плагин (claude plugin list). Версия - в
    .claude-plugin/plugin.json.
 4) Подключен ли Playwright MCP (claude plugin list -> playwright, или claude mcp list).
-5) Задана ли SITE_QA_OUTPUT_DIR (~/.claude/settings.json -> env или окружение) - только путь.
+5) Заданы ли SITE_QA_OUTPUT_DIR, SITE_QA_AUDIT_DIR, SITE_QA_HEADLESS, SITE_QA_SLOWMO
+   (~/.claude/settings.json -> env или окружение) - только значения путей и флагов.
 Покажи сводку таблицей.
 
 ШАГ 1. ВОПРОСЫ
@@ -61,6 +62,8 @@ https://github.com/OrionFLASH/claude-code-skills (папка skills/site-qa-audi
 5) Дополнительно (мультивыбор): «Браузеры WebKit и Firefox (Recommended)» / «playwright-cli для
    параллельных потоков (npm -g)» / «Ничего». Chromium ставится всегда. Если Playwright MCP не
    подключен - отдельный вопрос: он обязателен, поставить плагин playwright@claude-plugins-official?
+6) Путь скила: «Определять автоматически (Recommended)» / «Зафиксировать SITE_QA_AUDIT_DIR»;
+   окно браузера: «Видимое (Recommended)» / «Скрытое: SITE_QA_HEADLESS=1» (раздел «Переменные окружения»).
 
 ШАГ 2. ПЛАН. Покажи команды, папки и файлы (с путями резервных копий). Жди «да».
 
@@ -82,6 +85,8 @@ https://github.com/OrionFLASH/claude-code-skills (папка skills/site-qa-audi
 - SITE_QA_OUTPUT_DIR (если выбрано): резервная копия settings.json, затем env.SITE_QA_OUTPUT_DIR =
   абсолютный путь (Windows: в JSON обратные слэши удваиваются или пишутся прямые); создай папку.
   Путь не должен вести в репозиторий скилов.
+- SITE_QA_AUDIT_DIR (если выбрано «фиксированный путь скила»): env.SITE_QA_AUDIT_DIR = <SKILL_DIR>
+  (папка с SKILL.md). SITE_QA_HEADLESS=1 — только если пользователь хочет, чтобы окно браузера не было видно.
 
 ШАГ 4. ПРОВЕРКА
 - check_env из <SKILL_DIR>: macOS/Linux - bash scripts/check_env.sh; Windows -
@@ -124,7 +129,8 @@ https://github.com/OrionFLASH/claude-code-skills (папка skills/site-qa-audi
 ШАГ 2. ОБНОВЛЕНИЕ
 - Плагин: claude plugin marketplace update claude-code-skills;
   claude plugin update site-qa-audit@claude-code-skills. Папка версии меняется - npm install
-  в scripts/node НОВОЙ папки (installPath).
+  в scripts/node НОВОЙ папки (installPath); если в settings.json задана SITE_QA_AUDIT_DIR -
+  перенаправь её на новую папку (резервная копия settings.json).
 - Клон: git pull --ff-only; повторно tools/install.sh site-qa-audit (Windows -
   powershell -ExecutionPolicy Bypass -File tools\install.ps1 site-qa-audit), он проверит ссылку;
   npm install в scripts/node, если менялись package.json или package-lock.json.
@@ -267,9 +273,19 @@ Select-String '"version"' <SKILL_DIR>\.claude-plugin\plugin.json
 
 | Установка | Как обновить |
 |-----------|--------------|
-| Маркетплейс | `/plugin marketplace update claude-code-skills`, затем `/plugin update site-qa-audit@claude-code-skills` (или `claude plugin marketplace update claude-code-skills` и `claude plugin update site-qa-audit@claude-code-skills`); перезапуск Claude Code; `npm install` в `scripts/node` **новой** папки версии |
+| Маркетплейс | шаги ниже: «Обновление через маркетплейс» |
 | Клон + ссылка | `git pull` в клоне; `tools/install.sh site-qa-audit` (Windows: `install.ps1`) ещё раз — проверит ссылку; `npm install` в `scripts/node`, если менялись `package.json`/`package-lock.json` |
 | Копия | скачать заново, старую папку переименовать в `site-qa-audit.bak-ГГГГММДД`, скопировать новую, `npm install` |
+
+### Обновление через маркетплейс (по шагам)
+
+1. Обновить список плагинов маркетплейса: в Claude Code `/plugin marketplace update claude-code-skills` (или в терминале `claude plugin marketplace update claude-code-skills`).
+2. Обновить скил: `/plugin update site-qa-audit@claude-code-skills` (или `claude plugin update site-qa-audit@claude-code-skills`).
+3. Узнать новую папку: `claude plugin list --json` → `installPath` у `site-qa-audit` (`~/.claude/plugins/cache/claude-code-skills/site-qa-audit/<новая версия>/`). Папка версии **новая** — старые `node_modules` в ней не появятся.
+4. Node-зависимости и браузеры в новой папке: `cd <installPath>/scripts/node && npm install && npx playwright install chromium webkit firefox`.
+5. Если задана `SITE_QA_AUDIT_DIR` — поменять её на новую папку (иначе скрипты возьмут старую версию; `skill_dir.py --json` покажет, откуда взят путь). Без переменной `skill_dir.py` сам берёт установленную версию.
+6. Перезапустить Claude Code (новая версия видна только в новой сессии).
+7. Проверить: `bash <installPath>/scripts/check_env.sh --fast` — строка `SKILL_DIR` с новой версией, «Итог: можно работать»; при желании `bash <installPath>/tests/unit.sh`.
 
 Если в `scripts/node/package.json` сменилась версия `playwright` — `npx playwright install chromium webkit firefox` ещё раз. После обновления — `check_env` и перезапуск Claude Code.
 
@@ -305,6 +321,33 @@ Windows — `%USERPROFILE%\.claude\settings.json`; в JSON обратный сл
 
 Альтернатива — переменная окружения системы: macOS — `export SITE_QA_OUTPUT_DIR=…` в `~/.zshrc` (видна, только если Claude Code запущен из терминала); Windows — `setx SITE_QA_OUTPUT_DIR "C:\Users\<имя>\qa-results"` и новый терминал. После изменения перезапустите Claude Code; `check_env` покажет путь в строке `SITE_QA_OUTPUT_DIR`.
 
+## Переменные окружения
+
+Задаются в блоке `env` файла `~/.claude/settings.json` (Windows — `%USERPROFILE%\.claude\settings.json`; резервная копия перед правкой) или в окружении системы. После изменения — перезапуск Claude Code.
+
+| Переменная | Что делает | По умолчанию |
+|------------|-----------|--------------|
+| `SITE_QA_OUTPUT_DIR` | папка результатов: `<путь>/qa-runs/<дата>-<хост>/` (раздел выше) | `<папка запуска>/qa-runs/` |
+| `SITE_QA_AUDIT_DIR` | **постоянный путь скила (`SKILL_DIR`)** для `check_env`, run-config и заданий исполнителей. Нужен, если скил стоит не плагином или путь плагина меняется при обновлении (папка версии). Должен указывать на папку с `SKILL.md` | не задана: `scripts/skill_dir.py` ищет сам — установленный плагин (`installPath`), новейшая версия в кэше плагина `~/.claude/plugins/cache/claude-code-skills/site-qa-audit/<версия>/`, `~/.claude/skills/site-qa-audit`; рабочая копия репозитория — только если ничего не установлено |
+| `SITE_QA_HEADLESS` | `1` — браузер эмулированных устройств и `legal_guest.js` без окна (фоновый режим) | окно **видно** (вы видите, что делает тест) |
+| `SITE_QA_SLOWMO` | замедление действий в видимом окне, мс | `250` |
+| `SITE_QA_PYTHON` | команда Python для node-скриптов (мост к `url_guard.py`), если `python3` не подходит (Windows: `python` или `py`) | `python3` (Windows — `python`) |
+
+Пример (macOS / Linux):
+
+```json
+{
+  "env": {
+    "SITE_QA_OUTPUT_DIR": "/Users/<имя>/qa-results",
+    "SITE_QA_AUDIT_DIR": "/Users/<имя>/.claude/plugins/cache/claude-code-skills/site-qa-audit/1.3.0",
+    "SITE_QA_HEADLESS": "0",
+    "SITE_QA_SLOWMO": "250"
+  }
+}
+```
+
+Проверка: `python3 <SKILL_DIR>/scripts/skill_dir.py --json` (откуда взят путь и почему), `check_env` — строка `SKILL_DIR` вверху таблицы. Если `SITE_QA_AUDIT_DIR` указывает на несуществующую папку, `skill_dir.py` предупреждает и берёт следующий вариант. Если guard недоступен (нет Python, неверный путь), скрипты возвращают код 4 и **ничего не делают в браузере** — это защита, а не сбой установки: исправить путь и повторить.
+
 ## Частые проблемы
 
 | Симптом | Что сделать |
@@ -321,5 +364,8 @@ Windows — `%USERPROFILE%\.claude\settings.json`; в JSON обратный сл
 | zsh: `= not found` в командах | разделители из `=` в zsh не работают — `references/environment-notes.md` → «Оболочка zsh» |
 | Результаты появились в папке проекта | так работает значение по умолчанию (`<cwd>/qa-runs/`, сразу в `.gitignore` репозитория); задать `SITE_QA_OUTPUT_DIR` |
 | Скил запустился, хотя вы не просили аудит | ответить «Нет, это другое» — скил ничего не создаст |
+| `url_guard.py` / node-скрипты возвращают код 4 «guard недоступен» | так и задумано (fail closed): нет `--config`/`rules.json`, битый конфиг или Python недоступен — исправить и повторить; переходы и клики при этом не выполняются |
+| В заданиях исполнителей путь скила «пропал» (`No such file`) | путь плагина меняется при обновлении; взять актуальный из `check_env` (строка `SKILL_DIR`) или `skill_dir.py`, при необходимости задать `SITE_QA_AUDIT_DIR` |
+| Окно браузера мешает / не видно, что делает тест | `SITE_QA_HEADLESS=1` скрывает окно, `SITE_QA_SLOWMO=500` замедляет действия в видимом окне |
 
 Подробности — [README.md](README.md) (параметры, примеры, ограничения) и [SKILL.md](SKILL.md) (порядок работы).

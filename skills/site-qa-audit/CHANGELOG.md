@@ -2,6 +2,38 @@
 
 Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/), версии — SemVer, теги `site-qa-audit/vX.Y.Z`.
 
+## [1.3.0] — 2026-10-09
+По обратной связи боевого прогона 08–09.10.2026 (пункты S-1…S-9, G-1…G-12). Все новые поля run-config и схемы находок необязательные: старые `run-config.yaml` и `findings.json` проходят без изменений. Несовместимое поведение одно и намеренное: guard больше не «пропускает» при сбое (код 4).
+
+### Безопасность (исправлено)
+- **Fail closed (S-2).** `url_guard.py`: любая ошибка — нет `--config` или файла, битый YAML, неверный регэксп в правилах, неверные аргументы (раньше код 2 argparse читался как «confirm»), внутренняя ошибка — даёт `{"decision": "unavailable"}` и **код 4**; `nav`/`action`/`export` без `--config` больше не разрешают всё подряд. `guard.js`: сбой моста к Python — решение `unavailable` и `GuardUnavailableError` (раньше `confirm`), действие и переход не выполняются; ошибка правил в обработчике маршрута обрывает навигацию; `--rules` с несуществующим файлом — код 4; node-скрипты передают код 4 наружу. Блок правил §4 и задание исполнителю: «код 4, любой другой код, “No such file”, пустой вывод = СТОП».
+- **Состояние входа (S-3).** `device_context.js state` сохраняет только cookie `allowed_domains` (фильтр обязателен: `--rules`/`--config`/`--domains`; чужие — только числом), выгружает localStorage и sessionStorage открытых вкладок сайта (раньше `origins: 0`), пишет файл атомарно с правами 600; `state-rm` (перезапись и удаление), `run --delete-state` (и при ошибке/прерывании); sessionStorage переносится в эмулированный контекст.
+- **Сессии и вкладки (S-6, S-7).** Запрет `close-all`/`kill-all` и чужих сессий в §4 и задании; `scripts/tabs.py` — реестр вкладок `tabs.json` (одна вкладка на профиль устройства, `audit` дублей по CDP, `cleanup` только своих).
+
+### Добавлено
+- **Один путь скила (S-1).** `scripts/skill_dir.py`: `SITE_QA_AUDIT_DIR` → своя папка (не рабочая копия репозитория) → установленный плагин (`installed_plugins.json`) → новейшая версия в кэше плагина → `~/.claude/skills` → `.claude/skills` проекта → рабочая копия с предупреждением; `--check`, `--json`, `--export`. `check_env` печатает и проверяет `SKILL_DIR`, пишет его в `env.json`, команды исправления указывают на него; `run-config.yaml → skill_dir` (`intake.py` заполняет); исполнитель проверяет путь и `url_guard.py selftest` до работы.
+- **Эмуляция телефона (S-4).** Проверка `matchMedia('(pointer: coarse)')` у каждого устройства (`media.touchValid`), принудительная эмуляция медиа в Chromium при необходимости; `WxH@mobile` — телефон произвольного размера (`WxH` — десктопное окно); `device_context.js media`; чек-лист `rsp.touch-emulation`: без `pointer: coarse` измерения целей нажатия недействительны.
+- **Находки текстом (S-5).** Исполнитель возвращает находки блоком ```` ```qa-findings ```` в последнем сообщении; `scripts/ingest_findings.py` проверяет по схеме, присваивает id, переносит `not_checked`, вопросы — в `questions.json`, сообщение — в `raw/messages/` (общий модуль `shared/scripts/qa_ingest.py`).
+- **Независимая перепроверка (S-9).** Поле `repro` у находки; `scripts/recheck.py` (`run` — дважды, только скрипты скила; `set` — ручная проверка другим исполнителем; `legal`; `gate`), `node/repro.js` (`--js` / `--selector --assert`); `build_report.py publish-table` — колонка «Перепроверка», без подтверждения — «НЕ публиковать» (общий модуль `qa_recheck.py`).
+- **Юридическое.** Правовые и финансовые утверждения — только «возможно применимо» (`legal.norms`), вторая проверка другим исполнителем (`recheck.py legal`), «требуется проверка юристом» в тексте issue (`render_draft.py`); без этого gate закрыт. SKILL.md, `safety-rules.md` §6a.
+- **Диалог из радио-кнопок (G-2).** `invariants.js`: `dialog: {choose, confirm, then}` — каждый вариант нажимается через guard и должен стать `aria-checked="true"`, только потом «Готово»; затем проверяется флажок в панели; любой сбой — остановка до подтверждения. ARIA-флажки читаются по `aria-checked`.
+- **Предусловия аккаунта (G-3, G-4).** `claims.py plan`: у каждого пункта «Предусловия» (гость / без Pro / с Pro / другая роль / нужны данные), сводная таблица вверху, `--account-states`; `intake.md` вопрос 5b и `auth.paid_tiers` — платные уровни и проход в каждом состоянии заранее.
+- **Только чтение (S-8).** `url_guard.py nav --read-only [--log]` и `guard.js` `readOnly`: страницы покупки/доната и `rules.read_only_urls` можно открыть и прочитать; клики, ввод и запросы кроме GET/HEAD/OPTIONS запрещены; OAuth, выход, удаление аккаунта, шлюзы и чужие хосты — никогда.
+- **legal-ui (G-1, G-9).** Направление и чек-лист `checklists/legal-ui.md`; `node/legal_guest.js` — гость в чистом профиле (cookie и хранилище сразу и через N секунд, сторонние хосты, баннер и его кнопки, документы, оператор, возрастная маркировка, `--locales`, `--cdp` в обычном Chrome, пометка `navigator.webdriver`). `--locales` у `shot.js`, `a11y.js`, `occlusion.js`.
+- **Группировка (G-5).** `render_draft.py group` / `groups`: несколько мелких находок или предложений одной темы — один issue (таблица, подробности, маркер на каждую находку), тип `suggestion`; `--body-only`.
+- **Прямая публикация (G-6).** `publish_mode: direct`; `scripts/direct_publish.py` (`check` — gate и дубли через `fingerprint.py match`, `record` → `published.json`, `next`, `status`); `repo-sync.md` §4a (общий модуль `qa_direct.py`).
+- **Скриншоты (G-7).** Портретные снимки — подписи в поле справа (`--gutter auto|on|off`, `canvas` в ответе); пример `shot.js "селектор|подпись"` — в начале SKILL.md; перерисовка из сырого PNG и `spec.json`.
+- **Скриншоты в существующий issue (G-8).** `publish_web.mjs --attach-to N` — плейсхолдеры `**[Скриншот: файл]**` и `{{qa-shot:файл}}` → вложения, один номер за вызов, повтор при 404.
+- **RTL (G-10).** `node/rtl.js` (`dir`, незеркальные панели, имена без bidi-изоляции, «слева/справа» в тексте, `text-align: left`) и пункт `i18n.rtl` в `content-i18n.md`.
+- **Перекрытия (G-11).** `occlusion.js`: `--min-area` (по умолчанию 16 px²), пропуск `pointer-events: none`, пометка невидимого закрывающего, счётчики `filtered`.
+- **Цели нажатия (G-12).** `node/targets.js`: «N из M меньше 24×24 (по типам); меньше 44×44: K» одной строкой, ссылки в тексте — исключение 2.5.8.
+- Окно браузера эмулированных устройств видимое по умолчанию (`SITE_QA_HEADLESS=1` — скрыть, `SITE_QA_SLOWMO` — замедлить) — теперь общий `launchOptions` в `lib.js`; описано в INSTALL.md вместе с `SITE_QA_AUDIT_DIR` и шагами обновления через маркетплейс.
+
+### Тесты
+- `tests/test_v130.sh` (офлайн): fail closed `url_guard`, `--read-only`, `skill_dir.py` на изолированном HOME, `ingest_findings.py`, `recheck.py` (confirmed / not-reproduced / refused / error, gate, ручная и правовая проверка), `render_draft.py group`, `direct_publish.py`, `claims.py` предусловия, `intake.py`, `tabs.py` с поддельным CDP.
+- `tests/test_v130_browser.sh` + `v130.test.js` (локальные фикстуры): `targets.js`, фильтры `occlusion.js`, диалог из радио-кнопок, `shot.js` (поле подписей, `--locales`), `a11y.js --locales`, `legal_guest.js`, `rtl.js`, `repro.js` + `recheck.py`.
+- `stream_b.test.js`: fail closed `guard.js`, режим только чтения, фильтр cookie и localStorage/sessionStorage в `state`, `state-rm`, `--delete-state`, `media`. `test_stream_c.sh`: `--attach-to`. Тесты браузера запускаются с `SITE_QA_HEADLESS=1`.
+
 ## [1.2.1] — 2026-10-08
 Правило «папка результатов по умолчанию в `.gitignore`» и итоги в другую папку — только итоговые файлы. Старые `run-config.yaml` работают без изменений (`git` необязателен, по умолчанию `allow_commit_results: false`).
 
