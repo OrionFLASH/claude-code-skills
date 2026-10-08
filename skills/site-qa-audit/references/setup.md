@@ -19,7 +19,7 @@ pwsh <SKILL_DIR>/scripts/check_env.ps1 --json <RUN_DIR>/env.json    # Windows
 | playwright-cli | нет | `npm i -g @playwright/cli@latest`; без него браузерный поток один |
 | Claude in Chrome | нет | расширение «Claude» (Anthropic) в Google Chrome + перезапуск `claude --chrome` (или `/chrome`); native host есть, а инструментов в сессии нет → перезапустить сессию с `--chrome`; без него режим «текущий экран» — через Playwright |
 | Плагины-усилители | нет | работа по собственным чек-листам |
-| `SITE_QA_OUTPUT_DIR` | нет | папка результатов по умолчанию; без неё скил спросит (`intake.md` → «Папка прогона») |
+| `SITE_QA_OUTPUT_DIR` | нет | папка результатов по умолчанию; без неё — `<cwd>/qa-runs/` (`intake.md` → «Папка прогона»; как задать — `INSTALL.md`) |
 
 Проверка браузеров — реальный запуск (`node/probe.js`), а не поиск файлов.
 

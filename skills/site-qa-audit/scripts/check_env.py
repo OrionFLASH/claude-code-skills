@@ -250,7 +250,7 @@ def main():
         rows.append(ec.Row("SITE_QA_OUTPUT_DIR", str(p), ec.OK if p.is_dir() else ec.WARN,
                            "папка результатов по умолчанию" + ("" if p.is_dir() else " — папки нет, будет создана"), ""))
     else:
-        rows.append(ec.Row("SITE_QA_OUTPUT_DIR", "", ec.WARN, "не задана — скил спросит, куда сохранять результаты",
+        rows.append(ec.Row("SITE_QA_OUTPUT_DIR", "", ec.WARN, "не задана — результаты в <папка запуска Claude Code>/qa-runs/",
                            'добавить в ~/.claude/settings.json → "env": {"SITE_QA_OUTPUT_DIR": "<путь>"}'))
     chrome_host = find_chrome_native_host()
     rows.append(ec.Row("Claude in Chrome", "", ec.OK if chrome_host else ec.WARN,

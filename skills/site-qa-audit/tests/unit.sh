@@ -63,7 +63,7 @@ set +e; "$PY" "$S/url_guard.py" action --text "×" --name Delete --context "todo
 node -e "const s=require('fs').readFileSync(process.argv[1],'utf8').replace('__ALLOWED_RE__','^https://example\\.com/?(#.*)?$'); const f=new Function('return ('+s.replace(/^\s*\/\/.*$/mg,'')+')')(); if (typeof f!=='function') process.exit(1)" "$S/nav_lock.js" && ok "nav_lock.js: синтаксис" || bad "nav_lock.js: синтаксис"
 
 # 1.1.0: syntax of new scripts (no browser, no network)
-for f in claims intake journal build_report; do
+for f in claims intake journal build_report gitignore_helper; do
   "$PY" -c "import ast,sys; ast.parse(open(sys.argv[1],encoding='utf-8').read(), sys.argv[1])" "$S/$f.py" 2>"$TMP/pyc.err" \
     && ok "syntax $f.py" || { cat "$TMP/pyc.err"; bad "syntax $f.py"; }
 done
@@ -90,6 +90,11 @@ assert 'content-i18n' not in d['directions'] and d['auth']['account_states']==[]
 # Stream A (Python: claims, schema, render_draft, intake, journal, build_report, read_templates, check_env)
 REAL_REGISTRY="${REAL_REGISTRY:-}" REAL_FINDINGS="${REAL_FINDINGS:-}" bash "$HERE/test_stream_a.sh" > "$TMP/stream-a.log" 2>&1 \
   && ok "stream A ($(tail -1 "$TMP/stream-a.log"))" || { cat "$TMP/stream-a.log"; bad "stream A"; }
+
+# 1.2.0: gitignore_helper (qa-runs/ and git), parallel.max_workers <= 4, run-config goal/context/report_destinations,
+# build_report summary, templates/site-context.md
+bash "$HERE/test_v12.sh" > "$TMP/v12.log" 2>&1 \
+  && ok "v1.2 ($(tail -1 "$TMP/v12.log"))" || { cat "$TMP/v12.log"; bad "v1.2"; }
 
 # Browser suites B and C: need node + scripts/node/node_modules/playwright + Chromium; otherwise SKIP.
 # Set QA_SKIP_BROWSER=1 to skip them explicitly.

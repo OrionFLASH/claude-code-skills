@@ -5,6 +5,8 @@
                   [--registry registry.json] [--side-effects side_effects.md] [--out RUN_DIR/report.md]
       report.md from findings.json, the re-check table (claims.py plan/set → rechecks.json or
       findings.json → rechecks), side_effects.md and logs/blocked.jsonl, if present.
+  build_report.py summary RUN_DIR [same options] [--out RUN_DIR/summary.md]
+      Short summary for report destinations: header, «Итог», statistics and directions of report.md.
   build_report.py publish-table RUN_DIR [same options] [--out FILE]
       Summary table before publication: status, severity on the repo scale, target, action.
       For FIXED-INSUFFICIENT / REGRESSION of a closed issue the action follows repos[].closed_claims
@@ -263,9 +265,14 @@ def build_report(run):
     return "\n".join(L).rstrip() + "\n"
 
 
+def build_summary(run):
+    head = build_report(run).split("\n## Находки", 1)[0].rstrip()
+    return head + "\n\nПолный отчёт — `report.md` рядом с этим файлом.\n"
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("cmd", choices=["report", "publish-table"])
+    ap.add_argument("cmd", choices=["report", "summary", "publish-table"])
     ap.add_argument("run_dir")
     ap.add_argument("--findings")
     ap.add_argument("--config")
@@ -275,8 +282,13 @@ def main():
     ap.add_argument("--out")
     a = ap.parse_args()
     run = Run(a)
-    text = build_report(run) if a.cmd == "report" else "\n".join(publish_table(run)) + "\n"
-    out = a.out or (str(Path(a.run_dir) / "report.md") if a.cmd == "report" else None)
+    if a.cmd == "report":
+        text = build_report(run)
+    elif a.cmd == "summary":
+        text = build_summary(run)
+    else:
+        text = "\n".join(publish_table(run)) + "\n"
+    out = a.out or (str(Path(a.run_dir) / f"{a.cmd}.md") if a.cmd in ("report", "summary") else None)
     if out:
         Path(out).parent.mkdir(parents=True, exist_ok=True)
         Path(out).write_text(text, encoding="utf-8")
