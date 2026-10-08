@@ -87,10 +87,10 @@ def test_forbidden_and_manual_pause():
 # ---------- временные сбои ----------
 def test_transient_backoff_grows_and_caps():
     untils = []
-    for i in range(7):
+    for i in range(10):
         g.record_failure("outage", "x", key="k", now=NOW)
         untils.append(g.load_state()["pause"]["until"] - NOW)
-    assert untils[:5] == [300, 600, 1200, 2400, 3600] and untils[5:] == [3600, 3600]
+    assert untils[:7] == [60, 120, 240, 480, 960, 1920, 3600] and untils[7:] == [3600, 3600, 3600]
 
 
 def test_retry_after_wins_when_longer_and_pause_expires():
@@ -189,7 +189,7 @@ def test_triage_429_quota_vs_rate(monkeypatch):
     g.resume()
     monkeypatch.setattr(t, "ask_typesafe", lambda *a, **k: (_ for _ in ()).throw(http(429, "slow down", {"Retry-After": "120"})))
     assert t.triage("задача", key="k")["paused"] == "rate"
-    assert g.load_state()["pause"]["until"] - __import__("time").time() <= 301   # base 300 > retry-after 120
+    assert g.load_state()["pause"]["until"] - __import__("time").time() <= 121   # retry-after 120 > base 60
 
 
 def test_triage_success_records_tokens_and_budget_warning(monkeypatch):

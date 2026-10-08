@@ -147,7 +147,7 @@ def test_rate_limit_pauses_temporarily(server, tmp_path):
     Fake.mode = ("rate",)
     assert heuristic_only(hook(server, tmp_path)[1])            # единичный сбой: без шума, уровень по эвристике
     st = json.loads((tmp_path / "state.json").read_text())
-    assert st["pause"]["kind"] == "rate" and st["pause"]["until"] - time.time() > 200   # ≥ базовых 300 с
+    assert st["pause"]["kind"] == "rate" and st["pause"]["until"] - time.time() > 40   # ≥ базовых 60 с
     hits = Fake.hits
     assert heuristic_only(hook(server, tmp_path)[1]) and Fake.hits == hits
 
@@ -161,7 +161,7 @@ def test_outage_warns_after_three_failures_and_recovers(server, tmp_path):
             st["pause"]["until"] = time.time() - 1
             st_path.write_text(json.dumps(st))
         rc, out, _ = hook(server, tmp_path)
-    assert "не отвечает" in out["systemMessage"] and Fake.hits == 3
+    assert "не отвечает" in out["systemMessage"] and Fake.hits == 6   # по два обращения на вызов: быстрый повтор при 503
     st = json.loads(st_path.read_text())
     st["pause"]["until"] = time.time() - 1
     st_path.write_text(json.dumps(st))
@@ -173,7 +173,7 @@ def test_outage_warns_after_three_failures_and_recovers(server, tmp_path):
 def test_hang_does_not_stall_the_prompt(server, tmp_path):
     Fake.mode = ("hang",)
     rc, out, dt = hook(server, tmp_path)
-    assert rc == 0 and dt < 5.5, dt                             # тайм-аут хука 3 с, а не 6 с зависания сервера
+    assert rc == 0 and dt < 5.9, dt                             # тайм-аут хука 5 с, а не полное зависание сервера
     assert json.loads((tmp_path / "state.json").read_text())["failures"] == 1
 
 

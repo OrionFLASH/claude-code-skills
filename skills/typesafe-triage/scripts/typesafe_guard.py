@@ -32,7 +32,7 @@ DEFAULT_CONFIG = {
     "monthly_budget_usd": 2.0,      # локальный потолок расходов в месяц (оценка); 0 или меньше — без потолка
     "warn_fraction": 0.8,           # предупредить на этой доле потолка
     "remind_hours": 6,              # как часто напоминать о жёсткой паузе
-    "transient_base_s": 300,        # первая временная пауза, дальше ×2 до transient_max_s
+    "transient_base_s": 60,         # первая временная пауза (всплески TypeSafe короткие), дальше ×2 до transient_max_s
     "transient_max_s": 3600,
 }
 BILLING_RE = re.compile(

@@ -456,3 +456,59 @@ def test_cases_cover_efforts_domains_languages_and_history():
     assert any(c.get("history") for c in work) and sum(1 for c in work if c.get("explicit")) >= 6
     holdout = [c for c in cases if t.is_holdout(c["task"])]
     assert 0.1 <= len(holdout) / float(len(cases)) <= 0.35
+
+
+# ---------- 2.1.1: повтор при временной ошибке сервиса ----------
+def _http(code):
+    import urllib.error
+    return urllib.error.HTTPError("http://x", code, "err", {}, None)
+
+
+def test_retry_once_on_transient_5xx(monkeypatch):
+    calls = []
+
+    def flaky(task, key, timeout=0):
+        calls.append(timeout)
+        if len(calls) == 1:
+            raise _http(529)
+        return {"ok": True}
+
+    monkeypatch.setattr(t, "ask_typesafe", flaky)
+    monkeypatch.setattr(t.time, "sleep", lambda s: None)
+    assert t.ask_with_retry("x", "k", 5) == {"ok": True}
+    assert len(calls) == 2 and calls[1] < 5
+
+
+def test_no_retry_when_budget_small_or_not_transient(monkeypatch):
+    calls = []
+
+    def boom(code):
+        def f(task, key, timeout=0):
+            calls.append(1)
+            raise _http(code)
+        return f
+
+    monkeypatch.setattr(t.time, "sleep", lambda s: None)
+    monkeypatch.setattr(t, "ask_typesafe", boom(402))
+    with pytest.raises(Exception):
+        t.ask_with_retry("x", "k", 5)
+    assert len(calls) == 1                       # 402 - не временная ошибка
+    calls.clear()
+    monkeypatch.setattr(t, "ask_typesafe", boom(503))
+    with pytest.raises(Exception):
+        t.ask_with_retry("x", "k", 1.0)          # бюджета на повтор не осталось
+    assert len(calls) == 1
+
+
+def test_retry_gives_up_after_second_failure(monkeypatch):
+    calls = []
+
+    def always(task, key, timeout=0):
+        calls.append(1)
+        raise _http(529)
+
+    monkeypatch.setattr(t, "ask_typesafe", always)
+    monkeypatch.setattr(t.time, "sleep", lambda s: None)
+    with pytest.raises(Exception):
+        t.ask_with_retry("x", "k", 5)
+    assert len(calls) == 2
