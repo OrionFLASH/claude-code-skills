@@ -1,0 +1,25 @@
+{
+  "run": {"id": "2026-10-08-com.example.app", "app": "com.example.app", "app_version": "2.3.1 (42)", "depth": "standard",
+          "mode": "dry-run", "started_at": "2026-10-08T10:00:00"},
+  "not_checked": [{"what": "Оплата подписки", "reason": "базовый запрет: purchase", "rule": "base:action:purchase"}],
+  "findings": [
+    {"id": "F-001", "direction": "lifecycle-resilience", "check_id": "life.process-death", "type": "crash", "severity": "high",
+     "title": "Профиль: падение после восстановления процесса", "screen": "com.example.app.ui.ProfileActivity",
+     "element": null, "steps": ["Открыть профиль", "Свернуть приложение", "adb_helpers.py kill-bg", "Вернуться через «Недавние»"],
+     "expected": "Профиль открывается с прежними данными", "actual": "Приложение падает: IllegalStateException для ivan.petrov@example.com",
+     "environment": {"api": 34, "android_version": "14", "device_profile": "phone", "ram_mb": 4096, "cores": 4,
+                     "stand": "own-emulator", "cell": "c01", "date": "2026-10-08"},
+     "repro_rate": "3/3", "frequency": "always",
+     "crash": {"type": "crash", "summary": "java.lang.IllegalStateException: profile not loaded", "process": "com.example.app"},
+     "logcat_excerpt": "E AndroidRuntime: FATAL EXCEPTION: main", "screenshots": [], "sources": ["own:checklist"]},
+    {"id": "F-002", "direction": "accessibility", "check_id": "a11y.missing-label", "type": "a11y", "severity": "medium",
+     "title": "Каталог: кнопка «Поделиться» без contentDescription", "screen": "com.example.app.MainActivity",
+     "element": "id=com.example.app:id/btn_share ImageButton", "steps": ["Открыть каталог", "Включить TalkBack"],
+     "expected": "TalkBack читает «Поделиться»", "actual": "TalkBack читает «Кнопка» без названия",
+     "environment": {"api": 34, "device_profile": "phone", "cell": "c01"}, "sources": ["own:script:adb_helpers.dump-ui"]},
+    {"id": "F-003", "direction": "accessibility", "check_id": "a11y.missing-label", "type": "a11y", "severity": "high",
+     "title": "Каталог: иконка «Поделиться» не озвучивается (low-end)", "screen": "com.example.app.MainActivity",
+     "element": "id=btn_share", "steps": ["Открыть каталог"], "expected": "Есть подпись", "actual": "Нет подписи",
+     "environment": {"api": 30, "device_profile": "low-end", "cell": "c03"}, "sources": ["own:checklist"]}
+  ]
+}

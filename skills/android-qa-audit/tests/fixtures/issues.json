@@ -1,0 +1,6 @@
+[
+  {"repo": "owner/repo", "number": 5, "title": "Crash", "state": "OPEN", "url": "https://github.com/owner/repo/issues/5",
+   "body": "Падение\n<!-- android-qa-audit:fp=FPPLACEHOLDER -->"},
+  {"repo": "owner/repo", "number": 9, "title": "Кнопка поделиться без подписи для TalkBack в каталоге", "state": "OPEN",
+   "url": "https://github.com/owner/repo/issues/9", "body": "MainActivity: иконка поделиться без contentDescription"}
+]

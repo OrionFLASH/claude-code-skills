@@ -1,0 +1,36 @@
+version: 1
+mode: dry-run
+language: ru
+app:
+  source: apk
+  package: com.example.app
+  allowed_packages: []
+  deeplink_hosts: [example.com]
+stands:
+  consent:
+    - serial: R58N00TEST01
+      scope: app-only
+depth: standard
+directions: [functional, ux, accessibility, lifecycle-resilience, performance]
+rules:
+  forbidden_packages: []
+  forbidden_screens: []
+  forbidden_actions:
+    - id: U1
+      source: "не нажимать «Опубликовать»"
+      texts: [Опубликовать]
+  require_confirmation_actions: []
+  preapproved_actions: []
+repos:
+  - url: https://github.com/owner/repo
+    roles: [check, write-new]
+    labels: existing
+    severity_map:
+      critical: P0
+      high: P1
+      medium: P2
+      low: P3
+      info: P3
+parallel:
+  max_workers: 2
+  throttle_ms: 0

@@ -1,0 +1,11 @@
+Current Notification Manager state:
+  Notification List:
+    NotificationRecord(0x0a1b2c3d: pkg=com.example.app user=UserHandle{0} id=7 tag=null importance=3 key=0|com.example.app|7|null|10190: Notification(channel=orders pri=0 contentView=null vibrate=null sound=null defaults=0x0 flags=0x10 color=0x00000000 vis=PRIVATE))
+      extras={
+        android.title=String (Заказ готов)
+        android.text=String (Покупатель ivan.petrov@example.com, заказ 12)
+      }
+    NotificationRecord(0x0b1b2c3d: pkg=com.other.app user=UserHandle{0} id=1 tag=null importance=3 key=x: Notification(channel=chat))
+      extras={
+        android.title=String (Чужое уведомление)
+      }
