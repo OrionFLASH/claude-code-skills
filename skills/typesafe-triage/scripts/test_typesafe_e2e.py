@@ -207,3 +207,24 @@ def test_universal_task_and_fable_needs_confirmation(server, tmp_path):
            "ошибка означает потерю денег клиентов, откатиться после переключения нельзя.")
     rc, out, _ = hook(server, tmp_path, prompt={"prompt": big, "cwd": "/tmp"})
     assert ctx(out).startswith("TypeSafe-триаж: уровень fable") and "AskUserQuestion" in ctx(out) and "«Нет, opus»" in ctx(out)
+
+
+def test_duplicate_hook_calls_for_same_prompt_speak_once(server, tmp_path):
+    """Ручной хук в settings.json + хук плагина: два процесса одновременно на один запрос — заметка ровно одна."""
+    env = dict(os.environ, TYPESAFE_API_URL="http://127.0.0.1:%d/v1/systemone" % server.server_port,
+               TYPESAFE_API_KEY="fake-key", TYPESAFE_TRIAGE_HOME=str(tmp_path))
+    payload = json.dumps(dict(PROMPT, session_id="e2e-session"))
+    procs = [subprocess.Popen([sys.executable, "-B", str(SCRIPT), "--hook"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, text=True, env=env) for _ in range(2)]
+    outs = [p.communicate(payload, timeout=30)[0] for p in procs]
+    assert all(p.returncode == 0 for p in procs)
+    spoken = [o for o in outs if o.strip()]
+    assert len(spoken) == 1 and ts_note(json.loads(spoken[0])) and Fake.hits == 1
+    rc, out, _ = hook(server, tmp_path, prompt=dict(PROMPT, session_id="other-session"))
+    assert ts_note(out)                                              # другая сессия — не дубль
+
+
+def test_note_has_model_and_effort_pair(server, tmp_path):
+    rc, out, _ = hook(server, tmp_path)
+    c = ctx(out)
+    assert rc == 0 and ", effort " in c.split("\n")[0] and "Agent(model=" in c and "effort=" in c
