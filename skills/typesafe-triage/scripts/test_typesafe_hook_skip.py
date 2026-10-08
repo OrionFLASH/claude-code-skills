@@ -227,3 +227,26 @@ def test_e2e_killed_first_call_does_not_silence_second(tmp_path):
         assert b.returncode == 0 and ctx(out).startswith("TypeSafe-триаж: уровень "), b.stdout + b.stderr
     finally:
         srv.shutdown()
+
+
+def test_legacy_empty_marker_from_old_version_counts_as_done(monkeypatch, capsys):
+    """Во время обновления может работать старый хук (2.1, пустая метка): новый не ждёт его 8 с и не дублирует заметку."""
+    f = marker("s1", TASK)
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text("")
+    t0 = time.monotonic()
+    assert hook_raw(monkeypatch, capsys, {"prompt": TASK, "session_id": "s1"}) == {}
+    assert time.monotonic() - t0 < 1
+    old = time.time() - t.DEDUP_S - 1
+    os.utime(f, (old, old))
+    assert ctx(hook_raw(monkeypatch, capsys, {"prompt": TASK, "session_id": "s1"})).startswith("TypeSafe-триаж: уровень ")
+
+
+def test_marker_has_content_as_soon_as_it_exists(tmp_path):
+    f = tmp_path / "m"
+    t._marker_write(f, "pending", create=True)
+    assert json.loads(f.read_text())["state"] == "pending" and not list(tmp_path.glob("*.tmp"))
+    with pytest.raises(FileExistsError):
+        t._marker_write(f, "pending", create=True)
+    t._marker_write(f, "done")
+    assert t._marker_read(f)[0] == "done" and oct(f.stat().st_mode & 0o777) == "0o600"

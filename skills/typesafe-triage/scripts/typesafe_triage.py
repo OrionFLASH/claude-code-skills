@@ -32,11 +32,15 @@
 ответы TypeSafe + узкие вопросы effort в том же запросе, сигналы текста, окружение, история сессии, правила
 согласованности. low и max — только с подтверждения (CONFIRM_EFFORTS), без него low → medium, max → xhigh. Явные
 указания пользователя в тексте («на opus», «effort max», «ultrathink», «тщательно», «кратко») — согласие и приоритет.
-Повторный вызов хука на тот же запрос (session_id + хеш) в пределах DEDUP_S молчит (ручной хук + хук плагина).
+Повторный вызов хука на тот же запрос (session_id + хеш) молчит, только если первый уже выдал заметку (метка «готово»);
+первый упал или оборван — заметку даёт второй (2.2.0). Хук не молчит без причины: «TypeSafe-триаж пропущен: <причина>».
+2.2.0: короткие продолжения наследуют оценку сессии и получают строку «активная задача» из TASKS.md; тип задачи qa;
+признаки общего интерактивного состояния (профиль браузера/CDP, активный прогон) — «делегируй только независимые части».
 
 Запуск (только стандартная библиотека; ключ — переменная окружения TYPESAFE_API_KEY):
     python3 typesafe_triage.py "текст задачи"        # JSON с метриками, сигналами и рекомендацией
     python3 typesafe_triage.py --hook                # режим хука UserPromptSubmit (stdin = JSON хука)
+    python3 typesafe_triage.py --where               # фактический путь скрипта (1-я строка), установка, хуки и их проблемы
     python3 typesafe_triage.py --digest "текст"       # показать, что именно уйдёт в TypeSafe (или текст из stdin)
     python3 typesafe_triage.py --signals "текст"      # показать локальные сигналы эвристики (без сети)
     python3 typesafe_triage.py --status               # пауза, расходы за месяц, потолок
@@ -923,32 +927,48 @@ def dedup_key(session_id, prompt):
 
 
 def _marker_write(f, state, create=False):
-    """Метка: {"state", "pid", "ts"} — без текста запроса, права 0600. create=True — атомарно, только если метки нет
-    (FileExistsError — метка уже есть); иначе замена через временный файл."""
+    """Метка: {"state", "pid", "ts"} — без текста запроса, права 0600. Пишется во временный файл и появляется атомарно уже
+    с содержимым: create=True — os.link (FileExistsError — метка уже есть), иначе os.replace."""
     data = json.dumps({"state": state, "pid": os.getpid(), "ts": time.time()})
-    if create:
-        fd = os.open(str(f), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-    else:
-        tmp = f.with_name("%s.%d.tmp" % (f.name, os.getpid()))
-        fd = os.open(str(tmp), os.O_CREAT | os.O_TRUNC | os.O_WRONLY, 0o600)
+    tmp = f.with_name("%s.%d.tmp" % (f.name, os.getpid()))
+    fd = os.open(str(tmp), os.O_CREAT | os.O_TRUNC | os.O_WRONLY, 0o600)
     with os.fdopen(fd, "w") as h:
         h.write(data)
-    if not create:
-        os.replace(str(tmp), str(f))
+    try:
+        if not create:
+            os.replace(str(tmp), str(f))
+            return
+        try:
+            os.link(str(tmp), str(f))
+        except FileExistsError:
+            raise
+        except (OSError, AttributeError, NotImplementedError):   # ФС без жёстких ссылок: создание O_EXCL + запись
+            fd = os.open(str(f), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            with os.fdopen(fd, "w") as h:
+                h.write(data)
+    finally:
+        try:
+            os.unlink(str(tmp))
+        except OSError:
+            pass
+
+
+LEGACY = "legacy"   # пустая метка хука до 2.2: тот вызов после метки всегда выдаёт заметку
 
 
 def _marker_read(f):
-    """→ (state, pid, ts). Пустая/недописанная метка (или формат до 2.2: пустой файл) — «в работе» с временем файла."""
+    """→ (state, pid, ts). Пустая метка — формат до 2.2 (state=legacy, время файла); нечитаемая — «в работе»."""
     mtime = f.stat().st_mtime                 # FileNotFoundError — метки уже нет
     try:
-        st = json.loads(f.read_text(encoding="utf-8") or "null")
-    except (OSError, ValueError):
-        st = None
-    if not isinstance(st, dict):
+        raw = f.read_text(encoding="utf-8")
+    except OSError:
         return "pending", None, mtime
+    if not raw.strip():
+        return LEGACY, None, mtime
     try:
+        st = json.loads(raw)
         return st.get("state", "pending"), st.get("pid"), float(st.get("ts", mtime))
-    except (TypeError, ValueError):
+    except (ValueError, TypeError, AttributeError):
         return "pending", None, mtime
 
 
@@ -1002,7 +1022,7 @@ def dedup_claim(session_id, prompt, started=None):
             except FileNotFoundError:
                 continue                      # метку только что убрали — пробуем занять снова
             age = time.time() - ts
-            if state == "done":
+            if state in ("done", LEGACY):
                 if age < DEDUP_S:
                     return ("dup", None)
                 _marker_write(f, "pending")   # тот же текст, но позже — это новый запрос пользователя
@@ -1463,7 +1483,7 @@ def run_agent(argv):
 
 
 # ---------- --where: где скрипт и какие хуки на него смотрят (2.2.0, T-5) ----------
-HOOK_PATH_RE = re.compile(r'"([^"]*typesafe_triage\.py)"|(\S*typesafe_triage\.py)')
+HOOK_PATH_RE = re.compile(r"\"([^\"]*typesafe_triage\.py)\"|([^\s\"'=]*typesafe_triage\.py)")
 
 
 def _expand(path, home):
