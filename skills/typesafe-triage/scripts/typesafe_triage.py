@@ -562,6 +562,9 @@ def add_effort(r, m, h, task, env="auto", history=None, session=None, cwd=None, 
              model_source="user" if user_tier else "auto", reason="; ".join(why), **e)
     if d["phrases"]:
         r["explicit"] = d["phrases"][:4]
+    if d.get("mentions"):
+        r["mentions"] = d["mentions"]     # маркеры-упоминания (в кавычках, коде, пересказе) — не учтены как указания
+    r["effort_delivery"] = effort_delivery(r)
     v = {k: x[0] for k, x in (m or {}).items()}
     stakes = v.get("risk", 0) >= CLARIFY_RISK or v.get("irreversible", 0) >= eff.FLAG_ON or bool(h["critical"])
     unsure = m is None or (min_conf is not None and min_conf < CLARIFY_CONF)
@@ -674,6 +677,55 @@ def effort_question(e, fb):
         e, " — дольше и дороже" if e in eff.COSTLY_EFFORTS else " — минимум размышлений", e, fb)
 
 
+# У инструмента Agent параметра effort может не быть (зависит от версии и окружения Claude Code), а хук схему инструментов
+# не видит. Поэтому заметка условная, а для случая «параметра нет» — готовая фраза глубины для промпта агента (ru, en)
+# и, когда effort критичен, запуск отдельным процессом `--run` (`claude -p --model … --effort …`).
+EFFORT_PROMPT = {
+    "low": ("Ответь кратко, без лишних шагов и рассуждений.", "Answer briefly, without extra steps or deliberation."),
+    "medium": ("Обычная аккуратность, без лишней глубины.", "Ordinary care, no extra depth."),
+    "high": ("Думай тщательно: проверь крайние случаи и результат.", "Think carefully: check edge cases and the result."),
+    "xhigh": ("Думай очень тщательно: сравни альтернативы, проверь крайние случаи, перепроверь результат.",
+              "Think very carefully: compare alternatives, check edge cases, re-verify the result."),
+    "max": ("Думай максимально глубоко: разбери альтернативы и риски, проверь каждый шаг, в конце — самопроверка.",
+            "Think as deeply as possible: weigh alternatives and risks, verify every step, self-check before answering."),
+}
+EFFORT_DELIVERY = ("agent_param", "prompt", "run")
+
+
+def effort_delivery(result):
+    """Как донести effort, если у Agent нет параметра effort (параметр, если есть, передаётся всегда):
+    agent_param — effort обычный (medium/high без высокой цены ошибки): хватит общей фразы о глубине в промпте;
+    prompt — effort необычный (low/xhigh/max или задан пользователем/проектом): готовая фраза глубины в промпт;
+    run — effort критичен (high и выше при высокой цене ошибки, max или задан явно): ещё и запуск через --run."""
+    e = result.get("effort") or eff.DEFAULT_EFFORT
+    mt = result.get("metrics") or {}
+    val = lambda k: (mt.get(k) or {}).get("value", 0)
+    risky = val("risk") >= eff.RISK_EFFORT_AT or val("irreversible") >= eff.FLAG_ON \
+        or (not mt and len((result.get("signals") or {}).get("critical") or []) >= 2)
+    explicit = result.get("effort_source") in ("user", "project")
+    if eff.idx(e) >= eff.idx("high") and (risky or explicit or e == "max"):
+        return "run"
+    if e in ("low", "xhigh", "max") or explicit:
+        return "prompt"
+    return "agent_param"
+
+
+def effort_phrase(effort, lang="ru"):
+    ru, en = EFFORT_PROMPT.get(effort, EFFORT_PROMPT[eff.DEFAULT_EFFORT])
+    return en if lang == "en" else ru
+
+
+def self_command():
+    """Команда запуска этого скрипта для заметки: python3 (Windows — python) и полный путь (домашний каталог — $HOME:
+    так короче и работает и в bash, и в PowerShell)."""
+    p = os.path.abspath(__file__)
+    home = os.path.expanduser("~")
+    if home and p.startswith(home + os.sep):
+        p = "$HOME" + p[len(home):]
+    p = p.replace("\\", "/")
+    return "%s %s" % ("python" if os.name == "nt" else "python3", ('"%s"' % p) if " " in p else p)
+
+
 def hook_context(result, cur_effort=None):
     """Короткая императивная заметка для основной модели: пара «модель + effort», причины, что делать."""
     tier = result["model"]
@@ -706,22 +758,32 @@ def hook_context(result, cur_effort=None):
     run = "Agent(model=%s, effort=%s)" % (tier, e)
     if m_conf or e_conf:
         run += " (без подтверждения — Agent(model=%s, effort=%s))" % (mfb, efb)
-    cost = " xhigh/max — заметно больше токенов и времени." if e in eff.COSTLY_EFFORTS else ""
-    lines += [
-        "• Делегируй, если работа содержательная (анализ, проектирование, нетривиальная правка, поиск причины, большой текст) "
+    cost = " (xhigh/max — больше токенов)" if e in eff.COSTLY_EFFORTS else ""
+    how = result.get("effort_delivery") or effort_delivery(result)
+    lines.append(
+        "• Делегируй, если работа содержательная (анализ, проектирование, нетривиальная правка, поиск причины) "
         "и уровень выше твоей модели, или задача большая и изолируемая: %s с самодостаточным промптом "
-        "(цель, пути, ограничения, критерии готовности, что вернуть); effort указывай явно — этого требует пользователь; "
-        "результат проверь сам.%s" % (run, cost),
-        "• Иначе (диалог, мелочь, уровень не выше твоего) — делай сам, триаж не упоминай.",
-    ]
+        "(цель, пути, ограничения, критерии готовности, что вернуть); результат проверь сам. effort — если параметр есть "
+        "у Agent%s; нет — не пытайся и не ссылайся на него (не ошибка)%s." % (
+            run, cost, ", глубину задай в промпте" if how == "agent_param" else ""))
+    if how in ("prompt", "run"):   # запасные способы — только для необычного или критичного effort (не больше одного пункта)
+        lang = ((result.get("signals") or {}).get("effort") or {}).get("lang")
+        tail = ""
+        if how == "run":
+            flags = "--tier %s%s --effort %s%s" % (tier, " --confirmed" if tier in CONFIRM_TIERS else "", e,
+                                                    " --confirmed-effort" if e in eff.CONFIRM_EFFORTS else "")
+            tail = "; effort критичен, работа изолируемая — запусти отдельно: %s --run %s [--edit|--readonly] \"<задача>\"%s" % (
+                self_command(), flags, " (--confirmed* — после «да»)" if m_conf or e_conf else "")
+        lines.append("• Без параметра effort: в промпт агента «%s»%s." % (effort_phrase(e, lang), tail))
+    lines.append("• Иначе (диалог, мелочь, уровень не выше твоего) — делай сам, триаж не упоминай.")
     if cur_effort and abs(eff.idx(cur_effort) - eff.idx(efb)) >= SESSION_EFFORT_GAP:
         lines.append("• Делаешь сам в основной сессии (её effort %s): одной строкой предложи пользователю «/effort %s»." % (cur_effort, efb))
     if result.get("clarify"):
         lines.append("• Неуверенная оценка при высокой цене ошибки: сначала задай пользователю ОДИН короткий уточняющий вопрос "
                      "(цель, границы, критерий готовности), не угадывай.")
     lines.append(
-        "• Субагентам скилл typesafe-triage не применять. План SuperPowers: модели ролей — из его Model Selection (model явно), "
-        "«most capable» = opus, «cheapest» = sonnet (haiku/fable — только с подтверждения). Проверки (тесты, чтение результата, данные) обязательны; при сомнении — уровень выше.")
+        "• Субагентам скилл typesafe-triage не применять. План SuperPowers: модели ролей — из его Model Selection, "
+        "«most capable» = opus, «cheapest» = sonnet (haiku/fable — только с подтверждения). Проверки обязательны; при сомнении — уровень выше.")
     return "\n".join(lines)
 
 

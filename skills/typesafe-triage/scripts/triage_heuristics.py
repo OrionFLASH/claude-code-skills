@@ -13,9 +13,12 @@
 «тщательно», «быстро», с учётом отрицаний) — directives(text).
 
 Все словари и пороги — константы ниже; меняются вместе с `--selftest --heuristic` / `--calibrate` (triage_cases.json).
-Публичное API: signals(text) -> dict, is_chatter(text) -> bool, directives(text) -> dict.
+Публичное API: signals(text) -> dict, is_chatter(text) -> bool, directives(text) -> dict,
+mentions(text) -> (замаскированный текст, число скрытых упоминаний, вставленный отчёт?).
 """
+import bisect
 import re
+from collections import Counter
 
 FLAGS_RE = re.I | re.U
 
@@ -169,6 +172,141 @@ NEG_BEFORE_RE = re.compile(r"(?:\bне|\bнет|\bни|\bno|\bnot|n't|\bnever|\b
 _HARD = [(re.compile(rx, FLAGS_RE), lvl) for rx, lvl in HARD_PHRASES]
 _SMIN = [(re.compile(rx, FLAGS_RE), lvl) for rx, lvl in SOFT_MIN]
 _SMAX = [(re.compile(rx, FLAGS_RE), lvl) for rx, lvl in SOFT_MAX]
+_MARKERS = [TIER_DIRECTIVE_RE, EFFORT_DIRECTIVE_RE] + [rx for rx, _ in _HARD + _SMIN + _SMAX]
+
+# ---------- упоминание (mention) против использования (use) ----------
+# Маркер в кавычках/коде или в пересказе чужих слов — это упоминание («слово «ultrathink» ставит максимум»), а не
+# указание. Исключение — одиночный маркер в кавычках в императивной фразе («сделай это «на opus»»).
+QUOTE_RES = [re.compile(p) for p in (
+    r"«[^«»\n]{1,300}»", r"“[^“”\n]{1,300}”", r"„[^„“”\n]{1,300}[“”]", r'"[^"\n]{1,300}"',
+    r"(?<![\w'’])['‘][^'‘’\n]{1,120}['’](?![\w'’])", r"`[^`\n]{1,300}`")]
+# Пересказ/цитирование: от маркера до конца предложения — упоминание. «я сказал» (первое лицо) — не цитата.
+CITE_RE = re.compile(
+    r"(?:\bассистент\w*|\bclaude(?: code)?|\bмодель|\bагент|\bсубагент|\bбот|\bон|\bона|\bони|\bпользователь|\bзаметк\w*"
+    r"|\bотч[её]т\w*|\bдокументаци\w*|\bинструкци\w*|\bскилл?)\s+(?:мне\s+|нам\s+|тут\s+|здесь\s+|прямо\s+)?"
+    r"(?:сказал\w*|ответил\w*|написал\w*|пишет|пишут|говорит|советует|советовал\w*|предлагает|рекомендует|утверждает|сообща\w*)"
+    r"|\bответ ассистента|\bв (?:отч[её]те|цитате|ответе ассистента|заметке написано)|\bнаписано\s*:|\bцитирую|\bцитата\b"
+    r"|\bпо (?:его|её|ее|их) словам"
+    r"|\b(?:the )?(?:note|assistant|model|agent|report|docs?|user|it|he|she|they)\s+(?:says|said|suggests|suggested|wrote|writes"
+    r"|replied|recommends|answered)\b|\bin the report\b|\bquote:", FLAGS_RE)
+# Подпись «слово/фраза …» — упоминанием считается только следующая за ней кавычка или маркер, а не всё предложение
+# («фраза «на opus» не сработала, сделай на opus» — второе «на opus» остаётся указанием).
+LABEL_RE = re.compile(r"\b(?:слов[оа]|словами|фраз[аыуе]|фразой|выражени[ея]|маркер\w*|the (?:word|phrase)s?)\s*:?\s*", FLAGS_RE)
+IMPERATIVE_RE = re.compile(  # повелительное наклонение вне кавычек: «сделай это «на opus»» — использование
+    r"\b(?:с?дела|запуст|запуска|использу|возьм|постав|работа|провер|разбер|реш|ответ|по?дума|оцен|выполн|перепиш|исправ"
+    r"|напиш|почин|п(?:ер)?есчита|посчита|сравн|спроектиру|примен|включ|выбер|переключ|прогон|провед|проанализиру|продума"
+    r"|перепровер|разработа|подготов|составь?)(?:й|йте|и|ите|ь|ьте)(?:сь|ся)?\b"
+    r"|\b(?:пожалуйста|давай(?:те)?|please|let'?s)\b"
+    r"|^\W*(?:use|run|do|make|think|answer|check|fix|write|review|set|switch|go|try|analy[sz]e|design|prove|compare|explain)\b",
+    FLAGS_RE)
+SENT_END_RE = re.compile(r"[.!?;\n]")
+REPORT_DUP_MIN = 40                # повтор предложения не короче (знаков) — признак вставленного текста
+REPORT_QUOTED_MARKERS = 3          # столько маркеров в кавычках — это перечисление примеров, а не указания
+REPORT_MIN_CHARS = 200
+
+
+def _sentence_index(text):
+    """Позиции концов предложений (по .!?; и переводу строки) — для быстрого поиска границ (bisect)."""
+    return [m.start() for m in SENT_END_RE.finditer(text)]
+
+
+def _sentence_bounds(ends, n, start, end):
+    """Начало и конец предложения, содержащего [start, end): ends — _sentence_index, n — длина текста."""
+    i = bisect.bisect_left(ends, start)
+    b = ends[i - 1] + 1 if i else 0
+    j = bisect.bisect_left(ends, end)
+    return b, (ends[j] if j < len(ends) else n)
+
+
+def _blank(chars, a, b):
+    for i in range(a, b):
+        if chars[i] != "\n":
+            chars[i] = " "
+
+
+def _count_markers(s):
+    return sum(1 for rx in _MARKERS for _ in rx.finditer(s))
+
+
+def _has_marker(s):
+    return any(rx.search(s) for rx in _MARKERS)
+
+
+def mentions(text):
+    """Текст → (текст с замаскированными упоминаниями, сколько упоминаний-маркеров скрыто, «вставленный отчёт»?).
+    Маска — пробелы той же длины (позиции и проверка отрицаний сохраняются). Правило (mention vs use):
+      * маркер в `коде` — всегда упоминание;
+      * маркер в пересказе («ассистент ответил …», «заметка советует …», «в отчёте …», «пользователь пишет …», «написано: …»)
+        — упоминание до конца предложения; после подписи «слово/фраза/выражение» — только следующая кавычка или маркер;
+      * маркер в кавычках «…», "…", “…”, '…' — упоминание, кроме одного случая: он единственный маркер в кавычках в своём
+        предложении, вне кавычек в этом предложении есть повелительный глагол («сделай это «на opus»»), и текст не похож
+        на вставленный отчёт;
+      * вставленный отчёт/цитата: длинный текст с повтором предложений (≥ REPORT_DUP_MIN знаков) или ≥ REPORT_QUOTED_MARKERS
+        маркеров в кавычках. В нём повторяющиеся предложения маскируются целиком (это вставка), все кавычки — упоминания,
+        а мягкие слова («тщательно», «кратко») не учитываются вовсе (их место — в описании, а не в просьбе)."""
+    chars = list(text)
+    spans = []
+    for rx in QUOTE_RES:
+        spans += [(m.start(), m.end(), rx is QUOTE_RES[-1]) for m in rx.finditer(text)]
+    spans.sort()
+    quotes, last = [], -1
+    for a, b, code in spans:                  # без перекрытий: внешняя кавычка, затем следующая
+        if a >= last:
+            quotes.append((a, b, code))
+            last = b
+    marked = [(a, b, code) for a, b, code in quotes if _has_marker(text[a:b])]
+    skeleton = list(text)
+    for a, b, _ in quotes:                    # предложение без содержимого кавычек — для поиска глагола и границ
+        for i in range(a + 1, b - 1):
+            if skeleton[i] != "\n":
+                skeleton[i] = "§"
+    skeleton = "".join(skeleton)
+    norm = [re.sub(r"\s+", " ", s).strip().lower() for s in re.split(r"(?<=[.!?])\s+|\n+", text)]
+    counts = Counter(norm)
+    dup = {s for s, n in counts.items() if n > 1 and len(s) >= REPORT_DUP_MIN}
+    # отчёт: повтор предложений с маркерами (вставили дважды) или перечисление примеров в кавычках; повтор строк лога без
+    # маркеров отчётом не делает (иначе «разберись тщательно» перед логом потерялось бы)
+    report = len(text) >= REPORT_MIN_CHARS and (any(_has_marker(s) for s in dup) or len(marked) >= REPORT_QUOTED_MARKERS)
+    if report:
+        for s in dup:                         # вставленный повтор: маскируем все вхождения предложения
+            pat = re.compile(r"\s+".join(re.escape(w) for w in s.split(" ")), re.I | re.U)
+            for m in pat.finditer(text):
+                _blank(chars, m.start(), m.end())
+    ends, n = _sentence_index(skeleton), len(skeleton)
+    for m in CITE_RE.finditer(skeleton):
+        _, e = _sentence_bounds(ends, n, m.end(), m.end())
+        _blank(chars, m.start(), e)
+    starts = {a: (a, b, code) for a, b, code in marked}
+    labelled = set()
+    for m in LABEL_RE.finditer(skeleton):
+        if m.end() in starts:                 # слово «ultrathink» — упоминание
+            labelled.add(m.end())
+            continue
+        for rx in _MARKERS:                   # слово ultrathink (без кавычек)
+            mk = rx.match(text, m.end())
+            if mk:
+                _blank(chars, m.start(), mk.end())
+                break
+    where = [_sentence_bounds(ends, n, a, b) for a, b, _ in marked]
+    per_sentence = Counter(where)
+    for (a, b, code), (sa, sb) in zip(marked, where):
+        same = per_sentence[(sa, sb)]
+        rest = skeleton[sa:a] + " " + skeleton[b:sb]
+        use = not (code or report or same > 1 or a in labelled) and bool(IMPERATIVE_RE.search(rest.strip()))
+        if not use:
+            _blank(chars, a, b)
+    masked = "".join(chars)
+    return masked, _count_markers(text) - _count_markers(masked), report
+
+
+def _dedup(phrases):
+    seen, out = set(), []
+    for p in phrases:
+        k = re.sub(r"\s+", " ", p).strip().lower()
+        if k not in seen:
+            seen.add(k)
+            out.append(p)
+    return out
 _INTENT_RES = {k: (w, re.compile(rx, FLAGS_RE)) for k, (w, rx) in INTENTS.items()}
 
 # Нормировки «сырых» счётчиков в 0..1
@@ -221,8 +359,18 @@ def _step(level, d):
 def directives(text):
     """Явные указания пользователя в тексте → {"tier", "tier_not", "effort", "effort_min", "effort_max", "phrases"}.
     tier/effort — точный выбор (это согласие, повторный вопрос не нужен); effort_min/effort_max — мягкие границы.
-    Отрицания учитываются: «не на opus» → tier_not, «не нужно глубоко» → потолок medium, «не кратко» → пол high."""
-    text = FENCE_RE.sub(" ", text or "")[:MAX_CHARS]
+    Отрицания учитываются: «не на opus» → tier_not, «не нужно глубоко» → потолок medium, «не кратко» → пол high.
+    Упоминания не считаются (см. mentions): маркеры в кавычках, коде, пересказе и вставленном отчёте; mentions — сколько
+    таких скрыто, report — текст похож на вставленный отчёт/цитату. Каждая фраза в phrases — один раз."""
+    text, hidden, report = mentions(FENCE_RE.sub(" ", text or "")[:MAX_CHARS])
+    out = _directives(text, report)
+    out["phrases"] = _dedup(out["phrases"])
+    out["tier_not"] = _dedup(out["tier_not"])
+    out.update(mentions=hidden, report=report)
+    return out
+
+
+def _directives(text, report=False):
     out = {"tier": None, "tier_not": [], "effort": None, "effort_min": None, "effort_max": None, "phrases": []}
     for mt in TIER_DIRECTIVE_RE.finditer(text):
         word = mt.group("t").lower()
@@ -256,6 +404,8 @@ def directives(text):
         else:
             out["effort"] = None
     lo, hi = [], []
+    if report:                            # во вставленном отчёте «тщательно/кратко» — описание, а не просьба
+        return out
     for rx, lvl in _SMIN:
         for mt in rx.finditer(text):
             neg = _negated(text, mt.start()) and not re.match(r"не |без ", mt.group(0), FLAGS_RE)
