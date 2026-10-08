@@ -65,11 +65,11 @@ set +e; "$PY" "$S/url_guard.py" action --text "×" --name Delete --context "todo
 node -e "const s=require('fs').readFileSync(process.argv[1],'utf8').replace('__ALLOWED_RE__','^https://example\\.com/?(#.*)?$'); const f=new Function('return ('+s.replace(/^\s*\/\/.*$/mg,'')+')')(); if (typeof f!=='function') process.exit(1)" "$S/nav_lock.js" && ok "nav_lock.js: синтаксис" || bad "nav_lock.js: синтаксис"
 
 # 1.1.0: syntax of new scripts (no browser, no network)
-for f in claims intake journal build_report gitignore_helper export_results shared/qa_gitignore shared/qa_export; do
+for f in claims intake journal build_report gitignore_helper export_results skill_dir ingest_findings recheck direct_publish shared/qa_gitignore shared/qa_export shared/qa_ingest shared/qa_recheck shared/qa_direct; do
   "$PY" -c "import ast,sys; ast.parse(open(sys.argv[1],encoding='utf-8').read(), sys.argv[1])" "$S/$f.py" 2>"$TMP/pyc.err" \
     && ok "syntax $f.py" || { cat "$TMP/pyc.err"; bad "syntax $f.py"; }
 done
-for f in guard invariants occlusion reachability device_context shot frames annotate targets; do
+for f in guard invariants occlusion reachability device_context shot frames annotate targets repro; do
   node --check "$S/node/$f.js" && ok "node --check $f.js" || bad "node --check $f.js"
 done
 for f in publish_web comment_web web_upload_lib; do

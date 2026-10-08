@@ -9,8 +9,11 @@
       NOT-CHECKED (logout needed, other account type, side effects).
       Owners: --owners, else comment author_association OWNER/MEMBER/COLLABORATOR, else the repo owner login.
   claims.py plan CLAIMS.json|REGISTRY.json [--repo R] [--site URL] [--since-days N] [--include-unquoted]
-                 [--out plan.md] [--json rechecks.json]
+                 [--account-states guest,free,pro] [--out plan.md] [--json rechecks.json]
       Checklist (Markdown) and a rechecks skeleton (JSON) for report.md: one item per claimed issue with a quote.
+      Account preconditions of every item (guest / without Pro / with Pro / other role / needs a save file) and a
+      summary table at the top: ask the user BEFORE the run which states are available; --account-states marks
+      items whose state is not available.
   claims.py set rechecks.json --number N [--repo R] --status FIXED-OK|FIXED-INSUFFICIENT|REGRESSION|NOT-CHECKED
                  [--by "how it was checked"] [--reason logout-required|other-account-type|forbidden|steps-unclear|
                  environment|other] [--reason-text "…"] [--finding F-012]
@@ -60,7 +63,41 @@ HINTS = [
                                r"рейтинг|публичн|опубликова|рассылк|upload|leaderboard)", re.I)),
     ("device", re.compile(r"(телефон|мобильн|iphone|android|ipad|планшет|альбомн|landscape|safari|webkit)", re.I)),
 ]
-NOT_CHECKED_REASONS = ["logout-required", "other-account-type", "forbidden", "steps-unclear", "environment", "other"]
+# Account / data preconditions of a re-check (G-3): asked BEFORE the run so that a check needing «without Pro» is not
+# lost when Pro has already been granted. Order matters: «без Pro» is removed before looking for «Pro».
+FREE_RX = re.compile(r"(без (pro|про|подписк\w*|премиум\w*)|бесплатн\w*|free (plan|tier|account|version)|non-pro|не pro|"
+                     r"без платн\w*)", re.I)
+PRECONDITIONS = [
+    ("guest", "гость (без входа)", re.compile(r"(без входа|не вошед|гост|выйти из аккаунта|разлогин|logged[- ]out|"
+                                               r"signed[- ]out|без аккаунта|незарегистрирован|anonymous|guest)", re.I)),
+    ("free", "без Pro (бесплатный аккаунт)", FREE_RX),
+    ("pro", "с Pro / подпиской", re.compile(r"(\bpro\b|\bпро\b|премиум|premium|подписк|subscription|платн\w* (тариф|аккаунт|версия))", re.I)),
+    ("role", "другая роль (админ, модератор)", re.compile(r"(администратор|модератор|\badmin\b|\bmoderator\b|другая роль)", re.I)),
+    ("save", "нужны данные: сохранение, файл, история", re.compile(r"(сохранени\w* (игры|персонаж)|сейв|save ?file|загрузи\w* "
+                                                                      r"(сохранение|сейв|файл)|\.sl2\b|импорт\w* (сохранени|файл))", re.I)),
+]
+ACCOUNT_STATE_KEYS = {"guest", "free", "pro", "role"}
+
+
+def preconditions_of(text):
+    text = text or ""
+    found = []
+    for key, _label, rx in PRECONDITIONS:
+        probe = FREE_RX.sub(" ", text) if key == "pro" else text
+        if rx.search(probe):
+            found.append(key)
+    return found
+
+
+def precondition_text(c):
+    parts = [c.get("title"), c.get("quote"), c.get("area"), c.get("expected"), c.get("actual")]
+    parts += c.get("steps") or []
+    for cl in c.get("claims") or []:
+        parts += [cl.get("quote"), cl.get("remaining")] + (cl.get("items") or [])
+    return "\n".join(p for p in parts if p)
+
+
+NOT_CHECKED_REASONS =["logout-required", "other-account-type", "forbidden", "steps-unclear", "environment", "other"]
 STATUSES = ["FIXED-OK", "FIXED-INSUFFICIENT", "REGRESSION", "NOT-CHECKED"]
 OWNER_ASSOC = {"OWNER", "MEMBER", "COLLABORATOR"}
 
@@ -198,7 +235,9 @@ def extract_issue(iss, owners):
     if sections.get("url"):
         urls = list(dict.fromkeys(urls_in(sections["url"])[0] + urls))
     hints = [name for name, rx in HINTS if rx.search(body + "\n" + owner_text)]
+    pre = preconditions_of(iss.get("title", "") + "\n" + body + "\n" + owner_text)
     return {
+        "preconditions": pre,
         "repo": repo, "number": iss.get("number"), "title": iss.get("title"), "url": iss.get("url"),
         "state": iss.get("state"), "state_reason": iss.get("state_reason"), "closed_at": iss.get("closed_at"),
         "fix_claimed": bool(iss.get("fix_claimed")),
@@ -267,9 +306,32 @@ def cmd_plan(a):
             skipped.append((c, "нет комментария владельца с заявлением"))
         else:
             plan.append(c)
+    labels = {k: lab for k, lab, _ in PRECONDITIONS}
+    have = {s.strip() for s in (a.account_states or "").split(",") if s.strip()}
+    for c in plan:
+        if "preconditions" not in c:
+            c["preconditions"] = preconditions_of(precondition_text(c))
     lines = [f"# План перепроверки заявленных исправлений", "",
              f"Пунктов: {len(plan)} (пропущено: {len(skipped)}). Статус каждого: FIXED-OK / FIXED-INSUFFICIENT / "
-             "REGRESSION / NOT-CHECKED (причина). Результат записывать: `claims.py set <rechecks.json> --number N …`.", ""]
+             "REGRESSION / NOT-CHECKED (причина). Результат записывать: `claims.py set <rechecks.json> --number N …`.", "",
+             "## Предусловия аккаунта", "",
+             "Спросить пользователя **до прогона**, какие состояния доступны и можно ли их переключать (выдать/снять Pro); "
+             "пункты с разными состояниями планировать двумя проходами (например, сначала без Pro, затем с Pro — при выдаче Pro "
+             "окна рекламы и новостей могут пропасть). Пункт без нужного состояния — `NOT-CHECKED: other-account-type` "
+             "(или `logout-required`), а не догадка.", "",
+             "| Предусловие | Пунктов | Issues |", "|---|---|---|"]
+    for key, lab, _ in PRECONDITIONS:
+        hit = [c for c in plan if key in c["preconditions"]]
+        if hit:
+            lines.append(f"| {lab} | {len(hit)} | " + ", ".join(f"#{c['number']}" for c in hit[:20]) + " |")
+    if not any(c["preconditions"] for c in plan):
+        lines.append("| нет особых (обычный вход) | " + str(len(plan)) + " | — |")
+    if have:
+        missing = sorted({k for c in plan for k in c["preconditions"] if k in ACCOUNT_STATE_KEYS and k not in have})
+        lines += ["", "Доступные состояния: " + ", ".join(sorted(have)) + ". " +
+                  (("Не хватает: " + ", ".join(labels[k] for k in missing) + " — спросить пользователя заранее.") if missing
+                   else "все нужные состояния доступны.")]
+    lines.append("")
     for n, c in enumerate(plan, 1):
         ver = f" (v{c['version']})" if c.get("version") else ""
         kind = {"partial": "частично", "fixed": "исправлено", "reply": "ответ без явного заявления"}.get(c.get("claim_kind"), "—")
@@ -282,6 +344,12 @@ def cmd_plan(a):
         rem = next((x["remaining"] for x in reversed(c.get("claims") or []) if x.get("remaining")), None)
         if rem and c.get("claim_kind") == "partial":
             lines.append(f"  - Владелец пишет, что осталось: {rem}")
+        if c["preconditions"]:
+            lines.append("- Предусловия: " + ", ".join(labels[k] for k in c["preconditions"]))
+            lack = [k for k in c["preconditions"] if have and k in ACCOUNT_STATE_KEYS and k not in have]
+            if lack:
+                lines.append("  - нет нужного состояния аккаунта (" + ", ".join(labels[k] for k in lack) +
+                             ") — спросить пользователя или NOT-CHECKED: other-account-type")
         if c.get("area"):
             lines.append(f"- Раздел: {c['area']}")
         if c.get("urls") or c.get("paths"):
@@ -312,7 +380,8 @@ def cmd_plan(a):
         print(text)
     if a.json:
         rechecks = [{"repo": c["repo"], "number": c["number"], "title": c["title"], "quote": c.get("quote") or "",
-                     "version": c.get("version"), "urls": c.get("urls", [])[:5], "status": None, "reason": None,
+                     "version": c.get("version"), "urls": c.get("urls", [])[:5], "preconditions": c["preconditions"],
+                     "status": None, "reason": None,
                      "reason_text": "", "checked_by": "", "finding_id": None} for c in plan]
         Path(a.json).parent.mkdir(parents=True, exist_ok=True)
         Path(a.json).write_text(json.dumps({"rechecks": rechecks}, ensure_ascii=False, indent=1), encoding="utf-8")
@@ -358,6 +427,7 @@ def main():
     p.add_argument("--site", help="URL проверяемого сайта: issues с URL других хостов пропускаются")
     p.add_argument("--since-days", type=int)
     p.add_argument("--include-unquoted", action="store_true")
+    p.add_argument("--account-states", help="доступные состояния аккаунта: guest,free,pro,role (из run-config auth.account_states)")
     p.add_argument("--out")
     p.add_argument("--json")
     s = sub.add_parser("set")

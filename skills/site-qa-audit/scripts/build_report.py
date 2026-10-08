@@ -26,6 +26,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE / "shared"))
 import miniyaml  # noqa: E402
+import qa_recheck  # noqa: E402 — publication gate: independent re-check, legal second check (S-9)
 
 SEVERITIES = ["critical", "high", "medium", "low", "info"]
 STATUSES = ["NEW", "DUPLICATE-OPEN", "FIXED-INSUFFICIENT", "REGRESSION", "ALREADY-COPIED", "UNSURE-MATCH",
@@ -192,12 +193,23 @@ def publish_table(run):
            for r in run.repos()]
     if pol:
         out += ["Политика по репозиториям:", ""] + [f"- {p}" for p in pol] + [""]
-    out += ["| № | ID | Статус | Severity | Заголовок | Куда | Действие |", "|---|---|---|---|---|---|---|"]
+    out += ["| № | ID | Статус | Severity | Заголовок | Куда | Действие | Перепроверка |", "|---|---|---|---|---|---|---|---|"]
+    blocked = 0
     for n, (f, repo, label, action) in enumerate(rows, 1):
+        problems = qa_recheck.gate_problems(f)
+        publishes = not re.match(r"^(пропуск|только отчёт|вопрос|нет роли|не публиковать)", action)
+        if problems and publishes:
+            action += " — НЕ публиковать до перепроверки"
+            blocked += 1
+        rc = f.get("recheck") or {}
+        recheck = "да" + (f" ({rc.get('by')})" if rc.get("by") else "") if not problems else "нет: " + "; ".join(problems)
         out.append(f"| {n} | {f['id']} | {f.get('status') or 'NEW'} | {cell(label, 30)} | {cell(f.get('title'), 90)} | "
-                   f"{repo} | {cell(action, 90)} |")
+                   f"{repo} | {cell(action, 110)} | {cell(recheck, 120)} |")
     if not rows:
-        out.append("| — | — | — | — | нет действий (нет репозиториев с ролями записи) | — | — |")
+        out.append("| — | — | — | — | нет действий (нет репозиториев с ролями записи) | — | — | — |")
+    if blocked:
+        out += ["", f"Без независимой перепроверки (или второй проверки правовых норм): {blocked}. Сначала "
+                "`recheck.py run <RUN_DIR>` / `recheck.py set …` / `recheck.py legal …`, затем `recheck.py gate <RUN_DIR>`."]
     return out
 
 

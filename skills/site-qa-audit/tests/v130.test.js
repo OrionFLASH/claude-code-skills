@@ -66,6 +66,35 @@ function exportRules(cfgText, name) {
     assert(d.json.runs[0].pairs.length === 1 && d.json.minArea === 16, 'по умолчанию пара должна остаться');
   });
 
+  // ---------------- repro.js + recheck.py (S-9) ----------------
+  await t('repro.js: --js true -> код 0; --selector + --assert по рамке; не воспроизвелось -> код 1; запрещённый URL -> 2', async () => {
+    const yes = run('repro.js', ['--url', B + '/targets.html', '--rules', rules, '--js', "document.querySelectorAll('button').length > 3"]);
+    assert(yes.code === 0 && yes.json.reproduced === true, yes.out + yes.err);
+    const box = run('repro.js', ['--url', B + '/targets.html', '--rules', rules, '--selector', '#b1', '--assert', 'b.w < 24']);
+    assert(box.code === 0 && box.json.box.w === 20, box.out + box.err);
+    const phone = run('repro.js', ['--url', B + '/targets.html', '--rules', rules, '--device', 'pixel7', '--selector', '#b1', '--assert', 'b.w < 24']);
+    assert(phone.code === 1 && phone.json.reproduced === false && phone.json.media.pointerCoarse, phone.out + phone.err);
+    const denied = run('repro.js', ['--url', 'http://sibling.example/', '--rules', rules, '--js', 'true']);
+    assert(denied.code === 2, 'запрещённый переход: ' + denied.code);
+  });
+
+  await t('recheck.py run: короткая форма repro {url, selector, assert} -> repro.js дважды, confirmed', async () => {
+    const run2 = path.join(TMP, 'run-recheck');
+    fs.mkdirSync(run2, { recursive: true });
+    fs.copyFileSync(rules, path.join(run2, 'rules.json'));
+    fs.writeFileSync(path.join(run2, 'findings.json'), JSON.stringify({ run: { id: 'r', site: B, depth: 'smoke', mode: 'dry-run' }, findings: [
+      { id: 'F-001', direction: 'accessibility', check_id: 'a11y.target-size', type: 'a11y', severity: 'low', title: 'Кнопка 22×22', url: B + '/targets.html',
+        actual: '22×22', sources: ['own:script:targets'], repro: { url: B + '/targets.html', selector: '#b1', assert: 'b.w < 24' } },
+      { id: 'F-002', direction: 'accessibility', check_id: 'a11y.target-size', type: 'a11y', severity: 'low', title: 'Кнопка на телефоне', url: B + '/targets.html',
+        actual: '22×22', sources: ['own:script:targets'], repro: { url: B + '/targets.html', selector: '#b1', assert: 'b.w < 24', device: 'pixel7' } }] }));
+    const r = spawnSync(PY, [path.join(SKILL, 'scripts', 'recheck.py'), 'run', run2, '--times', '2', '--pause', '0'], { encoding: 'utf8', timeout: 300000 });
+    const rep = Object.fromEntries(JSON.parse(r.stdout).map(x => [x.id, x]));
+    assert(rep['F-001'].status === 'confirmed' && rep['F-001'].reproduced_runs === 2, r.stdout);
+    assert(rep['F-002'].status === 'not-reproduced', 'на телефоне с pointer:coarse кнопка крупная: ' + r.stdout);
+    const saved = JSON.parse(fs.readFileSync(path.join(run2, 'findings.json'), 'utf8')).findings[0].recheck;
+    assert(saved.by === 'recheck.py' && saved.runs.length === 2 && saved.argv.some(x => /repro\.js$/.test(x)), JSON.stringify(saved).slice(0, 300));
+  });
+
   try { fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 }); } catch { /* ignore */ }
   console.log(`\nstream v1.3.0 browser: ${pass} PASS, ${fail} FAIL, ${skip} SKIP`);
   process.exit(fail ? 1 : 0);

@@ -3,3 +3,6 @@ miniyaml.py
 envcheck.py
 qa_gitignore.py
 qa_export.py
+qa_ingest.py
+qa_recheck.py
+qa_direct.py

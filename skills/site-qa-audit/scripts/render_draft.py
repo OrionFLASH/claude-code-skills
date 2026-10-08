@@ -6,6 +6,11 @@
                   --what-fixed "…" --what-remains "…" --why "…" [--fixed-ref "#12 закрыт 2026-09-01"] [--out FILE]
   render_draft.py all findings.json --run-dir DIR       # подробные черновики всех находок в DIR/drafts/copies/
   render_draft.py severity --config run-config.yaml --repo owner/repo (--severity high | --label P1)
+  render_draft.py group findings.json --ids F-003,F-007,F-009 [--type bug|suggestion] [--title "…"] [--out FILE]
+                  несколько мелких находок по одной теме -> один issue: таблица + подробности, маркер на каждую
+  render_draft.py groups findings.json --run-dir DIR [--severities low,info] [--by direction|check]
+                  автоматически: темы, где >= 2 мелкие находки -> DIR/drafts/groups/NN-<bug|suggestion>-<тема>.md
+  --body-only (detailed, group): в файл только тело для gh --body-file, заголовок печатается строкой TITLE: …
 
 Publication settings (CLI flags override run-config repos[] entry chosen by --repo):
   --config run-config.yaml --repo owner/repo   read disclosure / cross_links / marker / severity_map for that repo
@@ -199,7 +204,88 @@ def common_values(f, run, opts=None):
         "hypothesis": f.get("hypothesis"), "suggestion": f.get("suggestion"), "fingerprint": f.get("fingerprint", ""),
         "status_links": "".join(f" — {m.get('repo')}#{m.get('number')}" for m in f.get("matches") or []
                                 if opts.cross_links or norm_repo(m.get("repo")) == opts.repo),
+        "legal_md": legal_md(f),
     }
+
+
+def legal_md(f):
+    """Legal norms are never stated as fact: «возможно применимо», second check, «проверить юристом»."""
+    lg = f.get("legal") or {}
+    norms = lg.get("norms") or []
+    if not norms:
+        return ""
+    sc = lg.get("second_check") or {}
+    lines = ["Возможно применимые нормы (наблюдение тестировщика, **не юридическое заключение; требуется проверка юристом**):"]
+    lines += [f"- {n}" for n in norms]
+    if sc.get("by"):
+        lines.append(f"\nВторая проверка: {sc.get('by')} — {sc.get('result')}" + (f" ({sc.get('note')})" if sc.get("note") else ""))
+    return "\n".join(lines)
+
+
+GROUP_COLS = {"bug": ("Что не так", "actual", "Ожидалось", "expected"),
+              "suggestion": ("Сейчас", "actual", "Предлагаю", "suggestion")}
+DIR_LABEL = {"functional": "функциональность", "logic-state": "логика и состояние", "ux": "удобство", "visual-ui": "вёрстка и вид",
+             "responsive-cross-browser": "адаптивность", "accessibility": "доступность", "performance": "скорость",
+             "seo-content": "SEO и тексты", "content-i18n": "тексты и переводы", "security-passive": "безопасность",
+             "product": "продукт", "legal-ui": "юридически значимые элементы"}
+
+
+def cell(text, limit=200):
+    t = re.sub(r"\s+", " ", str(text or "")).strip().replace("|", "\\|")
+    return t if len(t) <= limit else t[:limit - 1] + "…"
+
+
+def render_group(items, run, title=None, kind="bug", rel_prefix="", screenshot_base=None, opts=None):
+    """Several small findings on one topic -> one issue (G-5): a table + short details, one marker per finding."""
+    opts = opts or Opts()
+    kind = "suggestion" if kind in ("suggestion", "proposal") else "bug"
+    h_actual, k_actual, h_exp, k_exp = GROUP_COLS[kind]
+    topic = DIR_LABEL.get(items[0].get("direction"), items[0].get("direction") or "разное")
+    sev_order = ["critical", "high", "medium", "low", "info"]
+    worst = min((f.get("severity") or "info" for f in items), key=lambda s: sev_order.index(s) if s in sev_order else 9)
+    head = (f"Несколько предложений по теме «{topic}» ({len(items)}). Каждое — отдельной строкой; подробности ниже."
+            if kind == "suggestion" else
+            f"Несколько мелких недочётов по теме «{topic}» ({len(items)}). Каждый — отдельной строкой; подробности ниже.")
+    lines = [head, "", f"| № | Где | {h_actual} | {h_exp} | Скриншот |", "|---|---|---|---|---|"]
+    details = []
+    for n, f in enumerate(items, 1):
+        shots = visible_shots(f.get("screenshots") or [])
+        shot = ""
+        if shots:
+            s = shots[0]
+            src = f"{screenshot_base.rstrip('/')}/{Path(s).name}?raw=true" if screenshot_base else f"{rel_prefix}{s}"
+            shot = f"![{Path(s).stem}]({src})"
+        where = f.get("url") or ""
+        if f.get("element"):
+            where += f" · `{cell(f['element'], 60)}`"
+        lines.append(f"| {n} | {cell(where, 120)} | {cell(f.get(k_actual) or f.get('title'))} | {cell(f.get(k_exp))} | {shot} |")
+        d = [f"### {n}. {f.get('title')}"]
+        if f.get("steps"):
+            d += [f"{i}. {s}" for i, s in enumerate(f["steps"], 1)]
+        if kind == "suggestion" and f.get("hypothesis"):
+            d.append(f"\nЗачем: {f['hypothesis']}")
+        lm = legal_md(f)
+        if lm:
+            d.append("\n" + lm)
+        details.append("\n".join(d))
+    body = "\n".join(lines) + "\n\n## Подробности\n\n" + "\n\n".join(details) + "\n"
+    if opts.disclosure != "none":
+        body += "\n---\n_Создано site-qa-audit. Проверка через браузер без доступа к исходному коду; причина — гипотеза._\n"
+    body += "".join(f"<!-- site-qa-audit:fp={f.get('fingerprint', '')} -->\n" for f in items if f.get("fingerprint"))
+    label = opts.severity_label({"severity": worst}) or worst.upper()
+    prefix = "Предложения" if kind == "suggestion" else "Мелкие недочёты"
+    return title or f"[{label}] {prefix}: {topic} ({len(items)})", mask(opts.finish(body))
+
+
+def auto_groups(findings, severities=("low", "info"), key="direction"):
+    groups = {}
+    for f in findings:
+        if (f.get("severity") or "info") not in severities or f.get("status") not in (None, "NEW"):
+            continue
+        kind = "suggestion" if f.get("type") in ("suggestion", "proposal") else "bug"
+        k = (f.get(key) if key == "direction" else (f.get("check_id") or "").split(".")[0]) or "other"
+        groups.setdefault((kind, k), []).append(f)
+    return [(kind, k, items) for (kind, k), items in sorted(groups.items()) if len(items) >= 2]
 
 
 def render_detailed(f, run, related=None, screenshot_base=None, rel_prefix="", opts=None):
@@ -235,19 +321,27 @@ def render_comment(f, run, kind, what_fixed, what_remains, why, fixed_ref=None, 
     return None, mask(opts.finish(drop_empty(fill(strip_comments((TPL / "issue-comment.md").read_text(encoding="utf-8")), v))))
 
 
-def write(out, title, body):
-    text = (f"TITLE: {title}\n\n" if title else "") + body
+def write(out, title, body, body_only=False):
+    """body_only: the file gets only the body (for gh --body-file), the title is printed as «TITLE: …»."""
+    text = body if body_only else (f"TITLE: {title}\n\n" if title else "") + body
     if out:
         Path(out).parent.mkdir(parents=True, exist_ok=True)
         Path(out).write_text(text, encoding="utf-8")
-        print(out)
+        print(f"TITLE: {title}" if body_only and title else out)
+        if body_only:
+            print(out)
     else:
         print(text)
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("cmd", choices=["detailed", "comment", "all", "severity"])
+    ap.add_argument("cmd", choices=["detailed", "comment", "all", "severity", "group", "groups"])
+    ap.add_argument("--ids", help="group: id находок через запятую (F-003,F-007)")
+    ap.add_argument("--title", help="group: свой заголовок issue")
+    ap.add_argument("--type", dest="group_type", choices=["bug", "suggestion"], help="group: недочёты или предложения")
+    ap.add_argument("--severities", default="low,info", help="groups: какие severity собирать (по умолчанию low,info)")
+    ap.add_argument("--by", dest="group_by", choices=["direction", "check"], default="direction")
     ap.add_argument("findings", nargs="?")
     ap.add_argument("--config", help="run-config.yaml: настройки публикации для --repo")
     ap.add_argument("--repo", help="целевой репозиторий owner/repo")
@@ -267,6 +361,7 @@ def main():
     ap.add_argument("--fixed-ref", default="")
     ap.add_argument("--copy-link")
     ap.add_argument("--out")
+    ap.add_argument("--body-only", action="store_true", help="detailed/group: в файл только тело (gh --body-file), заголовок — в stdout")
     a = ap.parse_args()
     opts = Opts.build(a)
     if a.cmd == "severity":
@@ -295,11 +390,32 @@ def main():
             write(Path(a.run_dir) / "drafts" / "copies" / f"{i:02d}-{f.get('status') or 'NEW'}-{f.get('fingerprint', f['id'])}.md",
                   title, body)
         return
+    if a.cmd == "group":
+        ids = [x.strip() for x in (a.ids or "").split(",") if x.strip()]
+        items = [x for i in ids for x in findings if x.get("id") == i]
+        if len(items) != len(ids) or len(items) < 2:
+            sys.exit(f"group: нужно не меньше двух существующих id (--ids), найдено {len(items)} из {len(ids)}")
+        kind = a.group_type or ("suggestion" if all(x.get("type") in ("suggestion", "proposal") for x in items) else "bug")
+        write(a.out, *render_group(items, run, a.title, kind, screenshot_base=a.screenshot_base, opts=opts),
+              body_only=a.body_only)
+        return
+    if a.cmd == "groups":
+        if not a.run_dir:
+            ap.error("нужен --run-dir")
+        sev = tuple(s.strip() for s in a.severities.split(",") if s.strip())
+        made = auto_groups(findings, sev, a.group_by)
+        for n, (kind, key, items) in enumerate(made, 1):
+            title, body = render_group(items, run, None, kind, rel_prefix="../../", screenshot_base=a.screenshot_base, opts=opts)
+            slug = re.sub(r"[^\w-]+", "-", key)
+            write(Path(a.run_dir) / "drafts" / "groups" / f"{n:02d}-{kind}-{slug}.md", title, body)
+        if not made:
+            print("groups: нет тем, где хотя бы две мелкие находки")
+        return
     f = next((x for x in findings if x.get("id") == a.id), None)
     if f is None:
         sys.exit(f"находка {a.id} не найдена")
     if a.cmd == "detailed":
-        write(a.out, *render_detailed(f, run, a.related, a.screenshot_base, opts=opts))
+        write(a.out, *render_detailed(f, run, a.related, a.screenshot_base, opts=opts), body_only=a.body_only)
     else:
         if not a.kind:
             ap.error("нужен --kind")
