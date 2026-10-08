@@ -25,10 +25,12 @@ python3 <SKILL_DIR>/scripts/avd_manager.py images --available --api 34       # �
 
 ## Установка образа (только после согласия)
 ```bash
-python3 <SKILL_DIR>/scripts/avd_manager.py install-image --api 34            # план: пакет, оценка размера, свободное место
-python3 <SKILL_DIR>/scripts/avd_manager.py install-image --api 34 --yes      # после «да» пользователя
+python3 <SKILL_DIR>/scripts/avd_manager.py install-image --api 34 --run-dir <RUN_DIR>         # план: пакет, оценка размера, свободное место
+python3 <SKILL_DIR>/scripts/avd_manager.py install-image --api 34 --yes --run-dir <RUN_DIR>   # после «да» пользователя
 ```
-Оценка: загрузка ≈ 1–2 ГБ, на диске ≈ 3–6 ГБ на образ; AVD — до размера раздела данных. Нужно ≥ 8 ГБ свободно. Лицензии SDK принимает пользователь: `sdkmanager --licenses` (интерактивно) или явное согласие → `--accept-licenses`. Имя пакета берётся из `sdkmanager --list` (`system-images;android-34;google_apis;arm64-v8a`; для новых версий бывает `android-36.1`, `android-37.0`).
+Оценка: загрузка ≈ 1–2 ГБ, на диске ≈ 3–6 ГБ на образ; AVD — до размера раздела данных. Нужно ≥ 8 ГБ свободно. Лицензии SDK принимает пользователь: `sdkmanager --licenses` (интерактивно) или явное согласие → `--accept-licenses`. Имя пакета берётся из `sdkmanager --list` (`system-images;android-34;google_apis;arm64-v8a`; для новых версий бывает `android-36.1`, `android-37.0`). С `--run-dir` установленный (или уже имевшийся) образ записывается в `stands.json → images_installed` и строкой в `journal.md`, как `create` и `start` пишут свои AVD и эмуляторы.
+
+Ранняя сборка Java (`25-ea` и т.п.): обёртки `sdkmanager`/`avdmanager` печатают «… integer expression expected» — безвредно. `avd_manager.py` убирает эту строку из вывода, если команда завершилась с кодом 0, и пишет пометку «Java -ea … безвредна»; при ошибке вывод показывается целиком. `check_env` отмечает то же в строке cmdline-tools. Рекомендуется JDK 17 или 21 (Temurin LTS).
 
 ## Создание AVD
 ```bash

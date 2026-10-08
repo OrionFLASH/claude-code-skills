@@ -2,7 +2,7 @@
 """Environment check for android-qa-audit (references/setup.md). Read-only: installs and changes nothing.
 
   check_env.py [--fast] [--no-devices] [--json env.json]
-    --fast        skip slow checks: `emulator -accel-check`, `java -version`, Appium drivers
+    --fast        skip slow checks: `emulator -accel-check`, `java -version`, `sdkmanager --version`, Appium drivers
     --no-devices  do not call `adb devices` (it starts the adb server if it is not running)
     --json FILE   save the result for the run (tools, images, AVDs, devices, host resources, enhancers)
 
@@ -122,6 +122,16 @@ def parse_accel_check(code, text):
     return code == 0, lines[-1]
 
 
+def cmdline_tools_probe(sdkmanager):
+    """`sdkmanager --version` — do cmdline-tools start with this Java? (ok, version, java_ea_noise, error)."""
+    code, out, err, noise = su.run_sdk_tool([sdkmanager, "--version"], timeout=90)
+    ver = version_of(out, r"^\s*(\d+(?:\.\d+)+)\s*$") if code == 0 else ""
+    if code == 0 and not ver:
+        ver = version_of(out)
+    return {"ok": code == 0, "version": ver, "java_ea_noise": noise,
+            "error": "" if code == 0 else (err or out).strip()[-200:]}
+
+
 def device_rows(adb, rows):
     code, devs, err = adb.devices()
     if code != 0:
@@ -202,7 +212,8 @@ def main():
         st = ec.OK if java["major"] >= 17 else ec.WARN
         note = "JAVA_HOME " + ("задан" if java["java_home"] else "не задан (берётся java из PATH)")
         if java.get("early_access"):
-            note += "; ранняя сборка (ea): cmdline-tools работают, но avdmanager печатает «integer expression expected» — это безвредно; надёжнее Temurin 17/21 LTS"
+            note += ("; ранняя сборка (ea): cmdline-tools работают, их обёртки печатают «integer expression expected» — "
+                     "безвредно, скил скрывает это при успешной команде; рекомендуется JDK 17 или 21 (Temurin LTS)")
         rows.append(ec.Row("Java (JDK 17+)", java["version"], st, note,
                            "" if st == ec.OK else "нужен JDK 17+: Temurin 17/21"))
 
@@ -245,11 +256,23 @@ def main():
 
     cl = tools["sdkmanager"]["path"] and tools["avdmanager"]["path"]
     clver = ""
+    probe = None
     if cl:
         props = su.source_props(Path(tools["sdkmanager"]["path"]).parent.parent / "source.properties")
         clver = props.get("Pkg.Revision", "")
-        rows.append(ec.Row("cmdline-tools (sdkmanager, avdmanager)", clver, ec.OK if java.get("path") else ec.WARN,
-                           str(Path(tools["sdkmanager"]["path"]).parent) + ("" if java.get("path") else " — без Java не запустятся")))
+        note = str(Path(tools["sdkmanager"]["path"]).parent) + ("" if java.get("path") else " — без Java не запустятся")
+        status, fix = (ec.OK if java.get("path") else ec.WARN), ""
+        if java.get("path") and not a.fast:
+            probe = cmdline_tools_probe(tools["sdkmanager"]["path"])
+            if not probe["ok"]:
+                status, fix = ec.WARN, "JDK 17 или 21 (Temurin) и JAVA_HOME — INSTALL.md → «Java»"
+                note += f"; sdkmanager --version не запустился: {probe['error']}"
+            else:
+                note += "; sdkmanager запускается"
+                if probe["java_ea_noise"]:
+                    note += ("; шум «integer expression expected» от ранней сборки Java (-ea) — безвредно, команда "
+                             "завершилась успешно (скил его скрывает); спокойнее — JDK 17/21")
+        rows.append(ec.Row("cmdline-tools (sdkmanager, avdmanager)", clver, status, note, fix))
     else:
         rows.append(ec.Row("cmdline-tools (sdkmanager, avdmanager)", "", ec.WARN,
                            "нет — создание AVD и установка образов недоступны",
@@ -383,6 +406,7 @@ def main():
         data = {"rows": rows, "sdk": str(sdk) if sdk else None, "sdk_reason": why,
                 "tools": {k: v["path"] for k, v in tools.items()}, "tools_in_path": {k: v["in_path"] for k, v in tools.items()},
                 "versions": {"emulator": emu_ver, "cmdline_tools": clver, "build_tools": bt[0].name if bt else None},
+                "cmdline_tools_probe": probe,
                 "java": java, "host": {"os": ec.os_name(), "arch": su.host_arch(), "abi": host_abi, "cpus": cpus,
                                        **mem, "disk_free_gb_avd": avd_free, "disk_free_gb_output": out_free},
                 "accel": accel, "images": images, "avd_home": str(su.avd_home()), "avds": avds, "devices": devs,

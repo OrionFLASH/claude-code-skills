@@ -197,7 +197,8 @@ def id_words(res_id):
 def _user_rule_hits(rule, text_n, desc_n, res_id, cls, pkg, screen, context_n):
     texts = [norm(t) for t in (rule.get("texts") or [])]
     probe = " ".join(x for x in (text_n, desc_n) if x)
-    if texts and not any(t == text_n or t == desc_n or (len(t) > 3 and t in probe) for t in texts):
+    exact = rule.get("exact") is True  # only the whole text: «Allow» must not hit «Don't allow»
+    if texts and not any(t == text_n or t == desc_n or (not exact and len(t) > 3 and t in probe) for t in texts):
         return False
     descs = [norm(t) for t in (rule.get("descs") or [])]
     if descs and not any(d == desc_n or (len(d) > 3 and d in desc_n) for d in descs):
@@ -212,8 +213,9 @@ def _user_rule_hits(rule, text_n, desc_n, res_id, cls, pkg, screen, context_n):
         return False
     if rule.get("screen_pattern") and not (screen and re.search(rule["screen_pattern"], screen, re.I)):
         return False
-    if rule.get("context") and norm(rule["context"]) not in context_n:
-        return False
+    ctx = rule.get("context")
+    if ctx and not any(norm(x) in context_n for x in (ctx if isinstance(ctx, list) else [ctx]) if x):
+        return False  # context: a substring or a list of substrings (any of them)
     return bool(texts or descs or ids or rule.get("screen_pattern"))
 
 
@@ -411,6 +413,10 @@ def _classify_shell(toks, app):
         return "read", None, "dumpsys (чтение)"
     if c == "logcat" and ("-c" in rest or "--clear" in rest):
         return "device", None, "очистка журнала logcat"
+    if c == "ime":
+        if first in ("list", "help", ""):
+            return "read", None, "ime list"
+        return "device", None, f"ime {first}: смена клавиатуры устройства"
     if READ_SHELL.match(c):
         return "read", None, c
     return "device", None, f"команда {c}"
@@ -507,7 +513,10 @@ def selftest():
                                   {"serial": "R3", "scope": "read-only"}]},
            "rules": {"forbidden_screens": ["(?i)settings\\.Billing"],
                      "forbidden_actions": [{"id": "U1", "source": "не нажимать «Опубликовать»", "texts": ["Опубликовать"]},
-                                           {"id": "U2", "source": "не трогать кнопку экспорта", "ids": ["btn_export"]}],
+                                           {"id": "U2", "source": "не трогать кнопку экспорта", "ids": ["btn_export"]},
+                                           {"id": "U3", "source": "не включать камеру (диалог разрешения)", "exact": True,
+                                            "texts": ["Разрешить", "Allow", "While using the app"],
+                                            "context": ["снимать фото", "take pictures"]}],
                      "require_confirmation_actions": [{"id": "C1", "texts": ["Сбросить фильтры"]}],
                      "preapproved_actions": [{"id": "P1", "source": "удалять свои тестовые заметки можно",
                                               "texts": ["Удалить"], "context": "тестовая заметка"}]}}
@@ -548,6 +557,12 @@ def selftest():
         (D("shell pm reset-permissions"), DENY), (D("shell cmd connectivity airplane-mode enable"), ALLOW),
         (D("shell content query --uri content://sms/inbox"), DENY), (D("reboot bootloader"), DENY),
         (D("-s emulator-5554 shell \"getprop sys.boot_completed; dumpsys battery\""), ALLOW),
+        (A(text="Allow", context="Allow Example to take pictures and record video?"), DENY),
+        (A(text="Don’t allow", context="Allow Example to take pictures and record video?"), ALLOW),
+        (A(text="Разрешить", context="Разрешить приложению «Example» снимать фото и видео?"), DENY),
+        (A(text="Allow", context="Allow Example to send you notifications?"), ALLOW),
+        (D("shell ime list -a -s", "real", "R3"), ALLOW), (D("shell ime set x/.Y", "real", "R1"), CONFIRM),
+        (D("shell ime set com.android.adbkeyboard/.AdbIME"), ALLOW),
     ]
     failed = [(i, got, exp) for i, (got, exp) in enumerate(cases) if got != exp]
     for i, got, exp in failed:

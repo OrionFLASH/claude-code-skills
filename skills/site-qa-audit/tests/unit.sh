@@ -63,7 +63,7 @@ set +e; "$PY" "$S/url_guard.py" action --text "×" --name Delete --context "todo
 node -e "const s=require('fs').readFileSync(process.argv[1],'utf8').replace('__ALLOWED_RE__','^https://example\\.com/?(#.*)?$'); const f=new Function('return ('+s.replace(/^\s*\/\/.*$/mg,'')+')')(); if (typeof f!=='function') process.exit(1)" "$S/nav_lock.js" && ok "nav_lock.js: синтаксис" || bad "nav_lock.js: синтаксис"
 
 # 1.1.0: syntax of new scripts (no browser, no network)
-for f in claims intake journal build_report gitignore_helper; do
+for f in claims intake journal build_report gitignore_helper export_results shared/qa_gitignore shared/qa_export; do
   "$PY" -c "import ast,sys; ast.parse(open(sys.argv[1],encoding='utf-8').read(), sys.argv[1])" "$S/$f.py" 2>"$TMP/pyc.err" \
     && ok "syntax $f.py" || { cat "$TMP/pyc.err"; bad "syntax $f.py"; }
 done
@@ -95,6 +95,10 @@ REAL_REGISTRY="${REAL_REGISTRY:-}" REAL_FINDINGS="${REAL_FINDINGS:-}" bash "$HER
 # build_report summary, templates/site-context.md
 bash "$HERE/test_v12.sh" > "$TMP/v12.log" 2>&1 \
   && ok "v1.2 ($(tail -1 "$TMP/v12.log"))" || { cat "$TMP/v12.log"; bad "v1.2"; }
+
+# 1.2.1: qa-runs/ in .gitignore by default (ensure/untrack), git.allow_commit_results in intake, export_results.py
+bash "$HERE/test_v121.sh" > "$TMP/v121.log" 2>&1 \
+  && ok "v1.2.1 ($(tail -1 "$TMP/v121.log"))" || { cat "$TMP/v121.log"; bad "v1.2.1"; }
 
 # Browser suites B and C: need node + scripts/node/node_modules/playwright + Chromium; otherwise SKIP.
 # Set QA_SKIP_BROWSER=1 to skip them explicitly.

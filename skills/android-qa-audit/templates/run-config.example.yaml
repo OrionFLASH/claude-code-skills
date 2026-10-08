@@ -46,7 +46,8 @@ android:
   image_tag: null             # google_apis (по умолчанию) | google_apis_playstore | default
 
 devices:                      # железо и вариации (depth-matrix.md); null — по глубине
-  hardware: null              # [phone, low-end, low-1gb, small, large, tablet, fold]
+  hardware: null              # [phone, low-end, low-1gb, small, large, tablet, fold]; null — по глубине (+ custom);
+                              # [] при непустом custom — только свои профили; [] и custom: [] — по глубине
   custom: []                  # свои профили: id, profile, ram_mb, cores, data, label
   # Пример:
   #  - id: ram-1536
@@ -111,13 +112,20 @@ repos: []
 #      low: P3
 #      info: P3
 
-report_destinations:          # куда записать итоги, кроме <RUN_DIR> (intake.md, вопрос 20)
+report_destinations:          # куда записать итоги, кроме <RUN_DIR> (intake.md, вопрос 14)
   - type: local               # local | folder | github | artifact | custom
 # Пример:
 #  - type: folder
-#    path: /abs/path/to/reports
+#    path: /abs/path/to/reports   # только итоговые файлы: summary.md, report.md, findings.json, скриншоты находок
+#                                 # → <path>/<YYYY-MM-DD>-<package>/ (export_results.py); без apk/, logs/, raw/
 #  - type: github
 #    repo: owner/repo
+
+git:                          # результаты и git (run-files.md → «qa-runs/, APK и git»), проверка до создания <RUN_DIR>
+  allow_commit_results: false # true — только если пользователь явно разрешил класть результаты в репозиторий;
+                              # false — qa-runs/ сразу в .gitignore (gitignore_helper.py ensure)
+  allow_commit_apk: false     # true — отдельное явное «да» на APK; false — *.apk, *.aab, *.apks, *.xapk, *.keystore,
+                              # *.jks игнорируются всегда
 
 rules:
   # Базовые запреты (references/safety-rules.md §1) действуют всегда и здесь не перечисляются.
@@ -133,9 +141,19 @@ rules:
   #    descs: []
   #    classes: []
   #    screen_pattern: null     # регэксп activity
-  #    context: null            # подстрока текста экрана/диалога
+  #    context: null            # подстрока текста экрана/диалога или список подстрок (любая)
+  #  - id: U2                   # тема без текста кнопки (intake.py): типовые тексты RU+EN — проверить на разведке
+  #    source: "не трогать камеру"
+  #    topic: camera
+  #    texts: ["Камера", "Открыть камеру", "Camera", "Take photo"]
+  #    review: "типовые тексты — проверить на разведке и дополнить текстами кнопок приложения"
+  #  - id: U3                   # системный диалог разрешения: нажимать только отказ
+  #    texts: ["Разрешить", "Allow", "While using the app", "Only this time"]
+  #    exact: true              # только точный текст: «Allow» не задевает «Don’t allow»
+  #    context: ["снимать фото", "take pictures"]
   require_confirmation_actions: []
-  preapproved_actions: []     # снимают только confirm, никогда deny
+  preapproved_actions: []     # снимают только confirm, никогда deny; сюда же — «разрешить на эмуляторе» для действия
+                              # с побочным эффектом, запрещённым пользователем (intake.md → «Запрет против сценария»)
   adb_require_confirmation: []  # регэкспы adb-команд, которые всегда спрашивать
 
 plugins:

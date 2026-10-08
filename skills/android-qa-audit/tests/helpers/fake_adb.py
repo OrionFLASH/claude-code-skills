@@ -5,7 +5,11 @@ Environment:
   FAKE_ADB_FIXTURES  folder with fixtures (adb-devices.txt, getprop-*.txt, window_dump.xml, dumpsys-*.txt, …)
   FAKE_ADB_LOG       every call is appended as a JSON line {"serial": …, "args": […]}
   FAKE_ADB_STATE     folder with running fake emulators: emulator-<port>.json {"name", "pid"} (written by fake_tools.py)
+                     and the screen rotation of a device: rotation-<serial>.txt (set by `cmd window user-rotation lock N`)
+  FAKE_ADB_LOGCAT    logcat fixture (default logcat-crash.txt)
+  FAKE_ADB_IME       extra line for `ime list -a -s` (e.g. com.android.adbkeyboard/.AdbIME)
 Serials: emulator-* — emulator properties (getprop-emulator.txt); anything else — real phone (getprop-real.txt).
+Screen: natural 1080x2400; rotation 1/3 — 2400x1080 and window_dump_landscape.xml.
 """
 import json
 import os
@@ -47,6 +51,20 @@ def devices():
     return text
 
 
+def rotation(serial):
+    p = STATE / f"rotation-{serial}.txt"
+    try:
+        return int(p.read_text(encoding="utf-8").strip() or 0)
+    except (OSError, ValueError):
+        return 0
+
+
+def set_rotation(serial, n):
+    if STATE != Path("/nonexistent"):
+        STATE.mkdir(parents=True, exist_ok=True)
+        (STATE / f"rotation-{serial}.txt").write_text(str(n), encoding="utf-8")
+
+
 def shell(serial, line):
     try:
         t = shlex.split(line)
@@ -83,8 +101,14 @@ def shell(serial, line):
             out(fx(f"dumpsys-{what}.txt"))
         if what == "account":
             out(fx("dumpsys-account.txt", "Accounts: 0\n"))
-        if what == "input":
-            out("    SurfaceOrientation: 0\n")
+        if what == "input":  # Android 13+: no SurfaceOrientation line (the size must come from elsewhere)
+            out("INPUT MANAGER (dumpsys input)\n\nInput Reader State (Nums of device: 1):\n")
+        if what == "window" and rest[1:2] == ["displays"]:
+            r = rotation(serial)
+            cur = "2400x1080" if r in (1, 3) else "1080x2400"
+            out(f"WINDOW MANAGER DISPLAY CONTENTS (dumpsys window displays)\n  Display: mDisplayId=0 rootTasks=2\n"
+                f"    init=1080x2400 420dpi base=1080x2400 420dpi cur={cur} app={cur} rng=1080x1017-2400x2337\n"
+                f"  DisplayRotation\n    mRotation={r} mDeferredRotationPauseCount=0\n")
         if what == "battery":
             out("Current Battery Service state:\n  level: 100\n")
         out()
@@ -94,6 +118,9 @@ def shell(serial, line):
             out(fx("am-start-cold.txt"))
         out()
     if c == "cmd":
+        if rest[:3] == ["window", "user-rotation", "lock"] and len(rest) > 3:
+            set_rotation(serial, int(rest[3]))
+            out()
         if rest[:2] == ["package", "resolve-activity"]:
             out("priority=0 preferredOrder=0 match=0x108000 specificIndex=-1 isDefault=true\ncom.example.app/.MainActivity\n")
         if rest[:2] == ["uimode", "night"]:
@@ -111,10 +138,19 @@ def shell(serial, line):
         out(fx("monkey-crash.txt"))
     if c == "pidof":
         out("1234\n")
+    if c == "ps":
+        out("PID NAME\n1\tinit\n600 system_server\n1234 com.example.app\n5678 com.other.app\n")
+    if c == "settings" and rest[:3] == ["put", "system", "user_rotation"] and len(rest) > 3:
+        set_rotation(serial, int(rest[3]))
+        out()
+    if c == "settings" and rest[:3] == ["get", "secure", "default_input_method"]:
+        out("com.android.inputmethod.latin/.LatinIME\n")
     if c == "settings" and rest[:1] == ["get"]:
         out("1.0\n")
     if c == "ime":
-        out("com.android.inputmethod.latin/.LatinIME\n")
+        if rest[:1] == ["list"]:
+            out("com.android.inputmethod.latin/.LatinIME\n" + (os.environ.get("FAKE_ADB_IME", "") + "\n").lstrip("\n"))
+        out()
     if c == "stat":
         out("15000000\n")
     out()
@@ -166,10 +202,10 @@ def main():
             sys.stdout.buffer.write(PNG)
             sys.exit(0)
         if rest[:1] == ["cat"]:
-            out(fx("window_dump.xml"))
+            out(fx("window_dump_landscape.xml" if rotation(serial) in (1, 3) else "window_dump.xml"))
         out()
-    if cmd == "logcat":
-        out(fx("logcat-crash.txt"))
+    if cmd == "logcat":  # -d (dump) and streaming: the fixture, then the stream ends
+        out(fx(os.environ.get("FAKE_ADB_LOGCAT", "logcat-crash.txt")))
     if cmd == "shell":
         shell(serial, " ".join(rest))
     out()

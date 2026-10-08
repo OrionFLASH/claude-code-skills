@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+## 2026-10-08 (6)
+### Исправлено
+- `android-qa-audit` 1.0.1 — по первому боевому прогону: падения чужих процессов (UiAutomation от `dump-ui`, сервисы Google, system_server) больше не считаются падениями приложения (`other_processes`); `dump-ui` после поворота берёт фактический размер экрана (нет ложных `visual.offscreen`); `matrix.py` с `hardware: []` строит только свои профили; `install-image --run-dir`; шум Java -ea скрывается при успешной команде; logcat по умолчанию только по приложению (`--all` — весь); `text --translit` / `--adbkeyboard`; темы запретов (камера, QR, точка доступа, микрофон, геолокация, уведомления…) сразу с типовыми текстами; правило «запрет против сценария»; новый скил виден только в новой сессии — как продолжить.
+### Изменено
+- Обязательное правило для `android-qa-audit` 1.0.1 и `site-qa-audit` 1.2.1: без явного разрешения пользователя коммитить результаты `qa-runs/` сразу, до создания папки прогона, попадает в `.gitignore` (`gitignore_helper.py ensure`; у Android — ещё `*.apk`, `*.aab`, `*.apks`, `*.xapk`, `*.keystore`, `*.jks`, отдельно `git.allow_commit_apk`); вопрос про `.gitignore` в конце прогона убран; уже закоммиченные результаты не удаляются без «да». `report_destinations: folder` получает только итоговые файлы (`export_results.py`).
+- `shared/scripts/qa_gitignore.py`: `ensure`, `untrack`, `commit_permission()` (явное разрешение в запросе, RU/EN); новый `shared/scripts/qa_export.py`. `site-qa-audit` переведён на общий `qa_gitignore.py`.
+
 ## 2026-10-08 (5)
 ### Добавлено
 - Скил `android-qa-audit` 1.0.0 (статус «в разработке»): QA-тестирование Android-приложений по APK, split APK, `.apks`, AAB или установленному пакету на эмуляторах и устройствах через adb — «брат» `site-qa-audit`: подтверждение намерения при автозапуске, опрос (версии Android, ОЗУ, ядра, экран, шрифт, тема, язык, сеть, батарея), память о приложении `.app-context/<package>/`, разбор APK (`apk_info.py`), стенды и AVD `qa-*` (`avd_manager.py`, чужие AVD не меняются), управление устройством под guard (`adb_helpers.py`, `guard.py`: покупки, внешние аккаунты, звонки и SMS — запрет; реальные устройства — только с согласием), матрица «API × железо × вариации» и до 4 потоков (`matrix.py`), черновики issues (dry-run), отчёт, вопрос про `.gitignore` для `qa-runs/` и `*.apk`, уборка эмуляторов; `INSTALL.md` с настройкой Android SDK для macOS, Windows и Linux.

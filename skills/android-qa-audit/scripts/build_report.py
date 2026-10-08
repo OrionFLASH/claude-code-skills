@@ -69,11 +69,16 @@ class Run:
         self.matrix = load_json(d / "device-matrix.json", {}) or {}
         self.stands = load_json(d / "stands.json", {}) or {}
         self.metrics = jsonl(d / "raw" / "metrics.jsonl")
-        self.crashes = []
+        self.crashes, self.other_crashes = [], []
         for p in sorted((d / "raw").glob("crashes-*.json")) if (d / "raw").is_dir() else []:
-            for x in load_json(p, []) or []:
-                x["serial"] = p.stem.replace("crashes-", "")
-                self.crashes.append(x)
+            data = load_json(p, []) or []
+            # 1.0.1: {"package", "items", "other_processes"}; 1.0.0: a list of items
+            items, others = (data.get("items") or [], data.get("other_processes") or []) if isinstance(data, dict) else (data, [])
+            for lst, target in ((items, self.crashes), (others, self.other_crashes)):
+                for x in lst:
+                    if isinstance(x, dict):
+                        x["serial"] = p.stem.replace("crashes-", "")
+                        target.append(x)
         self.blocked = jsonl(d / "logs" / "blocked.jsonl")
 
     def repos(self):
@@ -173,7 +178,7 @@ def metrics_block(run):
 
 def crashes_block(run):
     rows = [f for f in run.findings if f.get("type") in ("crash", "anr") or f.get("crash")]
-    if not rows and not run.crashes:
+    if not rows and not run.crashes and not run.other_crashes:
         return []
     L = ["", "## Падения и ANR", "", "| Тип | Где | Сводка | Находка |", "|---|---|---|---|"]
     for f in rows:
@@ -184,6 +189,15 @@ def crashes_block(run):
         if x.get("summary") in seen:
             continue
         L.append(f"| {x.get('type')} | {x.get('serial')} {x.get('time', '')} | {cell(x.get('summary'), 100)} | — (не оформлено) |")
+    if run.other_crashes:
+        L += ["", f"Падения других процессов — не приложения, в итог не входят ({len(run.other_crashes)}):", "",
+              "| Тип | Процесс | Чей | Сводка |", "|---|---|---|---|"]
+        for x in run.other_crashes[:20]:
+            who = (x.get("note") or x.get("owner") or "") + ("; запущен для приложения — проверить" if x.get("related_to_app") else "")
+            proc = x.get("process") or f"pid {x.get('pid') or '?'}"
+            if x.get("thread"):
+                proc += f" / поток {x['thread']}"
+            L.append(f"| {x.get('type')} | {cell(proc, 60)} | {cell(who, 80)} | {cell(x.get('summary'), 80)} |")
     return L
 
 

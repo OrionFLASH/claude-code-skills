@@ -1,3 +1,5 @@
 # Общие файлы из shared/scripts, копируемые в scripts/shared/ (tools/validate.sh --fix)
 miniyaml.py
 envcheck.py
+qa_gitignore.py
+qa_export.py

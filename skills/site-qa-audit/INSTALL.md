@@ -91,8 +91,9 @@ https://github.com/OrionFLASH/claude-code-skills (папка skills/site-qa-audi
 
 ШАГ 5. ИТОГ
 Таблица: что установлено и где (путь, версия, способ), что изменено (файлы и резервные копии),
-результат check_env и тестов, что мне сделать вручную (перезапустить Claude Code - иначе скилл и
-Playwright MCP не появятся; gh auth login, если нужен), как откатить (вернуть .bak, удалить
+результат check_env и тестов, что мне сделать вручную (начать новую сессию Claude Code - в этой скилл и
+Playwright MCP не видны, вызов даст «Unknown skill»; продолжить здесь можно, прочитав <SKILL_DIR>/SKILL.md и
+выполняя шаги по нему; gh auth login, если нужен), как откатить (вернуть .bak, удалить
 ссылку или папку, либо claude plugin uninstall site-qa-audit@claude-code-skills).
 ````
 
@@ -231,7 +232,7 @@ Copy-Item -Recurse <распаковано>\skills\site-qa-audit $HOME\.claude\s
 cd $HOME\.claude\skills\site-qa-audit\scripts\node; npm install; npx playwright install chromium webkit firefox
 ```
 
-После установки любым способом перезапустите Claude Code: скил и Playwright MCP появляются только в новой сессии.
+После установки любым способом **начните новую сессию Claude Code**: скил и Playwright MCP появляются только в новой сессии. В той сессии, где скил поставили, `/site-qa-audit` отвечает «Unknown skill» — это не ошибка установки; продолжить там можно, попросив Claude прочитать `<SKILL_DIR>/SKILL.md` и идти по шагам (скрипты — по полным путям).
 
 ## Проверка
 
@@ -278,7 +279,7 @@ Select-String '"version"' <SKILL_DIR>\.claude-plugin\plugin.json
 
 ## Папка результатов: `SITE_QA_OUTPUT_DIR`
 
-По умолчанию результаты пишутся в `<папка запуска Claude Code>/qa-runs/<дата>-<хост>/`. Если папка запуска внутри git-репозитория, в конце прогона скил один раз спросит, добавить ли `qa-runs/` в `.gitignore` (или в `.git/info/exclude`). Чтобы все прогоны складывались в одно место, задайте переменную `SITE_QA_OUTPUT_DIR` — результаты будут в `<SITE_QA_OUTPUT_DIR>/qa-runs/…`. Путь — абсолютный, не внутри репозитория скилов.
+По умолчанию результаты пишутся в `<папка запуска Claude Code>/qa-runs/<дата>-<хост>/`. Если папка запуска внутри git-репозитория, скил **сразу, до первой записи**, добавляет `qa-runs/` в `.gitignore` этого репозитория — без вопроса, если вы в запросе явно не разрешили класть результаты в репозиторий («коммить результаты»); уже закоммиченные результаты не удаляет, а спрашивает, убрать ли их из индекса (`git rm -r --cached`). Чтобы все прогоны складывались в одно место, задайте переменную `SITE_QA_OUTPUT_DIR` — результаты будут в `<SITE_QA_OUTPUT_DIR>/qa-runs/…`. Путь — абсолютный, не внутри репозитория скилов.
 
 Надёжнее всего — блок `env` файла настроек Claude Code (сделайте резервную копию файла; если `env` уже есть — допишите строку в него):
 
@@ -308,7 +309,7 @@ Windows — `%USERPROFILE%\.claude\settings.json`; в JSON обратный сл
 
 | Симптом | Что сделать |
 |---------|-------------|
-| `/site-qa-audit` нет в списке | перезапустить Claude Code; проверить, что есть `<SKILL_DIR>/SKILL.md`; для плагина — `claude plugin list` (включён ли) |
+| `/site-qa-audit` нет в списке, «Unknown skill» сразу после установки | скил виден только в новой сессии Claude Code; в текущей — попросить Claude прочитать `<SKILL_DIR>/SKILL.md` и работать по нему; иначе проверить, что есть `<SKILL_DIR>/SKILL.md`; для плагина — `claude plugin list` (включён ли) |
 | Два одинаковых скила | стоит и плагин, и папка/ссылка в `~/.claude/skills` — оставить один способ |
 | `check_env`: Playwright MCP «не подключён» | `/plugin install playwright@claude-plugins-official`, перезапуск |
 | `Cannot find module 'playwright'` или FAIL у `playwright`, `lighthouse` | `npm install` в `<SKILL_DIR>/scripts/node`; для плагина — в папке текущей версии (после обновления путь другой) |
@@ -318,7 +319,7 @@ Windows — `%USERPROFILE%\.claude\settings.json`; в JSON обратный сл
 | Windows: «выполнение сценариев отключено» | запускать `.ps1` через `powershell -ExecutionPolicy Bypass -File …` |
 | Windows: `tests/unit.sh` не запускается | нужен bash: Git Bash или WSL |
 | zsh: `= not found` в командах | разделители из `=` в zsh не работают — `references/environment-notes.md` → «Оболочка zsh» |
-| Результаты появились в папке проекта | так работает значение по умолчанию (`<cwd>/qa-runs/`); задать `SITE_QA_OUTPUT_DIR` или ответить «Да» на вопрос про `.gitignore` |
+| Результаты появились в папке проекта | так работает значение по умолчанию (`<cwd>/qa-runs/`, сразу в `.gitignore` репозитория); задать `SITE_QA_OUTPUT_DIR` |
 | Скил запустился, хотя вы не просили аудит | ответить «Нет, это другое» — скил ничего не создаст |
 
 Подробности — [README.md](README.md) (параметры, примеры, ограничения) и [SKILL.md](SKILL.md) (порядок работы).

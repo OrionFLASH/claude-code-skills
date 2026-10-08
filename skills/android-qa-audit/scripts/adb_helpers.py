@@ -13,14 +13,14 @@ Device and app:   devices | info | appinfo [PKG] | current | install APK… [--r
                   | stop [PKG] | kill-bg [PKG] | trim-memory LEVEL [PKG] | deeplink URI [--package P]
 UI:               dump-ui [--out F.xml] [--json F.json] | find (--text T | --id ID | --desc D) | tap X Y |
                   tap (--text|--id|--desc) [--index N] | long-press … [--ms 800] | swipe X1 Y1 X2 Y2 [--ms 300] |
-                  scroll up|down|left|right | text "abc" [--env VAR] | key BACK|HOME|ENTER|APP_SWITCH|TAB|DEL|…
+                  scroll up|down|left|right | text "abc" [--env VAR] [--translit|--adbkeyboard] | key BACK|HOME|…
                   | screenshot OUT.png | screenrecord OUT.mp4 [--seconds 20] | shade open|close
 Configuration:    rotate portrait|landscape|reverse-portrait|reverse-landscape|auto | font-scale 1.3 |
                   density N|reset | dark-mode on|off|auto | locale ru-RU [--system] | timezone Europe/Moscow |
                   network wifi|offline|online|4g|3g|edge|gprs|full|switch | battery level N|unplug|reset|saver-on|saver-off |
                   doze enter|exit | standby on|off [PKG] | animations off|on
 Permissions:      permissions [PKG] | grant PERM [PKG] | revoke PERM [PKG] | notifications [PKG]
-Logs and metrics: logcat start|stop|dump|clear [--out F] [--package P] [--lines N] | crashes [PKG] |
+Logs and metrics: logcat start|stop|dump|clear [--out F] [--package P] [--all] [--lines N] | crashes [PKG] |
                   meminfo [PKG] | gfxinfo [PKG] [--reset] | start-time [PKG] [--mode cold|warm|hot] [--runs 5] |
                   batterystats [PKG] [--reset] | size [PKG] | monkey [PKG] --events 500 --seed 42 [--throttle 300]
 Exit codes: 0 ok, 2 needs confirmation / bad input, 3 denied by guard, 4 not supported on this device, 5 failed.
@@ -400,6 +400,25 @@ def pidof(c, pkg):
     return [p for p in out.split() if p.isdigit()]
 
 
+def app_pids(adb, pkg):
+    """PIDs of all processes of the package (pkg and pkg:subprocess): ps -A -o PID,NAME, old ps, then pidof."""
+    if not pkg:
+        return []
+    res = []
+    for args in (("ps", "-A", "-o", "PID,NAME"), ("ps",)):
+        code, out, _ = adb.shell(*args, timeout=20)
+        lines = [ln.split() for ln in out.splitlines() if ln.strip()]
+        if code != 0 or not lines or "PID" not in lines[0]:
+            continue
+        i = lines[0].index("PID")
+        res = [x[i] for x in lines[1:] if len(x) > i and x[i].isdigit() and belongs(x[-1], pkg)]
+        break
+    if not res:
+        _, out, _ = adb.shell("pidof", pkg, timeout=10)
+        res = [p for p in out.split() if p.isdigit()]
+    return sorted(set(res), key=int)
+
+
 def cmd_kill_bg(c):
     pkg = c.pkg(c.a.pkg)
     before = pidof(c, pkg)
@@ -534,16 +553,88 @@ def elem_ref(n):
     return " ".join(parts)
 
 
-def screen_size(c):
+def natural_size(c):
+    """`wm size` (override or physical) — the size in the natural orientation (portrait for phones)."""
     _, out, _ = c.adb.shell("wm", "size", timeout=10)
-    v = parse_wm(out)
-    m = re.match(r"(\d+)x(\d+)", v or "")
-    if not m:
+    m = re.match(r"(\d+)x(\d+)", parse_wm(out) or "")
+    return (int(m.group(1)), int(m.group(2))) if m else None
+
+
+def parse_window_displays(text):
+    """`dumpsys window displays` (default display): (current logical size incl. rotation, rotation 0–3)."""
+    block = re.split(r"\n\s*Display: mDisplayId=(?!0\b)", text or "", maxsplit=1)[0]
+    m = re.search(r"\bcur=(\d+)x(\d+)", block)
+    size = (int(m.group(1)), int(m.group(2))) if m else None
+    rot = None
+    r = re.search(r"\bmCurrentRotation=(?:ROTATION_)?(\d+)", block) or re.search(r"\bmRotation=(?:ROTATION_)?(\d+)", block)
+    if r:
+        v = int(r.group(1))
+        rot = v // 90 if v >= 90 or (v == 0 and "ROTATION_0" in r.group(0)) else v
+    return size, rot
+
+
+def parse_input_rotation(text):
+    """`dumpsys input`: SurfaceOrientation (Android ≤ 12) or orientation= of the internal viewport."""
+    r = re.search(r"SurfaceOrientation: (\d)", text or "") or \
+        re.search(r"Viewport INTERNAL:[^\n]*?\borientation=(\d)", text or "")
+    return int(r.group(1)) if r else None
+
+
+def rotated(natural, rot):
+    if not natural:
         return None
-    w, h = int(m.group(1)), int(m.group(2))
-    _, rot, _ = c.adb.shell("dumpsys", "input", timeout=15)
-    r = re.search(r"SurfaceOrientation: (\d)", rot)
-    return (h, w) if r and r.group(1) in ("1", "3") else (w, h)
+    w, h = natural
+    return (h, w) if rot in (1, 3) else (w, h)
+
+
+def display_info(c):
+    """Current screen: {size [w, h] in the current rotation, rotation 0–3, natural [w, h], source}.
+
+    Sources in order: `dumpsys window displays` (cur=WxH — logical display incl. rotation, override size,
+    status/navigation bars and the cutout area), then `wm size` rotated by `dumpsys input`."""
+    natural = natural_size(c)
+    _, out, _ = c.adb.shell("dumpsys", "window", "displays", timeout=20)
+    size, rot = parse_window_displays(out)
+    if size:
+        if rot is None and natural:
+            rot = 0 if size == natural else 1
+        return {"size": list(size), "rotation": rot, "natural": list(natural) if natural else None,
+                "source": "dumpsys window displays"}
+    _, inp, _ = c.adb.shell("dumpsys", "input", timeout=15)
+    rot = parse_input_rotation(inp)
+    size = rotated(natural, rot or 0)
+    return {"size": list(size) if size else None, "rotation": rot, "natural": list(natural) if natural else None,
+            "source": "wm size + dumpsys input" if rot is not None else "wm size (поворот неизвестен)"}
+
+
+def screen_size(c):
+    info = display_info(c)
+    return tuple(info["size"]) if info["size"] else None
+
+
+def dump_rotation(xml):
+    m = re.search(r"<hierarchy[^>]*\brotation=\"(\d)\"", (xml or "")[:500])
+    return int(m.group(1)) if m else None
+
+
+def screen_for_dump(xml, nodes, natural, current=None):
+    """Screen size for the bounds of THIS dump: the dump's own rotation (<hierarchy rotation="N">) applied to the
+    natural size; without it — the current display size. If the nodes do not fit it but fit the swapped size, swap
+    (the screen turned between the calls). Returns ((w, h) or None, source)."""
+    rot = dump_rotation(xml)
+    if natural and rot is not None:
+        size, src = rotated(natural, rot), f"wm size + rotation={rot} из дампа"
+    elif current:
+        size, src = tuple(current), "текущий экран"
+    else:
+        return None, "неизвестно"
+    roots = [n for n in nodes if n["parent"] is None] or nodes  # window roots: a truly offscreen child must not decide
+    mx = max((n["bounds"][2] for n in roots), default=0)
+    my = max((n["bounds"][3] for n in roots), default=0)
+    w, h = size
+    if (mx > w + 2 or my > h + 2) and mx <= h + 2 and my <= w + 2:
+        size, src = (h, w), src + "; оси переставлены по границам узлов"
+    return size, src
 
 
 def fresh_ui(c):
@@ -557,8 +648,13 @@ def cmd_dump_ui(c):
     stamp = ts()
     xml_out = c.out_path(c.a.out, f"ui-{stamp}.xml")
     xml_out.write_text(mask(xml), encoding="utf-8")
-    cands = a11y_candidates(nodes, density_of(c), screen_size(c))
-    data = {"focus": focus, "xml": str(xml_out), "nodes": len(nodes), "candidates": cands,
+    natural = natural_size(c)
+    current = None if (natural and dump_rotation(xml) is not None) else screen_size(c)
+    screen, src = screen_for_dump(xml, nodes, natural, current)
+    cands = a11y_candidates(nodes, density_of(c), screen)
+    data = {"focus": focus, "xml": str(xml_out), "nodes": len(nodes),
+            "screen": {"size": list(screen) if screen else None, "rotation": dump_rotation(xml), "source": src},
+            "candidates": cands,
             "elements": [{"i": k, "label": mask(n["label"])[:60], "id": n["id"].split(":id/")[-1], "class": n["class"].split(".")[-1],
                           "center": n["center"], "bounds": n["bounds"], "clickable": n["interactive"], "enabled": n["enabled"],
                           "checked": n["checked"] if n["checkable"] else None, "scrollable": n["scrollable"],
@@ -567,7 +663,8 @@ def cmd_dump_ui(c):
     if c.a.json_out:
         Path(c.a.json_out).parent.mkdir(parents=True, exist_ok=True)
         Path(c.a.json_out).write_text(json.dumps({**data, "all_nodes": nodes}, ensure_ascii=False, indent=1), encoding="utf-8")
-    print(f"экран: {focus.get('package')}/{focus.get('activity')} · элементов {len(nodes)} · файл {xml_out}")
+    print(f"экран: {focus.get('package')}/{focus.get('activity')} · элементов {len(nodes)} · "
+          f"размер {'x'.join(map(str, screen)) if screen else '?'} (поворот {dump_rotation(xml)}) · файл {xml_out}")
     for e in data["elements"]:
         flags = ",".join(x for x in ("clickable" if e["clickable"] else "", "disabled" if not e["enabled"] else "",
                                      "scroll" if e["scrollable"] else "", "password" if e["password"] else "",
@@ -696,28 +793,106 @@ def input_text_escape(s):
     return s.replace(" ", "%s")
 
 
+TRANSLIT = {"а": "a", "б": "b", "в": "v", "г": "g", "д": "d", "е": "e", "ё": "yo", "ж": "zh", "з": "z", "и": "i",
+            "й": "y", "к": "k", "л": "l", "м": "m", "н": "n", "о": "o", "п": "p", "р": "r", "с": "s", "т": "t",
+            "у": "u", "ф": "f", "х": "kh", "ц": "ts", "ч": "ch", "ш": "sh", "щ": "shch", "ъ": "", "ы": "y", "ь": "",
+            "э": "e", "ю": "yu", "я": "ya", "і": "i", "ї": "yi", "є": "ye", "ґ": "g", "ў": "u",
+            "«": "\"", "»": "\"", "„": "\"", "“": "\"", "”": "\"", "‘": "'", "’": "'", "—": "-", "–": "-", "…": "...",
+            "№": "No", "\u00a0": " "}
+ADB_IME = "com.android.adbkeyboard/.AdbIME"
+
+
+def translit(text):
+    """Latin transliteration (Cyrillic → Latin, accents dropped). Returns (ascii text, characters left as is)."""
+    import unicodedata
+    out, bad = [], []
+    for ch in text:
+        if ch.isascii():
+            out.append(ch)
+            continue
+        low = ch.lower()
+        if low in TRANSLIT:
+            t = TRANSLIT[low]
+            out.append(t.capitalize() if ch != low and t else t)
+            continue
+        base = "".join(x for x in unicodedata.normalize("NFKD", ch) if not unicodedata.combining(x))
+        if base and base.isascii():
+            out.append(base)
+        else:
+            bad.append(ch)
+    return "".join(out), bad
+
+
+def adbkeyboard_installed(c):
+    _, ime, _ = c.adb.shell("ime", "list", "-a", "-s", timeout=10)
+    return ADB_IME in ime
+
+
+def type_with_adbkeyboard(c, value, secret):
+    """ADBKeyBoard on the skill's own emulator: switch IME, send base64 text, restore the previous IME."""
+    import base64
+    if c.stand() != "own-emulator":
+        fail("ADBKeyBoard — только на эмуляторе скила (qa-*): на реальном устройстве и чужом AVD смена клавиатуры — "
+             "изменение настроек; ввести вручную или --translit", 4)
+    if not adbkeyboard_installed(c):
+        fail("ADBKeyBoard не установлен на этом эмуляторе: установить его APK на свой эмулятор можно только с согласия "
+             "пользователя (стороннее приложение) — или --translit, или ввести вручную в окне эмулятора", 4)
+    _, prev, _ = c.adb.shell("settings", "get", "secure", "default_input_method", timeout=10)
+    prev = prev.strip()
+    c.run("ime", "enable", ADB_IME)
+    c.run("ime", "set", ADB_IME)
+    time.sleep(0.5)
+    c.run("am", "broadcast", "-a", "ADB_INPUT_B64", "-p", "com.android.adbkeyboard", "--es", "msg",
+          base64.b64encode(value.encode("utf-8")).decode("ascii"), secret=secret)
+    time.sleep(0.3)
+    restored = None
+    if prev and prev != "null" and prev != ADB_IME:
+        c.run("ime", "set", prev)
+        restored = prev
+    return restored
+
+
 def cmd_text(c):
     value = os.environ.get(c.a.env, "") if c.a.env else (c.a.value or "")
     if c.a.env and not value:
         fail(f"переменная окружения {c.a.env} пуста", 2)
-    if c.a.into_id or c.a.into_text:
-        c.a.id, c.a.text, c.a.desc, c.a.x, c.a.y, c.a.index, c.a.exact = c.a.into_id, c.a.into_text, None, None, None, 0, False
-        x, y, node = target_point(c, "focus")
-        c.run("input", "tap", x, y)
-        c.pause()
+    secret = bool(c.a.env)
+    res = {"ok": True, "masked": secret}
     if not value.isascii():
-        _, ime, _ = c.adb.shell("ime", "list", "-s", timeout=10)
-        if "com.android.adbkeyboard/.AdbIME" in ime:
-            c.run("ime", "set", "com.android.adbkeyboard/.AdbIME")
-            c.run("am", "broadcast", "-a", "ADB_INPUT_TEXT", "-p", "com.android.adbkeyboard", "--es", "msg", value,
-                  secret=bool(c.a.env))
-            emit({"ok": True, "chars": len(value), "via": "ADBKeyBoard", "masked": bool(c.a.env)})
+        if c.a.translit:
+            if secret:
+                fail("секрет нельзя транслитерировать — значение изменится; --adbkeyboard или ввести вручную", 2)
+            typed, bad = translit(value)
+            if bad:
+                fail(f"не транслитерируется: {' '.join(sorted(set(bad)))} — ввести вручную или --adbkeyboard", 4)
+            res.update({"translit": True, "typed": typed, "original_chars": len(value),
+                        "note": "введено латиницей (транслитерация) — указать это в шагах находок"})
+            value = typed
+        elif c.a.adbkeyboard:
+            if c.a.into_id or c.a.into_text:
+                focus_into(c)
+            restored = type_with_adbkeyboard(c, value, secret)
+            c.pause()
+            emit(dict(res, chars=len(value), via="ADBKeyBoard", ime_restored=restored))
             return
-        fail("не-ASCII текст (кириллица, emoji) через adb input не вводится: ввести вручную в окне эмулятора или "
-             "поставить ADBKeyBoard на свой эмулятор (с согласия пользователя) — device-control.md", 4)
-    c.run("input", "text", input_text_escape(value), secret=bool(c.a.env))
+        else:
+            have = adbkeyboard_installed(c)
+            fail("не-ASCII текст (кириллица, emoji) через adb input не вводится. Варианты: --translit — латиницей "
+                 "(помечается в выводе); --adbkeyboard — через ADBKeyBoard на эмуляторе скила "
+                 f"({'установлен на этом устройстве' if have else 'на этом устройстве не установлен'}); "
+                 "ввести вручную в окне эмулятора (device-control.md → «Ввод текста»)", 4)
+    if c.a.into_id or c.a.into_text:
+        focus_into(c)
+    c.run("input", "text", input_text_escape(value), secret=secret)
     c.pause()
-    emit({"ok": True, "chars": len(value), "masked": bool(c.a.env)})
+    emit(dict(res, chars=len(value)))
+
+
+def focus_into(c):
+    c.a.id, c.a.text, c.a.desc, c.a.x, c.a.y, c.a.index, c.a.exact = c.a.into_id, c.a.into_text, None, None, None, 0, False
+    x, y, node = target_point(c, "focus")
+    c.run("input", "tap", x, y)
+    c.pause()
 
 
 def cmd_key(c):
@@ -763,16 +938,24 @@ def cmd_shade(c):
 
 def cmd_rotate(c):
     rot = {"portrait": 0, "landscape": 1, "reverse-portrait": 2, "reverse-landscape": 3}
+    n = rot.get(c.a.mode)
     if c.a.mode == "auto":
         c.run("settings", "put", "system", "accelerometer_rotation", "1")
     else:
-        n = rot[c.a.mode]
         code, out, err = c.run("cmd", "window", "user-rotation", "lock", n) if c.api() >= 31 else (1, "", "")
         if code != 0 or "Unknown" in out + err:
             c.run("settings", "put", "system", "accelerometer_rotation", "0")
             c.run("settings", "put", "system", "user_rotation", n)
-    time.sleep(1.0)
-    emit({"ok": True, "rotation": c.a.mode, "screen": screen_size(c)})
+    info = display_info(c)
+    deadline = time.time() + 5
+    while n is not None and info["rotation"] != n and time.time() < deadline:  # the turn takes a moment
+        time.sleep(0.5)
+        info = display_info(c)
+    applied = n is None or info["rotation"] == n
+    emit({"ok": True, "rotation": c.a.mode, "applied": applied, "rotation_index": info["rotation"],
+          "screen": info["size"], "source": info["source"],
+          "note": "" if applied else "экран не повернулся: приложение может фиксировать ориентацию — это не дефект само "
+                                     "по себе; размер — фактический"})
 
 
 def cmd_font_scale(c):
@@ -953,18 +1136,96 @@ def logcat_file(c, out):
     return c.out_path(out, f"logcat-{c.serial.replace(':', '_')}.txt", "logs")
 
 
+LOG_HEAD = re.compile(r"^(\d\d-\d\d \d\d:\d\d:\d\d\.\d+)\s+(\d+)\s+(\d+)\s+([VDIWEFAS])\s+(.*?)\s*: ")
+
+
+class AppLogFilter:
+    """Keeps logcat lines of the app under test: lines of its PIDs (updated on restart from «Start proc N:<pkg>/»
+    and by polling ps), lines that mention the package (ActivityManager: start, ANR, death), buffer markers and
+    the continuation lines of a kept multi-line entry (same time, PID, TID, tag)."""
+
+    def __init__(self, pkg, pids=()):
+        self.pkg, self.pids, self.last = pkg, set(map(str, pids)), None
+
+    def add_pids(self, pids):
+        self.pids.update(map(str, pids))
+
+    def keep(self, line):
+        if line.startswith("--------- beginning of"):
+            return True
+        m = START_PROC.search(line)
+        if m and belongs(m.group(2), self.pkg):
+            self.pids.add(m.group(1))
+        head = LOG_HEAD.match(line)
+        key = head.groups() if head else None
+        if (key and key[1] in self.pids) or self.pkg in line or (key and key == self.last):
+            self.last = key or self.last
+            return True
+        return False
+
+
+def cmd_logcat_follow(c):
+    """Internal (started by `logcat start`): adb logcat → only the app's lines → stdout (the log file)."""
+    import signal
+    import subprocess
+    import threading
+    flt = AppLogFilter(c.a.package, app_pids(c.adb, c.a.package))
+    stop = threading.Event()
+
+    def poll():
+        while not stop.wait(5):
+            try:
+                flt.add_pids(app_pids(c.adb, c.a.package))
+            except Exception:  # noqa: BLE001 — the device may be busy; next round
+                continue
+
+    proc = subprocess.Popen([su.tool_path("adb"), "-s", c.serial, "logcat", "-v", "threadtime", "-b", "main,system,crash"],
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
+
+    def finish(*_):
+        stop.set()
+        try:
+            proc.terminate()
+        except OSError:
+            pass
+        sys.exit(0)
+
+    if hasattr(signal, "SIGTERM"):
+        signal.signal(signal.SIGTERM, finish)
+    threading.Thread(target=poll, daemon=True).start()
+    out = sys.stdout.buffer
+    try:
+        for raw in proc.stdout:
+            line = raw.decode("utf-8", "replace")
+            if flt.keep(line):
+                out.write(raw)
+                out.flush()
+    finally:
+        stop.set()
+        if proc.poll() is None:
+            proc.terminate()
+
+
 def cmd_logcat(c):
     act = c.a.action
     pidfile = (c.run_dir or Path(".")) / "logs" / f".logcat-{c.serial.replace(':', '_')}.pid"
+    pkg = None if c.a.all else (c.a.package or c.app)
     if act == "start":
         out = logcat_file(c, c.a.out)
         if pidfile.exists() and su.pid_alive(int(pidfile.read_text().split()[0] or 0)):
             emit({"ok": True, "already_running": True, "file": str(out)})
             return
-        proc = su.popen_detached([su.tool_path("adb"), "-s", c.serial, "logcat", "-v", "threadtime", "-b", "main,system,crash"], out)
+        if pkg:  # default: only the app under test (PIDs follow process restarts); --all — the whole device log
+            cmd = [sys.executable, str(Path(__file__).resolve()), "logcat-follow", "--serial", c.serial, "--package", pkg]
+        else:
+            cmd = [su.tool_path("adb"), "-s", c.serial, "logcat", "-v", "threadtime", "-b", "main,system,crash"]
+        proc = su.popen_detached(cmd, out)
         pidfile.parent.mkdir(parents=True, exist_ok=True)
         pidfile.write_text(f"{proc.pid} {out}\n", encoding="utf-8")
-        emit({"ok": True, "pid": proc.pid, "file": str(out)})
+        emit({"ok": True, "pid": proc.pid, "file": str(out), "filtered": bool(pkg), "package": pkg,
+              "note": "только строки приложения (по PID, с перезапусками); весь журнал устройства — logcat start --all; "
+                      "падения и ANR считает `crashes` по полному журналу" if pkg else
+                      ("весь журнал устройства" if c.a.all else "пакет неизвестен (нет run-config / --package) — весь журнал")})
     elif act == "stop":
         if not pidfile.exists():
             fail("logcat не запущен этим прогоном", 4)
@@ -981,13 +1242,15 @@ def cmd_logcat(c):
     else:
         args = ["logcat", "-d", "-v", "threadtime", "-b", "main,system,crash"] + (["-t", str(c.a.lines)] if c.a.lines else [])
         code, out, err = c.adb.cmd(*args, timeout=90)
-        if c.a.package:
-            pids = set(pidof(c, c.a.package))
-            keep = [ln for ln in out.splitlines() if c.a.package in ln or (len(ln.split()) > 3 and ln.split()[2] in pids)]
-            out = "\n".join(keep) + "\n"
+        total = out.count("\n")
+        if pkg:
+            flt = AppLogFilter(pkg, app_pids(c.adb, pkg))
+            flt.add_pids(pid for pid, v in process_map(out.splitlines()).items() if belongs(v["name"], pkg))
+            out = "".join(ln for ln in out.splitlines(keepends=True) if flt.keep(ln))
         p = logcat_file(c, c.a.out or (f"{c.run_dir}/logs/logcat-dump-{ts()}.txt" if c.run_dir else f"logcat-dump-{ts()}.txt"))
         p.write_text(mask(out), encoding="utf-8")
-        emit({"ok": code == 0, "file": str(p), "lines": out.count("\n"), "masked": True})
+        emit({"ok": code == 0, "file": str(p), "lines": out.count("\n"), "lines_total": total, "filtered": bool(pkg),
+              "package": pkg, "masked": True})
 
 
 def same_pid_block(lines, i, limit=40):
@@ -1003,60 +1266,149 @@ def same_pid_block(lines, i, limit=40):
     return block
 
 
-def parse_crashes(log_text, pkg):
-    """FATAL EXCEPTION / native crash / ANR for pkg from a threadtime logcat."""
+START_PROC = re.compile(r"Start proc (\d+):([^\s/]+)/\S+(?: for .*?\{([\w.]+)/)?")
+START_PROC_OLD = re.compile(r"Start proc ([\w.:]+) for .*?: pid=(\d+)")  # Android ≤ 6
+RUNTIME_START = re.compile(r">>>>>> START (\S+) uid (\d+) <<<<<<")  # app_process: uiautomator, am, monkey (uid 2000)
+CRASH_PROC = re.compile(r"Process: ([\w.:-]+), PID: (\d+)")
+TOOL_THREADS = {"UiAutomation", "UiAutomatorThread", "monkey"}
+SYSTEM_PREFIXES = ("com.android.", "com.google.android.", "android.", "system_server", "com.qualcomm.", "com.samsung.")
+
+
+def tt_pid(line):
+    p = line.split()
+    return p[2] if len(p) > 3 and p[2].isdigit() else None
+
+
+def belongs(proc, pkg):
+    return bool(proc and pkg) and (proc == pkg or proc.startswith(pkg + ":"))
+
+
+def process_map(lines):
+    """pid -> {name, for, tool} from ActivityManager «Start proc», app_process starts and crash headers."""
+    res = {}
+    for ln in lines:
+        m = START_PROC.search(ln)
+        if m:
+            res[m.group(1)] = {"name": m.group(2), "for": m.group(3), "tool": False}
+            continue
+        m = START_PROC_OLD.search(ln)
+        if m:
+            res[m.group(2)] = {"name": m.group(1), "for": None, "tool": False}
+            continue
+        m = RUNTIME_START.search(ln)
+        if m and tt_pid(ln):
+            res[tt_pid(ln)] = {"name": f"app_process ({m.group(1).split('.')[-1]}, uid {m.group(2)})", "for": None,
+                               "tool": m.group(2) in ("0", "2000")}
+        m = CRASH_PROC.search(ln)
+        if m and m.group(2) not in res:
+            res[m.group(2)] = {"name": m.group(1), "for": None, "tool": False}
+    return res
+
+
+def owner_of(proc, pid, thread, pmap, pkg):
+    """tool | system | other-app | unknown — whose crash it is when it is not the app under test."""
+    info = pmap.get(pid) or {}
+    if info.get("tool") or thread in TOOL_THREADS or (proc or "").startswith(("app_process", "uiautomator", "com.android.commands")):
+        return "tool"
+    if not proc:
+        return "unknown"
+    if proc.startswith(SYSTEM_PREFIXES):
+        return "system"
+    return "other-app"
+
+
+OWNER_NOTE = {"tool": "инструмент (uiautomator/monkey/am — в т.ч. dump-ui скила), не приложение",
+              "system": "системный процесс или сервисы Google", "other-app": "другое приложение",
+              "unknown": "процесс не определён (нет «Process:» и PID не принадлежит приложению)"}
+
+
+def parse_crashes(log_text, pkg, known_pids=(), with_others=False):
+    """FATAL EXCEPTION / native crash / ANR from a threadtime logcat.
+
+    A crash belongs to the app only by its process: «Process: <pkg>[:sub], PID: N», or the PID is the app's
+    (`Start proc N:<pkg>/…` in the log, or known_pids from ps). FATAL EXCEPTION in another process — UiAutomation of
+    `uiautomator dump`, Google services, system_server, other apps — goes to other_processes, never to the app.
+    ANR — only «ANR in <pkg>». Returns items (or (items, other_processes) with with_others=True).
+    """
     lines = log_text.splitlines()
-    out = []
+    pmap = process_map(lines)
+    mine_pids = set(map(str, known_pids)) | {pid for pid, v in pmap.items() if belongs(v["name"], pkg)}
+    items, others = [], []
+
+    def put(rec, proc, pid, thread=""):
+        rec["process"], rec["pid"] = proc, pid
+        if thread:
+            rec["thread"] = thread
+        mine = belongs(proc, pkg) if proc else (pid in mine_pids)
+        if mine or not pkg:
+            items.append(rec)
+            return
+        info = pmap.get(pid) or {}
+        own = owner_of(proc, pid, thread, pmap, pkg)
+        others.append(dict({k: v for k, v in rec.items() if k != "excerpt"},
+                           owner=own, note=OWNER_NOTE[own], related_to_app=info.get("for") == pkg))
+
     for i, ln in enumerate(lines):
         if "FATAL EXCEPTION" in ln:
             block = same_pid_block(lines, i)
-            proc = next((re.search(r"Process: ([\w.:]+)", x).group(1) for x in block[:4] if "Process:" in x), None)
-            if pkg and proc and proc.split(":")[0] != pkg:
-                continue
-            exc = next((x.split(": ", 1)[-1] for x in block[1:6] if re.search(r"(Exception|Error)\b", x) and "Process:" not in x), "")
-            out.append({"type": "crash", "source": "logcat", "time": " ".join(ln.split()[:2]), "process": proc,
-                        "summary": mask(exc.strip())[:200],
-                        "excerpt": mask("\n".join(block[:25]))})
+            thread = ln.split("FATAL EXCEPTION:", 1)[-1].strip()
+            head = next((CRASH_PROC.search(x) for x in block[:4] if CRASH_PROC.search(x)), None)
+            pid_line = next((re.search(r"\bPID: (\d+)", x) for x in block[1:4] if re.search(r"\bPID: (\d+)", x)), None)
+            pid = head.group(2) if head else (pid_line.group(1) if pid_line else tt_pid(ln))
+            proc = head.group(1) if head else (pmap.get(pid) or {}).get("name")
+            exc = next((x.split(": ", 1)[-1] for x in block[1:6]
+                        if re.search(r"(Exception|Error)\b", x) and "Process:" not in x and "PID:" not in x), "")
+            put({"type": "crash", "source": "logcat", "time": " ".join(ln.split()[:2]),
+                 "summary": mask(exc.strip())[:200], "excerpt": mask("\n".join(block[:25]))}, proc, pid, thread)
         elif re.search(r"\bANR in ([\w.:]+)", ln):
             proc = re.search(r"\bANR in ([\w.:]+)", ln).group(1)
-            if pkg and proc.split(":")[0] != pkg:
-                continue
             block = same_pid_block(lines, i, 12)
             reason = next((x.split("Reason:", 1)[1].strip() for x in block if "Reason:" in x), "")
-            out.append({"type": "anr", "source": "logcat", "time": " ".join(ln.split()[:2]), "process": proc,
-                        "summary": mask(reason)[:200],
-                        "excerpt": mask("\n".join(block))})
+            pid = next((re.search(r"\bPID: (\d+)", x).group(1) for x in block if re.search(r"\bPID: (\d+)", x)), None)
+            put({"type": "anr", "source": "logcat", "time": " ".join(ln.split()[:2]), "summary": mask(reason)[:200],
+                 "excerpt": mask("\n".join(block))}, proc, pid)
         elif ">>> " in ln and "<<<" in ln and "pid:" in ln:
             m = re.search(r">>> ([\w.:]+) <<<", ln)
-            proc = m.group(1) if m else None
-            if pkg and proc and proc.split(":")[0] != pkg:
-                continue
+            pm = re.search(r"\bpid: (\d+)", ln)
+            pid = pm.group(1) if pm else None
+            proc = m.group(1) if m else (pmap.get(pid) or {}).get("name")
             block = lines[max(0, i - 3):i + 20]
             sig = next((x.split("signal", 1)[1].strip() for x in block if " signal " in x), "")
-            out.append({"type": "native", "source": "logcat", "time": " ".join(ln.split()[:2]), "process": proc,
-                        "summary": ("signal " + sig)[:200],
-                        "excerpt": mask("\n".join(block))})
-    return out
+            put({"type": "native", "source": "logcat", "time": " ".join(ln.split()[:2]), "summary": ("signal " + sig)[:200],
+                 "excerpt": mask("\n".join(block))}, proc, pid)
+    return (items, others) if with_others else items
+
+
+def dropbox_process_rx(pkg):
+    return re.compile(r"^Process: " + re.escape(pkg) + r"(?::[\w.-]+)?\s*$", re.M)
 
 
 def cmd_crashes(c):
     pkg = c.pkg(c.a.pkg)
-    _, log, _ = c.adb.cmd("logcat", "-d", "-v", "threadtime", "-b", "crash,main,system", timeout=120)
-    items = parse_crashes(log, pkg)
+    _, log, _ = c.adb.cmd("logcat", "-d", "-v", "threadtime", "-b", "crash,main,system", timeout=120)  # full log
+    items, others = parse_crashes(log, pkg, app_pids(c.adb, pkg), with_others=True)
+    seen = {(x["type"], x["time"][:14]) for x in items}  # "MM-DD HH:MM:SS"
     for tag, typ in (("data_app_crash", "crash"), ("data_app_anr", "anr"), ("data_app_native_crash", "native")):
         _, box, _ = c.adb.shell("dumpsys", "dropbox", "--print", tag, timeout=60)
         for entry in re.split(r"\n={20,}\n", box):
             m = re.search(r"^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d) " + tag, entry, re.M)
-            if m and re.search(r"^Process: " + re.escape(pkg) + r"\b", entry, re.M):
+            if m and dropbox_process_rx(pkg).search(entry):
+                if (typ, m.group(1)[5:19]) in seen:
+                    continue  # the same event already found in logcat
                 first = next((x for x in entry.splitlines()[4:12] if x.strip() and not re.match(r"^\w[\w-]*: ", x)), "")
                 items.append({"type": typ, "time": m.group(1), "process": pkg, "summary": mask(first.strip())[:200],
                               "source": "dropbox", "excerpt": mask("\n".join(entry.splitlines()[:25]))})
     if c.run_dir:
         p = c.run_dir / "raw" / f"crashes-{c.serial.replace(':', '_')}.json"
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps(items, ensure_ascii=False, indent=1), encoding="utf-8")
+        p.write_text(json.dumps({"package": pkg, "items": items, "other_processes": others}, ensure_ascii=False, indent=1),
+                     encoding="utf-8")
     emit({"package": pkg, "count": len(items), "by_type": {t: sum(1 for x in items if x["type"] == t) for t in ("crash", "anr", "native")},
-          "items": [{k: v for k, v in x.items() if k != "excerpt"} for x in items]})
+          "items": [{k: v for k, v in x.items() if k != "excerpt"} for x in items],
+          "other_processes": others,
+          "note": "other_processes — падения других процессов (инструменты, система, другие приложения): не находки "
+                  "приложения; related_to_app — процесс запущен для приложения (WebView и т.п.), проверить вручную"
+          if others else ""})
 
 
 def parse_meminfo(text):
@@ -1269,6 +1621,9 @@ def main():
     p.add_argument("--env", help="ввести значение переменной окружения (секрет не печатается)")
     p.add_argument("--into-id")
     p.add_argument("--into-text")
+    g = p.add_mutually_exclusive_group()
+    g.add_argument("--translit", action="store_true", help="не-ASCII → латиница (помечается в выводе)")
+    g.add_argument("--adbkeyboard", action="store_true", help="не-ASCII через ADBKeyBoard (только эмулятор скила)")
     add("key", cmd_key).add_argument("name")
     add("screenshot", cmd_screenshot).add_argument("out", nargs="?")
     p = add("screenrecord", cmd_screenrecord)
@@ -1304,8 +1659,10 @@ def main():
     p = add("logcat", cmd_logcat)
     p.add_argument("action", choices=["start", "stop", "dump", "clear"])
     p.add_argument("--out")
-    p.add_argument("--package")
+    p.add_argument("--package", help="пакет для фильтра (по умолчанию app.package из run-config)")
+    p.add_argument("--all", action="store_true", help="весь журнал устройства, без фильтра по приложению")
     p.add_argument("--lines", type=int)
+    add("logcat-follow", cmd_logcat_follow).add_argument("--package", required=True)  # internal: started by logcat start
     add("crashes", cmd_crashes, "pkg")
     add("meminfo", cmd_meminfo, "pkg")
     add("gfxinfo", cmd_gfxinfo, "pkg").add_argument("--reset", action="store_true")

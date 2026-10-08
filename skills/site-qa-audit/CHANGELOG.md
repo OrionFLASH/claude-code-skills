@@ -2,6 +2,21 @@
 
 Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/), версии — SemVer, теги `site-qa-audit/vX.Y.Z`.
 
+## [1.2.1] — 2026-10-08
+Правило «папка результатов по умолчанию в `.gitignore`» и итоги в другую папку — только итоговые файлы. Старые `run-config.yaml` работают без изменений (`git` необязателен, по умолчанию `allow_commit_results: false`).
+
+### Изменено
+- Результаты и git: если пользователь в запросе явно не разрешил класть результаты в репозиторий, `qa-runs/` обязана быть в `.gitignore`. `gitignore_helper.py ensure <OUTPUT_ROOT>` — сразу после выбора папки и **до создания `<RUN_DIR>`** (папки может ещё не быть): строка `/<путь>/qa-runs/` в `.gitignore` репозитория без вопроса; `git.allow_commit_results: true` (только явное разрешение) — `.gitignore` не трогается. Уже отслеживаемые файлы `qa-runs/` не удаляются: код 1, команда `git rm -r --cached` и один вопрос → `untrack --yes` после «да». Вопрос «Добавить qa-runs/ в .gitignore?» в конце прогона убран; старый ответ «буду коммитить» (`.gitignore-decision`) сам больше не действует.
+- `scripts/gitignore_helper.py` — тонкая обёртка над общим `shared/scripts/qa_gitignore.py` (вендорится через `.shared`), как в `android-qa-audit`; `check` и `apply` работают как раньше.
+- `report_destinations: folder`: `scripts/export_results.py` (общий `shared/scripts/qa_export.py`) копирует в `<path>/<YYYY-MM-DD>-<host>/` только `summary.md`, `report.md`, `findings.json` и скриншоты находок — без `raw/`, `logs/`, `drafts/`; конфликт имён — код 1 без записи, `--overwrite` после «да».
+
+### Добавлено
+- `intake.py from-text`: `git.allow_commit_results` — `true` только при явном разрешении в запросе (RU/EN: «коммить результаты», «положи результаты в репозиторий», "commit the results", «не добавляй qa-runs в .gitignore»), отрицания — `false`; такие фразы больше не превращаются в запрет кнопки.
+- SKILL.md, INSTALL.md: после установки скил виден только в новой сессии Claude Code (в текущей — «Unknown skill»); как продолжить в той же сессии.
+
+### Тесты
+- `tests/test_v121.sh` (16 проверок, вызывается из `unit.sh`): `ensure` по умолчанию, с разрешением из флага, текста и run-config, вне git, уже отслеживаемые файлы и `untrack`; `git.allow_commit_results` в `intake.py`; `export_results.py`; SKILL.md без вопроса про `.gitignore` в конце. `unit.sh` проверяет синтаксис новых скриптов и вендоренных модулей.
+
 ## [1.2.0] — 2026-10-08
 Универсальность, автозапуск по смыслу запроса, расширенный опрос, память о сайте, куда записывать итоги, установка. Все новые поля run-config необязательные: старые `run-config.yaml` и `findings.json` проходят без изменений.
 
