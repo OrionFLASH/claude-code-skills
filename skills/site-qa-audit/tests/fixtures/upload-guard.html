@@ -16,10 +16,34 @@
   const slot = document.getElementById('guard-slot');
   const addGuard = (text, checked) => { slot.innerHTML = '<label><input type="checkbox" id="foreign"' + (checked ? ' checked' : '') + '> ' + text + '</label>'; };
   if (variant === 'early') addGuard('Чужое сохранение', true);
+  // Radio dialog variants (G-2): radio, radio-broken (the «Чужое» radio does not get aria-checked), radio-nopanel
+  // (no checkbox in the panel after «Готово»).
+  const radioDialog = () => {
+    const d = document.createElement('div');
+    d.setAttribute('role', 'dialog'); d.setAttribute('aria-label', 'Чьё это сохранение?'); d.id = 'dlg';
+    d.innerHTML = '<h2>Чьё это сохранение?</h2>' +
+      '<div role="radiogroup" aria-label="Владелец"><div role="radio" tabindex="0" aria-checked="false" data-g="o" data-v="mine">Моё</div>' +
+      '<div role="radio" tabindex="0" aria-checked="false" data-g="o" data-v="foreign">Чужое, только посмотреть</div></div>' +
+      '<div role="radiogroup" aria-label="Запомнить"><div role="radio" tabindex="0" aria-checked="false" data-g="r" data-v="keep">Запомнить</div>' +
+      '<div role="radio" tabindex="0" aria-checked="false" data-g="r" data-v="no">Не сейчас</div></div>' +
+      '<button type="button" id="done">Готово</button>';
+    document.body.appendChild(d);
+    d.querySelectorAll('[role=radio]').forEach(r => r.addEventListener('click', () => {
+      if (variant === 'radio-broken' && r.dataset.v === 'foreign') return;
+      d.querySelectorAll(`[data-g=${r.dataset.g}]`).forEach(x => x.setAttribute('aria-checked', String(x === r)));
+    }));
+    document.getElementById('done').addEventListener('click', () => {
+      const foreign = d.querySelector('[data-v=foreign]').getAttribute('aria-checked') === 'true';
+      document.getElementById('status').textContent = foreign ? 'Режим: чужое' : 'Режим: моё (в рейтинг)';
+      d.remove();
+      if (variant !== 'radio-nopanel') addGuard('Чужое сохранение', foreign);
+    });
+  };
   document.getElementById('upload').addEventListener('change', () => {
     document.getElementById('status').textContent = 'Файл загружен';
     localStorage.setItem('save-copy', '1');   // a local copy stays in the browser
     if (variant === 'missing' || variant === 'early') return;
+    if (variant.startsWith('radio')) { setTimeout(radioDialog, 500); return; }
     setTimeout(() => addGuard(variant === 'renamed' ? 'Не моё сохранение' : 'Чужое сохранение', variant === 'ok'), 1000);
   });
 </script>

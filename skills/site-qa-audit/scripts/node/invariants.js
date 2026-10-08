@@ -20,6 +20,25 @@
 //         only_after_action: true   # must NOT exist before the action
 //       vocabulary: "Чужое сохранение"   # exact label seen last time (preflight compares)
 //       else: abort          # abort (stop, exit 3) | warn
+//     - id: INV2             # a DIALOG OF RADIO BUTTONS after the action (G-2), e.g. «Моё / Чужое» + «Запомнить / Не сейчас»
+//       after: SE1
+//       within_ms: 20000     # how long to wait for the first radio
+//       dialog:
+//         choose:            # in this order; each: role radio (role=radio / input[type=radio]) by name regex or selector
+//           - name: "Чуж(ой|ое)"
+//           - name: "Не сейчас"
+//         confirm:           # button that applies the choice; pressed only after EVERY choice reads as checked
+//           role: button
+//           name: "^Готово$"
+//         then:              # what must be true after the confirmation (same fields as require)
+//           role: checkbox
+//           name: "Чуж(ой|ое)"
+//           state: checked
+//           within_ms: 10000
+//       vocabulary: "Чужое сохранение"   # compared with the label found by `then`
+//       else: abort
+//     A radio is «checked» by aria-checked="true" or the checked property. If a radio does not appear, does not become
+//     checked after the click, or `then` fails — the run stops (exit 3) and the confirm button is NOT pressed.
 //
 // Commands:
 //   node invariants.js preflight --config run-config.yaml --url URL --run-dir DIR [--prev-vocab old/vocabulary.json]
@@ -55,7 +74,8 @@ async function findRequired(page, req) {
     const loc = locate(page, req.selector).first();
     if (!(await loc.count())) return null;
     return loc.evaluate((e) => ({ label: (e.labels && e.labels[0] ? e.labels[0].innerText : e.getAttribute('aria-label') || e.innerText || '').trim(),
-      checked: 'checked' in e ? !!e.checked : null, visible: !!(e.offsetWidth || e.offsetHeight) })).then(i => ({ ...i, locator: loc }));
+      checked: 'checked' in e ? !!e.checked : (e.getAttribute('aria-checked') === 'true' ? true : e.getAttribute('aria-checked') === 'false' ? false : null),
+      visible: !!(e.offsetWidth || e.offsetHeight) })).then(i => ({ ...i, locator: loc }));
   }
   for (const f of await listFrames(page, 'all')) {
     const hit = await f.frame.evaluate(({ role, name }) => {
@@ -68,7 +88,9 @@ async function findRequired(page, req) {
       const e = all[i];
       document.querySelectorAll('[data-qa-inv]').forEach(x => x.removeAttribute('data-qa-inv'));
       e.setAttribute('data-qa-inv', '1');
-      return { label: nameOf(e), checked: 'checked' in e ? !!e.checked : null, visible: !!(e.offsetWidth || e.offsetHeight) };
+      const aria = e.getAttribute('aria-checked');
+      return { label: nameOf(e), checked: 'checked' in e ? !!e.checked : aria === 'true' ? true : aria === 'false' ? false : null,
+        visible: !!(e.offsetWidth || e.offsetHeight) };
     }, { role: req.role || null, name: req.name || null }).catch(() => null);
     if (hit) {
       const loc = f.frame.locator('[data-qa-inv="1"]').first();
@@ -108,6 +130,15 @@ async function preflight(page, cfg, { runDir, prevVocab, effectId } = {}) {
   const effects = (cfg.side_effects || []).filter(e => !effectId || e.id === effectId);
   for (const se of effects) {
     for (const inv of invariantsFor(cfg, se)) {
+      if (inv.dialog) {
+        // A dialog appears only after the action: its first radio must not be there yet.
+        const first = (inv.dialog.choose || [])[0];
+        const early = first ? await findRequired(page, { role: first.role || 'radio', name: first.name, selector: first.selector }) : null;
+        checks.push({ id: inv.id, before: early ? 'диалог уже открыт до действия' : 'диалога нет до действия (ожидаемо)' });
+        if (early) problems.push({ id: inv.id, kind: 'present-before', observed: early.label,
+          question: `Вариант «${early.label}» диалога ${inv.id} виден до действия ${se.id}. Интерфейс изменился? Проверить вручную перед действием.` });
+        continue;
+      }
       const req = inv.require || {};
       const found = await findRequired(page, req);
       if (req.only_after_action) {
@@ -153,6 +184,45 @@ async function watch(page, inv, { guarded }) {
   return { ok: true, label: found.label, detail: `«${found.label}» ${found.checked ? 'отмечен' : 'есть'}` };
 }
 
+const describeReq = (req) => req.selector || `${req.role || ''} /${req.name}/`;
+
+// Dialog of radio buttons (G-2): choose each radio, verify it reads as checked, only then press confirm, then `then`.
+async function watchDialog(page, inv, { guarded }) {
+  const dlg = inv.dialog || {};
+  const within = +inv.within_ms || 5000;
+  const steps = [];
+  const choices = dlg.choose || [];
+  for (let i = 0; i < choices.length; i++) {
+    const ch = choices[i];
+    const req = { role: ch.role || 'radio', name: ch.name, selector: ch.selector };
+    const limit = i === 0 ? within : (+ch.within_ms || 3000);
+    const until = Date.now() + limit;
+    let found = null;
+    while (Date.now() < until) { found = await findRequired(page, req); if (found) break; await page.waitForTimeout(100); }
+    if (!found) return { ok: false, steps, detail: `диалог: вариант ${describeReq(req)} не появился за ${limit} мс — подтверждение не нажато` };
+    if (found.checked !== true) {
+      const r = await guarded.click(found.locator);
+      if (!r.performed) return { ok: false, steps, label: found.label, detail: `диалог: выбрать «${found.label}» не удалось (${r.decision}: ${r.reason}) — подтверждение не нажато` };
+      for (let k = 0; k < 10; k++) { await page.waitForTimeout(100); found = await findRequired(page, req) || found; if (found.checked === true) break; }
+    }
+    steps.push({ choose: found.label, checked: found.checked });
+    if (found.checked !== true) return { ok: false, steps, label: found.label, detail: `диалог: «${found.label}» не выбран после нажатия (aria-checked/checked не true) — подтверждение не нажато` };
+  }
+  if (dlg.confirm) {
+    const req = { role: dlg.confirm.role || 'button', name: dlg.confirm.name, selector: dlg.confirm.selector };
+    const found = await findRequired(page, req);
+    if (!found) return { ok: false, steps, detail: `диалог: кнопка подтверждения ${describeReq(req)} не найдена` };
+    const r = await guarded.click(found.locator);
+    if (!r.performed) return { ok: false, steps, detail: `диалог: «${found.label}» не нажата (${r.decision}: ${r.reason})` };
+    steps.push({ confirm: found.label });
+  }
+  if (dlg.then) {
+    const w = await watch(page, { ...inv, within_ms: +dlg.then.within_ms || within, require: dlg.then }, { guarded });
+    return { ...w, steps, detail: (w.ok ? 'диалог пройден; ' : 'после диалога: ') + w.detail };
+  }
+  return { ok: true, steps, detail: 'диалог пройден: ' + steps.map(s => s.choose || s.confirm).join(' → ') };
+}
+
 async function runSideEffect(page, guarded, cfg, effectId, { file, runDir, prevVocab } = {}) {
   const se = (cfg.side_effects || []).find(e => e.id === effectId);
   if (!se) throw new Error(`side_effects: нет ${effectId}`);
@@ -177,7 +247,7 @@ async function runSideEffect(page, guarded, cfg, effectId, { file, runDir, prevV
   const vocab = (vocabFile && readVocab(vocabFile)) || {};
   const prev = prevVocab ? readVocab(prevVocab) : null;
   for (const inv of invariantsFor(cfg, se)) {
-    const w = await watch(page, inv, { guarded });
+    const w = inv.dialog ? await watchDialog(page, inv, { guarded }) : await watch(page, inv, { guarded });
     if (w.label) {
       vocab[inv.id] = { observed: w.label, when: 'after-action', at: new Date().toISOString() };
       const p = vocabProblem(inv, w.label, prev);
@@ -197,7 +267,7 @@ async function runSideEffect(page, guarded, cfg, effectId, { file, runDir, prevV
   return { status, exit: abort ? 3 : vocabChanged.length ? 2 : 0, alert, invariants: results, questions: results.filter(x => x.question).map(x => x.question), leaves: se.leaves || [] };
 }
 
-module.exports = { preflight, runSideEffect, logSideEffect, findRequired };
+module.exports = { preflight, runSideEffect, logSideEffect, findRequired, watchDialog };
 
 if (require.main === module) {
   (async () => {

@@ -66,6 +66,43 @@ function exportRules(cfgText, name) {
     assert(d.json.runs[0].pairs.length === 1 && d.json.minArea === 16, 'по умолчанию пара должна остаться');
   });
 
+  // ---------------- invariants.js: dialog of radio buttons (G-2) ----------------
+  const dlgCfg = path.join(TMP, 'dialog.yaml');
+  fs.writeFileSync(dlgCfg, [
+    'version: 1', 'site:', '  allowed_domains:', '    - 127.0.0.1', 'side_effects:', '  - id: SE1', '    action: upload', '    target: "#upload"',
+    '    effect: "сохранение попадает в публичный рейтинг, если не выбрано «Чужое»"', '    leaves: ["локальная копия сохранения"]',
+    'invariants:', '  - id: INV2', '    after: SE1', '    within_ms: 3000', '    dialog:', '      choose:', '        - name: "Чуж(ой|ое)"',
+    '        - name: "Не сейчас"', '      confirm:', '        role: button', '        name: "^Готово$"', '      then:', '        role: checkbox',
+    '        name: "Чуж(ой|ое)"', '        state: checked', '        within_ms: 2000', '    vocabulary: "Чужое сохранение"', '    else: abort',
+    'rules:', '  forbidden_domains: []', ''].join('\n'));
+  const saveFile = path.join(TMP, 'save.sl2'); fs.writeFileSync(saveFile, 'save');
+  const dlg = (variant) => run('invariants.js', ['exec', '--config', dlgCfg, '--effect', 'SE1', '--url', `${B}/upload-guard.html?variant=${variant}`,
+    '--run-dir', path.join(TMP, 'dlg-' + variant), '--file', saveFile, '--rules', rules]);
+
+  await t('invariants dialog: «Чужое» + «Не сейчас» выбраны, «Готово» нажата, флажок в панели отмечен -> код 0', async () => {
+    const r = dlg('radio');
+    assert(r.code === 0 && r.json.status === 'ok', r.out + r.err);
+    const inv = r.json.invariants[0];
+    assert(inv.steps.map(s => s.choose || s.confirm).join('|') === 'Чужое, только посмотреть|Не сейчас|Готово' && inv.label === 'Чужое сохранение', JSON.stringify(inv));
+  });
+
+  await t('invariants dialog (негативный): радио «Чужое» не выбирается -> остановка, «Готово» НЕ нажата', async () => {
+    const r = dlg('radio-broken');
+    assert(r.code === 3 && r.json.status === 'aborted' && /не выбран после нажатия/.test(r.json.invariants[0].detail), r.out);
+    assert(!r.json.invariants[0].steps.some(s => s.confirm), 'кнопка подтверждения нажата');
+    assert(/ОСТАНОВЛЕНО/.test(fs.readFileSync(path.join(TMP, 'dlg-radio-broken', 'side_effects.md'), 'utf8')));
+  });
+
+  await t('invariants dialog (негативный): после «Готово» флажка в панели нет -> остановка', async () => {
+    const r = dlg('radio-nopanel');
+    assert(r.code === 3 && /после диалога/.test(r.json.invariants[0].detail), r.out);
+  });
+
+  await t('invariants dialog: preflight — диалога до действия нет (ожидаемо)', async () => {
+    const r = run('invariants.js', ['preflight', '--config', dlgCfg, '--url', `${B}/upload-guard.html?variant=radio`, '--run-dir', path.join(TMP, 'dlg-pf')]);
+    assert(r.code === 0 && r.json.ok && /ожидаемо/.test(r.json.checks[0].before), r.out + r.err);
+  });
+
   // ---------------- repro.js + recheck.py (S-9) ----------------
   await t('repro.js: --js true -> код 0; --selector + --assert по рамке; не воспроизвелось -> код 1; запрещённый URL -> 2', async () => {
     const yes = run('repro.js', ['--url', B + '/targets.html', '--rules', rules, '--js', "document.querySelectorAll('button').length > 3"]);
