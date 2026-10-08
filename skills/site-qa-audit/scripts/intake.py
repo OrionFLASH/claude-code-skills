@@ -13,6 +13,7 @@ Exit codes: 0 ok, 2 empty input.
 import argparse
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -69,6 +70,22 @@ def quotes(s):
 def strip_www(h):
     h = (h or "").lower()
     return h[4:] if h.startswith("www.") else h
+
+
+def output_dir_warning(output_dir):
+    """Папка результатов внутри git-репозитория проекта — почти всегда ошибка: результаты должны лежать в <OUTPUT_ROOT>/qa-runs."""
+    p = Path(output_dir).expanduser().resolve()
+    probe = p
+    while not probe.exists() and probe != probe.parent:
+        probe = probe.parent
+    try:
+        top = subprocess.run(["git", "-C", str(probe), "rev-parse", "--show-toplevel"],
+                             capture_output=True, text=True, timeout=5).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        top = ""
+    if top:
+        return "output_dir %s лежит внутри git-репозитория %s — показать пользователю, предложить SITE_QA_OUTPUT_DIR или другой путь" % (p, top)
+    return None
 
 
 def parse(text, output_dir=None):
@@ -202,6 +219,10 @@ def parse(text, output_dir=None):
         notes.append("общая сессия входа — параллельные браузерные потоки не используются (max_workers: 1)")
     if not output_dir:
         missing.append("output_dir — папка результатов (SITE_QA_OUTPUT_DIR или вопрос)")
+    else:
+        warn = output_dir_warning(output_dir)
+        if warn:
+            notes.append(warn)
     return cfg, notes, missing
 
 
