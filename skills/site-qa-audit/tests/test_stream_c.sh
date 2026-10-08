@@ -144,6 +144,28 @@ node "$N/comment_web.mjs" --repo owner/repo --number 7 --body-file "$TMP/comment
   --issue-url-template "{base}/gh-closed-issue.html?n={number}&upload=broken" >/dev/null 2>"$TMP/err"; c=$?
 check "comment: broken upload -> non-zero exit, nothing clicked" bash -c "[ $c -ne 0 ] && [ $(anyclick) -eq 0 ]"
 
+# attach-to (G-8): screenshots into an EXISTING issue by «**[Скриншот: file]**» placeholders
+EXIST='{"issues":{"9":{"number":9,"state":"open","body":"### Шаги\n1. Открыть меню\n\n**[Скриншот: F-001-menu-annotated.png]**\n\nИ ещё {{qa-shot:F-001-menu.png}}\n<!-- site-qa-audit:fp=abc123 -->","comments":[]}}}'
+reset_state "$EXIST"
+node "$N/publish_web.mjs" --attach-to 9 --repo owner/repo --shots-dir "$TMP" --cdp http://127.0.0.1:1 >"$TMP/att-dry.json" 2>/dev/null; c=$?
+check "attach-to dry-run: exit 0, both placeholders found, nothing edited" bash -c "[ $c -eq 0 ] && grep -q 'F-001-menu-annotated.png' '$TMP/att-dry.json' && [ $(calls_with 'issue edit') -eq 0 ]"
+node "$N/publish_web.mjs" --attach-to 9,10 --repo owner/repo --shots-dir "$TMP" >/dev/null 2>&1; c=$?
+check "attach-to: several numbers in one call -> exit 1 (one number per call)" test $c -eq 1
+node "$N/publish_web.mjs" --attach-to 9 --repo owner/repo --shots-dir "$TMP/nope" --cdp http://127.0.0.1:1 >/dev/null 2>&1; c=$?
+check "attach-to: missing screenshot file -> exit 1 before the browser" test $c -eq 1
+reset_state "$EXIST"
+node "$N/publish_web.mjs" --attach-to 9 --repo owner/repo --shots-dir "$TMP" "${COMMON[@]}" \
+  --issue-url-template "{base}/gh-new-issue.html?n={number}" --out "$TMP/att.json" >/dev/null 2>"$TMP/err"; c=$?
+B="$(body_of 9 2>/dev/null)"
+check "attach-to: exit 0, both placeholders replaced by attachments, marker kept, no clicks" bash -c "
+  [ $c -eq 0 ] && [ \$(grep -o 'user-attachments/assets/' <<<'$B' | wc -l) -eq 2 ] && ! grep -q 'Скриншот:' <<<'$B' && ! grep -q 'qa-shot:' <<<'$B' &&
+  grep -q 'site-qa-audit:fp=abc123' <<<'$B' && [ $(anyclick) -eq 0 ] && [ $(calls_with 'issue create') -eq 0 ]"
+reset_state "$EXIST"
+node "$N/publish_web.mjs" --attach-to 9 --repo owner/repo --shots-dir "$TMP" "${COMMON[@]}" --retries 2 --retry-pause 100 \
+  --issue-url-template "{base}/missing-issue-{number}.html" >/dev/null 2>"$TMP/err"; c=$?
+check "attach-to: issue page 404 -> retried, then exit 2, body untouched" bash -c "
+  [ $c -eq 2 ] && [ \$(grep -c 'GET /missing-issue-9.html' '$SRV_LOG') -ge 2 ] && [ $(calls_with 'issue edit') -eq 0 ] && grep -q '404' '$TMP/err'"
+
 # static guard: the code refuses Close/Reopen explicitly
 check "code: explicit Close/Reopen ban present" grep -q "FORBIDDEN_BUTTON_RE.test" "$N/web_upload_lib.mjs"
 check "code: no <form> / comment[body] dependency in live selectors" bash -c "! grep -n \"locator('form\" '$N/web_upload_lib.mjs'"

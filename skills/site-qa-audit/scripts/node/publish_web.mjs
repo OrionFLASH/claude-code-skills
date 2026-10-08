@@ -18,6 +18,12 @@
 //        [--gh gh] [--upload-timeout 60000] [--throttle 1500] [--blocked-log <run>/logs/blocked.jsonl]
 //        [--out result.json] [--confirm-publish]
 //   node publish_web.mjs --verify-only --repo owner/repo --number 12 --expect 2      # API check only
+//   node publish_web.mjs --attach-to 12 --repo owner/repo (--shot a.png … | --shots-dir <RUN_DIR>/screenshots)
+//        [--cdp …] [--confirm-publish]
+//        ADD screenshots to an EXISTING issue (created earlier with gh): placeholders «**[Скриншот: file.png]**» or
+//        {{qa-shot:file.png}} in its body are replaced by attachments uploaded through the comment box (not submitted);
+//        ONE issue number per call (several at once failed with 404 on the second one); the issue page is re-opened
+//        on 404 with a growing pause. Missing files stop the run before the browser is touched.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -45,6 +51,8 @@ async function main() {
   const cdp = a.cdp && a.cdp !== true ? String(a.cdp) : 'http://127.0.0.1:9222';
   const throttle = Number(a.throttle ?? 1500);
   const uploadTimeout = Number(a['upload-timeout'] ?? 60000);
+
+  if (a['attach-to'] !== undefined) return attachExisting(a, { repo, bin, base, issueTpl, cdp, throttle, uploadTimeout });
   if (!a.title || a.title === true) throw new StopError(EXIT.USAGE, 'Нужен --title.');
   const shots = a.shot.map(s => path.resolve(s));
   L.checkShots(shots);
@@ -126,6 +134,75 @@ async function main() {
   L.emit(result, a.out);
   if (!v.ok) { process.stderr.write(`Проверка по API не пройдена (#${number}): ${v.problems.join('; ')}\n`); return EXIT.VERIFY_FAILED; }
   process.stderr.write(`Готово: ${result.url} — вложений ${v.attachments.length}, плейсхолдеров нет.\n`);
+  return EXIT.OK;
+}
+
+// --attach-to N: screenshots into an existing issue (G-8).
+async function attachExisting(a, { repo, bin, base, issueTpl, cdp, throttle, uploadTimeout }) {
+  const raw = String(a['attach-to']);
+  if (!/^\d+$/.test(raw)) throw new StopError(EXIT.USAGE, `--attach-to: один номер issue за вызов (получено «${raw}»). Несколько номеров — отдельными запусками.`);
+  const number = Number(raw);
+  // gh may also answer 404 right after creation: retry the API read a few times.
+  let issue = null;
+  for (let i = 0; i < 3 && !issue; i++) {
+    try { issue = L.ghIssue(bin, repo, number); }
+    catch (e) { if (i === 2 || !/404|Not Found/i.test(e.message)) throw e; await L.sleep(2000 * (i + 1)); }
+  }
+  const body = issue.body || '';
+  const ph = L.existingPlaceholders(body);
+  if (!ph.length) {
+    L.emit({ ok: true, repo, number, kind: 'attach', note: 'в теле нет плейсхолдеров «**[Скриншот: файл]**» / {{qa-shot:файл}} — нечего добавлять' }, a.out);
+    return EXIT.OK;
+  }
+  const byName = new Map(a.shot.map(s => [path.basename(s), path.resolve(s)]));
+  const dir = a['shots-dir'] && a['shots-dir'] !== true ? path.resolve(String(a['shots-dir'])) : null;
+  const files = [];
+  for (const p of ph) {
+    const f = byName.get(p.name) || (dir ? path.join(dir, p.name) : null);
+    if (!f || !fs.existsSync(f)) throw new StopError(EXIT.USAGE, `Нет файла для плейсхолдера «${p.token}»: ${f || p.name} (--shot или --shots-dir). Ничего не изменено.`);
+    files.push({ ...p, file: f });
+  }
+  L.checkShots([...new Set(files.map(f => f.file))]);
+  const steps = [
+    `gh api repos/${repo}/issues/${number}: плейсхолдеров ${ph.length} (${ph.map(p => p.name).join(', ')})`,
+    `открыть ${L.fillTemplate(issueTpl, { base, repo, number })} (при 404 — повтор с паузой), проверить вход`,
+    `в поле «${L.COMMENT_PLACEHOLDER}» загрузить ${files.length} файл(ов), комментарий НЕ отправлять, поле очистить`,
+    `gh issue edit ${number} -R ${repo} --body-file: плейсхолдеры заменить вложениями`,
+    `gh api: вложений не меньше ${files.length}, плейсхолдеров нет`,
+  ];
+  if (!a['confirm-publish']) {
+    L.printPlan(`План: добавить скриншоты в существующий issue ${repo}#${number}:`, steps);
+    L.emit({ ok: true, dryRun: true, repo, number, kind: 'attach', placeholders: ph.map(p => p.name), steps }, a.out);
+    return EXIT.OK;
+  }
+  const blockedLog = a['blocked-log'] && a['blocked-log'] !== true ? String(a['blocked-log']) : null;
+  const { context } = await L.connect(cdp);
+  const page = await L.openPageRetry(context, L.fillTemplate(issueTpl, { base, repo, number }), { baseUrl: base, blockedLog },
+    { tries: Number(a['retries'] ?? 3), pauseMs: Number(a['retry-pause'] ?? 2000) });
+  const snippets = {};
+  try {
+    await L.ensureLoggedIn(page);
+    const box = await L.findCommentBox(page);
+    for (const f of files) {
+      if (snippets[f.name]) continue;
+      snippets[f.name] = (await L.uploadOne(page, box, f.file, { timeoutMs: uploadTimeout })).snippet;
+      await L.sleep(Math.min(throttle, 1000));
+    }
+    await box.fill('');
+  } finally { await page.close().catch(() => {}); }
+  let finalBody = body;
+  for (const f of files) finalBody = finalBody.split(f.token).join(snippets[f.name]);
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'qa-web-'));
+  const draft = path.join(tmp, 'body.md');
+  fs.writeFileSync(draft, finalBody);
+  L.gh(bin, ['issue', 'edit', String(number), '-R', repo, '--body-file', draft]);
+  fs.rmSync(tmp, { recursive: true, force: true });
+  await L.sleep(throttle);
+  const after = L.ghIssue(bin, repo, number);
+  const v = L.checkBody(after.body || '', new Set(files.map(f => f.name)).size);
+  L.emit({ ok: v.ok, repo, number, kind: 'attach', url: after.html_url || after.url, problems: v.problems, attachments: v.attachments }, a.out);
+  if (!v.ok) { process.stderr.write(`Проверка по API не пройдена (#${number}): ${v.problems.join('; ')}\n`); return EXIT.VERIFY_FAILED; }
+  process.stderr.write(`Готово: #${number} — вложений ${v.attachments.length}, плейсхолдеров нет.\n`);
   return EXIT.OK;
 }
 

@@ -28,6 +28,17 @@
 4. Нажать **только** кнопку с текстом ровно «Comment». Кандидаты фильтруются по видимому тексту, `aria-label` и `title`; всё, где есть Close / Reopen / Delete / закрыть / переоткрыть, пропускается; перед нажатием текст проверяется ещё раз. Нет чистого кандидата — остановка, код 6.
 5. `gh api`: комментарий с отметкой есть, в нём вложения и нет плейсхолдеров; **состояние issue не изменилось** (закрытый остался закрытым). Иначе код 5.
 
+### Дополнить существующий issue — `publish_web.mjs --attach-to N`
+Issue уже создан (`gh issue create`, режим прямой публикации `repo-sync.md` §6, или вручную), в теле на местах картинок — плейсхолдеры `**[Скриншот: F-001-menu-annotated.png]**` или `{{qa-shot:F-001-menu-annotated.png}}`.
+1. `gh api`: тело issue, список плейсхолдеров; файлы — из `--shot` (по имени) или `--shots-dir <RUN_DIR>/screenshots`. Нет файла — остановка (код 1) до открытия браузера.
+2. **Один номер за вызов** (`--attach-to 12,13` — ошибка): при нескольких номерах подряд второй раз GitHub отвечал 404. Страница issue при 404 открывается повторно с растущей паузой (`--retries 3`, `--retry-pause 2000`), затем код 2.
+3. Загрузка файлов через поле комментария (не отправляется), поле очищается; `gh issue edit --body-file` — плейсхолдеры заменены вложениями; проверка по API (код 5, если остались плейсхолдеры).
+```bash
+node <SKILL_DIR>/scripts/node/publish_web.mjs --attach-to 12 --repo owner/repo --shots-dir <RUN_DIR>/screenshots      # план
+node <SKILL_DIR>/scripts/node/publish_web.mjs --attach-to 12 --repo owner/repo --shots-dir <RUN_DIR>/screenshots \
+  --cdp http://127.0.0.1:9222 --confirm-publish
+```
+
 ## Устойчивые селекторы (новый интерфейс GitHub)
 Новый интерфейс не использует `<form>` и `textarea[name="comment[body]"]`. Поиск поля — по порядку, берётся последнее видимое (поле нового комментария — внизу страницы):
 1. placeholder «Use Markdown to format your comment»;

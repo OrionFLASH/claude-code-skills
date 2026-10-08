@@ -90,7 +90,7 @@ export function replacePlaceholders(body, snippets) {
 // Verification used after every publish: attachments present, no placeholders, no upload stubs.
 export function checkBody(body, expectedCount) {
   const problems = [];
-  const left = [...(body || '').matchAll(SHOT_TOKEN_RE)].map(m => m[1]);
+  const left = [...(body || '').matchAll(SHOT_TOKEN_RE)].map(m => m[1]).concat([...(body || '').matchAll(RU_SHOT_RE)].map(m => m[1]));
   if (left.length) problems.push(`остались плейсхолдеры: ${left.join(', ')}`);
   if (/!\[Uploading [^\]]*\]\(\)/i.test(body || '')) problems.push('остался текст «Uploading …» незавершённой загрузки');
   const attachments = [...new Set((body || '').match(ATTACHMENT_RE) || [])];
@@ -176,9 +176,30 @@ export async function openPage(context, url, opts) {
   const page = await context.newPage();
   page.on('dialog', d => d.dismiss().catch(() => {})); // native dialogs are always dismissed
   await lockNavigation(page, opts.baseUrl, opts.blockedLog);
-  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  const resp = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  page.__qaStatus = resp ? resp.status() : null;
   await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {});
   return page;
+}
+
+// A freshly created issue sometimes answers 404 for a few seconds: retry with a growing pause (G-8).
+export async function openPageRetry(context, url, opts, { tries = 3, pauseMs = 2000 } = {}) {
+  for (let i = 0; i < tries; i++) {
+    const page = await openPage(context, url, opts);
+    if (page.__qaStatus !== 404) return page;
+    await page.close().catch(() => {});
+    if (i < tries - 1) await sleep(pauseMs * (i + 1));
+  }
+  throw new StopError(EXIT.ENV, `Страница ${url} отвечает 404 после ${tries} попыток — проверьте номер issue и права; повторите позже.`);
+}
+
+// Placeholders in an EXISTING issue body: {{qa-shot:file.png}} and «**[Скриншот: file.png]**» (G-8).
+export const RU_SHOT_RE = /\*\*\[Скриншот:\s*([^\]]+?)\s*\]\*\*/g;
+export function existingPlaceholders(body) {
+  const out = [];
+  for (const m of (body || '').matchAll(SHOT_TOKEN_RE)) out.push({ token: m[0], name: m[1] });
+  for (const m of (body || '').matchAll(RU_SHOT_RE)) out.push({ token: m[0], name: m[1] });
+  return out;
 }
 
 // Logged in = <meta name="user-login"> is non-empty (GitHub sets it for signed-in users) and the
