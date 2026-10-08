@@ -141,3 +141,17 @@
 - Проверки: `tools/validate.sh` — 0 ошибок, 0 предупреждений; `android-qa-audit/tests/unit.sh` — PASS 148, FAIL 0 (Python 3.14 и /usr/bin/python3 3.9.6); `site-qa-audit/tests/unit.sh` — PASS 40, FAIL 0 (3.14 и 3.9.6; v1.2.1 — 16, v1.2 — 24, A — 32, B — 29, C — 34); примеры команд в документации — 246 (android) и 127 (site) без ошибок; на данных боевого прогона (только чтение): падение UiAutomation → `other_processes`, 0 падений приложения; альбомный дамп — 0 `visual.offscreen` вместо 9; матрица — одна ячейка 8 ГБ.
 - Осталось: merge/push/теги; живая проверка на эмуляторе (вызывающий).
 - Следующий шаг: влить ветку, затем живой прогон по tests/README.md → «Живая проверка» с новыми командами.
+
+## 2026-10-09 доработки по обратной связи (site-qa-audit 1.3.0, android-qa-audit 1.1.0, typesafe-triage 2.2.0)
+План: docs/plans/2026-10-09-feedback-plan.md. Основа — ветка docs/feedback-plan-2026-10-09. Реализация — агенты в worktree: A (site-qa-audit + перенос в android-qa-audit), B (typesafe-triage). Корневые README/CHANGELOG/marketplace.json и TASKS.md агенты не трогают.
+- [ ] A: необходимо — S-2, S-1, S-3, S-4, S-5, S-6/S-7, S-9, G-2, G-3/G-4, юридическое
+- [ ] A: возможно — S-8, G-1/G-9, G-5, G-6, G-7, G-8, G-10, G-11, G-12
+- [ ] A: перенос в android-qa-audit 1.1.0 (S-2, S-5, S-9, G-6, реестр стендов, запрет kill-server, юридическое)
+- [ ] B: T-4 (причина пропавших заметок), T-5
+- [ ] B: T-1, T-2, T-3, T-6
+- [ ] Проверка мной: validate, site unit.sh, android unit.sh, pytest typesafe-triage
+- [ ] Живая проверка: S-2, S-4 (pointer:coarse), occlusion/targets; хук — в новой сессии
+- [ ] Слияние A и B в main, push, `skillsrepo.py sync`, CHANGELOG корневой, INSTALL.md (SITE_QA_AUDIT_DIR, SITE_QA_HEADLESS, SITE_QA_SLOWMO)
+- [ ] Теги site-qa-audit/v1.3.0, android-qa-audit/v1.1.0, typesafe-triage/v2.2.0
+- [ ] Обновление установки через маркетплейс (`claude plugin marketplace update`, `claude plugin update` ×3), `claude plugin list`
+- [ ] «Где остановился»
