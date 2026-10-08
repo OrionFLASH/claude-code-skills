@@ -196,7 +196,8 @@ def test_budget_ceiling_stops_before_overspend(server, tmp_path):
                                   "/commit с сообщением про исправление валидации формы входа", "ок"])
 def test_chatter_and_commands_never_reach_the_server(server, tmp_path, text):
     rc, out, _ = hook(server, tmp_path, prompt={"prompt": text, "cwd": "/tmp"})
-    assert rc == 0 and out == {} and Fake.hits == 0
+    assert rc == 0 and Fake.hits == 0 and "systemMessage" not in out          # 2.2: вместо молчания — строка о пропуске
+    assert ctx(out).startswith("TypeSafe-триаж пропущен: ") and "\n" not in ctx(out)
 
 
 def test_universal_task_and_fable_needs_confirmation(server, tmp_path):

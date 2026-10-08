@@ -68,6 +68,7 @@ import shutil
 import ssl
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -96,7 +97,15 @@ LOG_PATH = guard.HOME / "log.jsonl"
 OFF_MARKER = ".typesafe-triage-off"
 CHILD_ENV = "TYPESAFE_TRIAGE_CHILD"   # ставится в окружение агента, запущенного через --run: в нём хук молчит, вложенный --run запрещён
 DEDUP_S = 8                # второй вызов хука на тот же запрос (session_id + хеш промпта) за это время — молчит
-DEDUP_NAME = "dedup"       # каталог в guard.HOME: пустые файлы-метки, имя = хеш (без содержимого промпта), права 0600
+DEDUP_NAME = "dedup"       # каталог в guard.HOME: файлы-метки, имя = хеш (без содержимого промпта), права 0600
+# 2.2.0 (T-4): хук никогда не молчит без причины. Метка «в работе» (pending) ставится до триажа, «готово» (done) — после
+# вывода заметки; второй вызов ждёт первого и подхватывает работу, если тот оборвался. Весь хук укладывается в бюджет.
+HOOK_BUDGET_S = 8.0        # весь хук (бюджет Claude Code — 10 с): не успели — заметка по эвристике и «триаж пропущен: …»
+PENDING_STALE_S = HOOK_BUDGET_S + 1.5   # метка «в работе» старше — её хозяина оборвали (тайм-аут Claude Code, kill)
+TAKEOVER_RESERVE_S = 0.5   # второй вызов ждёт первого не дольше HOOK_BUDGET_S минус этот запас (нужен на свою заметку)
+NET_MIN_S = 1.5            # меньше времени осталось — в TypeSafe не идём, сразу эвристика
+DEDUP_POLL_S = 0.1
+SKIP_PREFIX = "TypeSafe-триаж пропущен: "
 CLARIFY_RISK = 0.67        # уточняющий вопрос: риск не ниже этого (или необратимость / слова критичности) …
 CLARIFY_CONF = 0.5         # … и уверенность ниже этого (или нет ответа TypeSafe)
 CLARIFY_AMBIG = 0.6        # … и задача открытая (неясность TypeSafe) / есть слова неопределённости
@@ -641,20 +650,9 @@ def triage(task, key=None, timeout=TIMEOUT_S, **ctx):
     return add_effort(r, m, h, task, min_conf=eff_conf, **ctx)
 
 
-def log(task, result):
-    """Журнал решений (первые 200 символов, секреты скрыты, права 0600). Пропущенные реплики не пишутся."""
-    if not result or result.get("skip") or not result.get("model"):
-        return
+def _append_log(rec):
     try:
         LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        rec = {"ts": int(time.time()), "id": prompt_id(task),
-               "task": redact(task)[:200], "model": result.get("model"), "source": result.get("source"),
-               "reason": result.get("reason"), "metrics": result.get("metrics"), "signals": result.get("signals"),
-               "domain": result.get("domain"), "input": result.get("input"), "tokens": result.get("tokens"),
-               # 2.1: вторая ось и история (session — хеш session_id, не сам идентификатор)
-               "effort": result.get("effort"), "effort_source": result.get("effort_source"),
-               "effort_depth": result.get("effort_depth"), "model_source": result.get("model_source"),
-               "session": result.get("session"), "retry": result.get("retry")}
         new = not LOG_PATH.exists()
         with LOG_PATH.open("a", encoding="utf-8") as f:
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
@@ -662,6 +660,37 @@ def log(task, result):
             os.chmod(LOG_PATH, 0o600)
     except OSError:
         pass
+
+
+def log(task, result, **extra):
+    """Журнал решений (первые 200 символов, секреты скрыты, права 0600). Пропущенные реплики сюда не пишутся (см. log_skip).
+    extra — дополнительные поля хука (takeover, late …); пустые не пишутся."""
+    if not result or result.get("skip") or not result.get("model"):
+        return
+    rec = {"ts": int(time.time()), "id": prompt_id(task),
+           "task": redact(task)[:200], "model": result.get("model"), "source": result.get("source"),
+           "reason": result.get("reason"), "metrics": result.get("metrics"), "signals": result.get("signals"),
+           "domain": result.get("domain"), "input": result.get("input"), "tokens": result.get("tokens"),
+           # 2.1: вторая ось и история (session — хеш session_id, не сам идентификатор)
+           "effort": result.get("effort"), "effort_source": result.get("effort_source"),
+           "effort_depth": result.get("effort_depth"), "model_source": result.get("model_source"),
+           "session": result.get("session"), "retry": result.get("retry")}
+    for k in ("inherited", "shared_state", "active_task"):   # 2.2: контекст задачи и общее состояние (без текста)
+        if result.get(k):
+            rec[k] = result[k] if k != "active_task" else True
+    rec.update({k: v for k, v in extra.items() if v})
+    _append_log(rec)
+
+
+def log_skip(task, session_id, reason):
+    """2.2.0: пропуск или отказ хука — тоже в журнал, но без текста запроса: время, хеш, длина, хеш сессии, причина.
+    Такие записи (поле skipped, без model) не участвуют в истории сессии и в сводке моделей."""
+    rec = {"ts": int(time.time()), "skipped": reason}
+    if isinstance(task, str):
+        rec.update(id=prompt_id(task), chars=len(task))
+    if session_id:
+        rec["session"] = eff.session_tag(session_id)
+    _append_log(rec)
 
 
 def axes_line(result):
@@ -807,70 +836,286 @@ def is_harness_message(prompt):
     return head.startswith(HARNESS_PREFIXES) or "[Subagent hand-back]" in head or "<task-notification>" in head
 
 
+def skip_reason(prompt):
+    """Почему запрос не оцениваем (и не отправляем в TypeSafe); None — оцениваем."""
+    if not isinstance(prompt, str):
+        return "некорректный ввод хука"
+    if prompt.lstrip().startswith("/"):
+        return "команда /…"
+    if is_harness_message(prompt):
+        return "служебное сообщение среды"
+    if len(prompt.strip()) < MIN_HOOK_CHARS:
+        return "короткая реплика (< %d знаков)" % MIN_HOOK_CHARS
+    if heur.is_chatter(prompt):
+        return "реплика без поручения"
+    return None
+
+
 def should_skip(prompt):
     """Что вообще не оцениваем (и не отправляем в TypeSafe): короткие реплики, команды, служебные сообщения, болтовня."""
-    return (not isinstance(prompt, str) or len(prompt.strip()) < MIN_HOOK_CHARS or prompt.lstrip().startswith("/")
-            or is_harness_message(prompt) or heur.is_chatter(prompt))
+    return skip_reason(prompt) is not None
 
 
-def already_handled(session_id, prompt, now=None):
-    """Идемпотентность хука: True, если этот же запрос (session_id + хеш промпта) уже обработан за последние DEDUP_S секунд.
-    Метка — пустой файл с именем-хешем в ~/.claude/typesafe-triage/dedup/ (0600, без текста промпта); создание атомарное
-    (O_EXCL), поэтому из двух одновременных вызовов говорит только один. Любая ошибка файловой системы — не дубль."""
+# ---------- идемпотентность хука: метки «в работе» / «готово» (2.2.0, T-4) ----------
+def dedup_key(session_id, prompt):
+    return hashlib.sha256((session_id + "\0" + prompt).encode("utf-8")).hexdigest()[:32]
+
+
+def _marker_write(f, state, create=False):
+    """Метка: {"state", "pid", "ts"} — без текста запроса, права 0600. create=True — атомарно, только если метки нет
+    (FileExistsError — метка уже есть); иначе замена через временный файл."""
+    data = json.dumps({"state": state, "pid": os.getpid(), "ts": time.time()})
+    if create:
+        fd = os.open(str(f), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    else:
+        tmp = f.with_name("%s.%d.tmp" % (f.name, os.getpid()))
+        fd = os.open(str(tmp), os.O_CREAT | os.O_TRUNC | os.O_WRONLY, 0o600)
+    with os.fdopen(fd, "w") as h:
+        h.write(data)
+    if not create:
+        os.replace(str(tmp), str(f))
+
+
+def _marker_read(f):
+    """→ (state, pid, ts). Пустая/недописанная метка (или формат до 2.2: пустой файл) — «в работе» с временем файла."""
+    mtime = f.stat().st_mtime                 # FileNotFoundError — метки уже нет
+    try:
+        st = json.loads(f.read_text(encoding="utf-8") or "null")
+    except (OSError, ValueError):
+        st = None
+    if not isinstance(st, dict):
+        return "pending", None, mtime
+    try:
+        return st.get("state", "pending"), st.get("pid"), float(st.get("ts", mtime))
+    except (TypeError, ValueError):
+        return "pending", None, mtime
+
+
+def _pid_alive(pid):
+    """Жив ли процесс (только POSIX; на Windows os.kill(pid, 0) завершил бы процесс — там считаем живым и ждём по времени)."""
+    if not isinstance(pid, int) or pid <= 0 or os.name == "nt":
+        return True
+    if pid == os.getpid():
+        return True
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except OSError:
+        return True
+    return True
+
+
+def _dedup_cleanup(d, now):
+    for x in d.iterdir():
+        try:
+            if now - x.stat().st_mtime > 60 * DEDUP_S:
+                x.unlink()
+        except OSError:
+            pass
+
+
+def dedup_claim(session_id, prompt, started=None):
+    """Кто из вызовов хука на этот запрос (session_id + хеш промпта) даёт заметку.
+    → ("own", метка | None) — мы; ("dup", None) — другой вызов уже дал заметку (молчим);
+      ("takeover", метка, причина) — другой вызов начал, но оборвался или не уложился: заметку даём мы.
+    Второй вызов ждёт первого (метка «в работе») не дольше HOOK_BUDGET_S − TAKEOVER_RESERVE_S. Без session_id и при ошибке
+    файловой системы — «own» без метки (лучше лишняя заметка, чем потерянная)."""
     if not session_id:
-        return False                      # без session_id нельзя отличить дубль от нового запроса (Claude Code его всегда передаёт)
-    now = time.time() if now is None else now
-    digest = hashlib.sha256((session_id + "\0" + prompt).encode("utf-8")).hexdigest()[:32]
+        return ("own", None)
+    started = time.monotonic() if started is None else started
     d = guard.HOME / DEDUP_NAME
     try:
         d.mkdir(parents=True, exist_ok=True)
         os.chmod(d, 0o700)
-        f = d / digest
-        try:
-            os.close(os.open(str(f), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
-        except FileExistsError:
-            if now - f.stat().st_mtime < DEDUP_S:
-                return True
-            os.utime(f, (now, now))       # тот же запрос, но позже — это новый запрос пользователя
-            return False
-        for x in d.iterdir():             # уборка старых меток
+        f = d / dedup_key(session_id, prompt)
+        while True:
             try:
-                if now - x.stat().st_mtime > 60 * DEDUP_S:
-                    x.unlink()
-            except OSError:
+                _marker_write(f, "pending", create=True)
+                _dedup_cleanup(d, time.time())
+                return ("own", f)
+            except FileExistsError:
                 pass
+            try:
+                state, pid, ts = _marker_read(f)
+            except FileNotFoundError:
+                continue                      # метку только что убрали — пробуем занять снова
+            age = time.time() - ts
+            if state == "done":
+                if age < DEDUP_S:
+                    return ("dup", None)
+                _marker_write(f, "pending")   # тот же текст, но позже — это новый запрос пользователя
+                return ("own", f)
+            if age > PENDING_STALE_S:
+                reason = "первый вызов хука оборвался (метка «в работе» %.0f с)" % age
+            elif not _pid_alive(pid):
+                reason = "первый вызов хука завершился, не дав заметки"
+            elif time.monotonic() - started >= HOOK_BUDGET_S - TAKEOVER_RESERVE_S:
+                reason = "первый вызов хука не ответил за %.0f с" % (time.monotonic() - started)
+            else:
+                time.sleep(DEDUP_POLL_S)
+                continue
+            _marker_write(f, "pending")
+            return ("takeover", f, reason)
     except OSError:
-        return False
+        return ("own", None)
+
+
+def already_handled(session_id, prompt, now=None):
+    """Совместимость (до 2.2): True — этот запрос уже обработан другим вызовом. Ставит метку «готово» сразу."""
+    claim = dedup_claim(session_id, prompt)
+    if claim[0] == "dup":
+        return True
+    mark_done(claim[1])
     return False
 
 
-def run_hook():
-    """Хук не должен ни ломать, ни тормозить работу: любая неожиданность = молчание и код 0."""
+def mark_done(f):
+    if f is None:
+        return
     try:
-        if os.environ.get(CHILD_ENV):
-            return 0  # мы внутри агента, запущенного --run: уровень модели уже выбран, советов и второго обращения в TypeSafe не нужно
-        data = json.load(sys.stdin)
-        if not isinstance(data, dict):
-            return 0
-        prompt = data.get("prompt", "") or ""
-        if should_skip(prompt) or switched_off(data.get("cwd")):
-            return 0
-        sid = data.get("session_id") if isinstance(data.get("session_id"), str) else None
-        if already_handled(sid, prompt):
-            return 0  # второй хук (ручной в settings.json + хук плагина) на тот же запрос — молчим
-        result = triage(prompt, timeout=HOOK_TIMEOUT_S, session=sid, cwd=data.get("cwd"))
-        log(prompt, result)
-        parts, out = [], {}
-        if result.get("model") and not result.get("skip"):
-            parts.append(hook_context(result, eff.session_effort(data.get("cwd"))))
-        if result.get("notice"):  # проблема с TypeSafe: показать пользователю прямо (systemMessage) и поручить сообщить в ответе
-            out["systemMessage"] = result["notice"]
-            parts.append("ВАЖНО (TypeSafe): в начале ответа одной-двумя строками сообщи пользователю: " + result["notice"])
-        if parts:
-            out["hookSpecificOutput"] = {"hookEventName": "UserPromptSubmit", "additionalContext": "\n\n".join(parts)}
-            print(json.dumps(out))
-    except Exception:
+        _marker_write(f, "done")
+    except OSError:
         pass
+
+
+# ---------- бюджет времени хука ----------
+class HookTimeout(Exception):
+    pass
+
+
+_ABANDONED = []   # потоки, брошенные по тайм-ауту: процесс хука завершается os._exit, не дожидаясь их
+
+
+def call_with_deadline(fn, seconds):
+    """fn() в отдельном потоке; не успела за seconds — HookTimeout (поток бросаем, он демон)."""
+    box = {}
+
+    def target():
+        try:
+            box["r"] = fn()
+        except BaseException as e:  # noqa: B902 — передаём в основной поток как есть
+            box["e"] = e
+    th = threading.Thread(target=target, daemon=True)
+    th.start()
+    th.join(max(0.0, seconds))
+    if th.is_alive():
+        _ABANDONED.append(th)
+        raise HookTimeout()
+    if "e" in box:
+        raise box["e"]
+    return box["r"]
+
+
+def offline_triage(task, reason, **ctx):
+    """Оценка без сети (только эвристика) — когда на TypeSafe не осталось времени."""
+    if ctx.get("session"):
+        ctx["session"] = eff.session_tag(ctx["session"])
+    return fallback(task, heur.signals(task), reason, ctx)
+
+
+def hook_triage(prompt, sid, cwd, started, late=None):
+    """Триаж в рамках HOOK_BUDGET_S от начала хука. → (результат, причина деградации или None)."""
+    left = HOOK_BUDGET_S - (time.monotonic() - started)
+    if late or left < NET_MIN_S + 0.3:
+        why = late or "не осталось времени на TypeSafe"
+        return offline_triage(prompt, why, session=sid, cwd=cwd), why
+    try:
+        r = call_with_deadline(lambda: triage(prompt, timeout=min(HOOK_TIMEOUT_S, left - 1.0), session=sid, cwd=cwd), left - 0.3)
+        return r, None
+    except HookTimeout:
+        why = "TypeSafe-оценка не уложилась в %.0f с" % HOOK_BUDGET_S
+        return offline_triage(prompt, why, session=sid, cwd=cwd), why
+
+
+def skip_output(reason, failure=False):
+    """Одна строка вместо заметки. failure — сбой (видит и пользователь), иначе намеренный пропуск (только модель)."""
+    line = SKIP_PREFIX + reason
+    if failure:
+        ctx = line + ". Заметки нет: уровень и effort выбирай сам; пользователь видит это сообщение."
+    else:
+        ctx = line + ". Заметки нет — работай как обычно, триаж не упоминай."
+    out = {"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": ctx}}
+    if failure:
+        out["systemMessage"] = line
+    return out
+
+
+def hook_output(result, cwd, late=None):
+    parts, out = [], {}
+    if result.get("model") and not result.get("skip"):
+        parts.append(hook_context(result, eff.session_effort(cwd)))
+    msgs = []
+    if late:
+        msgs.append(SKIP_PREFIX + late + "; уровень и effort — по локальной эвристике")
+    if result.get("notice"):  # проблема с TypeSafe: показать пользователю прямо (systemMessage) и поручить сообщить в ответе
+        msgs.append(result["notice"])
+        parts.append("ВАЖНО (TypeSafe): в начале ответа одной-двумя строками сообщи пользователю: " + result["notice"])
+    if msgs:
+        out["systemMessage"] = "\n".join(msgs)
+    if parts:
+        out["hookSpecificOutput"] = {"hookEventName": "UserPromptSubmit", "additionalContext": "\n\n".join(parts)}
+    return out
+
+
+def run_hook():
+    """Хук не ломает и не тормозит работу (код всегда 0, укладывается в HOOK_BUDGET_S) и не молчит без причины:
+    вместо заметки — строка «TypeSafe-триаж пропущен: <причина>» и запись в журнал. Молчит только при выключателе,
+    внутри агента --run и когда заметку уже дал другой вызов хука на тот же запрос."""
+    started = time.monotonic()
+    if os.environ.get(CHILD_ENV):
+        return 0  # мы внутри агента, запущенного --run: уровень модели уже выбран, советов и второго обращения в TypeSafe не нужно
+    prompt, sid, f, sent = None, None, None, []
+
+    def emit(out):
+        if out and not sent:
+            sys.stdout.write(json.dumps(out) + "\n")
+            sys.stdout.flush()
+            sent.append(1)
+    try:
+        try:
+            data = json.load(sys.stdin)
+        except Exception as e:
+            data = e
+        if not isinstance(data, dict) or not isinstance(data.get("prompt", ""), str):
+            why = "некорректный ввод хука (%s)" % (type(data).__name__)
+            emit(skip_output(why, failure=True))
+            log_skip(None, None, why)
+            return 0
+        cwd = data.get("cwd") if isinstance(data.get("cwd"), str) else None
+        if switched_off(cwd):
+            return 0
+        prompt = data.get("prompt") or ""
+        sid = data.get("session_id") if isinstance(data.get("session_id"), str) else None
+        why = skip_reason(prompt)
+        if why:
+            emit(skip_output(why))
+            log_skip(prompt, sid, why)
+            return 0
+        claim = dedup_claim(sid, prompt, started)
+        if claim[0] == "dup":
+            log_skip(prompt, sid, "дубль: заметку дал другой вызов хука")
+            return 0
+        f = claim[1]
+        takeover = claim[2] if claim[0] == "takeover" else None
+        late_in = takeover if takeover and HOOK_BUDGET_S - (time.monotonic() - started) < NET_MIN_S + 0.3 else None
+        result, late = hook_triage(prompt, sid, cwd, started, late_in)
+        if result.get("skip"):
+            why = "реплика (по оценке TypeSafe)"
+            emit(skip_output(why))
+            log_skip(prompt, sid, why)
+        else:
+            emit(hook_output(result, cwd, late))
+            log(prompt, result, takeover=takeover, late=late)
+    except Exception as e:
+        why = "ошибка %s" % type(e).__name__
+        try:
+            emit(skip_output(why, failure=True))
+            log_skip(prompt, sid, why)
+        except Exception:
+            pass
+    finally:
+        mark_done(f)
     return 0
 
 
@@ -995,9 +1240,11 @@ def run_cases(heuristic_only=False, split="all", calibrate=False):
 def log_summary():
     """Сводка журнала: распределение моделей и effort, источники effort, доля повторов."""
     try:
-        recs = [json.loads(x) for x in LOG_PATH.read_text(encoding="utf-8").splitlines() if x.strip()]
+        allrecs = [json.loads(x) for x in LOG_PATH.read_text(encoding="utf-8").splitlines() if x.strip()]
     except (OSError, ValueError):
-        recs = []
+        allrecs = []
+    recs = [r for r in allrecs if isinstance(r, dict) and r.get("model")]
+    skipped = [r for r in allrecs if isinstance(r, dict) and r.get("skipped")]
     if not recs:
         print("\nЖурнал %s пуст или недоступен." % LOG_PATH)
         return
@@ -1011,6 +1258,13 @@ def log_summary():
     print("  effort: " + count("effort") + "  (None — записи до 2.1)")
     print("  источник effort: " + count("effort_source"))
     print("  повторы (эскалация по истории): %d" % sum(1 for r in recs if r.get("retry")))
+    if skipped:
+        kinds = {}
+        for r in skipped:
+            k = r["skipped"].split(" (")[0]
+            kinds[k] = kinds.get(k, 0) + 1
+        print("  пропуски и отказы хука (2.2+): %d — %s" % (len(skipped), ", ".join(
+            "%s %d" % kv for kv in sorted(kinds.items(), key=lambda kv: -kv[1]))))
 
 
 def run_selftest(heuristic_only=False, split="all", calibrate=False):
@@ -1213,7 +1467,11 @@ def main(argv):
         print(format_status())
         return 0 if r.get("source") == "typesafe" else 1
     if "--hook" in argv:
-        return run_hook()
+        rc = run_hook()
+        if _ABANDONED:                     # поток с зависшим запросом брошен по тайм-ауту: выходим, не дожидаясь его
+            sys.stdout.flush()
+            os._exit(rc)
+        return rc
     if "--selftest" in argv or "--calibrate" in argv:
         if opt(argv, "--cache"):
             globals()["ask_typesafe"] = Replay(opt(argv, "--cache"))

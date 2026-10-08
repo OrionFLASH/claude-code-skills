@@ -223,7 +223,8 @@ def read_history(log_path, session, now=None):
             rec = json.loads(ln)
         except ValueError:
             continue
-        if isinstance(rec, dict) and rec.get("session") == session and now - rec.get("ts", 0) <= HISTORY_WINDOW_S:
+        if (isinstance(rec, dict) and rec.get("session") == session and rec.get("model")   # 2.2: пропуски (skipped) — не история
+                and now - rec.get("ts", 0) <= HISTORY_WINDOW_S):
             out.append(rec)
     return out
 
