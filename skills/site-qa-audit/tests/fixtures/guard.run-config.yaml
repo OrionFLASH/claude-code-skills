@@ -1,0 +1,19 @@
+# Фикстура для tests/test_stream_b.sh: правила guard.js (страница guard-actions.html).
+version: 1
+site:
+  allowed_domains:
+    - 127.0.0.1
+rules:
+  forbidden_domains:
+    - sibling.example
+    - ads.blocked.example
+  forbidden_url_patterns: []
+  forbidden_actions:
+    - id: U1
+      source: "не нажимать «Поддержать»"
+      texts: ["Поддержать", "Support"]
+      roles: [button, link]
+  require_confirmation_actions: []
+  preapproved_actions: []
+parallel:
+  throttle_ms: 0

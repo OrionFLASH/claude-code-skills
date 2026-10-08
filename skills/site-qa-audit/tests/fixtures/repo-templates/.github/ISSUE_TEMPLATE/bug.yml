@@ -1,0 +1,84 @@
+name: Ошибка
+description: Что-то работает не так
+title: "[Ошибка]: "
+labels: ["ошибка"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Перед отправкой прочитайте [инструкцию по тестированию](../../docs/testing-guide.md)
+        и [как прикладывать файлы](https://github.com/owner/repo/blob/main/docs/attachments.md).
+  - type: dropdown
+    id: area
+    attributes:
+      label: Где
+      options:
+        - Карта
+        - Лаборатория сборок
+        - Другое
+    validations:
+      required: true
+  - type: input
+    id: url
+    attributes:
+      label: Адрес страницы
+  - type: textarea
+    id: steps
+    attributes:
+      label: Шаги
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Что ожидали
+  - type: textarea
+    id: actual
+    attributes:
+      label: Что получилось
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Серьёзность
+      description: Шкала описана в docs/testing-guide.md
+      options:
+        - Блокирует
+        - Серьёзно
+        - Обычно
+        - Незначительно
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: Как часто
+      options:
+        - Всегда
+        - Иногда
+        - Один раз
+  - type: input
+    id: environment
+    attributes:
+      label: Браузер и устройство
+  - type: dropdown
+    id: account
+    attributes:
+      label: Аккаунт
+      options:
+        - Гость
+        - Вход без Pro
+        - Вход с Pro
+  - type: input
+    id: language
+    attributes:
+      label: Язык интерфейса
+  - type: textarea
+    id: console
+    attributes:
+      label: Консоль
+      render: text
+  - type: textarea
+    id: files
+    attributes:
+      label: Файлы
+      description: См. https://example.org/external-guide (внешняя ссылка не скачивается)

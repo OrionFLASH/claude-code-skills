@@ -1,9 +1,11 @@
 # run-config.yaml — конфиг одного прогона site-qa-audit.
-# Создаётся скилом по итогам опроса (references/intake.md) в ./qa-runs/<YYYY-MM-DD>-<host>/.
+# Создаётся скилом по итогам опроса (references/intake.md) в <OUTPUT_ROOT>/qa-runs/<YYYY-MM-DD>-<host>/
+# (черновик из свободного запроса — scripts/intake.py from-text).
 # Формат — подмножество YAML (shared/scripts/miniyaml.py): без якорей и inline-словарей.
 # Секреты сюда НЕ пишутся — только имена переменных окружения.
 
 version: 1
+output_dir: /abs/path/to/results   # OUTPUT_ROOT: путь из запроса / SITE_QA_OUTPUT_DIR / ответ пользователя
 mode: dry-run                 # live | dry-run (dry-run: всё, кроме публикации; черновики в drafts/)
 language: ru                  # язык отчётов и issues
 
@@ -19,10 +21,14 @@ site:
   third_party_resources: []
 
 auth:
-  mode: none                  # none | test-account | manual
+  mode: none                  # none | test-account | manual | manual-cdp
+                              # manual-cdp — пользователь уже вошёл в своём Chrome (--remote-debugging-port);
+                              # скил присоединяется по CDP и НЕ очищает cookies/localStorage (references/devices-auth.md)
+  cdp_url: http://127.0.0.1:9222   # только для manual-cdp
   login_url: null
   username_env: QA_USERNAME   # только имена переменных окружения
   password_env: QA_PASSWORD
+  account_states: []          # состояния аккаунта для проверок: guest | free | pro | своё; пишутся в находку (account_state)
 
 scope:
   type: whole-site            # whole-site | section | url-list | current-screen
@@ -32,7 +38,7 @@ scope:
   exclude_patterns: []        # регэкспы URL, исключённые пользователем после разведки
 
 directions:                   # functional, logic-state, ux, visual-ui, responsive-cross-browser,
-  - functional                # accessibility, performance, seo-content, security-passive, product
+  - functional                # accessibility, performance, seo-content, content-i18n, security-passive, product
   - ux
   - accessibility
 
@@ -48,6 +54,8 @@ devices:                      # по умолчанию — из depth-matrix.md
       height: 812
   browsers:
     - chromium
+  emulate: []                 # имена из device_context.js list: pixel7, pixel7-landscape, iphone15, ipad, 360x640, low…
+  # Пример: [pixel7, pixel7-landscape, iphone15, ipad] — детекторы и shot.js принимают их в --device
 
 repos: []
 # Пример записи репозитория:
@@ -56,8 +64,23 @@ repos: []
 #    style: brief                # brief | detailed
 #    labels: existing            # existing | create | inline
 #    confirm_before_publish: true
-#    screenshots: none           # commit | none
+#    screenshots: none           # commit | web-upload | none
+#                                # web-upload — чужой/приватный репозиторий: загрузка через веб-форму GitHub
+#                                # в браузере пользователя (вход вручную), references/web-upload.md
 #    screenshots_path: runs      # куда класть при commit: runs/<дата>/
+#    web_upload:                 # только для screenshots: web-upload
+#      cdp: http://127.0.0.1:9222   # Chrome пользователя с --remote-debugging-port, вход на GitHub выполнен
+#      base_url: https://github.com
+#    disclosure: full            # full | none — none: без подписи «Создано site-qa-audit», без источников и маркера скила
+#    cross_links: true           # false — без ссылок на issues других репозиториев (render_draft.py --no-links)
+#    marker: skill               # skill | neutral (<!-- qa-fp:… -->) | none; по умолчанию skill при full, none при disclosure: none
+#    closed_claims: comment      # недоработка в закрытом issue: comment (комментарий в нём) | new (новый issue) | skip (только отчёт)
+#    severity_map:               # шкала репозитория ↔ шкала скила (из формы и документов репозитория)
+#      critical: Блокирует
+#      high: Серьёзно
+#      medium: Обычно
+#      low: Незначительно
+#      info: Незначительно
 
 rules:
   # Базовые запреты (references/safety-rules.md) действуют всегда и здесь не перечисляются.
@@ -77,6 +100,30 @@ rules:
   preapproved_actions: []
   # Те же поля; заранее одобренные действия уровня confirm (например, удаление записей, созданных прогоном).
   # Запреты (deny) не снимают.
+
+frames: main                  # main | all — all: детекторы заходят во iframe (вложенные приложения), references/layout-detectors.md
+
+side_effects: []              # действия с последствиями за пределами теста (references/side-effects.md)
+# Пример:
+#  - id: SE1
+#    action: upload            # upload | click | check
+#    target: "#upload"         # селектор; ">>>" — внутрь iframe
+#    effect: "сохранение попадает в публичный рейтинг без флажка «Чужое сохранение»"
+#    leaves: ["локальная копия сохранения в браузере (кнопка «Запомнить»)"]
+
+invariants: []                # что должно быть верно после (или до) действия с эффектом
+# Пример:
+#  - id: INV1
+#    after: SE1                # id эффекта или тип действия
+#    within_ms: 5000
+#    require:
+#      role: checkbox
+#      name: "Чуж(ой|ое)"      # регэксп по доступному имени, устойчивый к переименованию
+#      state: checked          # present | checked | unchecked | absent
+#      ensure: false           # true — отметить самому (через guard), если появился неотмеченным
+#      only_after_action: true # до действия элемента быть не должно
+#    vocabulary: "Чужое сохранение"   # точное название; расхождение с прошлым прогоном → остановка и вопрос
+#    else: abort               # abort | warn
 
 plugins:
   policy: all-installed       # all-installed | selected | own-only

@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Фикстура (а): кнопка 44×44 над кнопкой 40×40</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; font: 14px sans-serif; }
+  /* Numbers from a real run (anonymised): window 1440x813, bell 1380,753 44x44 z-index 1250 over 1388,733 40x40 */
+  #whole-map { position: fixed; left: 1388px; top: 733px; width: 40px; height: 40px; padding: 0; border: 0; background: #2d6cdf; color: #fff; }
+  #bell { position: fixed; left: 1380px; top: 753px; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: #444; color: #fff; z-index: 1250; }
+  #ok-a { position: fixed; left: 20px; top: 20px; width: 120px; height: 40px; }
+  #ok-b { position: fixed; left: 160px; top: 20px; width: 120px; height: 40px; }
+</style></head>
+<body>
+  <button id="ok-a">Поиск</button>
+  <button id="ok-b">Фильтры</button>
+  <button id="whole-map" aria-label="Вся карта">⤢</button>
+  <button id="bell" aria-label="Уведомления">🔔</button>
+</body></html>

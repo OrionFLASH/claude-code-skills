@@ -2,7 +2,7 @@
   "name": "site-qa-audit-node",
   "private": true,
   "version": "1.0.0",
-  "description": "Небраузерные проверки site-qa-audit: axe, Lighthouse, заголовки, ссылки",
+  "description": "Браузерные и небраузерные проверки site-qa-audit: axe, Lighthouse, заголовки, ссылки, guard, перекрытия, достижимость, устройства, инварианты, снимки",
   "type": "commonjs",
   "engines": {
     "node": ">=18"
@@ -11,7 +11,13 @@
     "a11y": "node a11y.js",
     "lighthouse": "node lighthouse.js",
     "headers": "node headers.js",
-    "links": "node links.js"
+    "links": "node links.js",
+    "guard": "node guard.js",
+    "occlusion": "node occlusion.js",
+    "reachability": "node reachability.js",
+    "devices": "node device_context.js",
+    "invariants": "node invariants.js",
+    "shot": "node shot.js"
   },
   "dependencies": {
     "@axe-core/playwright": "4.13.0",

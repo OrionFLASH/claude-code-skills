@@ -19,8 +19,15 @@ pwsh <SKILL_DIR>/scripts/check_env.ps1 --json <RUN_DIR>/env.json    # Windows
 | playwright-cli | нет | `npm i -g @playwright/cli@latest`; без него браузерный поток один |
 | Claude in Chrome | нет | расширение «Claude» (Anthropic) в Google Chrome + перезапуск `claude --chrome` (или `/chrome`); native host есть, а инструментов в сессии нет → перезапустить сессию с `--chrome`; без него режим «текущий экран» — через Playwright |
 | Плагины-усилители | нет | работа по собственным чек-листам |
+| `SITE_QA_OUTPUT_DIR` | нет | папка результатов по умолчанию; без неё скил спросит (`intake.md` → «Папка прогона») |
 
 Проверка браузеров — реальный запуск (`node/probe.js`), а не поиск файлов.
+
+**Какие браузерные инструменты доступны в этой сессии.** «Playwright MCP: OK» означает только, что он настроен. Чтобы увидеть, что можно вызвать сейчас, агент передаёт имена своих инструментов:
+```bash
+<SKILL_DIR>/scripts/check_env.sh --browser-tools-only --session-tools "mcp__plugin_playwright_playwright__browser_navigate,mcp__plugin_playwright_playwright__browser_run_code_unsafe"
+```
+Раздел «Браузерные инструменты»: Playwright MCP и Claude in Chrome (есть ли в сессии, каких ключевых инструментов нет; без `browser_run_code_unsafe` не работают `nav_lock.js` и `snap_mcp.js`), playwright-cli, браузер с отладочным портом на localhost (`--cdp-ports 9222`, для `auth: manual-cdp`). Последняя строка — «Доступно в этой сессии: …». В `env.json` — ключ `browser_tools`.
 
 ## Поведение
 - FAIL в обязательном → показать таблицу, предложить команду исправления, **глобальные установки — только после подтверждения пользователя** (одним списком).

@@ -24,7 +24,7 @@ from pathlib import Path
 FIX_RX = re.compile(
     r"\b(fixed|fix(ed)? in|resolved|done|deployed|исправлен[оа]?|исправили|починил[иа]?|поправил[иа]?|"
     r"решено|готово|сделано|закрыто как исправленное)\b", re.I)
-MARKER_RX = re.compile(r"<!--\s*site-qa-audit:fp=([0-9a-f]{12,40})\s*-->")
+MARKER_RX = re.compile(r"<!--\s*(?:site-qa-audit:fp=|qa-fp:)([0-9a-f]{12,40})\s*-->")  # skill or neutral marker
 
 
 def gh_api(path, paginate=False, retries=4):
@@ -81,6 +81,7 @@ def sync_repo(repo, cache, full=False):
         old = data["issues"].get(key, {})
         data["issues"][key] = {
             "number": it["number"], "title": it["title"], "state": it["state"],
+            "author": (it.get("user") or {}).get("login"),
             "state_reason": it.get("state_reason"), "url": it["html_url"],
             "labels": [lb["name"] for lb in it.get("labels", [])],
             "body": it.get("body") or "", "created_at": it["created_at"], "updated_at": it["updated_at"],
@@ -94,7 +95,8 @@ def sync_repo(repo, cache, full=False):
         iss = data["issues"].get(num)
         if iss is None:
             continue  # комментарий к PR
-        rec = {"id": c["id"], "author": (c.get("user") or {}).get("login"), "body": c.get("body") or "",
+        rec = {"id": c["id"], "author": (c.get("user") or {}).get("login"),
+               "author_association": c.get("author_association"), "body": c.get("body") or "",
                "created_at": c["created_at"], "updated_at": c["updated_at"], "url": c["html_url"]}
         iss["comments"] = [x for x in iss["comments"] if x["id"] != c["id"]] + [rec]
         iss["comments"].sort(key=lambda x: x["created_at"])
@@ -128,6 +130,7 @@ def registry(repos, cache):
         for iss in data["issues"].values():
             out.append({
                 "repo": repo, "number": iss["number"], "title": iss["title"], "state": iss["state"],
+                "author": iss.get("author"), "closed_at": iss.get("closed_at"),
                 "state_reason": iss.get("state_reason"), "url": iss["url"], "labels": iss["labels"],
                 "body": iss["body"], "comments": iss["comments"], "fix_claimed": fix_claimed(iss),
                 "fingerprints": sorted(set(MARKER_RX.findall(iss["body"] + "".join(c["body"] for c in iss["comments"])))),

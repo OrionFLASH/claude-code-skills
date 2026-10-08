@@ -1,0 +1,28 @@
+# Фикстура для tests/test_stream_b.sh: побочные эффекты и инварианты (страница upload-guard.html).
+version: 1
+site:
+  allowed_domains:
+    - 127.0.0.1
+side_effects:
+  - id: SE1
+    action: upload
+    target: "#upload"
+    effect: "сохранение попадает в публичный рейтинг без флажка «Чужое сохранение»"
+    leaves: ["локальная копия сохранения в браузере (localStorage save-copy)"]
+invariants:
+  - id: INV1
+    after: SE1
+    within_ms: 2000
+    require:
+      role: checkbox
+      name: "Чуж(ой|ое)"
+      state: checked
+      only_after_action: true
+    vocabulary: "Чужое сохранение"
+    else: abort
+rules:
+  forbidden_domains: []
+  forbidden_url_patterns: []
+  forbidden_actions: []
+  require_confirmation_actions: []
+  preapproved_actions: []

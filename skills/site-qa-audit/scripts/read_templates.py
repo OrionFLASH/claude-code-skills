@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """Разбор шаблонов issues репозитория: .github/ISSUE_TEMPLATE (*.md и issue forms *.yml) и CONTRIBUTING.
 
-  read_templates.py fetch owner/repo [--out templates.json]
-      Скачивает через gh и разбирает шаблоны, config.yml, CONTRIBUTING.
+  read_templates.py fetch owner/repo [--out templates.json] [--docs-dir DIR] [--local REPO_DIR]
+      Скачивает через gh и разбирает шаблоны, config.yml, CONTRIBUTING, а также документы репозитория (*.md),
+      на которые ссылаются формы, config.yml (contact_links) и CONTRIBUTING: они сохраняются в DIR
+      (по умолчанию рядом с --out: <out без .json>-docs/) и в поле "docs". Внешние ссылки — только списком
+      ("external_links"), не скачиваются. --local — читать репозиторий из локальной папки (тесты, офлайн).
   read_templates.py parse PATH [PATH ...]
       Разбирает локальные файлы шаблонов (для тестов).
-  read_templates.py render templates.json --template NAME --values values.json
+  read_templates.py render templates.json --template NAME --values values.json [--format json|body|draft]
       Собирает тело issue по шаблону: values.json = {"<id или label секции>": "текст", "title": "..."}.
       Для issue forms результат совпадает с тем, что GitHub делает из формы: "### Label\\n\\nзначение".
+      --format json (по умолчанию) — {title, body, labels}; body — только тело; draft — "TITLE: …", тело, метки.
 
 Если YAML формы не разбирается мини-парсером, шаблон помечается parse_error и сохраняется raw — заполнить вручную.
 """
@@ -112,16 +116,127 @@ def parse_file(name, text):
     return parse_md(name, text)
 
 
-def fetch(repo):
+class GhSource:
+    """Repository files through `gh api`."""
+
+    def __init__(self, repo):
+        self.repo = repo
+
+    def listdir(self, path):
+        listing = gh_json(f"repos/{self.repo}/contents/{path}")
+        return listing if isinstance(listing, list) else None
+
+    def read(self, path):
+        return gh_file(self.repo, path)
+
+
+class LocalSource:
+    """Repository files from a local folder (tests, offline clones)."""
+
+    def __init__(self, root):
+        self.root = Path(root).resolve()
+
+    def _safe(self, path):
+        p = (self.root / path).resolve()
+        return p if str(p).startswith(str(self.root)) else None
+
+    def listdir(self, path):
+        p = self._safe(path)
+        if not p or not p.is_dir():
+            return None
+        return [{"name": x.name, "path": str(x.relative_to(self.root)).replace("\\", "/"),
+                 "type": "file" if x.is_file() else "dir"} for x in sorted(p.iterdir())]
+
+    def read(self, path):
+        p = self._safe(path)
+        return p.read_text(encoding="utf-8", errors="replace") if p and p.is_file() else None
+
+
+LINK_RX = re.compile(r"\]\(([^)\s]+)\)|(https?://[^\s)\]>\"'«»]+)|(?<![\w/.:-])((?:\.{1,2}/|/)?(?:[\w.-]+/)*[\w.-]+\.md)\b")
+
+
+def collect_strings(obj):
+    if isinstance(obj, dict):
+        for v in obj.values():
+            yield from collect_strings(v)
+    elif isinstance(obj, list):
+        for v in obj:
+            yield from collect_strings(v)
+    elif isinstance(obj, str):
+        yield obj
+
+
+def resolve_link(link, repo, base_dir):
+    """Repository-relative path of a doc link, or None for external links."""
+    link = link.split("#")[0].split("?")[0].rstrip(".,;:")
+    m = re.match(r"https?://github\.com/([^/]+/[^/]+)/(?:blob|tree|raw)/[^/]+/(.+)$", link)
+    if m:
+        return m.group(2) if m.group(1).lower() == repo.lower() else None
+    if re.match(r"https?://", link) or not link.lower().endswith(".md"):
+        return None
+    if link.startswith("/"):
+        return link.lstrip("/")
+    parts = []
+    for seg in (base_dir.split("/") if base_dir and not link.startswith("..") else []) + link.split("/"):
+        if seg in ("", "."):
+            continue
+        if seg == "..":
+            if parts:
+                parts.pop()
+            continue
+        parts.append(seg)
+    return "/".join(parts)
+
+
+def fetch_docs(result, src, repo, max_docs=20):
+    """Download *.md documents referenced from templates, config.yml and CONTRIBUTING (one level + their links)."""
+    queue, docs, external = [], {}, []
+    owners = [(t.get("file", ""), t) for t in result["templates"]]
+    if result.get("config"):
+        owners.append((result["config"].get("file", ""), result["config"]))
+    if result.get("contributing"):
+        owners.append((result["contributing"]["file"], result["contributing"]["text"]))
+    for fname, obj in owners:
+        for s in collect_strings(obj):
+            for m in LINK_RX.finditer(s):
+                queue.append((next(g for g in m.groups() if g), fname, 0))
+    while queue and len(docs) < max_docs:
+        link, origin, depth = queue.pop(0)
+        base = "/".join(origin.split("/")[:-1])
+        path = resolve_link(link, repo, base)
+        if path is None:
+            if re.match(r"https?://", link) and link not in external:
+                external.append(link)
+            continue
+        cands = [path]
+        if base and not link.startswith(("/", "http")):
+            cands.append(resolve_link(link, repo, ""))  # GitHub resolves some links from the repo root
+        for cand in dict.fromkeys(c for c in cands if c):
+            if cand in docs:
+                break
+            text = src.read(cand)
+            if text is None:
+                continue
+            docs[cand] = {"path": cand, "referenced_from": origin, "text": text[:50000]}
+            if depth < 1:
+                queue += [(next(g for g in m.groups() if g), cand, depth + 1) for m in LINK_RX.finditer(text)]
+            break
+    result["docs"] = list(docs.values())
+    result["external_links"] = external
+    return result
+
+
+def fetch(repo, src=None):
+    src = src or GhSource(repo)
     result = {"repo": repo, "templates": [], "config": None, "contributing": None}
     for d in TEMPLATE_DIRS:
-        listing = gh_json(f"repos/{repo}/contents/{d}")
+        listing = src.listdir(d)
         if not isinstance(listing, list):
             continue
         for item in listing:
             if item["type"] != "file" or not re.search(r"\.(md|ya?ml)$", item["name"], re.I):
                 continue
-            text = gh_file(repo, item["path"])
+            text = src.read(item["path"])
             if text is None:
                 continue
             parsed = parse_file(item["path"], text)
@@ -132,16 +247,16 @@ def fetch(repo):
         break
     if not result["templates"]:
         for f in SINGLE_FILES:
-            text = gh_file(repo, f)
+            text = src.read(f)
             if text:
                 result["templates"].append(parse_md(f, text))
                 break
     for f in CONTRIB_FILES:
-        text = gh_file(repo, f)
+        text = src.read(f)
         if text:
             result["contributing"] = {"file": f, "text": text[:20000]}
             break
-    return result
+    return fetch_docs(result, src, repo)
 
 
 def render(tpl, values):
@@ -190,20 +305,38 @@ def main():
     f = sub.add_parser("fetch")
     f.add_argument("repo")
     f.add_argument("--out")
+    f.add_argument("--docs-dir")
+    f.add_argument("--local", help="локальная папка репозитория вместо gh")
     p = sub.add_parser("parse")
     p.add_argument("paths", nargs="+")
     r = sub.add_parser("render")
     r.add_argument("templates")
     r.add_argument("--template", required=True, help="name или file шаблона")
     r.add_argument("--values", required=True)
+    r.add_argument("--format", choices=["json", "body", "draft"], default="json")
     a = ap.parse_args()
     if a.cmd == "fetch":
         repo = re.sub(r"^https?://github\.com/|\.git$|/$", "", a.repo)
-        res = fetch(repo)
+        if a.local and not Path(a.local).is_dir():
+            sys.stderr.write(f"read_templates: нет папки {a.local}\n")
+            sys.exit(2)
+        res = fetch(repo, LocalSource(a.local) if a.local else None)
+        docs_dir = a.docs_dir or (str(Path(a.out).with_suffix("")) + "-docs" if a.out else None)
+        if docs_dir:
+            for d in res["docs"]:
+                target = Path(docs_dir) / d["path"]
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(d["text"], encoding="utf-8")
+                d["saved_to"] = str(target)
         text = json.dumps(res, ensure_ascii=False, indent=2)
         if a.out:
+            Path(a.out).parent.mkdir(parents=True, exist_ok=True)
             Path(a.out).write_text(text, encoding="utf-8")
-            print(f"{repo}: шаблонов {len(res['templates'])}, CONTRIBUTING: {'да' if res['contributing'] else 'нет'} -> {a.out}")
+            print(f"{repo}: шаблонов {len(res['templates'])}, CONTRIBUTING: {'да' if res['contributing'] else 'нет'}, "
+                  f"документов {len(res['docs'])}" + (f" -> {docs_dir}" if res["docs"] else "") +
+                  f", внешних ссылок {len(res['external_links'])} -> {a.out}")
+            for d in res["docs"]:
+                print(f"  прочитать: {d['path']} (ссылка из {d['referenced_from']})")
         else:
             print(text)
     elif a.cmd == "parse":
@@ -216,7 +349,14 @@ def main():
         if tpl is None:
             sys.exit(f"шаблон '{a.template}' не найден")
         values = json.loads(Path(a.values).read_text(encoding="utf-8"))
-        print(json.dumps(render(tpl, values), ensure_ascii=False, indent=2))
+        res = render(tpl, values)
+        if a.format == "body":
+            print(res["body"], end="")
+        elif a.format == "draft":
+            print(f"TITLE: {res['title']}\n\n{res['body']}" + (f"\nМетки: {', '.join(res['labels'])}\n" if res["labels"] else ""),
+                  end="")
+        else:
+            print(json.dumps(res, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

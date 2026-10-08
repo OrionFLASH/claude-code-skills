@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="user-login" content="qa-fixture-user">
+<title>Fixture issue · open (new GitHub UI)</title>
+<style>body{font:14px system-ui;margin:24px;max-width:860px} .row{display:flex;gap:8px;margin-top:8px} textarea{width:100%;height:140px}</style>
+</head><body>
+<!-- Local, anonymised emulation of a freshly created OPEN issue in the new GitHub UI. -->
+<h1>Fixture issue <span class="state">Open</span></h1>
+<ol id="timeline"><li>Issue body with placeholders (the real body lives in the fake gh state).</li></ol>
+<p id="signin" hidden><a href="/login">Sign up for free</a> to join this conversation on GitHub. Already have an account? <a href="/login">Sign in to comment</a></p>
+<div id="editor">
+  <!-- legacy editor kept hidden: the script must not rely on it -->
+  <textarea name="comment[body]" style="display:none" placeholder="legacy"></textarea>
+  <div class="markdown-editor">
+    <textarea id="new-comment" aria-label="Markdown value" placeholder="Use Markdown to format your comment"></textarea>
+    <div class="row">
+      <button type="button" id="attach" aria-label="Paste, drop, or click to add files"><span>Paste, drop, or click to add files</span></button>
+      <input type="file" id="file" multiple hidden>
+    </div>
+  </div>
+  <div class="row">
+    <button type="button" id="decoy" aria-label="Comment" hidden><span>Close with comment</span></button>
+    <button type="button" id="state-btn" data-label="Close issue" data-with-comment="Close with comment" data-event="close"><span>Close issue</span></button>
+    <button type="button" id="comment-btn"><span>Comment</span></button>
+  </div>
+</div>
+<script src="gh-web-common.js"></script>
+</body></html>

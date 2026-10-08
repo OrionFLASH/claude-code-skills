@@ -17,8 +17,10 @@ python3 scripts/fetch_issues.py sync owner/repo --cache qa-runs/.cache/issues   
 | метки `existing` | метки ставит только `triage`+ (иначе GitHub молча их отбросит) | писать метки строкой в теле |
 | метки `create` | `push`+ (`gh label create`) | `existing` или строкой |
 | скриншоты `commit` | `push` | не класть, ссылаться на локальные файлы в отчёте |
+| скриншоты `web-upload` | право создавать issues/комментировать + вход пользователя на GitHub в браузере с CDP | `commit` (если есть `push`) или ссылки на локальные файлы в отчёте |
 
 Также прочитать `CONTRIBUTING` (из read_templates): требования к заголовкам, языку, обязательным полям — соблюдать.
+**Обязательно прочитать документы, на которые ссылаются формы, `config.yml` (`contact_links`) и CONTRIBUTING** (инструкция по тестированию, правила вложений, шкала серьёзности). `read_templates.py fetch` скачивает такие `*.md` из того же репозитория в `<out без .json>-docs/` и печатает список «прочитать: …». Внешние ссылки только перечисляются в `external_links`. Шкалу серьёзности из этих документов записать в `run-config.yaml → repos[].severity_map`, значения выпадающих списков формы — в `target_forms` находок.
 
 ## 2. Реестр и отпечатки
 
@@ -42,21 +44,32 @@ python3 scripts/fetch_issues.py sync owner/repo --cache qa-runs/.cache/issues   
 Закрыт как `not_planned` → это не «исправлено»: находку пометить `DUPLICATE-OPEN`-аналогом «отклонено ранее» (`known-wontfix` в заметке) и не публиковать повторно без вопроса.
 
 ### Перепроверка заявленных исправлений
-Отдельный шаг: **все** issues реестра с `fix_claimed: true`, относящиеся к проверяемому сайту/разделу (по URL в теле и заголовку), перепроверить по их шагам воспроизведения, даже если в этом прогоне находки нет. Результат: `FIXED-OK` / `FIXED-INSUFFICIENT` / `REGRESSION` / «не удалось воспроизвести шаги — не проверено (причина)». Ограничение по времени: при глубине smoke — только issues, закрытые за последние 90 дней.
+Отдельный шаг: **все** issues реестра с `fix_claimed: true`, относящиеся к проверяемому сайту/разделу (по URL в теле и заголовку), перепроверить по их шагам воспроизведения, даже если в этом прогоне находки нет. Порядок и команды — `references/claims.md` (`claims.py extract` → `plan` → `set`). Результат: `FIXED-OK` / `FIXED-INSUFFICIENT` / `REGRESSION` / `NOT-CHECKED` с причиной (`logout-required`, `other-account-type`, `forbidden`, …). Находка-недоработка получает `claim_ref {repo, number, quote}`. Ограничение по времени: при глубине smoke — только issues, закрытые за последние 90 дней (`plan --since-days 90`).
 
 ## 4. Публикация (шаг 9 прогона)
 
-1. **Сводная таблица** перед публикацией: статус | заголовок | severity | куда (repo#роль) | действие (issue/комментарий/пропуск). Если `confirm_before_publish: true` — ждать «да» (можно частично: «публикуй всё, кроме 3 и 7»).
+1. **Сводная таблица** перед публикацией: `build_report.py publish-table <RUN_DIR>` (`references/run-files.md`) — статус | severity по шкале репозитория | заголовок | куда | действие (issue/комментарий/пропуск) и над ней политика `closed_claims` каждого репозитория. Если `confirm_before_publish: true` — ждать «да» (можно частично: «публикуй всё, кроме 3 и 7»).
+   **Недоработка в закрытом issue** (`FIXED-INSUFFICIENT`, `REGRESSION`) — по `repos[].closed_claims`: `comment` (по умолчанию) — комментарий в закрытом issue, не переоткрывать; `new` — новый issue, связь с исходным, если `cross_links` разрешены; `skip` — не публиковать, только отчёт.
 2. **Чувствительные находки** (`evidence.sensitive: true`, `safety-rules.md` §6) в публичные репозитории не публикуются — только по отдельному решению пользователя.
 3. **dry-run**: вместо публикации — файлы в `<run>/drafts/<repo>/<NN>-<status>-<fp>.md` (первая строка — заголовок, далее тело, внизу — метки и команда `gh`, которой это опубликовалось бы).
 3. **Чужой репозиторий** (`write-new`): строго их шаблон.
    - `.md`-шаблон: заполнить секции под их заголовками, ничего не добавляя сверху; свои поля (окружение, fp) — в конец, в существующую секцию «Additional context»/«Дополнительно» или после неё.
-   - YAML issue form: `read_templates.py render <templates.json> --template <name> --values values.json` → секции `### <label>` в порядке полей формы; обязательные поля — всегда заполнены; dropdown/checkboxes — только допустимые варианты.
+   - YAML issue form: `read_templates.py render <templates.json> --template <name> --values values.json --format body` → только тело (секции `### <label>` в порядке полей формы); `--format json` (по умолчанию) — `{title, body, labels}`, `--format draft` — черновик с `TITLE:`. Обязательные поля — всегда заполнены; dropdown/checkboxes — только допустимые варианты (значения — из `target_forms[repo]`, серьёзность — по `severity_map`).
    - Префикс заголовка и метки шаблона (`title:`, `labels:`) сохраняются.
 4. **Репозиторий-копия** (`copies`): `templates/issue-detailed.md`, все находки, включая DUPLICATE-OPEN (со ссылкой на оригинал).
-5. **Маркер** `<!-- site-qa-audit:fp=<fp> -->` — последней строкой каждого тела issue и комментария.
-6. **Перекрёстные ссылки**: в копии — ссылка на issue в основном репозитории и наоборот (комментарием в копии, а не правкой чужого issue).
+5. **Маркер** `<!-- site-qa-audit:fp=<fp> -->` — последней строкой каждого тела issue и комментария. Настройки репозитория в `run-config.yaml → repos[]` (флаги `render_draft.py` главнее):
+   | Ключ | Значения | Флаг | Что делает |
+   |---|---|---|---|
+   | `disclosure` | `full` (по умолчанию) / `none` | `--disclosure` | `none`: без подписи «Создано site-qa-audit», без источников и id прогона, без маркера скила |
+   | `cross_links` | `true` / `false` | `--no-links` | `false`: без ссылок на issues других репозиториев (связанные, совпадения, ссылка на копию) |
+   | `marker` | `skill` / `neutral` / `none` | `--marker` | `neutral`: `<!-- qa-fp:<fp> -->` (повторный прогон его тоже находит); по умолчанию `skill` при `full` и `none` при `disclosure: none` |
+   | `severity_map` | `{critical: …, high: …, medium: …, low: …, info: …}` | — | шкала репозитория ↔ шкала скила: метка в заголовке и поле Severity; обратно — `render_draft.py severity --label …` |
+   | `closed_claims` | `comment` / `new` / `skip` | — | что делать с недоработкой закрытого issue (п. 1) |
+
+   Пример: `render_draft.py detailed <RUN_DIR>/findings.json --id F-003 --config <RUN_DIR>/run-config.yaml --repo owner/repo --out <RUN_DIR>/drafts/owner__repo/03.md`. При `disclosure: none` скрипт предупреждает, если «site-qa-audit» или «Claude» остались в данных находки — поправить текст вручную.
+6. **Перекрёстные ссылки** (если `cross_links` не `false`): в копии — ссылка на issue в основном репозитории и наоборот (комментарием в копии, а не правкой чужого issue).
 7. **Скриншоты**: gh не прикладывает картинки к issue. При `screenshots: commit` — закоммитить в выбранный репозиторий в `runs/<YYYY-MM-DD>-<host>/` (отдельный коммит, через `gh api` contents или клон в `<run>/repo-<name>`), ссылаться как `https://github.com/owner/repo/blob/<branch>/runs/…/file.png?raw=true`. Для приватных репозиториев картинка видна только тем, у кого есть доступ. Перед коммитом — проверить, что на скриншоте нет персональных данных.
+   При `screenshots: web-upload` (чужой или приватный репозиторий без `push`) — `references/web-upload.md`: `node/publish_web.mjs` (issue) / `node/comment_web.mjs` (комментарий, в том числе к закрытому issue) в браузере пользователя с выполненным входом; по умолчанию dry-run, реально — `--confirm-publish` после «да» на сводную таблицу; результат (`number`, `url`, `kind`) → `published` в findings.json (п. 11). `screenshots: none` — картинки не публикуются, ссылки на локальные файлы — в отчёте.
 8. **Метки** по политике: `existing` — только из `meta.labels` (подбирать по смыслу: bug, a11y, ux, performance, severity:*); `create` — `gh label create` с описанием, затем ставить; `inline` — строка `Метки: …` в теле.
 9. **Команды**:
    ```bash

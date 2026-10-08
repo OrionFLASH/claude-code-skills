@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 from urllib.parse import urlsplit
 
-MARKER_RX = re.compile(r"<!--\s*site-qa-audit:fp=([0-9a-f]{12,40})\s*-->")
+MARKER_RX = re.compile(r"<!--\s*(?:site-qa-audit:fp=|qa-fp:)([0-9a-f]{12,40})\s*-->")  # skill or neutral marker
 STOP = set("the a an of to in on for and or is are not with без и в на не по для из к от что как при".split())
 
 

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Как тестировать
+    url: https://github.com/owner/repo/blob/main/docs/testing-guide.md
+    about: Серьёзность и вложения — по инструкции
+  - name: Чат
+    url: https://chat.example.org/
+    about: Вопросы
