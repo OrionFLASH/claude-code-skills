@@ -229,4 +229,6 @@ python $HOME\.claude\skills\typesafe-triage\scripts\typesafe_triage.py --check
 | Пауза / нет средств | `--status`, пополнить баланс на console.typesafe.ai, затем `--resume` |
 | Ошибка сертификатов | `--check`: у сборки Python может не быть корневых сертификатов |
 
+Обновление уже установленной версии — в [UPDATE.md](UPDATE.md).
+
 Подробности — в [SKILL.md](SKILL.md) и [README.md](README.md).
