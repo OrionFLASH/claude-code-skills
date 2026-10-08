@@ -5,7 +5,7 @@
 //     page (not mirrored);
 //   - blocks with RTL text and an explicit text-align: left;
 //   - short Latin/number strings (user names, codes) inside RTL text without bidi isolation (<bdi>, dir=auto|ltr,
-//     unicode-bidi: isolate|plaintext) that start or end with a neutral character — they render as «.Oleg L»;
+//     unicode-bidi: isolate|plaintext) that start or end with a neutral character — they render as «.Alex P»;
 //   - words «left/right» («слева/справа», «يمين/يسار», «ימין/שמאל») in the text of a mirrored layout;
 //   - horizontal overflow of the page.
 // Read-only (guard.js, nothing is clicked).

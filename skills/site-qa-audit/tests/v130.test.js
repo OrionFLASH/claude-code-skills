@@ -146,11 +146,11 @@ function exportRules(cfgText, name) {
   });
 
   // ---------------- rtl.js (G-10) ----------------
-  await t('rtl.js: панель не отзеркалена, имя без изоляции (Oleg L.), <bdi> пропущен, «справа» в тексте, text-align:left', async () => {
+  await t('rtl.js: панель не отзеркалена, имя без изоляции (Alex P.), <bdi> пропущен, «справа» в тексте, text-align:left', async () => {
     const r = run('rtl.js', [B + '/rtl.html', '--rules', rules]);
     const x = r.json.runs[0];
     assert(x.rtl && x.dir === 'rtl' && x.notMirrored.some(p => p.selector === '#side'), JSON.stringify(x.panels));
-    assert(x.bidiNames.some(b => b.text === 'Oleg L.') && !x.bidiNames.some(b => /Anna/.test(b.text)), JSON.stringify(x.bidiNames));
+    assert(x.bidiNames.some(b => b.text === 'Alex P.') && !x.bidiNames.some(b => /Anna/.test(b.text)), JSON.stringify(x.bidiNames));
     assert(x.sideWords.length >= 1 && x.alignLeft.length >= 1 && x.candidates >= 4, JSON.stringify(x));
     const ltr = run('rtl.js', [B + '/targets.html', '--rules', rules]).json.runs[0];
     assert(!ltr.rtl && ltr.candidates === 0, 'LTR-страница: ' + JSON.stringify(ltr));
