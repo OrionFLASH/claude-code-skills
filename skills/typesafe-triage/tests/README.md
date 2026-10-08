@@ -6,7 +6,10 @@
 S=skills/typesafe-triage/scripts
 python3 -m pytest $S -q -p no:cacheprovider      # офлайн: политика 4 уровней и 5 уровней effort, подтверждения, явные указания,
                                                  # история, окружение, идемпотентность хука, эвристика, защита,
-                                                 # сквозные тесты хука на поддельном сервере
+                                                 # сквозные тесты хука на поддельном сервере;
+                                                 # 2.2: хук не молчит (test_typesafe_hook_skip.py: сбой, зависание,
+                                                 # «убитый» первый вызов), --where, активная задача, наследование,
+                                                 # тип qa, общее состояние (test_typesafe_context.py), документация
 python3 $S/typesafe_triage.py --selftest --heuristic   # эталонные задачи только по эвристике (офлайн)
 python3 $S/typesafe_triage.py --selftest         # эталонные задачи triage_cases.json через TypeSafe, нужны сеть и ключ
 python3 $S/typesafe_triage.py --calibrate --split train     # подстройка порогов только по обучающей части …

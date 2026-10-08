@@ -22,7 +22,7 @@
 | `irreversible` | Noul | действие трудно или невозможно отменить | |
 | `novel_design` | Noul | нужно придумать новое (дизайн, стратегия, аргумент, творческий текст) | |
 | `conversational` | Noul | это просто реплика, а не задача | |
-| `domain` | Choice | тип работы: software, writing, analysis, data, research, planning, operations, conversation, other | только для заметки и журнала |
+| `domain` | Choice | тип работы: software, qa (тестирование продукта, с 2.2), writing, analysis, data, research, planning, operations, conversation, other | только для заметки и журнала |
 | `planning`, `shallow_cost`, `verification`, `exploration`, `constraints`, `coordination` | Score / Noul | вопросы второй оси (effort) | на модель не влияют, см. [effort.md](effort.md) |
 
 Из ответа берутся: значение шкалы, нормированное на верхний уровень (0..1); её `confidence`; **вероятность верхней половины** шкалы (сумма `probabilities` уровней выше середины) — она показывает «уверенно просто», даже когда модель колеблется между двумя нижними уровнями. Для Noul уверенность — `|2p − 1|`, как советует документация.
