@@ -33,11 +33,16 @@ def _short(s):
     return f"{s[:4]}…({len(s)})"
 
 
+def _flag(value):
+    """password="false" in a uiautomator dump is a flag, not a secret."""
+    return value.lower() in ("true", "false", "null", "none")
+
+
 def mask(text):
     if not text:
         return text
     text = JWT.sub(lambda m: _short(m.group(0)), text)
-    text = AUTH_HDR.sub(lambda m: f"{m.group(1)}{m.group(2)}{m.group(3) or ''}***", text)
+    text = AUTH_HDR.sub(lambda m: m.group(0) if _flag(m.group(4)) else f"{m.group(1)}{m.group(2)}{m.group(3) or ''}***", text)
     text = URL_PARAM.sub(lambda m: m.group(1) + "***", text)
     text = DEVICE_ID.sub(lambda m: f"{m.group(1)}{m.group(2)}***", text)
     text = EMAIL.sub(lambda m: f"{m.group(1)}***@{m.group(2)}***.{m.group(3)}", text)
@@ -64,7 +69,7 @@ def find_unmasked(text):
     for m in JWT.finditer(text or ""):
         out.append("похоже на немаскированный JWT")
     for m in AUTH_HDR.finditer(text or ""):
-        if not m.group(4).startswith("***"):
+        if not m.group(4).startswith("***") and not _flag(m.group(4)):
             out.append(f"значение {m.group(1)} без маскирования")
     return out
 

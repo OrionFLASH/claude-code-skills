@@ -105,12 +105,17 @@ report_destinations:          # куда записать итоги, кроме
   - type: local               # local | folder | github | artifact | custom
 # Пример:
 #  - type: folder
-#    path: /abs/path/to/reports   # копии report.md и summary.md в <path>/<YYYY-MM-DD>-<host>/
+#    path: /abs/path/to/reports   # только итоговые файлы: summary.md, report.md, findings.json, скриншоты находок
+#                                 # → <path>/<YYYY-MM-DD>-<host>/ (export_results.py); без raw/, logs/, drafts/
 #  - type: github
 #    repo: owner/repo             # итоговый issue со сводкой (references/repo-sync.md §4–5); репозиторий — и в repos
 #  - type: artifact               # страница из report.md через инструмент Artifact, если он есть в сессии; иначе пропуск
 #  - type: custom
 #    note: "что сделать с итогами"  # выполняется только после подтверждения
+
+git:                          # результаты и git (references/run-files.md → «qa-runs/ и git»), до создания <RUN_DIR>
+  allow_commit_results: false # true — только если пользователь явно разрешил класть результаты в репозиторий;
+                              # false — qa-runs/ сразу в .gitignore (gitignore_helper.py ensure)
 
 rules:
   # Базовые запреты (references/safety-rules.md) действуют всегда и здесь не перечисляются.

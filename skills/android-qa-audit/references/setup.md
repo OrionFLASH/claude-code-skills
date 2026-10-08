@@ -6,7 +6,7 @@ bash <SKILL_DIR>/scripts/check_env.sh                                  # macOS /
 powershell -ExecutionPolicy Bypass -File <SKILL_DIR>\scripts\check_env.ps1   # Windows
 python3 <SKILL_DIR>/scripts/check_env.py --fast --json <RUN_DIR>/env.json     # после создания папки прогона
 ```
-Только чтение: ничего не ставит и не меняет. `--fast` — без `emulator -accel-check`, `java -version`, списка плагинов Claude Code и драйверов Appium; `--no-devices` — без `adb devices` (иначе он запускает сервер adb, если тот не запущен). До опроса папки прогона ещё нет — без `--json`.
+Только чтение: ничего не ставит и не меняет. `--fast` — без `emulator -accel-check`, `java -version`, `sdkmanager --version`, списка плагинов Claude Code и драйверов Appium; `--no-devices` — без `adb devices` (иначе он запускает сервер adb, если тот не запущен). До опроса папки прогона ещё нет — без `--json`.
 
 ## Что проверяется
 | Компонент | Обязательно | Если нет |
@@ -16,7 +16,7 @@ python3 <SKILL_DIR>/scripts/check_env.py --fast --json <RUN_DIR>/env.json     # 
 | build-tools (aapt2, apksigner) | да (разбор APK) | `sdkmanager "build-tools;35.0.0"` |
 | emulator + образ под ABI хоста + AVD или cmdline-tools | для эмуляторов | без них — только подключённые устройства; нет ни того, ни другого — FAIL «нет стенда» |
 | cmdline-tools (sdkmanager, avdmanager) | для создания AVD и загрузки образов | Android Studio → SDK Manager или `brew install --cask android-commandlinetools` |
-| Java (JDK 17+) | для sdkmanager, avdmanager, apksigner, bundletool | Temurin 17/21; ранние сборки (`-ea`) работают, avdmanager печатает безвредное «integer expression expected» |
+| Java (JDK 17+) | для sdkmanager, avdmanager, apksigner, bundletool | рекомендуется JDK 17 или 21 (Temurin LTS); ранние сборки (`-ea`) работают: обёртки cmdline-tools печатают «integer expression expected» — безвредно, при коде 0 скил скрывает строку, а `check_env` (без `--fast`) запускает `sdkmanager --version` и пишет в строке cmdline-tools «безвредно» |
 | Аппаратное ускорение | для эмуляторов | HVF (macOS), WHPX/AEHD (Windows), KVM (Linux) — `INSTALL.md` |
 | ОЗУ, ядра, диск | — | рекомендация числа потоков (`recommended_max_workers`); < 15 ГБ свободно — WARN |
 | Устройства | — | `unauthorized` — подтвердить отладку на телефоне; `offline` — переподключить; `no permissions` — правила udev (Linux) |

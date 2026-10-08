@@ -3,3 +3,4 @@ miniyaml.py
 envcheck.py
 runjournal.py
 qa_gitignore.py
+qa_export.py

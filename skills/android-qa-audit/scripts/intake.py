@@ -6,7 +6,10 @@
       «Android 13»), hardware (RAM, cores, storage, low-end phone, tablet, foldable, small screen), runtime
       variants (dark theme, font scale, landscape, RTL/locale, network, battery, Doze, time zone), test kinds,
       directions, depth, real devices, headless, prohibitions (→ rules.forbidden_actions /
-      require_confirmation_actions), GitHub repositories, mode, parallel threads (parallel.max_workers 1..4).
+      require_confirmation_actions; topics without button texts — camera, QR, hotspot, microphone, location,
+      notifications, Bluetooth, contacts — get typical RU+EN texts, camera packages and an "Allow" rule for the
+      permission dialog, marked «проверить на разведке»), GitHub repositories, mode, parallel threads
+      (parallel.max_workers 1..4), explicit permission to commit results / APK (git.allow_commit_results / _apk).
       Everything not recognised is listed under "needs confirmation". The draft is NOT final: show it to the
       user and wait for «старт» (references/intake.md).
 
@@ -20,6 +23,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "shared"))
 import miniyaml  # noqa: E402
+import qa_gitignore  # noqa: E402 — commit_permission(): explicit permission to commit results / APK
 
 MAX_WORKERS = 4
 ANDROID_TO_API = {"5": 21, "5.0": 21, "5.1": 22, "6": 23, "6.0": 23, "7": 24, "7.0": 24, "7.1": 25, "8": 26, "8.0": 26,
@@ -72,6 +76,86 @@ WORD_NUM = {"один": 1, "одном": 1, "два": 2, "двух": 2, "три"
 WORKERS_RX = re.compile(r"\b(\d+|" + "|".join(WORD_NUM) + r")(?:-?х)?\s+(?:параллельн\w+\s+)?"
                         r"(?:поток\w*|воркер\w*|workers?|threads?|эмулятор\w*)\b|\b(?:max_workers|parallel)\s*[:=]?\s*(\d+)", re.I)
 FILE_EXT = re.compile(r"\.(apk|aab|apks|xapk|yaml|yml|json|md|txt|png|jpg|mp4|keystore|jks)$", re.I)
+
+
+CAMERA_PKGS = ["com.android.camera2", "com.google.android.GoogleCamera", "com.android.camera"]
+CAMERA_DIALOG = ["снимать фото", "фото и видео", "take pictures", "camera"]
+# Prohibition topics without button texts → rules with typical texts (RU + EN), checked at reconnaissance.
+# id, regex over a negated part of a sentence, label, button texts, packages, screens (activity regex),
+# permission-dialog contexts (an "Allow" rule with exact texts) or None
+TOPICS = [
+    ("camera", r"камер|camera|фотоаппарат|сфотограф|сним\w* фото|take (a )?photo", "камера",
+     ["Камера", "Открыть камеру", "Сделать фото", "Сфотографировать", "Снять фото", "Camera", "Open camera",
+      "Take photo", "Take a photo"], CAMERA_PKGS, [], CAMERA_DIALOG),
+    ("qr", r"\bqr\b|qr-?код|сканир|отсканир|\bscan|штрих-?код|barcode", "сканирование QR",
+     ["Сканировать", "Сканировать QR", "Сканировать QR-код", "Отсканировать", "QR-сканер", "Scan", "Scan QR",
+      "Scan QR code", "QR scanner"], CAMERA_PKGS, [], CAMERA_DIALOG),
+    ("hotspot", r"точк\w* доступа|hotspot|раздач\w* (wi-?fi|интернет)|разда\w* (wi-?fi|интернет)|режим\w* модема|"
+                r"tether", "точка доступа",
+     ["Точка доступа", "Включить точку доступа", "Режим модема", "Раздать Wi-Fi", "Hotspot", "Mobile hotspot",
+      "Wi-Fi hotspot", "Turn on hotspot", "Tethering"], [], ["(?i)tether|hotspot"], None),
+    ("microphone", r"микрофон|microphone|\bmic\b|запис\w* (голос|звук|аудио)|голосов\w+ (ввод|сообщ)|record(ing)? audio|"
+                   r"voice", "микрофон",
+     ["Микрофон", "Записать голос", "Голосовое сообщение", "Голосовой ввод", "Удерживайте для записи", "Microphone",
+      "Record audio", "Voice message", "Voice input", "Hold to record"], [], [],
+     ["записывать аудио", "record audio", "микрофон", "microphone"]),
+    ("location", r"геолокац|местоположен|геопозиц|\bgps\b|location|геоданн", "геолокация",
+     ["Геолокация", "Местоположение", "Определить местоположение", "Моё местоположение", "Включить геолокацию",
+      "Use my location", "Enable location", "Turn on location", "My location", "Location services"], [],
+     ["(?i)LocationSettings"], ["местоположени", "location"]),
+    ("notifications", r"уведомлен|notification|\bpush\b|пуш-?уведом", "уведомления",
+     ["Включить уведомления", "Разрешить уведомления", "Enable notifications", "Turn on notifications",
+      "Allow notifications"], [], [], ["уведомлени", "notifications"]),
+    ("bluetooth", r"bluetooth|блютуз|блютус", "Bluetooth",
+     ["Bluetooth", "Включить Bluetooth", "Turn on Bluetooth", "Устройства поблизости", "Nearby devices"], [],
+     ["(?i)bluetooth"], ["bluetooth", "устройства поблизости", "nearby devices"]),
+    ("contacts", r"контакт(ы|ам|ов|ами|ах)?\b|contacts", "контакты",
+     ["Контакты", "Доступ к контактам", "Пригласить из контактов", "Contacts", "Allow access to contacts",
+      "Invite from contacts"], [], [], ["контакт", "contacts"]),
+]
+ALLOW_TEXTS = ["Разрешить", "При использовании приложения", "Только в этот раз", "Разрешить в любом режиме", "Allow",
+               "While using the app", "Only this time", "Allow all the time"]
+POSITIVE = re.compile(r"\b(провер\w*|протестир\w*|тестир\w*|посмотр\w*|можно|разрешаю|нужно|надо|включая|check|test|"
+                      r"verify|allowed|ok to)\b", re.I)
+
+
+def negated_parts(clause):
+    """Parts of a sentence under a prohibition: «Не трогать камеру и QR, не включать точку доступа» → both parts;
+    «не трогай камеру, микрофон и геолокацию» — the negation carries over to a part without its own verb;
+    «…, но проверь уведомления» — not carried over. «без камеры» — a prohibition too."""
+    parts = re.split(r",|\s+(?:но|а|однако|but|however)\s+", clause)
+    out, carry = [], False
+    for p in parts:
+        if NEG.search(p):
+            carry = True
+            out.append(p)
+        elif carry and not POSITIVE.search(p):
+            out.append(p)
+        else:
+            carry = False
+    for m in re.finditer(r"\bбез\s+(\S+(?:\s+\S+)?)", clause, re.I):
+        out.append(m.group(0))
+    return out
+
+
+def topic_rules(clause, start_n, dialogs):
+    """[(rule, topic)…] for the prohibition topics found in the negated parts of the clause.
+    dialogs — contexts of permission-dialog rules already made (camera and QR share one dialog)."""
+    text = " ".join(negated_parts(clause)).lower()
+    rules, n = [], start_n
+    for tid, rx, label, texts, pkgs, screens, dialog in TOPICS:
+        if not re.search(rx, text, re.I):
+            continue
+        n += 1
+        rules.append(({"id": f"U{n}", "source": clause, "topic": tid, "texts": list(texts),
+                       "review": "типовые тексты — проверить на разведке и дополнить текстами кнопок приложения"}, tid))
+        if dialog and tuple(dialog) not in dialogs:
+            dialogs.add(tuple(dialog))
+            n += 1
+            rules.append(({"id": f"U{n}", "source": clause, "topic": tid, "texts": list(ALLOW_TEXTS), "exact": True,
+                           "context": list(dialog),
+                           "review": f"системный диалог разрешения ({label}): нажимать только отказ"}, tid))
+    return rules, n
 
 
 def clauses(text):
@@ -171,8 +255,11 @@ def parse(text, output_dir=None):
         custom.append({"id": f"ram-{mb}", "profile": "small" if mb <= 2048 else "phone", "ram_mb": mb,
                        "cores": cores[0] if cores else (2 if mb <= 2048 else 4), "data": "6G",
                        "label": f"{r_gb:g} ГБ ОЗУ" + (f", {cores[0]} ядра" if cores else "")})
-    if hw or custom:
+    if hw:
         hw = ["phone"] + hw
+    elif custom:  # only «N ГБ ОЗУ»: exactly this configuration, no extra phone 4 GB (matrix.py: [] + custom)
+        notes.append("железо: только названная конфигурация (" + ", ".join(x["label"] for x in custom) +
+                     "); обычный телефон 4 ГБ добавить — devices.hardware: [phone]")
     vmap = [("dark", r"тёмн\w* тем|темн\w* тем|dark mode|dark theme|ночн\w+ режим"),
             ("font-1.3", r"крупн\w+ шрифт|увеличенн\w+ шрифт|font.?scale|масштаб\w* шрифт"),
             ("font-2.0", r"шрифт\w* 2(\.0)?|максимальн\w+ шрифт"),
@@ -195,7 +282,8 @@ def parse(text, output_dir=None):
               "японск": "ja-JP", "испанск": "es-ES", "французск": "fr-FR"}.get(m.group(1)) if m else None
     if locale and locale != "ar":
         variants.append("locale")
-    devices = {"hardware": hw or None, "custom": custom, "variants": (["base"] + variants) if variants else None,
+    devices = {"hardware": hw if (hw or custom) else None, "custom": custom,
+               "variants": (["base"] + variants) if variants else None,
                "locale": locale, "timezone": None}
     cfg["devices"] = devices
 
@@ -226,19 +314,34 @@ def parse(text, output_dir=None):
         cfg["monkey"] = {"events": 500, "seed": 42, "throttle_ms": 300}
 
     # prohibitions
-    forb, conf = [], []
+    forb, conf, fpkgs, fscreens, dialogs = [], [], [], [], set()
     n = 0
     for cl in clauses(text):
         if ASK.search(cl):
             n += 1
             conf.append({"id": f"U{n}", "source": cl, "texts": quotes(cl)})
-        elif NEG.search(cl) and not re.search(r"не упомина|не связыв|не ссылаться|не публикуй|не создавай avd", cl, re.I):
-            n += 1
-            rule = {"id": f"U{n}", "source": cl, "texts": quotes(cl)}
-            if not rule["texts"]:
+        elif (NEG.search(cl) or re.search(r"\bбез\s", cl, re.I)) and \
+                not re.search(r"не упомина|не связыв|не ссылаться|не публикуй|не создавай avd|gitignore|коммит|commit", cl, re.I):
+            quoted = quotes(cl)
+            if quoted:
+                n += 1
+                forb.append({"id": f"U{n}", "source": cl, "texts": quoted})
+            topics, n = topic_rules(cl, n, dialogs)
+            for rule, tid in topics:
+                forb.append(rule)
+                topic = next(t for t in TOPICS if t[0] == tid)
+                fpkgs += [x for x in topic[4] if x not in fpkgs]
+                fscreens += [x for x in topic[5] if x not in fscreens]
+            labels = list(dict.fromkeys(next(t[2] for t in TOPICS if t[0] == tid) for _, tid in topics))
+            if labels:
+                notes.append(f"запрет «{cl}» → правила с типовыми текстами ({', '.join(labels)}; RU+EN"
+                             + (", пакеты камеры" if any(t in ("camera", "qr") for _, t in topics) else "")
+                             + ") — проверить на разведке и дополнить текстами кнопок приложения")
+            elif not quoted and NEG.search(cl):
+                n += 1
+                forb.append({"id": f"U{n}", "source": cl, "texts": []})
                 notes.append(f"запрет без текста кнопки — уточнить тексты на языке приложения: «{cl}»")
-            forb.append(rule)
-    cfg["rules"] = {"forbidden_packages": [], "forbidden_screens": [], "forbidden_deeplinks": [],
+    cfg["rules"] = {"forbidden_packages": fpkgs, "forbidden_screens": fscreens, "forbidden_deeplinks": [],
                     "forbidden_actions": forb, "require_confirmation_actions": conf, "preapproved_actions": [],
                     "adb_require_confirmation": []}
 
@@ -277,6 +380,12 @@ def parse(text, output_dir=None):
         notes.append("только реальное устройство — один поток (одно устройство — одно взаимодействие)")
     cfg["parallel"] = {"max_workers": workers, "throttle_ms": 500}
     cfg["report_destinations"] = [{"type": "local"}]
+    perm = qa_gitignore.commit_permission(text)
+    cfg["git"] = {"allow_commit_results": perm["allow_commit_results"], "allow_commit_apk": perm["allow_commit_apk"]}
+    for key, label in (("results", "результаты (qa-runs/)"), ("apk", "APK, AAB и ключи подписи")):
+        if perm[f"allow_commit_{key}"]:
+            notes.append(f"явное разрешение коммитить {label}: «{perm['evidence'][key]}» — проверить; без него "
+                         "gitignore_helper.py ensure добавит их в .gitignore")
     cfg["plugins"] = {"policy": "all-installed", "selected": []}
     if not output_dir:
         missing.append("output_dir — OUTPUT_ROOT (путь из запроса / ANDROID_QA_OUTPUT_DIR / <cwd>)")

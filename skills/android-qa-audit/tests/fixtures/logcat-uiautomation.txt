@@ -1,0 +1,32 @@
+--------- beginning of main
+10-08 23:04:36.825   536   564 I ActivityManager: Start proc 7354:com.example.app/u0a192 for next-top-activity {com.example.app/com.example.app.MainActivity}
+10-08 23:04:41.436  7460  7460 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-08 23:04:41.438  7460  7460 I AndroidRuntime: Using default boot image
+10-08 23:04:42.523  1701  2124 W A       : Unable to check for productivity accounts. Assuming there are none.
+10-08 23:04:42.523  1701  2124 W A       : com.google.android.libraries.geller.portable.GellerException: Code: INVALID_ARGUMENT, Message: Account name is null.
+10-08 23:04:42.523  7460  7476 E IPCThreadState: Failed to get extended error: Bad file descriptor
+--------- beginning of crash
+10-08 23:04:42.524  7460  7476 E AndroidRuntime: FATAL EXCEPTION: UiAutomation
+10-08 23:04:42.524  7460  7476 E AndroidRuntime: PID: 7460
+10-08 23:04:42.524  7460  7476 E AndroidRuntime: java.lang.RuntimeException: Bad file descriptor
+10-08 23:04:42.524  7460  7476 E AndroidRuntime: 	at android.os.BinderProxy.transactNative(Native Method)
+10-08 23:04:42.524  7460  7476 E AndroidRuntime: 	at android.os.BinderProxy.transact(BinderProxy.java:584)
+10-08 23:04:42.524  7460  7476 E AndroidRuntime: 	at android.accessibilityservice.IAccessibilityServiceConnection$Stub$Proxy.findAccessibilityNodeInfoByAccessibilityId(IAccessibilityServiceConnection.java:1161)
+10-08 23:04:42.524  7460  7476 E AndroidRuntime: 	at android.view.accessibility.AccessibilityInteractionClient.findAccessibilityNodeInfoByAccessibilityId(AccessibilityInteractionClient.java:665)
+10-08 23:04:42.524  7460  7476 E AndroidRuntime: 	at android.view.accessibility.AccessibilityNodeInfo.refresh(AccessibilityNodeInfo.java:1120)
+10-08 23:04:42.524  7460  7476 E AndroidRuntime: 	at android.view.accessibility.AccessibilityCache$AccessibilityNodeRefresher.refreshNode(AccessibilityCache.java:888)
+10-08 23:04:42.524  7460  7476 E AndroidRuntime: 	at android.view.accessibility.AccessibilityCache.onAccessibilityEvent(AccessibilityCache.java:294)
+10-08 23:04:42.524  7460  7476 E AndroidRuntime: 	at android.view.accessibility.AccessibilityInteractionClient.onAccessibilityEvent(AccessibilityInteractionClient.java:1158)
+10-08 23:04:42.524  7460  7476 E AndroidRuntime: 	at android.accessibilityservice.AccessibilityService$IAccessibilityServiceClientWrapper.lambda$onAccessibilityEvent$2(AccessibilityService.java:2925)
+10-08 23:04:42.524  7460  7476 E AndroidRuntime: 	at android.accessibilityservice.AccessibilityService$IAccessibilityServiceClientWrapper.$r8$lambda$09cnCCQeC7txVafv5NeCrjYkmcY(Unknown Source:0)
+10-08 23:04:42.524  7460  7476 E AndroidRuntime: 	at android.accessibilityservice.AccessibilityService$IAccessibilityServiceClientWrapper$$ExternalSyntheticLambda8.run(Unknown Source:6)
+10-08 23:04:42.524  7460  7476 E AndroidRuntime: 	at android.os.Handler.handleCallback(Handler.java:958)
+10-08 23:04:42.524  7460  7476 E AndroidRuntime: 	at android.os.Handler.dispatchMessage(Handler.java:99)
+10-08 23:04:42.524  7460  7476 E AndroidRuntime: 	at android.os.Looper.loopOnce(Looper.java:205)
+10-08 23:04:42.524  7460  7476 E AndroidRuntime: 	at android.os.Looper.loop(Looper.java:294)
+10-08 23:04:42.524  7460  7476 E AndroidRuntime: 	at android.os.HandlerThread.run(HandlerThread.java:67)
+10-08 23:04:42.524  7460  7476 E IPCThreadState: Failed to get extended error: Bad file descriptor
+10-08 23:04:42.524  7460  7476 I Process : Sending signal. PID: 7460 SIG: 9
+10-08 23:04:42.526   536  1763 D OomAdjuster: Not killing cached processes
+10-08 23:04:42.534  7354  7354 E IPCThreadState: Binder transaction failure: 835090/29189/-22
+10-08 23:04:42.537  1701  2147 I A       : (REDACTED) TngMaStatusChecker#evaluateInternal completed in %s millis

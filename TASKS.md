@@ -112,3 +112,32 @@
 - Проверки: `tools/validate.sh` — 0 ошибок, 0 предупреждений; `skills/android-qa-audit/tests/unit.sh` — PASS 110, FAIL 0 (Python 3.14 и 3.9); `skills/site-qa-audit/tests/unit.sh` — PASS 36 (не сломан); read-only на машине: check_env «можно работать», apk_info по APK из Downloads совпадает с aapt2/apksigner, avd_manager list — 3 чужих AVD помечены «не менять».
 - Осталось: merge/push/тег; живой прогон (создать qa-AVD на установленном образе API 37, start --headless, install, dump-ui, tap, crashes, cleanup) — делает вызывающий вручную; после живого прогона — статус «стабильный».
 - Следующий шаг: живой прогон по tests/README.md → «Живая проверка», исправления → 1.0.1.
+
+## 2026-10-08 android-qa-audit 1.0.1 и gitignore по умолчанию
+Ветка fix/android-qa-defects (от main). Чужая правка `skills/site-qa-audit/scripts/node/device_context.js` не трогается и не коммитится. В main не вливать (делает вызывающий). Эмуляторы не запускать, APK не ставить; реальный прогон (qa-runs/2026-10-08-com.versus.host) — только читать.
+База до правок: validate — 0 ошибок; android unit.sh — PASS 110; site unit.sh — PASS 36.
+- [x] A1 crashes: падения чужих процессов (UiAutomation и т. п.) → `other_processes`, не crash приложения; ANR только `ANR in <package>`; build_report
+- [x] A2 dump-ui после rotate: размер экрана из текущего состояния (rotation дампа, `dumpsys window displays`), rotate возвращает фактический размер
+- [x] A3 matrix: `hardware: []` + custom → только custom; оба пустые → по глубине
+- [x] A4 install-image `--run-dir` (stands.json, журнал); тест команд из SKILL.md/references (`--help`-парсинг)
+- [x] A5 SKILL.md/INSTALL.md: скил виден только в новой сессии, как продолжить в текущей
+- [x] A6 text: не-ASCII — отказ с подсказкой, `--translit`, `--adbkeyboard` (только свой эмулятор, ime)
+- [x] A7 intake from-text: запреты камера/QR/точка доступа/микрофон/геолокация/уведомления… → типовые тексты RU+EN, пакеты камеры, «проверить на разведке»
+- [x] A8 шум «integer expression expected» (Java -ea): подавлять при коде 0, отметка в check_env; INSTALL — JDK 17/21
+- [x] A9 logcat start/dump: по умолчанию фильтр по пакету (pid, перезапуски), `--all`; crashes — по полному журналу
+- [x] A10 intake.md/SKILL.md: конфликт «запрет против сценария» — вопрос на разведке, решение в run-config и журнал
+- [x] B1 shared qa_gitignore: `ensure` (до создания RUN_DIR), `untrack`, разрешение коммитить из текста (RU/EN), `allow_commit_apk`
+- [x] B2 shared qa_export + `export_results.py` в обоих скилах: в `folder` — только итоговые файлы
+- [x] B3 site-qa-audit: gitignore_helper → обёртка над shared, intake `git.allow_commit_results`, документация без вопроса про .gitignore
+- [x] B4 android-qa-audit: документация, run-config `git.*`, intake
+- [x] Тесты обоих скилов; версии 1.0.1 / 1.2.1, CHANGELOG, sync; validate; Python 3.9
+- [x] Коммит в ветке, «Где остановился»
+- [x] Найдено по дороге: `masking.py` превращал `password="false"` в дампе UI в `password="***"` — исправлено, тест; `guard.py` считал `ime set` чтением — теперь изменение устройства; `intake.py` для «8 ГБ ОЗУ» добавлял лишний телефон 4 ГБ — теперь `hardware: []` + свой профиль; dropbox в `crashes` совпадал с `pkg.debug` — точное имя процесса
+- [ ] Не делалось (решение вызывающего/пользователя): merge в main, push, теги `android-qa-audit/v1.0.1` и `site-qa-audit/v1.2.1`; живая проверка на эмуляторе (rotate + dump-ui, logcat start с фильтром, crashes после dump-ui, text --translit, install-image --run-dir, ensure в реальном репозитории)
+
+### Где остановился
+2026-10-08, всё по пунктам A1–A10 и B сделано в ветке fix/android-qa-defects (один коммит; в main не вливалось).
+- Сделано: crashes по процессу приложения + `other_processes`; размер экрана по повороту дампа и `dumpsys window displays`, `rotate` с фактическим размером; matrix `hardware: []` + custom; `install-image --run-dir`; «Unknown skill» в новой сессии (SKILL.md, INSTALL.md обоих скилов); `text --translit/--adbkeyboard`; темы запретов в intake с типовыми текстами и `exact`/список `context` в guard; шум Java -ea; logcat по приложению (`--all`); «запрет против сценария»; shared `qa_gitignore.py` (`ensure`, `untrack`, `commit_permission`) и `qa_export.py` + `export_results.py` в обоих скилах; site-qa-audit на общем `qa_gitignore.py`; версии 1.0.1 и 1.2.1, CHANGELOG скилов и корневой, sync.
+- Проверки: `tools/validate.sh` — 0 ошибок, 0 предупреждений; `android-qa-audit/tests/unit.sh` — PASS 148, FAIL 0 (Python 3.14 и /usr/bin/python3 3.9.6); `site-qa-audit/tests/unit.sh` — PASS 40, FAIL 0 (3.14 и 3.9.6; v1.2.1 — 16, v1.2 — 24, A — 32, B — 29, C — 34); примеры команд в документации — 246 (android) и 127 (site) без ошибок; на данных боевого прогона (только чтение): падение UiAutomation → `other_processes`, 0 падений приложения; альбомный дамп — 0 `visual.offscreen` вместо 9; матрица — одна ячейка 8 ГБ.
+- Осталось: merge/push/теги; живая проверка на эмуляторе (вызывающий).
+- Следующий шаг: влить ветку, затем живой прогон по tests/README.md → «Живая проверка» с новыми командами.

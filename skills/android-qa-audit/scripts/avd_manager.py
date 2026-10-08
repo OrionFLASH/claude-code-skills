@@ -10,7 +10,7 @@
   avd_manager.py plan  --api 34 [--profile phone|small|tablet|fold|<avdmanager id>] [--ram MB] [--cores N]
                        [--data 6G] [--size 1080x2400] [--density 420] [--orientation portrait|landscape]
                        [--tag google_apis|google_apis_playstore|default] [--abi auto] [--name qa-…] [--json]
-  avd_manager.py install-image --api N [--tag …] [--abi auto] [--yes] [--accept-licenses]
+  avd_manager.py install-image --api N [--tag …] [--abi auto] [--yes] [--accept-licenses] [--run-dir R]
   avd_manager.py create <plan options> --yes [--run-dir R]
   avd_manager.py start NAME [--port 5554] [--headless] [--cold-boot] [--wipe-data] [--read-only] [--snapshot S]
                        [--netspeed full|lte|hsdpa|umts|edge|gprs] [--netdelay none|lte|umts|edge|gprs]
@@ -209,7 +209,7 @@ def make_plan(a):
         plan["config"]["hw.lcd.density"] = str(a.density or density)
     steps = []
     if not image:
-        steps.append(f"avd_manager.py install-image --api {a.api} --tag {tag} --abi {abi} --yes   "
+        steps.append(f"avd_manager.py install-image --api {a.api} --tag {tag} --abi {abi} --yes --run-dir <RUN_DIR>   "
                      f"# {package}: загрузка ≈ 1–2 ГБ, на диске ≈ 3–6 ГБ (оценка); только после согласия пользователя")
     if not existing:
         steps.append(f"avd_manager.py create --api {a.api} --profile {a.profile} --ram {a.ram} --cores {a.cores} "
@@ -275,7 +275,7 @@ def sdkmanager_list():
     sm = su.tool_path("sdkmanager")
     if not sm:
         return None, "sdkmanager не найден (cmdline-tools)"
-    code, out, err = su.run([sm, "--list"], timeout=300)
+    code, out, err, _ = su.run_sdk_tool([sm, "--list"], timeout=300)
     if code != 0:
         return None, (err or out).strip()[-300:]
     section, res = None, {"installed": [], "available": []}
@@ -316,9 +316,9 @@ def cmd_profiles(a):
     am = su.tool_path("avdmanager")
     if not am:
         die("avdmanager не найден (cmdline-tools)", 127)
-    code, out, err = su.run([am, "list", "device", "-c"], timeout=120)
+    code, out, err, _ = su.run_sdk_tool([am, "list", "device", "-c"], timeout=120)
     ids = [ln.strip() for ln in out.splitlines() if ln.strip() and not ln.startswith(("/", "Error", "Warning"))
-           and "integer expression" not in ln]
+           and su.JAVA_NOISE not in ln]
     print(json.dumps({"aliases": {k: v[0] for k, v in PROFILES.items()}, "ids": ids}, ensure_ascii=False, indent=1))
 
 
@@ -343,10 +343,32 @@ def cmd_plan(a):
         print("  " + s)
 
 
+JAVA_NOTE = "Java -ea: строка «integer expression expected» скрыта — безвредна, команда завершилась успешно"
+
+
+def note_image(run_dir, package, already, java_noise=0):
+    """--run-dir: record the image in <RUN_DIR>/stands.json (images_installed) and a line in journal.md if it exists."""
+    if not run_dir:
+        return
+    with Registry(run_dir) as reg:
+        data = reg.load()
+        data.setdefault("images_installed", []).append({"package": package, "at": now(), "already": already,
+                                                        "java_ea_noise": bool(java_noise)})
+        reg.save(data)
+    journal = Path(run_dir) / "journal.md"
+    if journal.exists():
+        sys.path.insert(0, str(HERE / "shared"))
+        import runjournal  # noqa: E402 — vendored shared module
+        j = runjournal.need(run_dir)
+        j["log"].append(f"- {runjournal.now()} — образ {'уже был' if already else 'установлен'}: {package}")
+        runjournal.write(run_dir, j)
+
+
 def cmd_install_image(a):
     image, tag, abi = choose_image(a.api, a.tag, a.abi)
     if image:
         print(f"образ уже установлен: {image['package']}")
+        note_image(a.run_dir, image["package"], True)
         return
     lst, err = sdkmanager_list()
     cands = [i for i in (lst or {}).get("available", []) if i["api"] == a.api and i["tag"] == tag and i["abi"] == abi]
@@ -363,8 +385,8 @@ def cmd_install_image(a):
     sm = su.tool_path("sdkmanager")
     if not sm:
         die("sdkmanager не найден (cmdline-tools)", 127)
-    code, out, e = su.run([sm, "--install", package], timeout=3600,
-                          input=("y\n" * 30) if a.accept_licenses else "\n")
+    code, out, e, noise = su.run_sdk_tool([sm, "--install", package], timeout=3600,
+                                          input=("y\n" * 30) if a.accept_licenses else "\n")
     text = out + e
     if code != 0 and re.search(r"licen[cs]e", text, re.I):
         die("лицензии не приняты: пользователь выполняет `sdkmanager --licenses` сам или соглашается и тогда — "
@@ -372,7 +394,10 @@ def cmd_install_image(a):
     if code != 0:
         die("sdkmanager: " + text.strip()[-400:], 2)
     print(text.strip()[-300:])
+    if noise:
+        print(f"({JAVA_NOTE})")
     print(f"готово: {package}")
+    note_image(a.run_dir, package, False, noise)
 
 
 def write_config(cfg_path, updates):
@@ -414,10 +439,10 @@ def cmd_create(a):
     am = su.tool_path("avdmanager")
     if not am:
         die("avdmanager не найден (cmdline-tools)", 127)
-    last = ""
+    last, noise = "", 0
     for dev in plan["device_ids"]:
         cmd = [am, "create", "avd", "-n", name, "-k", plan["image"], "-d", dev]
-        code, out, err = su.run(cmd, timeout=300, input="no\n")
+        code, out, err, noise = su.run_sdk_tool(cmd, timeout=300, input="no\n")
         last = (out + err).strip()
         if code == 0 and find_avd(name):
             plan["device"] = dev
@@ -438,8 +463,10 @@ def cmd_create(a):
         data["avds_created"].append({"name": name, "created_at": marker["created_at"], "image": plan["image"],
                                      "config": plan["config"]})
         reg.save(data)
-    print(json.dumps({"name": name, "created": True, "path": str(path), "image": plan["image"],
-                      "device": plan.get("device")}, ensure_ascii=False))
+    res = {"name": name, "created": True, "path": str(path), "image": plan["image"], "device": plan.get("device")}
+    if noise:
+        res["note"] = JAVA_NOTE
+    print(json.dumps(res, ensure_ascii=False))
 
 
 def port_free(port):
@@ -629,7 +656,7 @@ def delete_avd(name):
         die(f"путь {path} вне {home} — удаляю только вручную", 3)
     am = su.tool_path("avdmanager")
     if am:
-        su.run([am, "delete", "avd", "-n", name], timeout=120)
+        su.run_sdk_tool([am, "delete", "avd", "-n", name], timeout=120)
     if path.exists():
         shutil.rmtree(path)
     ini = home / f"{name}.ini"
@@ -713,6 +740,7 @@ def main():
     ii.add_argument("--abi", default="auto")
     ii.add_argument("--yes", action="store_true")
     ii.add_argument("--accept-licenses", action="store_true")
+    ii.add_argument("--run-dir", help="записать образ в <RUN_DIR>/stands.json (images_installed) и в journal.md")
     st = sub.add_parser("start")
     st.add_argument("name")
     st.add_argument("--port", type=int)

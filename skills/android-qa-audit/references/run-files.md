@@ -42,7 +42,16 @@ python3 <SKILL_DIR>/scripts/build_report.py summary <RUN_DIR>
    | /abs/path/2026-10-08-com.example.app/ | скопировано |
    | owner/repo | черновик drafts/owner__repo/summary.md (или ссылка на issue) |
    ```
-3. `folder` — последним: копии `report.md` и `summary.md` в `<path>/<YYYY-MM-DD>-<package>/` (одноимённые файлы не перезаписывать без вопроса). `custom` — только после подтверждения.
+3. `folder` — последним: **только итоговые файлы**, не папка прогона:
+   ```bash
+   python3 <SKILL_DIR>/scripts/export_results.py <RUN_DIR> --to <path>            # → <path>/<YYYY-MM-DD>-<package>/
+   python3 <SKILL_DIR>/scripts/export_results.py <RUN_DIR> --to <path> --dry-run  # план
+   ```
+   | Копируется | Не копируется никогда |
+   |------------|-----------------------|
+   | `summary.md`, `report.md`, `findings.json`; скриншоты, на которые ссылаются находки (`findings[].screenshots` из `screenshots/`), с тем же относительным путём | `apk/` (APK, AAB, `SHA256SUMS`), `logs/` (`logcat-*`, `actions.jsonl`, `blocked.jsonl`, журналы эмулятора), `raw/`, `recordings/`, `drafts/`, `journal.md`, `run-config.yaml`, `env.json`, `stands.json`, `rules.json`, прочие скриншоты |
+
+   `--screenshots all` — все изображения из `screenshots/`, `none` — без них. Одноимённый файл с другим содержимым не перезаписывается: код 1 и список → спросить «Перезаписать» (`--overwrite`) / «Другое имя» (`--name`); одинаковые файлы пропускаются. Последняя строка вывода — готовая строка для «Куда записаны итоги». `.gitignore` в папке назначения не трогается: это место, которое выбрал пользователь. `custom` — только после подтверждения.
 4. `journal.py note <RUN_DIR> "итоги: …"`.
 
 ## Память о приложении (`.app-context/<package>/`)
@@ -64,14 +73,21 @@ context.prev.md  прошлая версия (после «Изучить зан
 **Не сохранять:** пароли, токены, ключи, содержимое аккаунтов, e-mail, телефоны, имена реальных людей, serial реальных устройств, находки с `evidence.sensitive`. Факты — обобщённо («у аккаунта с подпиской есть экспорт»).
 
 ## qa-runs/, APK и git
+**Если пользователь в запросе явно не разрешил класть результаты в репозиторий, папка результатов обязана быть в `.gitignore`.** Проверка — сразу после выбора `<OUTPUT_ROOT>` и **до создания `<RUN_DIR>`** (SKILL.md, шаг 2), вопроса «Добавить в .gitignore?» в конце прогона нет.
 ```bash
-python3 <SKILL_DIR>/scripts/gitignore_helper.py check <OUTPUT_ROOT>                       # 0 — ничего, 1 — спросить, 2 — ошибка
-python3 <SKILL_DIR>/scripts/gitignore_helper.py apply <OUTPUT_ROOT> --mode gitignore       # все шаблоны в .gitignore корня репозитория
-python3 <SKILL_DIR>/scripts/gitignore_helper.py apply <OUTPUT_ROOT> --mode gitignore --pattern qa-runs/   # только qa-runs/
-python3 <SKILL_DIR>/scripts/gitignore_helper.py apply <OUTPUT_ROOT> --mode exclude         # то же в .git/info/exclude (локально)
-python3 <SKILL_DIR>/scripts/gitignore_helper.py apply <OUTPUT_ROOT> --mode keep            # «буду коммитить» — больше не спрашивать
+python3 <SKILL_DIR>/scripts/gitignore_helper.py ensure <OUTPUT_ROOT>                          # по умолчанию: всё в .gitignore
+python3 <SKILL_DIR>/scripts/gitignore_helper.py ensure <OUTPUT_ROOT> --allow-commit-results   # явное «коммить результаты»
+python3 <SKILL_DIR>/scripts/gitignore_helper.py ensure <OUTPUT_ROOT> --text "<запрос>"         # разрешение из текста (RU/EN)
+python3 <SKILL_DIR>/scripts/gitignore_helper.py ensure <OUTPUT_ROOT> --config <run-config.yaml> # git.* из конфига (повтор)
+python3 <SKILL_DIR>/scripts/gitignore_helper.py untrack <OUTPUT_ROOT> [--yes]                 # git rm -r --cached qa-runs/ — после «да»
+python3 <SKILL_DIR>/scripts/gitignore_helper.py check <OUTPUT_ROOT> --json                    # только состояние
 ```
-Шаблоны по умолчанию: `qa-runs/` (строка `/<путь от корня>/qa-runs/` — только папка результатов) и `*.apk`, `*.aab`, `*.apks`, `*.keystore` (по всему репозиторию: сборки и ключи подписи не место в git). Код 1 → **один** вопрос: «Да, всё (Recommended)» / «Только qa-runs/» / «Использовать .git/info/exclude» / «Нет, буду коммитить». Без ответа ничего не правится; `apply` идемпотентен; уже отслеживаемые файлы скрипт не трогает, а печатает команду `git rm -r --cached …` для пользователя. `--json` — состояние по каждому шаблону.
+| `run-config.yaml → git` | По умолчанию | Что делает `ensure` |
+|-------------------------|--------------|---------------------|
+| `allow_commit_results` | `false` | `false` — строка `/<путь от корня>/qa-runs/` в `.gitignore` корня репозитория (в т.ч. `.app-context/`); `true` (только явное разрешение) — `qa-runs/` не трогается (если уже игнорируется — сказать, правило не удаляется) |
+| `allow_commit_apk` | `false` | `false` — `*.apk`, `*.aab`, `*.apks`, `*.xapk`, `*.keystore`, `*.jks` по всему репозиторию (сборки и ключи подписи не место в git) — даже при `allow_commit_results: true`; `true` — отдельное явное «да» на APK |
+
+Коды `ensure`: 0 — готово (или `<OUTPUT_ROOT>` не в git; папки может ещё не быть); 1 — файлы `qa-runs/` уже в индексе git: **не удаляются**, показывается команда `git rm -r --cached <путь>` и задаётся **один** вопрос, выполнить ли её → `untrack --yes` только после «да» (файлы остаются на диске, коммит — решение пользователя); 2 — ошибка; 3 — строка записана, но её перекрывает правило с «!» (`git check-ignore -v`). Уже отслеживаемые APK проекта вне `qa-runs/` скил не трогает и о них не спрашивает. `--mode exclude` — те же строки в `.git/info/exclude` (только если пользователь не хочет менять `.gitignore`). Старый ответ «буду коммитить» (`qa-runs/.gitignore-decision`, `apply --mode keep`) больше не действует сам — нужно явное разрешение в запросе или `git.allow_commit_results: true`. `--json` — состояние по каждому шаблону, `tracked_results`, `still_not_ignored`.
 
 ## Уборка
 1. `adb_helpers.py logcat stop` на каждом стенде (файл маскируется).

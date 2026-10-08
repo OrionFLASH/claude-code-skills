@@ -42,7 +42,7 @@ QA-тестирование Android-приложения — по APK, split APK
 | 12 | Куда записать итоги: папка, GitHub, Artifact, свой вариант | только папка прогона |
 | 13 | Папка результатов | путь из запроса / `ANDROID_QA_OUTPUT_DIR` / `<cwd>/qa-runs/` |
 
-Результаты — в `<OUTPUT_ROOT>/qa-runs/<YYYY-MM-DD>-<package>/`: `run-config.yaml`, `env.json`, `apk-info.json`, `device-matrix.json`, `stands.json`, `journal.md`, `findings.json`, `report.md`, `summary.md`, `apk/` (копии с SHA256), `screenshots/`, `recordings/`, `logs/` (logcat, действия, запреты), `raw/`, `drafts/`. Память о приложении — `<OUTPUT_ROOT>/qa-runs/.app-context/<package>/context.md`. Если папка внутри git-репозитория — в конце один вопрос про `.gitignore` для `qa-runs/` и `*.apk`, `*.aab`, `*.apks`, `*.keystore`; и вопрос, что сделать с эмуляторами и AVD прогона.
+Результаты — в `<OUTPUT_ROOT>/qa-runs/<YYYY-MM-DD>-<package>/`: `run-config.yaml`, `env.json`, `apk-info.json`, `device-matrix.json`, `stands.json`, `journal.md`, `findings.json`, `report.md`, `summary.md`, `apk/` (копии с SHA256), `screenshots/`, `recordings/`, `logs/` (logcat, действия, запреты), `raw/`, `drafts/`. Память о приложении — `<OUTPUT_ROOT>/qa-runs/.app-context/<package>/context.md`. Если папка внутри git-репозитория — сразу, до первой записи, `qa-runs/` и `*.apk`, `*.aab`, `*.apks`, `*.xapk`, `*.keystore`, `*.jks` попадают в `.gitignore` (без вопроса; коммитить результаты — только по явному разрешению в запросе, `git.allow_commit_results`); уже закоммиченные результаты не удаляются — один вопрос про `git rm -r --cached`. «Другая папка» для итогов (`report_destinations: folder`) получает только `summary.md`, `report.md`, `findings.json` и скриншоты находок. В конце — вопрос, что сделать с эмуляторами и AVD прогона.
 
 ## Примеры вызова
 ```text
@@ -59,10 +59,12 @@ Test this APK on emulators: Android 12 and 14, accessibility and performance, En
 ```bash
 S=<SKILL_DIR>/scripts; R=<RUN_DIR>
 bash $S/check_env.sh                                                         # окружение (Windows: check_env.ps1)
+python3 $S/apk_info.py analyze app.apk --summary                             # пакет; файлы ещё не пишутся
+python3 $S/gitignore_helper.py ensure <OUTPUT_ROOT>                          # до <RUN_DIR>: qa-runs/ и *.apk… в .gitignore
 python3 $S/apk_info.py analyze app.apk --copy-to $R/apk --out $R/apk-info.json --summary
 python3 $S/intake.py from-text --file request.txt --output-dir <OUTPUT_ROOT> --out $R/run-config.yaml
 python3 $S/matrix.py build --config $R/run-config.yaml                      # матрица и потоки
-python3 $S/avd_manager.py install-image --api 34                            # план загрузки образа; --yes после «да»
+python3 $S/avd_manager.py install-image --api 34 --run-dir $R              # план загрузки образа; --yes после «да»
 python3 $S/avd_manager.py create --api 34 --profile small --ram 2048 --cores 2 --yes --run-dir $R
 python3 $S/avd_manager.py start qa-api34-small-2gb-2c --headless --run-dir $R && python3 $S/avd_manager.py wait-boot emulator-5554 --unlock
 python3 $S/adb_helpers.py install $R/apk/app.apk --serial emulator-5554 --run-dir $R
@@ -70,12 +72,12 @@ python3 $S/adb_helpers.py dump-ui --serial emulator-5554 --run-dir $R      # д�
 python3 $S/adb_helpers.py tap --text "Далее" --serial emulator-5554 --run-dir $R   # нажатие под guard (3 — запрет, 2 — спросить)
 python3 $S/adb_helpers.py kill-bg --serial emulator-5554 --run-dir $R      # смерть процесса в фоне
 python3 $S/adb_helpers.py start-time --mode cold --runs 5 --serial emulator-5554 --run-dir $R
-python3 $S/adb_helpers.py crashes --serial emulator-5554 --run-dir $R
+python3 $S/adb_helpers.py crashes --serial emulator-5554 --run-dir $R      # только процессы приложения; чужие — other_processes
 python3 $S/fingerprint.py compute $R/findings.json && python3 $S/fingerprint.py dedupe $R/findings.json
 python3 $S/validate_findings.py $R/findings.json
 python3 $S/render_draft.py all $R/findings.json --run-dir $R --repo owner/repo   # черновики, ничего не публикует
 python3 $S/build_report.py report $R && python3 $S/build_report.py summary $R
-python3 $S/gitignore_helper.py check <OUTPUT_ROOT>
+python3 $S/export_results.py $R --to /abs/path/reports                     # report_destinations: folder — только итоги
 python3 $S/avd_manager.py cleanup --run-dir $R --stop --delete-avds         # план; --yes после ответа
 ```
 
@@ -98,7 +100,8 @@ python3 $S/avd_manager.py cleanup --run-dir $R --stop --delete-avds         # п
 
 ## Ограничения
 - Только то, что видно через интерфейс и adb: причина дефекта — гипотеза, код не анализируется.
-- Кириллица и emoji через `adb input text` не вводятся — вручную в окне эмулятора или ADBKeyBoard с согласия пользователя.
+- Кириллица и emoji через `adb input text` не вводятся: `text … --translit` (латиницей, с пометкой), `text … --adbkeyboard` (ADBKeyBoard на эмуляторе скила, ставится с согласия пользователя) или вручную в окне эмулятора.
+- Новый скил виден только в новой сессии Claude Code (в текущей — «Unknown skill»); продолжить в той же сессии — прочитать `SKILL.md` и идти по шагам.
 - Экраны без дерева элементов (игры на canvas, видео, `FLAG_SECURE`) проверяются по скриншотам; нажатия по координатам — с оценкой смысла кнопки исполнителем.
 - Язык системы и часовой пояс надёжно меняются только перезапуском эмулятора (`--locale`, `--timezone`); язык приложения через adb — с API 33.
 - Ограничение скорости сети — только на эмуляторе; на реальном устройстве — только Wi-Fi/данные с согласия.
@@ -106,7 +109,7 @@ python3 $S/avd_manager.py cleanup --run-dir $R --stop --delete-avds         # п
 - Подпись AAB проверяется только у собранных из него APK (bundletool подписывает отладочным ключом — подпись отличается от магазинной).
 - GitHub не принимает картинки через `gh`: вложения — коммитом в свой репозиторий или ссылками на локальные файлы.
 - Безопасность — только пассивная; это не пентест.
-- Версия 1.0.0 проверена офлайн (фейковые adb и SDK) и только чтением на машине с Android SDK; живой прогон на эмуляторе — следующий шаг (статус «в разработке»).
+- Версия 1.0.0 проверена офлайн и первым боевым прогоном на эмуляторе (smoke, API 34); 1.0.1 — исправления по нему, проверены офлайн (фейковые adb и SDK); статус «в разработке».
 
 ## Структура
 ```text
@@ -116,7 +119,8 @@ references/             setup, intake, safety-rules, stands, device-control, dep
                         plugins-map, severity, repo-sync, run-files, checklists/ (11 направлений)
 templates/              run-config.example.yaml, finding.schema.json, issue-detailed.md, run-report.md, app-context.md
 scripts/                check_env (.py/.sh/.ps1), apk_info, avd_manager, adb_helpers, guard, masking, matrix, intake,
-                        journal, fingerprint, validate_findings, render_draft, build_report, gitignore_helper, sdkutil,
+                        journal, fingerprint, validate_findings, render_draft, build_report, gitignore_helper,
+                        export_results, sdkutil,
                         shared/ (вендоренные модули репозитория)
-tests/                  unit.sh, helpers/ (фейковые adb и SDK), fixtures/
+tests/                  unit.sh, helpers/ (фейковые adb и SDK, проверка примеров команд), fixtures/
 ```

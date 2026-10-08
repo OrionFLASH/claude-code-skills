@@ -2,11 +2,11 @@
 
 Общие опции: `--serial S` (или `ANDROID_SERIAL`, или единственное устройство), `--run-dir <RUN_DIR>` (файлы прогона, журналы, `run-config.yaml` оттуда), `--config`, `--confirmed` (только после «да» пользователя на код 2). `PKG` по умолчанию — `app.package` из run-config. Вывод — JSON (кроме `dump-ui`). Коды: 0 — выполнено, 2 — нужно подтверждение (не выполнено), 3 — запрещено guard (не выполнено, `logs/blocked.jsonl`), 4 — не поддерживается на этом устройстве, 5 — ошибка.
 
-Журналы: `logs/actions.jsonl` — каждое выполненное действие; `logs/blocked.jsonl` — запреты; `raw/metrics.jsonl` — метрики; `raw/crashes-<serial>.json` — падения.
+Журналы: `logs/actions.jsonl` — каждое выполненное действие; `logs/blocked.jsonl` — запреты; `raw/metrics.jsonl` — метрики; `raw/crashes-<serial>.json` — падения (`items` — приложения, `other_processes` — чужие процессы).
 
 ## Цикл работы с интерфейсом
 Аналог «снимок страницы → действие → проверка» для браузера:
-1. `dump-ui` — дерево элементов активного окна (uiautomator): строки вида `[5] Button "Далее" id=btn_next @540,1500 (clickable)`, файл `raw/ui-<время>.xml` (замаскирован) и кандидаты находок (`a11y.missing-label`, `a11y.touch-target`, `visual.offscreen`, `visual.overlap`, `visual.text-ellipsized`). `--json raw/ui-<экран>.json` — все узлы с границами.
+1. `dump-ui` — дерево элементов активного окна (uiautomator): строки вида `[5] Button "Далее" id=btn_next @540,1500 (clickable)`, файл `raw/ui-<время>.xml` (замаскирован) и кандидаты находок (`a11y.missing-label`, `a11y.touch-target`, `visual.offscreen`, `visual.overlap`, `visual.text-ellipsized`). `--json raw/ui-<экран>.json` — все узлы с границами и `screen` (размер, поворот, источник). Размер экрана для `visual.offscreen` — по повороту **этого** дампа (`<hierarchy rotation="N">` + `wm size`), запасной путь — `dumpsys window displays` (`cur=WxH` — логический экран с системными панелями и вырезом); после `rotate landscape` границы сверяются с 2400×1080, а не с 1080×2400.
 2. Выбрать элемент по **тексту, id или contentDescription**, не по координатам: `tap --text "Далее"`, `tap --id btn_next`, `tap --desc "Закрыть"` (`--index N` при нескольких совпадениях, `--exact` — точное совпадение).
 3. Скрипт снова снимает дерево, находит элемент и проверяет его `guard.py` (текст, описание, id, класс, пакет, activity, тексты экрана как контекст). Затем нажатие, пауза `parallel.throttle_ms`, вывод `focus` — какой пакет и activity теперь на экране. Открылось чужое приложение → `left_app` в выводе и запись в `blocked.jsonl`: `key BACK`.
 4. `screenshot` (→ `screenshots/`) до и после важного шага; для находки — с понятным именем: `screenshot <RUN_DIR>/screenshots/F-003-profile-overlap.png`.
@@ -25,7 +25,14 @@ python3 $S/adb_helpers.py key BACK $D
 ```
 
 ## Ввод текста
-`text "abc"` — через `adb shell input text` (пробелы передаются как `%s`). **Кириллица, emoji и другой не-ASCII через adb не вводятся** (код 4): ввести вручную в окне эмулятора, или поставить на свой эмулятор ADBKeyBoard (стороннее приложение — с согласия пользователя; скрипт использует его сам, если он установлен), или проверить такие значения на экране, где они уже есть. Секреты — `text --env QA_PASSWORD`: значение берётся из переменной, не печатается и не пишется в журнал.
+`text "abc"` — через `adb shell input text` (пробелы передаются как `%s`). **Кириллица, emoji и другой не-ASCII через `adb input` не вводятся.** По умолчанию — отказ (код 4) с подсказкой, ничего не нажимается и не вводится. Варианты:
+| Вариант | Команда | Что получится |
+|---------|---------|---------------|
+| Латиница | `text "QA Тест" --translit` | вводится `QA Test`; в выводе `"translit": true` и `typed` — указать в шагах находки «введено латиницей»; emoji и неизвестные символы — отказ (4); секрет (`--env`) транслитерировать нельзя (2) |
+| ADBKeyBoard | `text "QA Тест" --adbkeyboard` | только на **эмуляторе скила** (`qa-*`) и только если ADBKeyBoard на нём уже установлен (`ime list -a`): `ime set` → `am broadcast ADB_INPUT_B64` → прежняя клавиатура возвращается; поставить ADBKeyBoard — стороннее приложение, только с согласия пользователя; реальное устройство и чужой AVD — отказ (4) |
+| Вручную | — | ввести в окне эмулятора (не headless) или проверить значения на экране, где они уже есть |
+
+Секреты — `text --env QA_PASSWORD`: значение берётся из переменной, не печатается и не пишется в журнал (с `--adbkeyboard` — тоже).
 
 ## Приложение
 | Команда | Что делает |
@@ -42,7 +49,7 @@ python3 $S/adb_helpers.py key BACK $D
 ## Конфигурация (вариации матрицы, `matrix.py variants`)
 | Команда | Реализация | Ограничения |
 |---------|-----------|-------------|
-| `rotate portrait\|landscape\|reverse-portrait\|reverse-landscape\|auto` | `cmd window user-rotation lock` (API 31+) или `settings put system user_rotation` | приложение может запрещать поворот — это не дефект само по себе |
+| `rotate portrait\|landscape\|reverse-portrait\|reverse-landscape\|auto` | `cmd window user-rotation lock` (API 31+) или `settings put system user_rotation`; ждёт поворота до 5 с и возвращает **фактический** размер (`screen`), `rotation_index`, `applied` | приложение может запрещать поворот (`applied: false`) — это не дефект само по себе |
 | `font-scale 1.3` | `settings put system font_scale` | 2.0 — максимум на Android 14+ |
 | `density N\|reset` | `wm density` (масштаб экрана) | вернуть `reset` |
 | `dark-mode on\|off\|auto` | `cmd uimode night` | API 29+ |
@@ -61,11 +68,11 @@ python3 $S/adb_helpers.py key BACK $D
 ## Журналы и падения
 | Команда | Что делает |
 |---------|-----------|
-| `logcat start [--out F]` | фоновая запись `logcat -v threadtime -b main,system,crash` в `logs/logcat-<serial>.txt` |
+| `logcat start [--out F] [--package P] [--all]` | фоновая запись `logcat -v threadtime -b main,system,crash` в `logs/logcat-<serial>.txt`; **по умолчанию только приложение** (`app.package` или `--package`): строки его процессов (PID, в т.ч. `pkg:service`; после перезапуска — новый PID по «Start proc» и опросу `ps`), строки с именем пакета (запуск, ANR, смерть процесса) и продолжения многострочных записей; фоновый шум (сервисы Google, система) не пишется. `--all` — весь журнал устройства |
 | `logcat stop` | остановить и **замаскировать** файл |
-| `logcat dump [--package P] [--lines N] [--out F]` | снимок журнала (замаскирован), с фильтром по процессу приложения |
+| `logcat dump [--package P] [--all] [--lines N] [--out F]` | снимок журнала (замаскирован), по умолчанию с тем же фильтром по приложению; `--all` — весь |
 | `logcat clear` | `logcat -c` — на реальном устройстве нужно согласие `full` |
-| `crashes [PKG]` | FATAL EXCEPTION, ANR, нативные падения из logcat и `dumpsys dropbox` → `raw/crashes-<serial>.json` (замаскировано) |
+| `crashes [PKG]` | FATAL EXCEPTION, ANR, нативные падения по **полному** журналу устройства и `dumpsys dropbox` → `raw/crashes-<serial>.json` (замаскировано). Падение приложения — только его процесс: «Process: <pkg>[:…]» или PID приложения («Start proc», `ps`); ANR — только «ANR in <pkg>». Падения других процессов — `other_processes` с `owner`: `tool` (UiAutomation от `dump-ui`, monkey, am), `system` (system_server, сервисы Google), `other-app`; `related_to_app` — процесс запущен для приложения (WebView) — проверить вручную. Это не находки приложения |
 
 ## Метрики (в `raw/metrics.jsonl`, сводка — в report.md)
 | Команда | Что меряет | Ориентиры |

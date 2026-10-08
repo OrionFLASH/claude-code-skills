@@ -49,7 +49,7 @@
 
 Свободный запрос можно сразу разобрать в черновик конфига: `scripts/intake.py from-text` (черновик показывается на подтверждение).
 
-Результаты — в `<OUTPUT_ROOT>/qa-runs/<YYYY-MM-DD>-<host>/` (`<OUTPUT_ROOT>` — путь из запроса, иначе переменная `SITE_QA_OUTPUT_DIR`, иначе папка запуска Claude Code; в репозиторий скилов не пишется): `run-config.yaml`, `findings.json`, `report.md`, `summary.md`, `journal.md`, `claims-plan.md`, `rechecks.json`, `side_effects.md`, `screenshots/`, `drafts/`, `raw/`, `logs/`. Память о сайте (назначение, роли, сценарии, термины, источники) — `<OUTPUT_ROOT>/qa-runs/.site-context/<host>/context.md`: при следующем прогоне скил показывает её и спрашивает «как есть / обновить / изучить заново». Если `qa-runs/` оказалась внутри git-репозитория и не игнорируется, в конце прогона скил один раз спрашивает, добавить ли её в `.gitignore` (или в `.git/info/exclude`).
+Результаты — в `<OUTPUT_ROOT>/qa-runs/<YYYY-MM-DD>-<host>/` (`<OUTPUT_ROOT>` — путь из запроса, иначе переменная `SITE_QA_OUTPUT_DIR`, иначе папка запуска Claude Code; в репозиторий скилов не пишется): `run-config.yaml`, `findings.json`, `report.md`, `summary.md`, `journal.md`, `claims-plan.md`, `rechecks.json`, `side_effects.md`, `screenshots/`, `drafts/`, `raw/`, `logs/`. Память о сайте (назначение, роли, сценарии, термины, источники) — `<OUTPUT_ROOT>/qa-runs/.site-context/<host>/context.md`: при следующем прогоне скил показывает её и спрашивает «как есть / обновить / изучить заново». Если `qa-runs/` оказалась внутри git-репозитория, скил сразу, до первой записи, добавляет её в `.gitignore` этого репозитория — без вопроса, если вы в запросе явно не разрешили класть результаты в репозиторий («коммить результаты», `git.allow_commit_results`); уже закоммиченные результаты не удаляет, а спрашивает про `git rm -r --cached`. «Другая папка» для итогов (`report_destinations: folder`) получает только `summary.md`, `report.md`, `findings.json` и скриншоты находок.
 
 ## Примеры вызова
 ```text
@@ -82,9 +82,11 @@ python3 <SKILL_DIR>/scripts/render_draft.py detailed <RUN_DIR>/findings.json --i
 python3 <SKILL_DIR>/scripts/build_report.py publish-table <RUN_DIR>
 python3 <SKILL_DIR>/scripts/build_report.py report <RUN_DIR>
 python3 <SKILL_DIR>/scripts/build_report.py summary <RUN_DIR>        # summary.md для других мест (report_destinations)
-# qa-runs/ и git: 0 — ничего, 1 — спросить пользователя; apply — только после ответа (run-files.md)
-python3 <SKILL_DIR>/scripts/gitignore_helper.py check <OUTPUT_ROOT>
-python3 <SKILL_DIR>/scripts/gitignore_helper.py apply <OUTPUT_ROOT> --mode gitignore   # или exclude / keep
+# qa-runs/ и git — до создания <RUN_DIR>: qa-runs/ в .gitignore, если нет явного разрешения коммитить (run-files.md)
+python3 <SKILL_DIR>/scripts/gitignore_helper.py ensure <OUTPUT_ROOT>                 # 1 — файлы уже в индексе: спросить про untrack
+python3 <SKILL_DIR>/scripts/gitignore_helper.py untrack <OUTPUT_ROOT> --yes          # только после «да» пользователя
+# report_destinations: folder — только итоговые файлы и скриншоты находок
+python3 <SKILL_DIR>/scripts/export_results.py <RUN_DIR> --to /abs/path/reports
 # проверка элемента правилами безопасности (browser-guard.md): код 0 allow, 2 confirm, 3 deny
 node <SKILL_DIR>/scripts/node/guard.js check --url https://example.com/ --selector "text=Поддержать" --rules <RUN_DIR>/rules.json
 # действие с побочным эффектом под инвариантом (side-effects.md)
@@ -149,7 +151,8 @@ references/             setup, intake, safety-rules, depth-matrix, parallelism, 
 templates/              run-config.example.yaml, finding.schema.json, issue-detailed.md,
                         issue-comment.md, user-story.md, run-report.md, site-context.md
 scripts/                check_env, url_guard, intake, journal, fetch_issues, read_templates, claims,
-                        fingerprint, render_draft, validate_findings, build_report, gitignore_helper, nav_lock, snap_mcp,
+                        fingerprint, render_draft, validate_findings, build_report, gitignore_helper, export_results,
+                        nav_lock, snap_mcp,
                         snap_cdp, node/ (a11y, lighthouse, headers, links, probe, annotate, shot, guard,
                         invariants, occlusion, reachability, device_context, frames, publish_web,
                         comment_web), shared/ (вендоренные модули)

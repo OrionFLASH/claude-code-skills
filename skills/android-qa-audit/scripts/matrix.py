@@ -7,7 +7,9 @@
   matrix.py show device-matrix.json
   matrix.py variants                          runtime variants and the adb_helpers.py commands behind them
 
-Rules: the primary hardware profile (phone) runs on every selected API; other profiles run on the target API
+Hardware: devices.hardware null — by depth (+ devices.custom); a list — these + custom; [] with custom — only custom;
+both empty — by depth. The first profile is primary (phone by default).
+Rules: the primary hardware profile runs on every selected API; other profiles run on the target API
 (low-end also on the lowest API); runtime variants (dark theme, font, landscape, RTL, network, battery) run as
 settings on an already started stand — no extra AVD. matrix.mode: full in run-config gives the full cartesian
 product. Real devices and allowed foreign AVDs from stands.* become their own cells pinned to one thread.
@@ -112,6 +114,30 @@ def avd_name(api, hw, tag):
     return avd_manager.avd_name(api, short, p["ram_mb"], p["cores"], tag)
 
 
+def pick_hardware(devices, depth_default, notes):
+    """Hardware profiles of the matrix (the first one is primary).
+
+    devices.hardware: null/absent — by depth (+ custom profiles); a list — exactly these (+ custom); an empty list
+    with custom profiles — ONLY the custom ones; both empty — by depth."""
+    custom_ids = []
+    for h in devices.get("custom") or []:
+        if isinstance(h, dict) and h.get("id"):
+            HARDWARE[h["id"]] = {"profile": h.get("profile", "phone"), "ram_mb": int(h.get("ram_mb", 2048)),
+                                 "cores": int(h.get("cores", 2)), "data": h.get("data", "6G"), "label": h.get("label", h["id"])}
+            custom_ids.append(h["id"])
+    listed = devices.get("hardware")
+    if isinstance(listed, list):
+        hardware = [h for h in listed if h in HARDWARE] + custom_ids
+        if not hardware:
+            hardware = list(depth_default)
+            notes.append("devices.hardware и devices.custom пусты — железо по глубине")
+        elif not [h for h in listed if h in HARDWARE]:
+            notes.append(f"devices.hardware пуст — только свои профили: {', '.join(custom_ids)}")
+    else:
+        hardware = list(depth_default) + custom_ids
+    return list(dict.fromkeys(hardware)), custom_ids
+
+
 def build(cfg, env, apk, max_workers=None):
     depth = cfg.get("depth") or "standard"
     if depth not in DEPTH:
@@ -131,16 +157,11 @@ def build(cfg, env, apk, max_workers=None):
     if android.get("include_min") and mn and mn >= floor_api(host_abi) and mn not in apis:
         apis.append(mn)
     apis = sorted(apis)
-    hardware = [h for h in (devices.get("hardware") or d["hardware"]) if h in HARDWARE]
-    custom = [h for h in (devices.get("custom") or []) if isinstance(h, dict) and h.get("id")]
-    for h in custom:
-        HARDWARE[h["id"]] = {"profile": h.get("profile", "phone"), "ram_mb": int(h.get("ram_mb", 2048)),
-                             "cores": int(h.get("cores", 2)), "data": h.get("data", "6G"), "label": h.get("label", h["id"])}
-        hardware.append(h["id"])
+    notes = []
+    hardware, custom_ids = pick_hardware(devices, d["hardware"], notes)
     variants = [v for v in (devices.get("variants") or d["variants"]) if v in VARIANTS]
     directions = cfg.get("directions") or []
     full = (cfg.get("matrix") or {}).get("mode") == "full"
-    notes = []
     if mn and mn < floor_api(host_abi):
         notes.append(f"minSdk {mn}: образов эмулятора ниже API {floor_api(host_abi)} для {host_abi} обычно нет — "
                      "нижняя граница проверяется на реальном устройстве или x86_64-хосте")

@@ -3,7 +3,8 @@
 
   fake_tools.py <tool> [args…]      (tests create wrappers <tmp>/bin/<tool> -> python3 fake_tools.py <tool> "$@")
 Environment: FAKE_ADB_FIXTURES (fixtures), FAKE_ADB_STATE (running emulators), FAKE_TOOLS_LOG (calls),
-ANDROID_AVD_HOME (where avdmanager creates AVDs).
+ANDROID_AVD_HOME (where avdmanager creates AVDs), FAKE_JAVA_EA=1 — sdkmanager/avdmanager print the harmless line of
+their shell wrapper under early-access Java («…: test: 25-ea0: integer expression expected») to stderr.
 """
 import json
 import os
@@ -89,6 +90,9 @@ def avdmanager(args):
 
 
 def sdkmanager(args):
+    if args[:1] == ["--version"]:
+        print("19.0")
+        return 0
     if args[:1] == ["--list"]:
         sys.stdout.write(fx("sdkmanager-list.txt").replace("HOSTABI", os.environ.get("FAKE_HOST_ABI", "arm64-v8a")))
         return 0
@@ -105,6 +109,9 @@ def sdkmanager(args):
 def main():
     tool, args = sys.argv[1], sys.argv[2:]
     log(tool, args)
+    if tool in ("sdkmanager", "avdmanager") and os.environ.get("FAKE_JAVA_EA") == "1":
+        sys.stderr.write(f"/fake/sdk/cmdline-tools/latest/bin/{tool}: line 173: test: 25-ea0: integer expression expected\n")
+        sys.stderr.flush()
     if tool == "aapt2":
         sys.exit(aapt2(args))
     if tool == "apksigner":

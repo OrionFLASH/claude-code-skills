@@ -92,8 +92,9 @@ https://github.com/OrionFLASH/claude-code-skills (папка skills/android-qa-a
 
 ШАГ 5. ИТОГ
 Таблица: что установлено и где (версии, пути), что скачано (образы, размер), что изменено (файлы и резервные
-копии), результат check_env и тестов, что сделать вручную (перезапустить терминал и Claude Code - иначе скилл
-и переменные не появятся; перезагрузка Windows после включения WHPX; gh auth login - если нужны issues),
+копии), результат check_env и тестов, что сделать вручную (перезапустить терминал и начать новую сессию
+Claude Code - в этой сессии скилл не виден, вызов даст «Unknown skill»; продолжить здесь можно, прочитав
+<SKILL_DIR>/SKILL.md и выполняя шаги по нему; перезагрузка Windows после включения WHPX; gh auth login - если нужны issues),
 как откатить (вернуть .bak, удалить ссылку/папку или claude plugin uninstall android-qa-audit@claude-code-skills;
 пакеты SDK - sdkmanager --uninstall <пакет>).
 ````
@@ -143,8 +144,8 @@ Claude Code), как откатить (в клоне - git checkout android-qa-a
 |-----------|-------------|-------|---------|----------|
 | Claude Code | да | https://claude.com/claude-code | то же | `claude --version` |
 | Python 3.9+ (только стандартная библиотека, `pip` не нужен) | да | обычно есть: `python3` | https://python.org или `winget install Python.Python.3.12`; команда `python` или `py -3` | `python3 --version` |
-| git | для клона и вопроса про `.gitignore` | `xcode-select --install` или `brew install git` | https://git-scm.com (с Git Bash) | `git --version` |
-| JDK 17+ | для sdkmanager, avdmanager, apksigner, bundletool | `brew install --cask temurin@21` | `winget install EclipseAdoptium.Temurin.21.JDK` | `java -version` |
+| git | для клона и `.gitignore` папки результатов | `xcode-select --install` или `brew install git` | https://git-scm.com (с Git Bash) | `git --version` |
+| JDK 17+ (рекомендуется 17 или 21 LTS) | для sdkmanager, avdmanager, apksigner, bundletool | `brew install --cask temurin@21` | `winget install EclipseAdoptium.Temurin.21.JDK` | `java -version` |
 | Android SDK: platform-tools (adb) | да | Android Studio или `brew install --cask android-commandlinetools` + sdkmanager; только adb — `brew install --cask android-platform-tools` | Android Studio (`winget install Google.AndroidStudio`) или zip command-line tools; только adb — `winget install Google.PlatformTools` | `adb version` |
 | build-tools (aapt2, apksigner) | да (разбор APK) | `sdkmanager "build-tools;35.0.0"` | то же | `check_env` |
 | emulator + образ системы + cmdline-tools | для эмуляторов | `sdkmanager "emulator" "system-images;android-35;google_apis;arm64-v8a"` | `sdkmanager "emulator" "system-images;android-35;google_apis;x86_64"` | `emulator -version` |
@@ -166,7 +167,7 @@ Claude Code), как откатить (в клоне - git checkout android-qa-a
 - Windows: `winget install EclipseAdoptium.Temurin.21.JDK` (установщик сам задаёт `JAVA_HOME` и PATH, если отметить опции); проверка в новом окне: `java -version`.
 - Linux: `sudo apt install openjdk-21-jdk` (или `openjdk-17-jdk`).
 
-Совместимость: cmdline-tools требуют JDK 17+. Ранние сборки (например, `25-ea`) работают: `avdmanager` печатает безвредное «integer expression expected» (его скрипт не понимает суффикс версии), `apksigner` — предупреждения JVM о native access (скил их отфильтровывает). Для спокойной работы — Temurin 17 или 21 LTS.
+Совместимость: cmdline-tools требуют JDK 17+. **Рекомендуется JDK 17 или 21 (Temurin LTS).** Ранние сборки (например, `25-ea`) работают, но обёртки `sdkmanager`/`avdmanager` печатают «… integer expression expected» (скрипт не понимает суффикс версии), `apksigner` — предупреждения JVM о native access. Это безвредно: если команда завершилась с кодом 0, скил скрывает эти строки и пишет короткую пометку, а `check_env` (без `--fast`) запускает `sdkmanager --version` и отмечает в строке cmdline-tools «шум … безвредно»; при ошибке вывод показывается целиком.
 
 ### 2. Android SDK
 **Вариант А — Android Studio (проще всего).** Установить (macOS: `brew install --cask android-studio`; Windows: `winget install Google.AndroidStudio`; или https://developer.android.com/studio), запустить мастер первого запуска. Затем **Settings → Languages & Frameworks → Android SDK → SDK Tools**: отметить «Android SDK Command-line Tools (latest)», «Android Emulator», «Android SDK Platform-Tools», «Android SDK Build-Tools». SDK окажется в `~/Library/Android/sdk` (macOS), `%LOCALAPPDATA%\Android\Sdk` (Windows), `~/Android/Sdk` (Linux) — скил найдёт его сам.
@@ -251,7 +252,7 @@ mkdir -p ~/.claude/skills && cp -R <распаковано>/skills/android-qa-au
 New-Item -ItemType Directory -Force $HOME\.claude\skills | Out-Null
 Copy-Item -Recurse <распаковано>\skills\android-qa-audit $HOME\.claude\skills\android-qa-audit
 ```
-После установки любым способом перезапустите Claude Code: скил появляется только в новой сессии.
+После установки любым способом **начните новую сессию Claude Code**: скил появляется в списке только в новой сессии. В той сессии, где его поставили, `/android-qa-audit` и вызов скила отвечают «Unknown skill» — это не ошибка установки. Продолжить в той же сессии можно: попросите Claude прочитать `<SKILL_DIR>/SKILL.md` и идти по «Порядку работы» вручную (скрипты — по полным путям `<SKILL_DIR>/scripts/…`); в следующий раз — новая сессия.
 
 ## Проверка
 ```bash
@@ -264,7 +265,7 @@ powershell -ExecutionPolicy Bypass -File <SKILL_DIR>\scripts\check_env.ps1
 python <SKILL_DIR>\scripts\check_env.py --fast    # то же без обёртки (или py -3)
 # тесты — в Git Bash: bash <SKILL_DIR>/tests/unit.sh
 ```
-Затем в Claude Code: `/android-qa-audit` есть в списке команд, а просьба «протестируй ~/Downloads/app.apk» приводит к вопросу «Похоже, вы хотите протестировать Android-приложение … Запустить?».
+Затем в **новой** сессии Claude Code: `/android-qa-audit` есть в списке команд, а просьба «протестируй ~/Downloads/app.apk» приводит к вопросу «Похоже, вы хотите протестировать Android-приложение … Запустить?».
 
 ## Обновление
 Текущая версия — `"version"` в `<SKILL_DIR>/.claude-plugin/plugin.json` (плагин — также `claude plugin list`); что изменилось — `CHANGELOG.md` скила; теги — `android-qa-audit/vX.Y.Z`.
@@ -280,7 +281,7 @@ python <SKILL_DIR>\scripts\check_env.py --fast    # то же без обёрт�
 **Откат:** клон — `git checkout android-qa-audit/v<версия>` (вернуться — `git checkout main`); копия — вернуть папку `.bak`; плагин — `claude plugin uninstall android-qa-audit@claude-code-skills` и поставить нужную версию из клона способом 2.
 
 ## Папка результатов: `ANDROID_QA_OUTPUT_DIR`
-По умолчанию результаты пишутся в `<папка запуска Claude Code>/qa-runs/<дата>-<пакет>/` (копии APK — там же, в `apk/`). Если папка внутри git-репозитория, в конце прогона скил один раз спросит, добавить ли в `.gitignore` `qa-runs/` и `*.apk`, `*.aab`, `*.apks`, `*.keystore`. Чтобы все прогоны складывались в одно место — задайте `ANDROID_QA_OUTPUT_DIR` (абсолютный путь, не внутри репозитория скилов) в `env` файла настроек Claude Code (сначала резервная копия; если `env` уже есть — допишите строки в него):
+По умолчанию результаты пишутся в `<папка запуска Claude Code>/qa-runs/<дата>-<пакет>/` (копии APK — там же, в `apk/`). Если папка внутри git-репозитория, скил **сразу, до первой записи**, добавляет в `.gitignore` репозитория `qa-runs/` и `*.apk`, `*.aab`, `*.apks`, `*.xapk`, `*.keystore`, `*.jks` — без вопроса, если вы в запросе явно не разрешили класть результаты в репозиторий («коммить результаты»); APK и ключи — только по отдельному явному разрешению. Уже закоммиченные файлы `qa-runs/` скил не удаляет, а спрашивает, убрать ли их из индекса (`git rm -r --cached`). «Другая папка» для итогов получает только `summary.md`, `report.md`, `findings.json` и скриншоты находок. Чтобы все прогоны складывались в одно место — задайте `ANDROID_QA_OUTPUT_DIR` (абсолютный путь, не внутри репозитория скилов) в `env` файла настроек Claude Code (сначала резервная копия; если `env` уже есть — допишите строки в него):
 
 macOS / Linux — `~/.claude/settings.json`:
 ```json
@@ -306,12 +307,12 @@ Windows — `%USERPROFILE%\.claude\settings.json` (обратный слэш в 
 
 | Симптом | Что сделать |
 |---------|-------------|
-| `/android-qa-audit` нет в списке | перезапустить Claude Code; есть ли `<SKILL_DIR>/SKILL.md`; плагин включён (`claude plugin list`) |
+| `/android-qa-audit` нет в списке, «Unknown skill» сразу после установки | скил виден только в новой сессии Claude Code; в текущей — попросить Claude прочитать `<SKILL_DIR>/SKILL.md` и работать по нему; иначе проверить, есть ли `<SKILL_DIR>/SKILL.md` и включён ли плагин (`claude plugin list`) |
 | Два одинаковых скила | стоит и плагин, и папка/ссылка в `~/.claude/skills` — оставить один способ |
 | `adb: command not found`, а check_env видит adb | adb не в PATH — скил работает и так; для терминала — «Переменные окружения» выше |
 | check_env: «Android SDK не найден» | задать `ANDROID_HOME` (в профиле и в `env` настроек Claude Code) или поставить SDK по разделу «Android SDK» |
 | `sdkmanager`: «Could not determine SDK root» / «JAVA_HOME is not set» | структура `<SDK>/cmdline-tools/latest/bin`; задать `JAVA_HOME` (JDK 17+) |
-| `avdmanager`: «integer expression expected» | ранняя сборка Java (`-ea`) — безвредно; лучше Temurin 17/21 |
+| `sdkmanager`/`avdmanager`: «integer expression expected» | ранняя сборка Java (`-ea`) — безвредно (скил скрывает при успешной команде); рекомендуется JDK 17 или 21 (Temurin) |
 | Эмулятор не стартует, «PANIC: Missing emulator engine» / «x86_64 emulation currently requires hardware acceleration» | ускорение («Аппаратное ускорение»); образ под ABI хоста (Apple Silicon — `arm64-v8a`); `sdkmanager "emulator"` обновить |
 | Эмулятор стартует, но чёрный экран / зависает | `avd_manager.py start … --cold-boot`; `--gpu swiftshader_indirect`; меньше потоков; проверить ОЗУ хоста |
 | «Not enough space» / `INSTALL_FAILED_INSUFFICIENT_STORAGE` | освободить диск (15+ ГБ); AVD с большим `--data 8G` |
@@ -328,7 +329,7 @@ Windows — `%USERPROFILE%\.claude\settings.json` (обратный слэш в 
 | `INSTALL_FAILED_DEPRECATED_SDK_VERSION` | targetSdk < 23 на Android 14+ — `adb install --bypass-low-target-sdk-block` вручную |
 | `INSTALL_FAILED_USER_RESTRICTED` (Xiaomi и др.) | включить «Установка через USB» в параметрах разработчика |
 | `INSTALL_FAILED_VERIFICATION_FAILURE` | установку заблокировал Play Protect — решение пользователя |
-| Кириллица не вводится | ограничение `adb input text`: ввести вручную в окне эмулятора или ADBKeyBoard на своём эмуляторе |
+| Кириллица не вводится | ограничение `adb input text`: `text … --translit` (латиницей), `text … --adbkeyboard` (ADBKeyBoard на эмуляторе скила, ставится с вашего согласия) или вручную в окне эмулятора |
 | Windows: `python3` открывает Microsoft Store | `python` или `py -3`; отключить псевдонимы в «Параметры → Приложения → Псевдонимы выполнения приложений» |
 | Windows: «выполнение сценариев отключено» | `powershell -ExecutionPolicy Bypass -File …` |
 | Windows: `tests/unit.sh` не запускается | нужен bash: Git Bash или WSL |

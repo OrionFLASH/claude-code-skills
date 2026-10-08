@@ -73,6 +73,28 @@ def run(cmd, timeout=60, input=None, cwd=None, binary=False, env=None):
         return 126, b"" if binary else "", f"{cmd[0]}: {ex}"
 
 
+JAVA_NOISE = "integer expression expected"
+
+
+def strip_java_noise(text):
+    """Remove the harmless line of the cmdline-tools shell wrapper under early-access Java ('25-ea'):
+    `…/sdkmanager: line 173: test: 25-ea0: integer expression expected`. Returns (text, removed lines)."""
+    lines = (text or "").splitlines(keepends=True)
+    keep = [ln for ln in lines if JAVA_NOISE not in ln]
+    return "".join(keep), len(lines) - len(keep)
+
+
+def run_sdk_tool(cmd, **kw):
+    """run() for sdkmanager / avdmanager: (code, out, err, noise). The Java -ea noise is removed only when the
+    command succeeded (code 0) — then it is harmless; on failure everything stays visible."""
+    code, out, err = run(cmd, **kw)
+    o, n1 = strip_java_noise(out)
+    e, n2 = strip_java_noise(err)
+    if code == 0:
+        return code, o, e, n1 + n2
+    return code, out, err, n1 + n2
+
+
 def popen_detached(cmd, log_path, env=None):
     """Start a long-running process in the background (emulator, logcat). Returns the Popen object."""
     log_path = Path(log_path)

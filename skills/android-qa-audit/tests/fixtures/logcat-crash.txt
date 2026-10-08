@@ -8,8 +8,11 @@
 10-08 12:00:02.200  5678  5678 E AndroidRuntime: Process: com.other.app, PID: 5678
 10-08 12:00:02.200  5678  5678 E AndroidRuntime: java.lang.NullPointerException: other app
 --------- beginning of system
+10-08 12:00:30.000   600   620 I ActivityManager: Start proc 1240:com.example.app/u0a55 for next-top-activity {com.example.app/com.example.app.MainActivity}
+10-08 12:00:31.000   600   621 W ActivityManager: Slow operation: 58ms so far, now at startProcess: done updating pids map
 10-08 12:01:00.000   600   650 E ActivityManager: ANR in com.example.app (com.example.app/.MainActivity)
 10-08 12:01:00.000   600   650 E ActivityManager: PID: 1240
 10-08 12:01:00.000   600   650 E ActivityManager: Reason: Input dispatching timed out (Waiting to send key event because the focused window has not finished processing)
 --------- beginning of main
+10-08 12:01:30.000  5678  5690 W OtherSdk: background sync failed in other app
 10-08 12:02:00.000  1240  1260 D OkHttp: --> GET https://api.example.com/v1/me?token=Abcdef0123456789Abcdef0123456789XYZ

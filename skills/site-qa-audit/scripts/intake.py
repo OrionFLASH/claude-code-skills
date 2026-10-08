@@ -5,7 +5,8 @@
       Extracts: start URLs and allowed domains, GitHub repositories with roles and publication settings
       (disclosure, cross links, closed_claims), devices and browsers, auth mode, account states,
       depth, mode, directions, prohibitions (→ rules.forbidden_actions / require_confirmation_actions),
-      side-effect hints, parallel threads (parallel.max_workers: 1..4, default 2, shared login session -> 1).
+      side-effect hints, parallel threads (parallel.max_workers: 1..4, default 2, shared login session -> 1),
+      explicit permission to commit the results (git.allow_commit_results; default false → qa-runs/ in .gitignore).
       Everything not recognised is listed under "needs confirmation".
       The draft is NOT final: show the summary to the user and wait for "старт" (references/intake.md).
 
@@ -20,6 +21,7 @@ from urllib.parse import urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "shared"))
 import miniyaml  # noqa: E402
+import qa_gitignore  # noqa: E402 — commit_permission(): explicit permission to commit the results
 
 DIRECTIONS = {
     "functional": r"функционал|functional|работоспособн",
@@ -189,7 +191,8 @@ def parse(text, output_dir=None):
         elif SIDE_EFFECT.search(cl) and re.search(r"\bбез\b|\bwithout\b|пока не|until", cl, re.I):
             # "do not upload without the «X» checkbox": X is a guard element, not a forbidden button
             notes.append(f"условие безопасности для действия с побочным эффектом — оформить как invariant: «{cl}»")
-        elif NEG.search(cl) and not re.search(r"не упомина|не связыв|не ссылаться|не публикуй", cl, re.I):
+        elif NEG.search(cl) and not re.search(r"не упомина|не связыв|не ссылаться|не публикуй|gitignore|коммит|commit",
+                                              cl, re.I):
             n += 1
             rule = {"id": f"U{n}", "source": cl, "texts": quotes(cl), "roles": ["button", "link"]}
             if not rule["texts"]:
@@ -203,6 +206,12 @@ def parse(text, output_dir=None):
         cfg["side_effects_hints"] = side
         notes.append("есть действия с побочными эффектами — спросить про side_effects и invariants")
     cfg["plugins"] = {"policy": "all-installed", "selected": []}
+    # results in git: only with an explicit permission in the request; otherwise qa-runs/ goes to .gitignore
+    perm = qa_gitignore.commit_permission(text)
+    cfg["git"] = {"allow_commit_results": perm["allow_commit_results"]}
+    if perm["allow_commit_results"]:
+        notes.append(f"явное разрешение коммитить результаты (qa-runs/): «{perm['evidence']['results']}» — проверить; "
+                     "без него gitignore_helper.py ensure добавит qa-runs/ в .gitignore")
     # parallel threads: "в 3 потока", "четыре потока", "parallel: 4", "последовательно"; at most MAX_WORKERS
     m = WORKERS_RX.search(low)
     num = m and (m.group(1) or m.group(2))
