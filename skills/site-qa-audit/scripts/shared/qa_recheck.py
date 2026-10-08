@@ -106,7 +106,7 @@ def json_reproduced(out):
     return None
 
 
-def run_once(argv, repro, timeout, env=None):
+def run_once(argv, repro, timeout, env=None, error_codes=(4,)):
     t0 = time.time()
     try:
         r = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, env=env, encoding="utf-8", errors="replace")
@@ -116,8 +116,8 @@ def run_once(argv, repro, timeout, env=None):
         return {"at": now(), "code": None, "error": f"не запустилось: {ex}"}
     out = r.stdout or ""
     res = {"at": now(), "code": r.returncode, "seconds": round(time.time() - t0, 1), "out": out[-400:]}
-    if r.returncode == 4:
-        res["error"] = "guard недоступен (код 4)"
+    if r.returncode in error_codes:
+        res["error"] = f"guard недоступен (код {r.returncode})"
         return res
     jr = json_reproduced(out)
     if jr is not None:
@@ -141,7 +141,7 @@ def status_of(runs):
 
 
 def recheck(run_dir, skill_dir, ids=None, times=2, pause=1.0, timeout=180, translate=None, extra_subst=None,
-            env=None, dry_run=False):
+            env=None, dry_run=False, error_codes=(4,)):
     run_dir = Path(run_dir)
     data = load(run_dir / "findings.json")
     subst = {"SKILL_DIR": skill_dir, "RUN_DIR": str(run_dir), **(extra_subst or {})}
@@ -165,7 +165,7 @@ def recheck(run_dir, skill_dir, ids=None, times=2, pause=1.0, timeout=180, trans
                 for i in range(max(1, times)):
                     if i:
                         time.sleep(pause)
-                    runs.append(run_once(argv, f["repro"], timeout, env))
+                    runs.append(run_once(argv, f["repro"], timeout, env, error_codes))
                     if "error" in runs[-1]:
                         break
                 rec = {"status": status_of(runs), "runs": runs, "by": "recheck.py", "independent": True, "at": now(),
@@ -245,12 +245,13 @@ def gate(run_dir, ids=None, all_findings=False):
     return rows
 
 
-def cli(argv, skill_name, skill_dir, translate=None, extra_subst=None):
+def cli(argv, skill_name, skill_dir, translate=None, extra_subst=None, error_codes=(4,)):
     import argparse
     ap = argparse.ArgumentParser(prog="recheck.py", description=f"""Independent re-check of {skill_name} findings (repro)
 and the publication gate.
 
   recheck.py run  <RUN_DIR> [--id F-001 --id F-002] [--times 2] [--pause 1] [--timeout 180] [--dry-run]
+                  [--subst SERIAL=emulator-5554]   extra <PLACEHOLDER> values for repro commands
   recheck.py set  <RUN_DIR> --id F-001 --status confirmed|flaky|not-reproduced --by "кто, чем, шаги" [--same-executor]
   recheck.py legal <RUN_DIR> --id F-001 --by "второй исполнитель …" --result confirmed|corrected|rejected
                   [--norm "152-ФЗ ст. 9"] [--note "…"] [--no-lawyer]
@@ -271,12 +272,19 @@ Exit codes: 0 ok, 1 not confirmed / gate closed, 2 bad input.""", formatter_clas
     ap.add_argument("--norm", action="append")
     ap.add_argument("--no-lawyer", action="store_true")
     ap.add_argument("--all", action="store_true")
+    ap.add_argument("--subst", action="append", default=[], help="KEY=VALUE: значение плейсхолдера <KEY> в repro")
     a = ap.parse_args(argv)
     if not (Path(a.run_dir) / "findings.json").is_file():
         print(f"recheck: нет {Path(a.run_dir) / 'findings.json'}")
         return 2
+    subst = dict(extra_subst or {})
+    for kv in a.subst:
+        if "=" not in kv:
+            ap.error(f"--subst KEY=VALUE, получено {kv!r}")
+        k, v = kv.split("=", 1)
+        subst[k.strip()] = v
     if a.cmd == "run":
-        rep = recheck(a.run_dir, skill_dir, a.id, a.times, a.pause, a.timeout, translate, extra_subst, dry_run=a.dry_run)
+        rep = recheck(a.run_dir, skill_dir, a.id, a.times, a.pause, a.timeout, translate, subst, dry_run=a.dry_run, error_codes=error_codes)
         print(json.dumps(rep, ensure_ascii=False, indent=1))
         return 0 if all(r["status"] in ("confirmed", "planned") for r in rep) else 1
     if a.cmd == "set":

@@ -23,7 +23,8 @@ Permissions:      permissions [PKG] | grant PERM [PKG] | revoke PERM [PKG] | not
 Logs and metrics: logcat start|stop|dump|clear [--out F] [--package P] [--all] [--lines N] | crashes [PKG] |
                   meminfo [PKG] | gfxinfo [PKG] [--reset] | start-time [PKG] [--mode cold|warm|hot] [--runs 5] |
                   batterystats [PKG] [--reset] | size [PKG] | monkey [PKG] --events 500 --seed 42 [--throttle 300]
-Exit codes: 0 ok, 2 needs confirmation / bad input, 3 denied by guard, 4 not supported on this device, 5 failed.
+Exit codes: 0 ok, 2 needs confirmation / bad input, 3 denied by guard, 4 not supported on this device, 5 failed,
+6 guard unavailable (FAIL CLOSED: --config missing or broken, bad rule, guard error) — nothing was executed, STOP.
 """
 import argparse
 import json
@@ -44,6 +45,7 @@ import sdkutil as su  # noqa: E402
 import guard  # noqa: E402
 from masking import mask  # noqa: E402
 
+GUARD_UNAVAILABLE_EXIT = 6
 KEYS = {"BACK": 4, "HOME": 3, "ENTER": 66, "APP_SWITCH": 187, "TAB": 61, "DEL": 67, "MENU": 82, "ESCAPE": 111,
         "DPAD_UP": 19, "DPAD_DOWN": 20, "DPAD_LEFT": 21, "DPAD_RIGHT": 22, "DPAD_CENTER": 23, "SEARCH": 84,
         "VOLUME_UP": 24, "VOLUME_DOWN": 25, "POWER": 26, "WAKEUP": 224, "SLEEP": 223, "MOVE_END": 123,
@@ -75,7 +77,17 @@ class Ctx:
         self.a = a
         self.run_dir = Path(a.run_dir) if getattr(a, "run_dir", None) else None
         cfg_path = getattr(a, "config", None) or (self.run_dir / "run-config.yaml" if self.run_dir else None)
-        self.cfg = miniyaml.load_file(cfg_path) if cfg_path and Path(cfg_path).exists() else {}
+        # Fail closed (S-2): a given but missing / broken config makes every guarded action stop (exit 6).
+        self.cfg_error = None
+        self.cfg = {}
+        if getattr(a, "config", None) and not Path(a.config).exists():
+            self.cfg_error = f"файл конфига не найден: {a.config}"
+        elif cfg_path and Path(cfg_path).exists():
+            try:
+                self.cfg = miniyaml.load_file(cfg_path) or {}
+                guard.validate_rules(self.cfg)
+            except Exception as ex:  # noqa: BLE001
+                self.cfg, self.cfg_error = {}, f"конфиг не прочитан или правило неверно: {type(ex).__name__}: {ex}"
         self.app = (self.cfg.get("app") or {}).get("package")
         self.throttle = int(((self.cfg.get("parallel") or {}).get("throttle_ms") or 500)) / 1000.0
         self._serial = None
@@ -134,8 +146,32 @@ class Ctx:
             f.write(json.dumps({"time": datetime.now().isoformat(timespec="seconds"), "serial": self._serial, **rec},
                                ensure_ascii=False) + "\n")
 
+    def unavailable(self, reason):
+        """Guard cannot decide: nothing is executed, exit 6 (4 means «not supported on this device» here)."""
+        rec = {"decision": guard.UNAVAILABLE, "rule": "guard:unavailable",
+               "reason": "guard недоступен — СТОП, действие не выполнено: " + reason}
+        self.log("blocked.jsonl", rec)
+        print(json.dumps({"guard_unavailable": True, **rec}, ensure_ascii=False))
+        sys.exit(GUARD_UNAVAILABLE_EXIT)
+
+    def decide(self, fn, *args, **kwargs):
+        """Call a guard check; any error is «guard unavailable», never «allow»."""
+        if self.cfg_error:
+            self.unavailable(self.cfg_error)
+        try:
+            d = fn(*args, **kwargs)
+        except SystemExit:
+            raise
+        except Exception as ex:  # noqa: BLE001
+            self.unavailable(f"{type(ex).__name__}: {ex}")
+        if not isinstance(d, dict) or d.get("decision") not in (guard.ALLOW, guard.CONFIRM, guard.DENY):
+            self.unavailable(f"неверный ответ guard: {d!r}"[:200])
+        return d
+
     def gate(self, decision):
         """Apply a guard decision: exits on deny / unconfirmed confirm."""
+        if self.cfg_error:
+            self.unavailable(self.cfg_error)
         d = decision["decision"]
         if d == guard.DENY:
             self.log("blocked.jsonl", {"rule": decision.get("rule"), "reason": decision.get("reason"),
@@ -153,14 +189,14 @@ class Ctx:
         """adb shell with guard check of the command line. secret=True: the last argument is never logged."""
         shown = list(map(str, shell_args[:-1])) + ["***"] if secret else list(map(str, shell_args))
         if check_guard:
-            self.gate(guard.check_adb(["shell", *shown], self.cfg, self.stand(), self.serial))
+            self.gate(self.decide(guard.check_adb, ["shell", *shown], self.cfg, self.stand(), self.serial))
         code, out, err = self.adb.shell(*shell_args, timeout=timeout, binary=binary)
         self.log("actions.jsonl", {"adb": "shell " + " ".join(shown)[:300], "code": code})
         return code, out, err
 
     def adb_cmd(self, *args, timeout=60, check_guard=True):
         if check_guard:
-            self.gate(guard.check_adb(list(map(str, args)), self.cfg, self.stand(), self.serial))
+            self.gate(self.decide(guard.check_adb, list(map(str, args)), self.cfg, self.stand(), self.serial))
         code, out, err = self.adb.cmd(*args, timeout=timeout)
         self.log("actions.jsonl", {"adb": " ".join(map(str, args))[:300], "code": code})
         return code, out, err
@@ -441,7 +477,7 @@ def cmd_trim_memory(c):
 
 
 def cmd_deeplink(c):
-    c.gate(guard.check_deeplink(c.a.uri, c.cfg))
+    c.gate(c.decide(guard.check_deeplink, c.a.uri, c.cfg))
     args = ["am", "start", "-W", "-a", "android.intent.action.VIEW", "-d", c.a.uri]
     if c.a.package:
         args.append(c.a.package)
@@ -715,14 +751,14 @@ def guard_node(c, node, nodes, verb):
     focus = current_focus(c)
     context = " ".join((n["text"] or n["desc"]) for n in nodes if (n["text"] or n["desc"]))[:600]
     if node is None:
-        dec = guard.check_package(focus.get("package"), c.cfg)
+        dec = c.decide(guard.check_package, focus.get("package"), c.cfg)
         if dec["decision"] == guard.ALLOW:
             dec = guard.result(guard.CONFIRM, "action", {"verb": verb}, "элемент под точкой не определён — спросить",
                                "base:action:unknown-element")
     else:
         text = node["text"] or ""
         desc = node["desc"] or ("" if text else node["label"])
-        dec = guard.check_action(c.cfg, text=text, desc=desc, res_id=node["id"], cls=node["class"],
+        dec = c.decide(guard.check_action, c.cfg, text=text, desc=desc, res_id=node["id"], cls=node["class"],
                                  pkg=node["package"] or focus.get("package"), screen=focus.get("activity") or "",
                                  context=context)
     c.gate(dec)
@@ -751,7 +787,7 @@ def after_action(c, verb, x, y, node):
     c.pause()
     focus = current_focus(c)
     res = {"ok": True, "action": verb, "x": x, "y": y, "element": elem_ref(node) if node else None, "focus": focus}
-    pol = guard.check_package(focus.get("package"), c.cfg)
+    pol = c.decide(guard.check_package, focus.get("package"), c.cfg)
     if pol["decision"] == guard.DENY:
         res["left_app"] = pol["reason"]
         c.log("blocked.jsonl", {"rule": "base:left-app", "reason": f"после {verb} открылось {focus.get('package')} — вернуться BACK",

@@ -145,7 +145,37 @@
             }
           }
         },
-        "related": {"type": "array", "items": {"type": "string"}}
+        "related": {"type": "array", "items": {"type": "string"}},
+        "repro": {
+          "type": "object",
+          "description": "Как перезапустить проверку одной командой (recheck.py): {adb: [аргументы adb_helpers.py], expect?, expect_exit?} или {argv | cmd}; только скрипты скила",
+          "properties": {
+            "adb": {"type": ["array", "string"]}, "argv": {"type": "array", "items": {"type": "string"}}, "cmd": {"type": "string"},
+            "expect": {"type": "string"}, "expect_exit": {"type": "integer"}, "serial": {"type": "string"}, "note": {"type": "string"}
+          }
+        },
+        "recheck": {
+          "type": "object",
+          "description": "Независимая перепроверка перед публикацией (recheck.py run/set)",
+          "properties": {
+            "status": {"enum": ["confirmed", "flaky", "not-reproduced", "error", "refused", "no-repro", "planned"]},
+            "by": {"type": "string"}, "at": {"type": "string"}, "independent": {"type": "boolean"}, "manual": {"type": "boolean"},
+            "runs": {"type": "array"}, "reason": {"type": "string"}, "note": {"type": "string"}
+          }
+        },
+        "legal": {
+          "type": "object",
+          "description": "Правовые и финансовые утверждения: только со второй проверкой другим исполнителем и пометкой «проверить юристом»",
+          "properties": {
+            "claims_law": {"type": "boolean"}, "norms": {"type": "array", "items": {"type": "string"}},
+            "jurisdictions": {"type": "array", "items": {"type": "string"}},
+            "second_check": {"type": "object", "properties": {"by": {"type": "string"},
+              "result": {"enum": ["confirmed", "corrected", "rejected"]}, "at": {"type": "string"}, "note": {"type": "string"}}},
+            "lawyer_review": {"type": "boolean"}
+          }
+        },
+        "ingested": {"type": "object", "description": "Откуда пришла находка (ingest_findings.py): поток и время"},
+        "source_id": {"type": "string", "description": "id находки у исполнителя (до присвоения F-NNN)"}
       },
       "if": {"properties": {"type": {"enum": ["proposal", "user-story", "suggestion"]}}},
       "else": {"required": ["actual"]},

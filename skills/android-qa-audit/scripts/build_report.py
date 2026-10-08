@@ -20,6 +20,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE / "shared"))
 import miniyaml  # noqa: E402
+import qa_recheck  # noqa: E402 — publication gate: independent re-check, legal second check
 
 SEVERITIES = ["critical", "high", "medium", "low", "info"]
 STATUSES = ["NEW", "DUPLICATE-OPEN", "FIXED-INSUFFICIENT", "REGRESSION", "ALREADY-COPIED", "UNSURE-MATCH", "FIXED-OK",
@@ -283,11 +284,22 @@ def publish_table(run):
     rows = plan_actions(run)
     mode = run.run.get("mode") or run.config.get("mode") or "dry-run"
     out = [f"Режим: **{mode}** — " + ("только черновики в drafts/" if mode != "live" else "публикация после «да» по этой таблице"), "",
-           "| № | ID | Статус | Severity | Заголовок | Куда | Действие |", "|---|---|---|---|---|---|---|"]
+           "| № | ID | Статус | Severity | Заголовок | Куда | Действие | Перепроверка |", "|---|---|---|---|---|---|---|---|"]
+    blocked = 0
     for n, (f, repo, label, action) in enumerate(rows, 1):
-        out.append(f"| {n} | {f['id']} | {f.get('status') or 'NEW'} | {cell(label, 30)} | {cell(f.get('title'), 90)} | {repo} | {cell(action, 90)} |")
+        problems = qa_recheck.gate_problems(f)
+        if problems and not re.match(r"^(пропуск|только отчёт|вопрос|нет роли|не публиковать)", action):
+            action += " — НЕ публиковать до перепроверки"
+            blocked += 1
+        rc = f.get("recheck") or {}
+        recheck = ("да" + (f" ({rc.get('by')})" if rc.get("by") else "")) if not problems else "нет: " + "; ".join(problems)
+        out.append(f"| {n} | {f['id']} | {f.get('status') or 'NEW'} | {cell(label, 30)} | {cell(f.get('title'), 90)} | {repo} | "
+                   f"{cell(action, 110)} | {cell(recheck, 120)} |")
     if not rows:
-        out.append("| — | — | — | — | нет действий (нет репозиториев с ролями записи) | — | — |")
+        out.append("| — | — | — | — | нет действий (нет репозиториев с ролями записи) | — | — | — |")
+    if blocked:
+        out += ["", f"Без независимой перепроверки (или второй проверки правовых норм): {blocked}. Сначала "
+                "`recheck.py run <RUN_DIR> --subst SERIAL=…` / `recheck.py set …` / `recheck.py legal …`, затем `recheck.py gate <RUN_DIR>`."]
     return out
 
 

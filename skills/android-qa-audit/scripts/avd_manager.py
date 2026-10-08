@@ -14,10 +14,11 @@
   avd_manager.py create <plan options> --yes [--run-dir R]
   avd_manager.py start NAME [--port 5554] [--headless] [--cold-boot] [--wipe-data] [--read-only] [--snapshot S]
                        [--netspeed full|lte|hsdpa|umts|edge|gprs] [--netdelay none|lte|umts|edge|gprs]
-                       [--locale ru-RU] [--timezone Europe/Moscow] [--gpu auto] [--allow-foreign] [--run-dir R]
+                       [--locale ru-RU] [--timezone Europe/Moscow] [--gpu auto] [--allow-foreign] [--owner w1] [--run-dir R]
+                       an AVD that is already running is NOT started again (exit 3): one stand — one executor
   avd_manager.py wait-boot SERIAL [--timeout 420] [--unlock] [--disable-animations] [--run-dir R]
   avd_manager.py snapshot save|load|list SERIAL [NAME]      quick reset of an own emulator (adb emu avd snapshot)
-  avd_manager.py stop SERIAL|NAME [--run-dir R] [--any-qa]
+  avd_manager.py stop SERIAL|NAME [--run-dir R] [--any-qa] [--owner w1]   --owner: a stand of another thread -> exit 3
   avd_manager.py delete NAME --yes                          only AVDs created by the skill (qa- + marker), not running
   avd_manager.py cleanup --run-dir R [--stop] [--delete-avds] [--delete-apk-copies] [--delete-recordings] [--yes]
 
@@ -504,6 +505,11 @@ def cmd_start(a):
         die("emulator не найден (sdkmanager \"emulator\")", 127)
     if a.netspeed not in NETSPEED or a.netdelay not in NETDELAY:
         die(f"--netspeed из {NETSPEED}, --netdelay из {NETDELAY}")
+    # One stand — one executor (S-7): an AVD that is already running is reused, not started again.
+    already = [s for s, n in running_emulators().items() if n == a.name]
+    if already and not a.read_only:
+        die(f"AVD {a.name} уже запущен ({', '.join(already)}) — работать в нём (один стенд — одно действие за раз), "
+            "лишний эмулятор не запускать; второй экземпляр — только --read-only и по решению оркестратора", 3)
     with Registry(a.run_dir) as reg:
         data = reg.load()
         reserved = {e["port"] for e in data["emulators"] if e.get("port") and su.pid_alive(e.get("pid"))}
@@ -532,7 +538,7 @@ def cmd_start(a):
         proc = su.popen_detached(cmd, log)
         entry = {"name": a.name, "serial": f"emulator-{port}", "port": port, "pid": proc.pid, "started_at": now(),
                  "headless": a.headless, "read_only": read_only, "foreign": foreign, "log": str(log),
-                 "args": [str(c) for c in cmd[1:]]}
+                 "owner": a.owner or "orchestrator", "args": [str(c) for c in cmd[1:]]}
         data["emulators"].append(entry)
         reg.save(data)
     time.sleep(1.5)
@@ -631,6 +637,9 @@ def cmd_stop(a):
         if not entry and not (a.any_qa and owned(avd)):
             die(f"{serial} ({running.get(serial)}) запущен не этим прогоном — не останавливаю"
                 + ("" if owned(avd) else " (чужой AVD)") + "; свой AVD qa- можно остановить с --any-qa", 3)
+        if entry and a.owner and entry.get("owner") not in (None, a.owner):
+            die(f"{serial} — стенд потока {entry.get('owner')}, не {a.owner}: чужие стенды не останавливать "
+                "(adb emu kill / kill-server тоже нельзя)", 3)
         ok = stop_serial(serial, entry, adb)
         print(f"{serial}: {'остановлен' if ok else 'не удалось остановить'}")
         if entry:
@@ -755,6 +764,7 @@ def main():
     st.add_argument("--timezone")
     st.add_argument("--gpu")
     st.add_argument("--allow-foreign", action="store_true")
+    st.add_argument("--owner", help="поток-владелец стенда (w1, w2…); записывается в stands.json")
     st.add_argument("--run-dir")
     wb = sub.add_parser("wait-boot")
     wb.add_argument("serial")
@@ -769,6 +779,7 @@ def main():
     sn.add_argument("--run-dir")
     sp = sub.add_parser("stop")
     sp.add_argument("target")
+    sp.add_argument("--owner", help="поток, который останавливает: чужой стенд (другой owner в stands.json) — код 3")
     sp.add_argument("--run-dir")
     sp.add_argument("--any-qa", action="store_true")
     de = sub.add_parser("delete")

@@ -171,7 +171,22 @@ def values(f, run, opts, rel_prefix=""):
         "hypothesis": f.get("hypothesis"), "suggestion": f.get("suggestion"), "fingerprint": f.get("fingerprint", ""),
         "related_links": "\n".join(f"- {m.get('repo')}#{m.get('number')}" for m in f.get("matches") or []
                                    if opts.cross_links or norm_repo(m.get("repo")) == opts.repo),
+        "legal_md": legal_md(f),
     }
+
+
+def legal_md(f):
+    """Legal norms are never stated as fact: «возможно применимо», second check, «проверить юристом»."""
+    lg = f.get("legal") or {}
+    norms = lg.get("norms") or []
+    if not norms:
+        return ""
+    sc = lg.get("second_check") or {}
+    lines = ["Возможно применимые нормы (наблюдение тестировщика, **не юридическое заключение; требуется проверка юристом**):"]
+    lines += [f"- {n}" for n in norms]
+    if sc.get("by"):
+        lines.append(f"\nВторая проверка: {sc.get('by')} — {sc.get('result')}" + (f" ({sc.get('note')})" if sc.get("note") else ""))
+    return "\n".join(lines)
 
 
 def render(f, run, opts, rel_prefix=""):
@@ -271,6 +286,7 @@ def main():
     ap.add_argument("--status")
     ap.add_argument("--min-severity", default="info")
     ap.add_argument("--out")
+    ap.add_argument("--body-only", action="store_true", help="detailed: в --out только тело (gh --body-file), заголовок — в stdout")
     a = ap.parse_args()
     if a.run_dir and not a.config and (Path(a.run_dir) / "run-config.yaml").exists():
         a.config = str(Path(a.run_dir) / "run-config.yaml")
@@ -293,7 +309,13 @@ def main():
     if f is None:
         sys.exit(f"render_draft: находка {a.id} не найдена")
     title, body = render(f, run, opts)
-    if a.out:
+    if a.out and getattr(a, "body_only", False):
+        # body only for gh issue create --body-file (direct publication); the title is printed
+        Path(a.out).parent.mkdir(parents=True, exist_ok=True)
+        Path(a.out).write_text(body, encoding="utf-8")
+        print(f"TITLE: {title}")
+        print(a.out)
+    elif a.out:
         write(a.out, title, body)
         print(a.out)
     else:

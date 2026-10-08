@@ -7,6 +7,8 @@
 version: 1
 output_dir: /abs/path/to/results   # OUTPUT_ROOT: путь из запроса / ANDROID_QA_OUTPUT_DIR / <cwd>; результаты в <OUTPUT_ROOT>/qa-runs/
 mode: dry-run                 # dry-run (черновики issues в drafts/) | live (публикация только после «да» по сводной таблице)
+publish_mode: batch           # batch — черновики и сводная таблица; direct — по запросу пользователя: каждая находка
+                              # «воспроизвести дважды → дубли → issue» сразу (references/repo-sync.md §4a)
 language: ru                  # язык отчётов и issues
 
 app:

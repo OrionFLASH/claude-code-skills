@@ -195,11 +195,14 @@ check "avd_manager delete чужого AVD -> 3, файлы целы" sh -c "tes
 check "avd_manager delete qa- без метки -> 3" test "$(rc "$PY" "$S/avd_manager.py" delete qa-nomarker --yes)" = 3
 check "avd_manager start чужого AVD без --allow-foreign -> 3" test "$(rc "$PY" "$S/avd_manager.py" start Foreign_Phone --run-dir "$RUN")" = 3
 "$PY" "$S/avd_manager.py" start qa-api34-small-2gb-2c --headless --run-dir "$RUN" > "$TMP/start.out" 2>&1; c=$?
-check "avd_manager start: свободный порт (5554 занят), -no-window, stands.json" sh -c "test $c = 0 && grep -q '\"serial\": \"emulator-5556\"' '$TMP/start.out' && grep -q -- '-no-window' '$TMP/start.out' && ! grep -q -- '-read-only' '$TMP/start.out'"
+ES=$("$PY" -c "import json,sys; print(json.loads(open(sys.argv[1]).read().strip().splitlines()[-1])['serial'])" "$TMP/start.out" 2>/dev/null || echo emulator-5556)  # first free port: real emulators of the host may hold 5556+
+check "avd_manager start: свободный порт (5554 занят), -no-window, stands.json" sh -c "test $c = 0 && test '$ES' != emulator-5554 && grep -q '\"serial\": \"'$ES'\"' '$TMP/start.out' && grep -q -- '-no-window' '$TMP/start.out' && ! grep -q -- '-read-only' '$TMP/start.out' && grep -q '$ES' '$RUN/stands.json'"
 sleep 1
-check "avd_manager wait-boot: boot_completed" sh -c "'$PY' '$S/avd_manager.py' wait-boot emulator-5556 --timeout 20 --run-dir '$RUN' | grep -q '\"api\": 34'"
+check "avd_manager wait-boot: boot_completed" sh -c "'$PY' '$S/avd_manager.py' wait-boot $ES --timeout 20 --run-dir '$RUN' | grep -q '\"api\": 34'"
 check "avd_manager stop эмулятора не этого прогона -> 3" test "$(rc "$PY" "$S/avd_manager.py" stop emulator-5554 --run-dir "$RUN")" = 3
-check "avd_manager stop своего эмулятора" sh -c "'$PY' '$S/avd_manager.py' stop emulator-5556 --run-dir '$RUN' | grep -q 'остановлен' && test ! -e '$FAKE_ADB_STATE/emulator-5556.json'"
+check "avd_manager start того же AVD повторно -> 3 (один стенд — одно действие, лишний не запускать)" test "$(rc "$PY" "$S/avd_manager.py" start qa-api34-small-2gb-2c --headless --run-dir "$RUN")" = 3
+check "avd_manager stop чужого потока (--owner w2, стенд orchestrator) -> 3" test "$(rc "$PY" "$S/avd_manager.py" stop $ES --owner w2 --run-dir "$RUN")" = 3
+check "avd_manager stop своего эмулятора" sh -c "'$PY' '$S/avd_manager.py' stop $ES --run-dir '$RUN' | grep -q 'остановлен' && test ! -e '$FAKE_ADB_STATE/'$ES'.json'"
 check "avd_manager start чужого с --allow-foreign: -read-only принудительно" sh -c "
   '$PY' '$S/avd_manager.py' start Foreign_Phone --allow-foreign --headless --run-dir '$RUN' | grep -q -- '-read-only' &&
   '$PY' '$S/avd_manager.py' stop Foreign_Phone --run-dir '$RUN' >/dev/null"
@@ -591,6 +594,75 @@ assert p['qa-runs/']['kind']=='results' and p['*.jks']['kind']=='artifacts'\""
 else
   echo "SKIP gitignore_helper: нет git"
 fi
+
+# ---------- 1.1.0: fail closed, findings block, independent re-check, direct publish, legal ----------
+RC_CFG="$RUN/run-config.yaml"
+check "guard.py fail closed: без --config / нет файла / неверные аргументы -> 4 (не 0 и не 2)" sh -c "
+  test \$('$PY' '$S/guard.py' adb 'shell getprop' >/dev/null 2>&1; echo \$?) = 4 &&
+  test \$('$PY' '$S/guard.py' adb 'shell getprop' --config '$TMP/nope.yaml' >/dev/null 2>&1; echo \$?) = 4 &&
+  test \$('$PY' '$S/guard.py' action --config '$RC_CFG' >/dev/null 2>&1; echo \$?) = 4 &&
+  '$PY' '$S/guard.py' adb 'shell getprop' --config '$TMP/nope.yaml' | grep -q '\"decision\": \"unavailable\"'"
+printf 'app:\n  package: com.example.app\nrules:\n  forbidden_screens:\n    - "(unclosed"\n' > "$TMP/badrx.yaml"
+check "guard.py: неверный регэксп в правилах -> 4; adb kill-server -> 3 (обрывает все стенды)" sh -c "
+  test \$('$PY' '$S/guard.py' action --text Далее --config '$TMP/badrx.yaml' >/dev/null 2>&1; echo \$?) = 4 &&
+  test \$('$PY' '$S/guard.py' adb kill-server --config '$RC_CFG' >/dev/null 2>&1; echo \$?) = 3"
+TAPS0=$(grep -c 'input' "$FAKE_ADB_LOG" || true)
+check "adb_helpers fail closed: --config нет / битое правило -> 6, на устройстве ничего не выполнено" sh -c "
+  test \$('$PY' '$S/adb_helpers.py' key BACK --serial emulator-5554 --config '$TMP/nope.yaml' >/dev/null 2>&1; echo \$?) = 6 &&
+  test \$('$PY' '$S/adb_helpers.py' tap 10 10 --serial emulator-5554 --config '$TMP/badrx.yaml' >/dev/null 2>&1; echo \$?) = 6 &&
+  test \$(grep -c 'input' '$FAKE_ADB_LOG' || true) = $TAPS0"
+R11="$TMP/run-110"; mkdir -p "$R11"; cp "$RC_CFG" "$R11/run-config.yaml"
+cat > "$TMP/w2-message.md" <<'MSG'
+Готово, поток w2 (emulator-5556, API 34).
+```qa-findings
+{"thread": "w2", "findings": [
+ {"direction": "functional", "check_id": "fn.primary-flow", "type": "bug", "severity": "high", "title": "Каталог: кнопка видна",
+  "screen": "com.example.app.MainActivity", "actual": "…", "sources": ["own:checklist"],
+  "repro": {"adb": ["find", "--text", "Каталог"], "expect_exit": 0}},
+ {"direction": "functional", "check_id": "fn.empty", "type": "bug", "severity": "low", "title": "Нет такого элемента",
+  "screen": "com.example.app.MainActivity", "actual": "…", "sources": ["own:checklist"],
+  "repro": {"adb": ["find", "--text", "Нет такого текста"], "expect_exit": 0}},
+ {"direction": "ux", "check_id": "ux.copy", "type": "bug", "severity": "low", "title": "Без repro",
+  "screen": "com.example.app.MainActivity", "actual": "…", "sources": ["own:checklist"], "repro": {"argv": ["sh", "-c", "true"]}}],
+ "not_checked": [{"what": "Оплата", "reason": "запрет B1"}], "questions": ["Пустой список — задумано?"]}
+```
+MSG
+check "ingest_findings: блок qa-findings -> findings.json (F-001…F-003, run.app), questions.json, not_checked" sh -c "
+  '$PY' '$S/ingest_findings.py' '$R11' --from '$TMP/w2-message.md' >/dev/null && '$PY' -c \"
+import json,sys; d=json.load(open(sys.argv[1]+'/findings.json')); f=d['findings']
+assert [x['id'] for x in f]==['F-001','F-002','F-003'] and d['run']['app']=='com.example.app' and d['not_checked'][0]['thread']=='w2'
+assert json.load(open(sys.argv[1]+'/questions.json'))[0]['thread']=='w2'
+\" '$R11' && '$PY' '$S/validate_findings.py' '$R11/findings.json' >/dev/null"
+"$PY" "$S/recheck.py" run "$R11" --subst SERIAL=emulator-5554 --times 2 --pause 0 > "$TMP/rc11.json" 2>&1
+check "recheck.py run: adb_helpers find дважды — confirmed / not-reproduced; не скрипт скила — refused" sh -c "'$PY' -c \"
+import json,sys; r={x['id']:x for x in json.load(open(sys.argv[1]))}
+assert r['F-001']['status']=='confirmed' and r['F-001']['reproduced_runs']==2, r['F-001']
+assert r['F-002']['status']=='not-reproduced', r['F-002']
+assert r['F-003']['status']=='refused', r['F-003']
+\" '$TMP/rc11.json'"
+check "recheck.py gate: публиковать можно только подтверждённое; set другим исполнителем открывает" sh -c "
+  out=\$('$PY' '$S/recheck.py' gate '$R11'); test \$? = 1 && echo \"\$out\" | grep -q '^F-001: можно публиковать' &&
+  '$PY' '$S/recheck.py' set '$R11' --id F-003 --status confirmed --by 'w-verify: emulator-5556, шаги 1–2' >/dev/null &&
+  '$PY' '$S/recheck.py' gate '$R11' --id F-003 | grep -q 'можно публиковать'"
+"$PY" -c "
+import json,sys; p=sys.argv[1]; d=json.load(open(p)); d['findings'][0]['legal']={'claims_law': True, 'norms': ['152-ФЗ (согласие на обработку ПДн)']}
+json.dump(d, open(p,'w'), ensure_ascii=False)" "$R11/findings.json"
+check "юридическое: нормы без второй проверки закрывают gate; recheck.py legal открывает; в черновике «проверка юристом»" sh -c "
+  '$PY' '$S/recheck.py' gate '$R11' --id F-001 | grep -q 'без второй проверки' &&
+  '$PY' '$S/recheck.py' legal '$R11' --id F-001 --by 'второй исполнитель' --result confirmed >/dev/null &&
+  '$PY' '$S/recheck.py' gate '$R11' --id F-001 | grep -q 'можно публиковать' &&
+  '$PY' '$S/render_draft.py' detailed '$R11/findings.json' --id F-001 | grep -q 'требуется проверка юристом'"
+mkdir -p "$R11/raw"; printf '[]' > "$R11/raw/issues-owner__repo.json"
+check "direct_publish: check -> 0 и команды (render --body-only, gh issue create); record -> повторный check 3" sh -c "
+  '$PY' '$S/direct_publish.py' check '$R11' --id F-001 --repo owner/repo > '$TMP/dp11.json'; test \$? = 0 &&
+  grep -q 'gh issue create' '$TMP/dp11.json' && grep -q -- '--body-only' '$TMP/dp11.json' &&
+  '$PY' '$S/direct_publish.py' record '$R11' --id F-001 --repo owner/repo --number 5 --url https://github.com/owner/repo/issues/5 >/dev/null &&
+  test \$('$PY' '$S/direct_publish.py' check '$R11' --id F-001 --repo owner/repo >/dev/null; echo \$?) = 3 &&
+  test \$('$PY' '$S/direct_publish.py' check '$R11' --id F-002 --repo owner/repo >/dev/null; echo \$?) = 1"
+check "render_draft --body-only: в файле только тело, TITLE — в stdout" sh -c "
+  '$PY' '$S/render_draft.py' detailed '$R11/findings.json' --id F-002 --body-only --out '$TMP/b11.md' | grep -q '^TITLE: ' && ! grep -q '^TITLE:' '$TMP/b11.md'"
+check "build_report publish-table: колонка «Перепроверка», без подтверждения — «НЕ публиковать»" sh -c "
+  '$PY' '$S/build_report.py' publish-table '$RUN' | grep -q '| Перепроверка |' && '$PY' '$S/build_report.py' publish-table '$RUN' | grep -q 'НЕ публиковать до перепроверки'"
 
 # ---------- documentation: every command example is accepted by argparse (--help only, nothing runs) ----------
 check "примеры команд в SKILL.md, README, INSTALL и references/*.md принимаются скриптами (подкоманды и --опции)" \

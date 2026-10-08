@@ -2,7 +2,9 @@
 """Safety guard of android-qa-audit: UI actions, foreground packages, deep links and adb commands
 are checked against the base prohibitions and the user's rules from run-config.yaml (references/safety-rules.md).
 
-All commands print JSON {decision, kind, target, reason, rule}; exit code 0 = allow, 2 = confirm, 3 = deny.
+All commands print JSON {decision, kind, target, reason, rule}; exit code 0 = allow, 2 = confirm, 3 = deny,
+4 = guard unavailable (FAIL CLOSED: no --config or file, broken YAML, bad regex in the rules, bad arguments, internal
+error). Code 4, any other code, «No such file» or empty output = STOP: the action is not performed.
   guard.py action --text "Купить" [--desc "<content-desc>"] [--id <resource-id>] [--class <class>]
                   [--package <pkg>] [--screen <activity>] [--context "dialog / screen text"] --config run-config.yaml
   guard.py package <pkg> --config …            may the agent interact with this foreground app?
@@ -27,8 +29,8 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE / "shared"))
 import miniyaml  # noqa: E402
 
-ALLOW, CONFIRM, DENY = "allow", "confirm", "deny"
-EXIT = {ALLOW: 0, CONFIRM: 2, DENY: 3}
+ALLOW, CONFIRM, DENY, UNAVAILABLE = "allow", "confirm", "deny", "unavailable"
+EXIT = {ALLOW: 0, CONFIRM: 2, DENY: 3, UNAVAILABLE: 4}
 ORDER = {ALLOW: 0, CONFIRM: 1, DENY: 2}
 
 # ---- packages ----
@@ -117,6 +119,34 @@ def result(decision, kind, target, reason, rule):
 
 def load_config(path):
     return (miniyaml.load_file(path) or {}) if path else {}
+
+
+class GuardUnavailable(Exception):
+    """The guard cannot decide (bad config, bad rule): the caller must stop."""
+
+
+def validate_rules(cfg):
+    """Compile every user regex up front: a broken rule makes the guard unavailable, never permissive."""
+    r = (cfg or {}).get("rules") or {}
+    for key in ("forbidden_screens", "forbidden_deeplinks", "adb_require_confirmation"):
+        val = r.get(key) or []
+        if not isinstance(val, list):
+            raise GuardUnavailable(f"{key} должен быть списком")
+        for pat in val:
+            try:
+                re.compile(pat)
+            except (re.error, TypeError) as ex:
+                raise GuardUnavailable(f"неверный регэксп в {key}: {pat!r} ({ex})")
+    for key in ("forbidden_actions", "require_confirmation_actions", "preapproved_actions"):
+        for rule in r.get(key) or []:
+            if not isinstance(rule, dict):
+                raise GuardUnavailable(f"{key}: правило должно быть словарём, получено {rule!r}")
+            if rule.get("screen_pattern"):
+                try:
+                    re.compile(rule["screen_pattern"])
+                except (re.error, TypeError) as ex:
+                    raise GuardUnavailable(f"неверный screen_pattern в {key} {rule.get('id')}: {ex}")
+    return True
 
 
 def rules_of(cfg):
@@ -445,8 +475,11 @@ def classify_adb(args, app):
         return [("app" if re.match(r"^/(sdcard|data/local/tmp)/qa-", dest) else "device", None, f"push в {dest}")]
     if sub in ("logcat",):
         return [("device" if ("-c" in rest or "--clear" in rest) else "read", None, "logcat")]
-    if sub in ("forward", "reverse", "connect", "disconnect", "reconnect", "start-server", "kill-server", "tcpip", "usb"):
-        return [("device" if sub in ("tcpip", "usb", "kill-server") else "read", None, f"adb {sub}")]
+    if sub == "kill-server":
+        # Kills adb for EVERY stand and every thread of the run (and the user's own sessions): never (S-7).
+        return [("deny", None, "adb kill-server обрывает все стенды и потоки — не выполнять")]
+    if sub in ("forward", "reverse", "connect", "disconnect", "reconnect", "start-server", "tcpip", "usb"):
+        return [("device" if sub in ("tcpip", "usb") else "read", None, f"adb {sub}")]
     if sub in ("shell", "exec-out"):
         if not shells:
             return [("deny", None, "интерактивный shell без команды")]
@@ -520,6 +553,11 @@ def selftest():
                      "require_confirmation_actions": [{"id": "C1", "texts": ["Сбросить фильтры"]}],
                      "preapproved_actions": [{"id": "P1", "source": "удалять свои тестовые заметки можно",
                                               "texts": ["Удалить"], "context": "тестовая заметка"}]}}
+    try:
+        validate_rules({"rules": {"forbidden_screens": ["(unclosed"]}})
+        bad_regex_detected = False
+    except GuardUnavailable:
+        bad_regex_detected = True
     A = lambda **kw: check_action(cfg, **kw)["decision"]  # noqa: E731
     D = lambda line, stand="own-emulator", serial=None: check_adb(line, cfg, stand, serial)["decision"]  # noqa: E731
     cases = [
@@ -563,6 +601,8 @@ def selftest():
         (A(text="Allow", context="Allow Example to send you notifications?"), ALLOW),
         (D("shell ime list -a -s", "real", "R3"), ALLOW), (D("shell ime set x/.Y", "real", "R1"), CONFIRM),
         (D("shell ime set com.android.adbkeyboard/.AdbIME"), ALLOW),
+        (D("kill-server"), DENY), (D("-s emulator-5554 kill-server"), DENY),
+        (DENY if bad_regex_detected else ALLOW, DENY),  # fail closed: a broken user regex -> guard unavailable
     ]
     failed = [(i, got, exp) for i, (got, exp) in enumerate(cases) if got != exp]
     for i, got, exp in failed:
@@ -571,8 +611,39 @@ def selftest():
     return 1 if failed else 0
 
 
+class FailClosedParser(argparse.ArgumentParser):
+    """Bad arguments are a guard failure (code 4), not argparse's code 2 (which means «confirm» here)."""
+
+    def error(self, message):
+        unavailable(f"неверные аргументы: {message}")
+
+
+def unavailable(reason):
+    print(json.dumps(result(UNAVAILABLE, "guard", None, "guard недоступен — СТОП, действие не выполнять: " + reason,
+                            "guard:unavailable"), ensure_ascii=False))
+    sys.exit(EXIT[UNAVAILABLE])
+
+
+def load_checked(path):
+    """Config for a decision: must be given, exist, parse and have valid regexes — else guard unavailable."""
+    if not path:
+        unavailable("нет --config <RUN_DIR>/run-config.yaml: без правил прогона guard ничего не разрешает")
+    if not Path(path).is_file():
+        unavailable(f"файл конфига не найден: {path}")
+    try:
+        cfg = load_config(path)
+        if not isinstance(cfg, dict):
+            raise GuardUnavailable("конфиг прогона пустой или не словарь")
+        validate_rules(cfg)
+        return cfg
+    except GuardUnavailable as ex:
+        unavailable(str(ex))
+    except Exception as ex:  # noqa: BLE001 — any parse failure must stop the caller
+        unavailable(f"конфиг не прочитан: {type(ex).__name__}: {ex}")
+
+
 def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = FailClosedParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("command", choices=["action", "package", "deeplink", "adb", "export", "selftest"])
     ap.add_argument("target", nargs="?")
     ap.add_argument("--config")
@@ -589,7 +660,7 @@ def main():
     a = ap.parse_args()
     if a.command == "selftest":
         sys.exit(selftest())
-    cfg = load_config(a.config)
+    cfg = load_checked(a.config)
     if a.command == "action":
         if not (a.text or a.desc or a.id):
             ap.error("нужен --text, --desc или --id")
@@ -620,4 +691,9 @@ def main():
 if __name__ == "__main__":
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
-    main()
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception as ex:  # noqa: BLE001 — fail closed: an unexpected error is never «allow»
+        unavailable(f"внутренняя ошибка: {type(ex).__name__}: {ex}")
