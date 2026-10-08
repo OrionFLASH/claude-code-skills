@@ -14,12 +14,15 @@
 //   url_guard.check_action (the same Python code as `url_guard.py action`, through a stdin bridge).
 //   allow -> performed; deny -> skipped, written to blocked.jsonl; confirm -> GuardConfirmError (stop + question),
 //   unless opts.onConfirm(decision) resolves to true.
+//   FAIL CLOSED: the bridge failed (no Python, url_guard.py missing, broken rules, bad answer) -> decision
+//   'unavailable' -> GuardUnavailableError (exitCode 4): nothing is clicked or navigated, the run stops.
+//   opts.readOnly (S-8, `nav --read-only`): goto may open read-only pages; every click/fill/check/... is denied.
 //
 // CLI (manual check of one element on a page):
 //   node guard.js check --url URL --selector "text=Поддержать" --rules rules.json [--log blocked.jsonl]
 const path = require('path');
 const { execFile } = require('child_process');
-const { parseArgs, loadRules, navAllowed, resourceBlocked, appendJsonl, sleep } = require('./lib');
+const { parseArgs, loadRules, navAllowed, resourceBlocked, appendJsonl, sleep, GuardUnavailableError, launchOptions } = require('./lib');
 const { locate } = require('./frames');
 
 const SCRIPTS_DIR = path.join(__dirname, '..');
@@ -38,9 +41,12 @@ for q in req["queries"]:
         out.append(url_guard.check_action(q.get("text") or "", cfg, q.get("role"), q.get("selector"),
                                           q.get("url"), q.get("context"), q.get("name")))
     else:
-        out.append(url_guard.check_url(q["url"], cfg, q["kind"]))
+        out.append(url_guard.check_url(q["url"], cfg, q["kind"], read_only=bool(q.get("read_only"))))
 sys.stdout.write(json.dumps(out, ensure_ascii=False))
 `;
+const KNOWN = new Set(['allow', 'confirm', 'deny']);
+// Test hook only: SITE_QA_GUARD_PY_DIR points the bridge at another scripts folder (e.g. a missing one).
+const bridgeDir = () => process.env.SITE_QA_GUARD_PY_DIR || SCRIPTS_DIR;
 
 function cfgFromRules(rules) {
   const r = (rules && rules.rules) || {};
@@ -50,29 +56,35 @@ function cfgFromRules(rules) {
     rules: {
       forbidden_domains: r.forbidden_domains || [], forbidden_url_patterns: r.forbidden_url_patterns || [],
       forbidden_actions: r.forbidden_actions || [], require_confirmation_actions: r.require_confirmation_actions || [],
-      preapproved_actions: r.preapproved_actions || [],
+      preapproved_actions: r.preapproved_actions || [], read_only_urls: r.read_only_urls || [],
     },
   };
 }
 
 function pyCheck(rules, queries) {
   return new Promise((resolve) => {
-    const child = execFile(PY, ['-c', BRIDGE, SCRIPTS_DIR], { encoding: 'utf8', timeout: 20000 }, (err, stdout, stderr) => {
-      if (err) {
-        // Fail safe: the guard is unavailable -> nothing is allowed without a human.
-        const reason = 'url_guard недоступен: ' + String(stderr || err.message).trim().split('\n').pop();
-        return resolve(queries.map(q => ({ decision: 'confirm', kind: q.kind, target: q, reason, rule: 'guard:unavailable' })));
-      }
-      try { resolve(JSON.parse(stdout)); } catch (e) {
-        resolve(queries.map(q => ({ decision: 'confirm', kind: q.kind, target: q, reason: 'url_guard: неверный ответ', rule: 'guard:unavailable' })));
-      }
-    });
+    // Fail closed: any failure of the bridge is «unavailable» (stop), never allow and never a plain question.
+    const unavailable = (reason) => resolve(queries.map(q => ({ decision: 'unavailable', kind: q.kind, target: q,
+      reason: 'guard недоступен — СТОП: ' + reason, rule: 'guard:unavailable' })));
+    let child;
+    try {
+      child = execFile(PY, ['-c', BRIDGE, bridgeDir()], { encoding: 'utf8', timeout: 20000 }, (err, stdout, stderr) => {
+        if (err) return unavailable('url_guard: ' + String(stderr || err.message).trim().split('\n').pop());
+        let out;
+        try { out = JSON.parse(stdout); } catch { return unavailable('url_guard: неверный ответ'); }
+        if (!Array.isArray(out) || out.length !== queries.length || out.some(d => !d || !KNOWN.has(d.decision)))
+          return unavailable('url_guard: ответ не совпадает с запросом');
+        resolve(out);
+      });
+    } catch (e) { return unavailable('не удалось запустить ' + PY + ': ' + e.message); }
+    child.on('error', (e) => unavailable('не удалось запустить ' + PY + ': ' + e.message));
+    child.stdin.on('error', () => { /* reported by the exit callback */ });
     child.stdin.end(JSON.stringify({ cfg: cfgFromRules(rules), queries }));
   });
 }
 
 const checkAction = async (rules, q) => (await pyCheck(rules, [{ kind: 'action', ...q }]))[0];
-const checkUrl = async (rules, url, kind = 'nav') => (await pyCheck(rules, [{ kind, url }]))[0];
+const checkUrl = async (rules, url, kind = 'nav', opts = {}) => (await pyCheck(rules, [{ kind, url, read_only: !!opts.readOnly }]))[0];
 
 function loadGuardRules(file) { return loadRules(file); }
 
@@ -89,11 +101,18 @@ async function guardContext(context, rules, opts = {}) {
   const popups = new WeakSet();
   if (!rules) return { log };
 
+  const ro = { readOnly: !!opts.readOnly };
   await context.route('**/*', async (route) => {
     const req = route.request();
     const url = req.url();
+    let isNav = false;
     try {
-      const isNav = req.isNavigationRequest();
+      isNav = req.isNavigationRequest();
+      // Read-only mode: nothing is sent to the site — only GET/HEAD/OPTIONS requests pass.
+      if (ro.readOnly && !/^(GET|HEAD|OPTIONS)$/i.test(req.method())) {
+        record({ type: isNav ? 'nav' : 'resource', decision: 'deny', url, rule: 'read-only', reason: `режим только чтения: ${req.method()} не отправляется` });
+        return route.abort('blockedbyclient');
+      }
       if (!isNav && resourceBlocked(url, rules)) {
         record({ type: 'resource', decision: 'deny', url, reason: 'forbidden_domains / base blocked_origins' });
         return route.abort('blockedbyclient');
@@ -103,7 +122,7 @@ async function guardContext(context, rules, opts = {}) {
         try { frame = req.frame(); } catch { frame = null; }
         if (!frame) {
           // The first navigation of a new tab/popup (window.open, target=_blank): the frame does not exist yet.
-          const v0 = navAllowed(url, rules, 'nav');
+          const v0 = navAllowed(url, rules, 'nav', ro);
           if (!v0.ok) {
             record({ type: 'tab', decision: 'deny', url, reason: v0.reason, rule: v0.rule });
             await route.abort('blockedbyclient');
@@ -118,7 +137,7 @@ async function guardContext(context, rules, opts = {}) {
           return route.continue();
         }
         const main = frame === frame.page().mainFrame();
-        let v = navAllowed(url, rules, main ? 'nav' : 'subframe');
+        let v = navAllowed(url, rules, main ? 'nav' : 'subframe', ro);
         if (v.ok && resourceBlocked(url, rules)) v = { ok: false, reason: 'base blocked_origins', rule: 'base:blocked-origin' };
         if (!v.ok) {
           const page = frame.page();
@@ -129,7 +148,14 @@ async function guardContext(context, rules, opts = {}) {
           return;
         }
       }
-    } catch (e) { if (process.env.QA_GUARD_DEBUG) console.error("guard route error", url, e.message); }
+    } catch (e) {
+      if (process.env.QA_GUARD_DEBUG) console.error('guard route error', url, e.message);
+      // Fail closed for navigations: a rule error is never a pass.
+      if (isNav) {
+        record({ type: 'nav', decision: 'unavailable', url, rule: 'guard:unavailable', reason: 'ошибка правил: ' + e.message });
+        return route.abort('blockedbyclient').catch(() => {});
+      }
+    }
     return route.continue();
   });
 
@@ -205,12 +231,16 @@ function guardedPage(page, rules, opts = {}) {
   const throttle = opts.throttleMs !== undefined ? +opts.throttleMs : ((rules && rules.throttle_ms) || 0);
   const record = (ev) => { log.push(ev); appendJsonl(opts.logFile, ev); if (opts.onEvent) opts.onEvent(ev); };
   const sideEffects = opts.sideEffects || [];
+  const readOnly = !!opts.readOnly;
+  const stop = (ev) => { record(ev); throw new GuardUnavailableError(ev.reason, ev); };
 
   async function decide(action, target, extra = {}) {
     const loc = typeof target === 'string' ? locate(page, target) : target;
     const selector = typeof target === 'string' ? target : String(target);
     const handle = await loc.first().elementHandle({ timeout: opts.timeout || 5000 });
     const info = { selector, ...(await handle.evaluate(describeInPage)) };
+    // Read-only mode (nav --read-only): reading the page is allowed, any action is not.
+    if (readOnly) return { loc, handle, info, d: { decision: 'deny', rule: 'read-only', reason: 'режим только чтения: действия на странице запрещены' } };
     // A guarded action that hits a declared side effect must go through invariants.js (runSideEffect).
     if (!extra.viaSideEffect) {
       for (const se of sideEffects) {
@@ -228,7 +258,7 @@ function guardedPage(page, rules, opts = {}) {
     // A link click is also a navigation: check its destination as `nav`.
     if (d.decision === 'allow' && info.href && action === 'click') {
       const n = await checkUrl(rules, info.href, 'nav');
-      if (n.decision === 'deny') d = { ...n, kind: 'action', reason: 'ссылка ведёт на запрещённый адрес: ' + n.reason };
+      if (n.decision === 'deny' || n.decision === 'unavailable') d = { ...n, kind: 'action', reason: (n.decision === 'deny' ? 'ссылка ведёт на запрещённый адрес: ' : '') + n.reason };
     }
     // Typing into a field does not send anything: confirm-level categories (send-to-people, destructive) apply
     // to the button that submits, not to the field. Deny still applies.
@@ -242,6 +272,7 @@ function guardedPage(page, rules, opts = {}) {
     await handle.dispose().catch(() => {});
     const ev = { type: 'action', action, decision: d.decision, rule: d.rule, reason: d.reason, url: page.url(),
       element: { selector: info.selector, role: info.role, name: info.name, text: info.text } };
+    if (d.decision === 'unavailable' || !['allow', 'confirm', 'deny'].includes(d.decision)) stop({ ...ev, decision: 'unavailable', rule: 'guard:unavailable' });
     if (d.decision === 'deny') { record(ev); return { performed: false, ...ev }; }
     if (d.decision === 'confirm') {
       const question = questionFor(action, info, d);
@@ -259,7 +290,7 @@ function guardedPage(page, rules, opts = {}) {
   }
 
   const g = {
-    page, log,
+    page, log, readOnly,
     click: (t, o) => guarded('click', t, l => l.click(o)),
     dblclick: (t, o) => guarded('dblclick', t, l => l.dblclick(o)),
     check: (t, o) => guarded('check', t, l => l.check(o)),
@@ -269,24 +300,29 @@ function guardedPage(page, rules, opts = {}) {
     selectOption: (t, v, o) => guarded('selectOption', t, l => l.selectOption(v, o)),
     setInputFiles: (t, files, o, extra = {}) => guarded('setInputFiles', t, l => l.setInputFiles(files, o), extra),
     async goto(url, o) {
+      let first = null;
       if (rules) {
-        const d = await checkUrl(rules, url, 'nav');
-        if (d.decision !== 'allow') { const ev = { type: 'nav', decision: d.decision, rule: d.rule, reason: d.reason, url }; record(ev); return { performed: false, ...ev }; }
+        first = await checkUrl(rules, url, 'nav', { readOnly });
+        const ev = { type: 'nav', decision: first.decision, rule: first.rule, reason: first.reason, url };
+        if (first.decision === 'unavailable' || !['allow', 'confirm', 'deny'].includes(first.decision)) stop({ ...ev, decision: 'unavailable', rule: 'guard:unavailable' });
+        if (first.decision !== 'allow') { record(ev); return { performed: false, ...ev }; }
+        if (first.read_only) record({ type: 'read-only', decision: 'allow', rule: first.rule, url, reason: 'прочитано без действий' });
       }
       await page.goto(url, o);
       // Redirect check (safety-rules §3.5): the final URL must also pass.
       if (rules && page.url() !== url) {
-        const d2 = await checkUrl(rules, page.url(), 'nav');
+        const d2 = await checkUrl(rules, page.url(), 'nav', { readOnly });
+        if (d2.decision === 'unavailable') { await page.goBack().catch(() => {}); stop({ type: 'redirect', decision: 'unavailable', rule: 'guard:unavailable', reason: d2.reason, url: page.url(), from: url }); }
         if (d2.decision === 'deny') { record({ type: 'redirect', decision: 'deny', rule: d2.rule, reason: d2.reason, url: page.url(), from: url }); await page.goBack().catch(() => {}); return { performed: false, ...d2 }; }
       }
-      return { performed: true, decision: 'allow', url: page.url() };
+      return { performed: true, decision: 'allow', url: page.url(), ...(first && first.read_only ? { readOnly: true } : {}) };
     },
     locator: (s) => locate(page, s),
   };
   return g;
 }
 
-module.exports = { guardContext, guardedPage, checkAction, checkUrl, loadGuardRules, GuardConfirmError, describeInPage, cfgFromRules };
+module.exports = { guardContext, guardedPage, checkAction, checkUrl, loadGuardRules, GuardConfirmError, GuardUnavailableError, describeInPage, cfgFromRules };
 
 if (require.main === module) {
   (async () => {
@@ -297,22 +333,25 @@ if (require.main === module) {
     }
     const pw = require('playwright');
     const rules = loadRules(a.rules);
-    const browser = await pw[a.browser || 'chromium'].launch();
-    const context = await browser.newContext();
-    await guardContext(context, rules, { logFile: a.log });
-    const page = await context.newPage();
-    const g = guardedPage(page, rules, { logFile: a.log, throttleMs: 0 });
-    const nav = await g.goto(a.url, { waitUntil: 'load' });
-    let res = nav;
-    if (nav.performed) {
-      const loc = locate(page, a.selector).first();
-      const h = await loc.elementHandle({ timeout: 5000 });
-      const info = await h.evaluate(describeInPage);
-      res = { element: info, decision: await checkAction(rules, { text: info.text, name: info.name, role: info.role, selector: a.selector, url: info.docUrl, context: info.context }) };
-    }
-    await browser.close();
+    if (!rules) throw new GuardUnavailableError('нужен --rules <RUN_DIR>/rules.json');
+    const browser = await pw[a.browser || 'chromium'].launch(launchOptions({ headless: true }));
+    let res;
+    try {
+      const context = await browser.newContext();
+      await guardContext(context, rules, { logFile: a.log });
+      const page = await context.newPage();
+      const g = guardedPage(page, rules, { logFile: a.log, throttleMs: 0 });
+      const nav = await g.goto(a.url, { waitUntil: 'load' });
+      res = nav;
+      if (nav.performed) {
+        const loc = locate(page, a.selector).first();
+        const h = await loc.elementHandle({ timeout: 5000 });
+        const info = await h.evaluate(describeInPage);
+        res = { element: info, decision: await checkAction(rules, { text: info.text, name: info.name, role: info.role, selector: a.selector, url: info.docUrl, context: info.context }) };
+      }
+    } finally { await browser.close(); }
     console.log(JSON.stringify(res, null, 2));
     const dec = typeof res.decision === 'string' ? res.decision : res.decision.decision;
-    process.exit({ deny: 3, confirm: 2 }[dec] || 0);
-  })().catch(e => { console.error(e); process.exit(1); });
+    process.exit({ deny: 3, confirm: 2, unavailable: 4, allow: 0 }[dec] ?? 4);
+  })().catch(e => { console.error(String(e.message || e)); process.exit((e && e.exitCode) || 1); });
 }

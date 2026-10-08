@@ -45,4 +45,4 @@ const { parseArgs, sleep, writeOut, urlsFromArgs } = require('./lib');
     }
   } finally { await chrome.kill(); }
   writeOut(args.out, { tool: 'lighthouse', version: require('lighthouse/package.json').version, results });
-})().catch(e => { console.error(e); process.exit(1); });
+})().catch(e => { console.error(e); process.exit((e && e.exitCode) || 1); });

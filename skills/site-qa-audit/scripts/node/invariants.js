@@ -232,5 +232,5 @@ if (require.main === module) {
     console.log(JSON.stringify(out, null, 2));
     if (out.alert) console.error(out.alert);
     process.exit(code);
-  })().catch(e => { console.error(String(e.message || e)); process.exit(1); });
+  })().catch(e => { console.error(String(e.message || e)); process.exit((e && e.exitCode) || 1); });
 }

@@ -10,4 +10,6 @@ PORT="$("$PY" -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1", 0)); pr
 SRV=$!
 trap 'kill $SRV 2>/dev/null || true' EXIT
 for _ in 1 2 3 4 5 6 7 8 9 10; do "$PY" -c "import urllib.request,sys; urllib.request.urlopen('http://127.0.0.1:$PORT/guard-actions.html')" 2>/dev/null && break; sleep 0.3; done
+# Tests run headless and without slow-mo unless the caller asks otherwise (the skill itself shows the window by default).
+export SITE_QA_HEADLESS="${SITE_QA_HEADLESS:-1}"
 FIXTURE_BASE="http://127.0.0.1:$PORT" node "$HERE/stream_b.test.js" "$@"

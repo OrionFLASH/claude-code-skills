@@ -43,7 +43,8 @@ await g.click('text=Поддержать');   // deny → не нажато, с�
 - Цель из `side_effects` (`opts.sideEffects`, см. `side-effects.md`) в обход `invariants.js` → confirm с правилом `side_effect:<id>`.
 - `goto`: проверка до перехода и после редиректа (`safety-rules.md` §3.5); за пределами правил — назад.
 - `throttleMs` (по умолчанию `throttle_ms` из `rules.json`) — пауза перед каждым действием.
-- Мост недоступен (нет Python) → решение `confirm` с правилом `guard:unavailable`: без человека ничего не нажимается.
+- **Fail closed.** Мост недоступен (нет Python, нет `url_guard.py`, ошибка правил, неверный ответ) → решение `unavailable` с правилом `guard:unavailable`, событие в `blocked.jsonl` и `GuardUnavailableError` (`exitCode` 4): действие и переход **не выполняются**, сценарий останавливается. `--rules` с несуществующим или битым файлом — тоже код 4 (а не «правил нет»). Ошибка в обработчике маршрута для навигации — переход обрывается. Скрипты скила завершаются с кодом 4; исполнитель при коде 4 останавливается (`safety-rules.md` §3 п. 0).
+- **Только чтение** (`safety-rules.md` §3.13): `guardContext(context, rules, { readOnly: true })` пропускает переход на страницы покупки/доната и `rules.read_only_urls`, обрывает запросы кроме GET/HEAD/OPTIONS; `guardedPage(page, rules, { readOnly: true })` — `goto` разрешён (событие `read-only` «прочитано без действий»), любое действие — deny `read-only`.
 
 ## Журнал `blocked.jsonl`
 Одна строка — одно событие: `{ts, type: resource|nav|subframe|tab|redirect|dialog|action, decision, rule, reason, url, element?, question?}`. Переносится в отчёт в раздел «Сработавшие запреты».
@@ -51,7 +52,7 @@ await g.click('text=Поддержать');   // deny → не нажато, с�
 ## Ручная проверка элемента
 ```bash
 node <SKILL_DIR>/scripts/node/guard.js check --url https://example.com/ --selector "text=Поддержать" --rules <RUN_DIR>/rules.json
-# код 0 allow, 2 confirm, 3 deny; JSON: роль, имя, контекст, решение
+# код 0 allow, 2 confirm, 3 deny, 4 guard недоступен (стоп); JSON: роль, имя, контекст, решение
 ```
 
 ## Ограничения

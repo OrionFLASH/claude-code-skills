@@ -141,6 +141,56 @@ async function startCdpBrowser() {
     }
   });
 
+  await t('guard fail closed (S-2): мост недоступен -> GuardUnavailableError, клик и переход не выполнены, событие unavailable', async () => {
+    const log = path.join(TMP, 'blocked-unavail.jsonl');
+    const browser = await pw.chromium.launch();
+    process.env.SITE_QA_GUARD_PY_DIR = path.join(TMP, 'no-such-scripts-dir');
+    try {
+      const d = await guard.checkAction(rules, { text: 'Показать карту' });
+      assert(d.decision === 'unavailable' && d.rule === 'guard:unavailable', JSON.stringify(d));
+      const ctx = await browser.newContext();
+      const page = await ctx.newPage();
+      await page.goto(B + '/guard-actions.html');
+      const g = guard.guardedPage(page, rules, { logFile: log, throttleMs: 0 });
+      let e1 = null; try { await g.click('#safe'); } catch (e) { e1 = e; }
+      assert(e1 && e1.name === 'GuardUnavailableError' && e1.exitCode === 4, 'click: ' + (e1 && e1.message));
+      assert((await page.textContent('#out')) === '', 'клик выполнен при недоступном guard');
+      let e2 = null; try { await g.goto(B + '/reach-scroll.html'); } catch (e) { e2 = e; }
+      assert(e2 && e2.exitCode === 4 && /guard-actions/.test(page.url()), 'goto: ' + (e2 && e2.message) + ' ' + page.url());
+      assert(readJsonl(log).filter(e => e.decision === 'unavailable').length === 2, 'нет событий unavailable');
+    } finally { delete process.env.SITE_QA_GUARD_PY_DIR; await browser.close(); }
+    const missing = run('guard.js', ['check', '--url', B + '/guard-actions.html', '--selector', '#safe', '--rules', path.join(TMP, 'missing-rules.json')]);
+    assert(missing.code === 4 && /guard недоступен/.test(missing.err), 'нет rules.json -> код ' + missing.code + ' ' + missing.err);
+    const shotMissing = run('shot.js', ['--url', B + '/guard-actions.html', '--rules', path.join(TMP, 'missing-rules.json'), '--out', path.join(TMP, 'x.png'), 'body|x']);
+    assert(shotMissing.code === 4, 'shot.js без rules.json -> код ' + shotMissing.code);
+  });
+
+  await t('guard read-only (S-8): /donate/ открывается только с readOnly, клики и POST запрещены; без readOnly — deny', async () => {
+    const log = path.join(TMP, 'blocked-ro.jsonl');
+    const browser = await pw.chromium.launch();
+    try {
+      const ctx = await browser.newContext();
+      await guard.guardContext(ctx, rules, { logFile: log, readOnly: true });
+      const page = await ctx.newPage();
+      const g = guard.guardedPage(page, rules, { logFile: log, throttleMs: 0, readOnly: true });
+      const nav = await g.goto(B + '/donate/', { waitUntil: 'load' });
+      assert(nav.performed && nav.readOnly, JSON.stringify(nav));
+      assert(/199/.test(await page.textContent('#price')), 'страница не прочитана');
+      await page.waitForFunction(() => document.getElementById('out').dataset.post);
+      assert((await page.getAttribute('#out', 'data-post')) === 'blocked', 'POST ушёл в режиме только чтения');
+      const c = await g.click('#ping');
+      assert(!c.performed && c.rule === 'read-only' && (await page.textContent('#out')) === '', JSON.stringify(c));
+      const ev = readJsonl(log);
+      assert(ev.some(e => e.type === 'read-only' && e.reason === 'прочитано без действий') && ev.some(e => e.rule === 'read-only' && /POST/.test(e.reason)), JSON.stringify(ev));
+      const ctx2 = await browser.newContext();
+      await guard.guardContext(ctx2, rules, {});
+      const p2 = await ctx2.newPage();
+      const g2 = guard.guardedPage(p2, rules, { throttleMs: 0 });
+      const n2 = await g2.goto(B + '/donate/');
+      assert(!n2.performed && n2.rule === 'base:nav-path', JSON.stringify(n2));
+    } finally { await browser.close(); }
+  });
+
   await t('guard.js check (CLI): «Поддержать» -> код 3, «Показать карту» -> код 0', async () => {
     const d = run('guard.js', ['check', '--url', B + '/guard-actions.html', '--selector', '#donate', '--rules', guardRules]);
     assert(d.code === 3, 'код ' + d.code + ' ' + d.err);
@@ -222,28 +272,51 @@ async function startCdpBrowser() {
 
   let cdp = null;
   if (!only || only.test('device_context state') || only.test('shot --cdp')) { try { cdp = await startCdpBrowser(); } catch { cdp = null; } }
-  await t('device_context state (manual-cdp): storageState из браузера пользователя, файл 600, в браузере ничего не очищено', async () => {
+  await t('device_context state (manual-cdp): только cookie allowed_domains, localStorage/sessionStorage сайта, файл 600, ничего не очищено, state-rm', async () => {
     if (!cdp) return 'skip';
     const b = await pw.chromium.connectOverCDP(cdp.url);
     const ctx = b.contexts()[0];
     const page = ctx.pages()[0] || await ctx.newPage();
     await page.goto(B + '/guard-actions.html');
-    await ctx.addCookies([{ name: 'session', value: 'secret-value', url: B }]);
-    await page.evaluate(() => localStorage.setItem('k', 'v'));
+    await ctx.addCookies([{ name: 'session', value: 'secret-value', url: B },
+      { name: 'foreign', value: 'other-secret', domain: '.mail.example', path: '/' },
+      { name: 'foreign2', value: 'x', domain: 'search.example', path: '/' }]);
+    await page.evaluate(() => { localStorage.setItem('k', 'v'); sessionStorage.setItem('lang', 'ru'); });
     const out = path.join(TMP, 'auth-state.json');
-    const r = run('device_context.js', ['state', '--cdp', cdp.url, '--out', out]);
-    assert(r.code === 0 && r.json.cookies >= 1, r.out + r.err);
-    assert(!/secret-value/.test(r.out + r.err), 'значение cookie попало в вывод');
+    const no = run('device_context.js', ['state', '--cdp', cdp.url, '--out', path.join(TMP, 'nofilter.json')]);
+    assert(no.code !== 0 && /фильтр доменов/.test(no.err) && !fs.existsSync(path.join(TMP, 'nofilter.json')), 'без фильтра доменов файл записан: ' + no.err);
+    const r = run('device_context.js', ['state', '--cdp', cdp.url, '--out', out, '--domains', '127.0.0.1']);
+    assert(r.code === 0 && r.json.cookies === 1 && r.json.dropped === 2, r.out + r.err);
+    assert(r.json.origins === 1 && r.json.sessionStorage === 1 && r.json.domains.join() === '127.0.0.1', r.out);
+    assert(!/secret-value|other-secret|mail\.example/.test(r.out + r.err), 'значение или чужой домен попали в вывод');
+    assert(/секрет/.test(r.err) && /state-rm/.test(r.err), 'нет предупреждения о секрете');
     if (process.platform !== 'win32') assert((fs.statSync(out).mode & 0o777) === 0o600, 'права файла');
+    const saved = JSON.parse(fs.readFileSync(out, 'utf8'));
+    assert(saved.cookies.every(c => c.domain === '127.0.0.1') && saved.origins[0].localStorage.some(x => x.name === 'k'), JSON.stringify(saved).slice(0, 300));
     const after = await ctx.cookies(B);
     assert(after.some(c => c.name === 'session'), 'cookie пользователя пропала');
     assert((await page.evaluate(() => localStorage.getItem('k'))) === 'v', 'localStorage очищен');
-    // The emulated device gets the login.
+    // The emulated device gets the login (cookie, localStorage and sessionStorage); --delete-state removes the file.
     const scen = path.join(TMP, 'scen.js');
-    fs.writeFileSync(scen, 'module.exports = async ({ page }) => ({ c: await page.evaluate(() => document.cookie) });');
-    const d = run('device_context.js', ['run', '--devices', 'pixel7', '--url', B + '/guard-actions.html', '--cdp', cdp.url, '--scenario', scen]);
-    assert(d.json.results[0].auth === 'storageState' && /session=/.test(d.json.results[0].data.c), JSON.stringify(d.json));
+    fs.writeFileSync(scen, 'module.exports = async ({ page }) => ({ c: await page.evaluate(() => document.cookie), l: await page.evaluate(() => localStorage.getItem("k")), s: await page.evaluate(() => sessionStorage.getItem("lang")) });');
+    const copy = path.join(TMP, 'auth-copy.json'); fs.copyFileSync(out, copy);
+    const d = run('device_context.js', ['run', '--devices', 'pixel7', '--url', B + '/guard-actions.html', '--state', copy, '--delete-state', '--scenario', scen]);
+    const res0 = d.json.results[0];
+    assert(res0.auth === 'storageState' && /session=/.test(res0.data.c) && res0.data.l === 'v' && res0.data.s === 'ru', JSON.stringify(d.json));
+    assert(!fs.existsSync(copy) && d.json.stateDeleted, 'файл состояния не удалён после run --delete-state');
+    const d2 = run('device_context.js', ['run', '--devices', 'pixel7', '--url', B + '/guard-actions.html', '--cdp', cdp.url, '--scenario', scen]);
+    assert(d2.json.results[0].auth === 'storageState' && /session=/.test(d2.json.results[0].data.c), JSON.stringify(d2.json));
+    const rm = run('device_context.js', ['state-rm', '--out', out]);
+    assert(rm.json.removed === true && !fs.existsSync(out), 'state-rm: ' + rm.out);
     await b.close();
+  });
+
+  await t('device_context media (S-4): телефон — pointer:coarse; WxH — десктоп с предупреждением; WxH@mobile — касания', async () => {
+    const r = run('device_context.js', ['media', '--devices', 'pixel7,412x915,412x915@mobile']);
+    const m = Object.fromEntries(r.json.media.map(x => [x.device, x]));
+    assert(m.pixel7.pointerCoarse && m.pixel7.touchValid && m.pixel7.expectsTouch, JSON.stringify(m.pixel7));
+    assert(!m['412x915'].pointerCoarse && !m['412x915'].touchValid && /WxH@mobile/.test(m['412x915'].warning), JSON.stringify(m['412x915']));
+    assert(m['412x915@mobile'].pointerCoarse && m['412x915@mobile'].hoverNone && m['412x915@mobile'].maxTouchPoints >= 1, JSON.stringify(m['412x915@mobile']));
   });
 
   // ---------------- invariants.js ----------------

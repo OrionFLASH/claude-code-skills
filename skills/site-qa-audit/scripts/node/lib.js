@@ -16,10 +16,27 @@ function parseArgs(argv, defaults = {}) {
   return out;
 }
 
+// Guard cannot decide (no rules file, broken file, Python bridge failed): exit code 4, the caller stops.
+class GuardUnavailableError extends Error {
+  constructor(reason, extra = {}) {
+    super('guard недоступен — СТОП, переход/действие не выполнено: ' + reason);
+    this.name = 'GuardUnavailableError';
+    this.exitCode = 4;
+    this.decision = { decision: 'unavailable', rule: 'guard:unavailable', reason, ...extra };
+  }
+}
+
 // rules.json — вывод `url_guard.py export --config run-config.yaml --out rules.json`.
+// Fail closed: a path that is given but missing or broken is an error (code 4), never «no rules».
 function loadRules(file) {
   if (!file) return null;
-  return JSON.parse(fs.readFileSync(file, 'utf8'));
+  if (file === true) throw new GuardUnavailableError('--rules без пути к rules.json');
+  let rules;
+  try { rules = JSON.parse(fs.readFileSync(file, 'utf8')); }
+  catch (e) { throw new GuardUnavailableError(`rules.json не прочитан (${file}): ${e.code || e.message}`); }
+  if (!rules || typeof rules !== 'object' || !rules.rules || !rules.base)
+    throw new GuardUnavailableError(`rules.json не похож на вывод url_guard.py export: ${file}`);
+  return rules;
 }
 
 function hostMatches(host, pattern) {
@@ -42,22 +59,38 @@ function hostpathMatches(host, pathname, pattern) {
 
 // Упрощённое зеркало url_guard.check_url для краулинга и route-обработчиков. Окончательное решение — url_guard.py.
 // kind: 'nav' (main-frame navigation) | 'subframe' (iframe document: only explicit bans, external is allowed).
-function navAllowed(url, rules, kind = 'nav') {
+// opts.readOnly (main-frame nav only) mirrors `url_guard.py nav --read-only`: the purchase/donate part of the base
+// path ban and user URL bans matching rules.read_only_urls are lifted; OAuth, logout, hosts — never.
+function navAllowed(url, rules, kind = 'nav', opts = {}) {
   let u;
   try { u = new URL(url); } catch { return { ok: false, reason: 'некорректный URL' }; }
   if (/^(about|data|blob):$/.test(u.protocol)) return { ok: true };
   if (!/^https?:$/.test(u.protocol)) return { ok: false, reason: `схема ${u.protocol}` };
   if (!rules) return { ok: true };
   const r = rules.rules, b = rules.base;
+  const ro = !!opts.readOnly && kind === 'nav';
+  const lifted = [];
   for (const p of r.forbidden_domains || []) if (hostpathMatches(u.hostname, u.pathname, p)) return { ok: false, reason: `forbidden_domains: ${p}`, rule: `user:forbidden_domains:${p}` };
   for (const p of b.deny_nav_hosts || []) if (hostpathMatches(u.hostname, u.pathname, p)) return { ok: false, reason: `base:nav-host ${p}`, rule: 'base:nav-host' };
-  if (new RegExp(b.deny_path_regex, 'i').test(u.pathname + u.search)) return { ok: false, reason: 'base:nav-path', rule: 'base:nav-path' };
-  for (const p of r.forbidden_url_patterns || []) if (new RegExp(p, 'i').test(url)) return { ok: false, reason: `forbidden_url_patterns: ${p}`, rule: `user:forbidden_url_patterns:${p}` };
+  const pq = u.pathname + u.search;
+  if (new RegExp(b.deny_path_regex, 'i').test(pq)) {
+    if (ro && b.read_only_path_regex && new RegExp(b.read_only_path_regex, 'i').test(pq) &&
+        !new RegExp(b.never_read_only_path_regex || '$^', 'i').test(pq)) lifted.push('base:nav-path');
+    else return { ok: false, reason: 'base:nav-path', rule: 'base:nav-path' };
+  }
+  const roOk = ro && (r.read_only_urls || []).some(p => new RegExp(p, 'i').test(url));
+  for (const p of r.forbidden_url_patterns || []) if (new RegExp(p, 'i').test(url)) {
+    if (roOk) { lifted.push(`user:forbidden_url_patterns:${p}`); continue; }
+    return { ok: false, reason: `forbidden_url_patterns: ${p}`, rule: `user:forbidden_url_patterns:${p}` };
+  }
   if (kind === 'subframe') return { ok: true };
-  for (const p of r.exclude_patterns || []) if (new RegExp(p, 'i').test(url)) return { ok: false, reason: `exclude_patterns: ${p}`, rule: `user:exclude_patterns:${p}` };
+  for (const p of r.exclude_patterns || []) if (new RegExp(p, 'i').test(url)) {
+    if (roOk) { lifted.push(`user:exclude_patterns:${p}`); continue; }
+    return { ok: false, reason: `exclude_patterns: ${p}`, rule: `user:exclude_patterns:${p}` };
+  }
   if ((r.allowed_domains || []).length && !r.allowed_domains.some(p => hostMatches(u.hostname, p)))
     return { ok: false, reason: 'outside-allowlist', rule: 'base:outside-allowlist', external: true };
-  return { ok: true };
+  return lifted.length ? { ok: true, readOnly: true, rule: 'read-only:' + lifted[0] } : { ok: true };
 }
 
 function resourceBlocked(url, rules) {
@@ -113,5 +146,13 @@ function appendJsonl(file, obj) {
   fs.appendFileSync(file, JSON.stringify({ ts: new Date().toISOString(), ...obj }) + '\n');
 }
 
-module.exports = { parseArgs, loadRules, navAllowed, resourceBlocked, guardContext, hostMatches, hostpathMatches, sleep, writeOut,
+// Browser launch options shared by all scripts: a VISIBLE window by default (user requirement);
+// SITE_QA_HEADLESS=1 hides it, SITE_QA_SLOWMO=<ms> slows visible actions down (default 250).
+function launchOptions(extra = {}) {
+  const headless = extra.headless !== undefined ? !!extra.headless : process.env.SITE_QA_HEADLESS === '1';
+  const { headless: _h, ...rest } = extra;
+  return { headless, ...(headless ? {} : { slowMo: Number(process.env.SITE_QA_SLOWMO || 250) }), ...rest };
+}
+
+module.exports = { GuardUnavailableError, launchOptions, parseArgs, loadRules, navAllowed, resourceBlocked, guardContext, hostMatches, hostpathMatches, sleep, writeOut,
   urlsFromArgs, loadRunConfig, multiArg, appendJsonl };

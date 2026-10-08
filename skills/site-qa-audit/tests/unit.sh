@@ -17,6 +17,8 @@ ok(){ echo "PASS $1"; pass=$((pass+1)); }; bad(){ echo "FAIL $1"; fail=$((fail+1
   && ok "url_guard export" || bad "url_guard export"
 set +e; "$PY" "$S/url_guard.py" nav https://evil.test/ --config "$HERE/../templates/run-config.example.yaml" >/dev/null; c=$?; set -e
 [ $c -eq 3 ] && ok "url_guard nav outside allowlist -> deny" || bad "url_guard nav outside allowlist ($c)"
+set +e; "$PY" "$S/url_guard.py" nav https://example.com/ --config "$TMP/missing.yaml" >/dev/null; c=$?; set -e
+[ $c -eq 4 ] && ok "url_guard: нет конфига -> 4 (fail closed)" || bad "url_guard fail closed ($c)"
 
 cp "$F/findings.json" "$TMP/f.json"
 "$PY" "$S/fingerprint.py" compute "$TMP/f.json" >/dev/null
@@ -99,6 +101,11 @@ bash "$HERE/test_v12.sh" > "$TMP/v12.log" 2>&1 \
 # 1.2.1: qa-runs/ in .gitignore by default (ensure/untrack), git.allow_commit_results in intake, export_results.py
 bash "$HERE/test_v121.sh" > "$TMP/v121.log" 2>&1 \
   && ok "v1.2.1 ($(tail -1 "$TMP/v121.log"))" || { cat "$TMP/v121.log"; bad "v1.2.1"; }
+
+# 1.3.0: fail-closed guard (code 4), read-only, skill_dir, ingest_findings, recheck, tabs, claims preconditions,
+# render_draft group, direct_publish, legal second check
+PY="$PY" bash "$HERE/test_v130.sh" > "$TMP/v130.log" 2>&1 \
+  && ok "v1.3.0 ($(tail -1 "$TMP/v130.log"))" || { cat "$TMP/v130.log"; bad "v1.3.0"; }
 
 # Browser suites B and C: need node + scripts/node/node_modules/playwright + Chromium; otherwise SKIP.
 # Set QA_SKIP_BROWSER=1 to skip them explicitly.

@@ -105,4 +105,4 @@ async function fetchStatus(url) {
   };
   writeOut(args.out, { tool: 'links', start, crawled: pages.length, pages, broken, seo, external: [...external.keys()],
     externalChecked, skipped, unvisited, note: 'Статический обход без JS: для SPA карту дополняет разведка в браузере' });
-})().catch(e => { console.error(e); process.exit(1); });
+})().catch(e => { console.error(e); process.exit((e && e.exitCode) || 1); });

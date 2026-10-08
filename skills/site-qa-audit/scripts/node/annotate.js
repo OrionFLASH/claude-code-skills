@@ -258,7 +258,7 @@ if (require.main === module) {
     const out = a.out && a.out !== true ? a.out : a.in.replace(/\.png$/i, '') + '-annotated.png';
     const report = await annotate(a.in, spec, out);
     console.log(JSON.stringify({ out: path.resolve(out), items: report }));
-  })().catch(e => { console.error(e); process.exit(1); });
+  })().catch(e => { console.error(e); process.exit((e && e.exitCode) || 1); });
 }
 
 module.exports = { annotate, render, PALETTE };

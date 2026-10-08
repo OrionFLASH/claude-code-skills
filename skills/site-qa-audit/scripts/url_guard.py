@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 """Проверка URL и действий по базовым и пользовательским запретам site-qa-audit.
 
-Команды (все печатают JSON, код выхода 0 = allow, 2 = confirm, 3 = deny):
-  url_guard.py nav URL --config run-config.yaml        переход на страницу
+Команды (все печатают JSON, код выхода 0 = allow, 2 = confirm, 3 = deny, 4 = guard недоступен):
+  url_guard.py nav URL --config run-config.yaml [--read-only] [--log <RUN_DIR>/logs/read-only.jsonl]
+                                                       переход на страницу; --read-only — только чтение страницы
+                                                       (без кликов и отправок): снимает запрет путей покупки/доната
+                                                       и rules.read_only_urls, но не OAuth, выход, удаление аккаунта,
+                                                       чужие хосты и платёжные шлюзы
   url_guard.py resource URL --config ...               загрузка ресурса (скрипт, тайл, шрифт)
   url_guard.py action --text "Купить" [--name "<aria-label>"] [--role button] [--selector "#buy"]
                [--url URL] [--context "текст диалога/страницы"] --config ...
@@ -11,6 +15,10 @@
   url_guard.py selftest                                встроенные проверки
 
 Базовые запреты зашиты в код и не отключаются конфигом.
+
+Fail closed: любая ошибка (нет --config или файла, ошибка разбора YAML, неверный регэксп в правилах, неверные
+аргументы, внутренняя ошибка) -> JSON {"decision": "unavailable", ...} и код 4. Код 4, любой код кроме 0/2/3,
+«No such file» или пустой вывод = СТОП: переход или действие не выполнять (references/safety-rules.md §3, §4).
 """
 import argparse
 import fnmatch
@@ -24,8 +32,8 @@ from urllib.parse import urlsplit
 sys.path.insert(0, str(Path(__file__).resolve().parent / "shared"))
 import miniyaml  # noqa: E402  (вендорится из shared/scripts)
 
-ALLOW, CONFIRM, DENY = "allow", "confirm", "deny"
-EXIT = {ALLOW: 0, CONFIRM: 2, DENY: 3}
+ALLOW, CONFIRM, DENY, UNAVAILABLE = "allow", "confirm", "deny", "unavailable"
+EXIT = {ALLOW: 0, CONFIRM: 2, DENY: 3, UNAVAILABLE: 4}
 
 # ---- Базовые запреты: навигация ----
 # Хосты, переход на которые запрещён всегда (вход через внешние аккаунты, платёжные шлюзы).
@@ -46,6 +54,15 @@ BASE_DENY_NAV_HOSTS = [
 BASE_DENY_PATH_RX = re.compile(
     r"(/openid/login|/oauth2?/authorize|/oauth/authorize|/o/oauth2|/authorize\?.*client_id=|"
     r"/checkout|/payment|/pay/|/billing|/subscribe|/donate|"
+    r"/account/delete|/delete-account|/close-account|/logout|/signout|/sign-out)",
+    re.I,
+)
+# Режим только чтения (nav --read-only): эти части базового запрета путей снимаются — страницу покупки/доната
+# можно открыть и прочитать (цены, тексты согласий), ничего не нажимая. Остальные части (OAuth, выход, удаление
+# аккаунта) не снимаются никогда: GET на них уже действие.
+READ_ONLY_PATH_RX = re.compile(r"(/checkout|/payment|/pay/|/billing|/subscribe|/donate)", re.I)
+NEVER_READ_ONLY_PATH_RX = re.compile(
+    r"(/openid/login|/oauth2?/authorize|/oauth/authorize|/o/oauth2|/authorize\?.*client_id=|"
     r"/account/delete|/delete-account|/close-account|/logout|/signout|/sign-out)",
     re.I,
 )
@@ -138,18 +155,53 @@ def rules_of(cfg):
         "require_confirmation_actions": r.get("require_confirmation_actions") or [],
         # Заранее одобренные пользователем действия: снимают только уровень confirm, никогда deny.
         "preapproved_actions": r.get("preapproved_actions") or [],
+        # Регэкспы URL, которые пользователь разрешил открывать в режиме только чтения (nav --read-only),
+        # даже если они попадают под forbidden_url_patterns / exclude_patterns (страницы входа, покупки).
+        "read_only_urls": r.get("read_only_urls") or [],
     }
+
+
+class GuardUnavailable(Exception):
+    """Guard cannot decide (bad config, bad rule, bad input): the caller must stop."""
+
+
+def validate_rules(cfg):
+    """Compile every user regex up front: a broken rule makes the guard unavailable, never permissive."""
+    rules = rules_of(cfg)
+    for key in ("forbidden_url_patterns", "exclude_patterns", "read_only_urls"):
+        if not isinstance(rules[key], list):
+            raise GuardUnavailable(f"{key} должен быть списком")
+        for pat in rules[key]:
+            try:
+                re.compile(pat)
+            except (re.error, TypeError) as ex:
+                raise GuardUnavailable(f"неверный регэксп в {key}: {pat!r} ({ex})")
+    for key in ("forbidden_actions", "require_confirmation_actions", "preapproved_actions"):
+        for rule in rules[key]:
+            if not isinstance(rule, dict):
+                raise GuardUnavailable(f"{key}: правило должно быть словарём, получено {rule!r}")
+            if rule.get("url_pattern"):
+                try:
+                    re.compile(rule["url_pattern"])
+                except (re.error, TypeError) as ex:
+                    raise GuardUnavailable(f"неверный url_pattern в {key} {rule.get('id')}: {ex}")
+    return rules
 
 
 def result(decision, kind, target, reason, rule):
     return {"decision": decision, "kind": kind, "target": target, "reason": reason, "rule": rule}
 
 
-def check_url(url, cfg, kind="nav"):
+def check_url(url, cfg, kind="nav", read_only=False):
+    """read_only (only kind == "nav", nav --read-only): lift the purchase/donate part of the base path ban and
+    user URL bans matching rules.read_only_urls. Never lifted: schemes, forbidden_domains, login/payment hosts,
+    OAuth, logout, account deletion, hosts outside allowed_domains."""
     rules = rules_of(cfg)
     parts = urlsplit(url)
     host, path = (parts.hostname or "").lower(), parts.path or "/"
     full = url if not parts.query else url
+    ro = read_only and kind == "nav"
+    lifted = []
     if parts.scheme in ("javascript", "data", "blob", "about", "chrome", "file"):
         if kind == "nav" and parts.scheme in ("javascript", "file", "chrome"):
             return result(DENY, kind, url, f"схема {parts.scheme}: не переходить", "base:scheme")
@@ -168,18 +220,34 @@ def check_url(url, cfg, kind="nav"):
     for pat in BASE_DENY_NAV_HOSTS:
         if hostpath_matches(host, path, pat):
             return result(DENY, kind, url, f"внешний вход/оплата/донат ({pat}) — базовый запрет", "base:nav-host")
-    if BASE_DENY_PATH_RX.search(path + ("?" + parts.query if parts.query else "")):
-        return result(DENY, kind, url, "путь OAuth/оплаты/подписки/удаления/выхода — базовый запрет", "base:nav-path")
+    path_q = path + ("?" + parts.query if parts.query else "")
+    if BASE_DENY_PATH_RX.search(path_q):
+        if ro and READ_ONLY_PATH_RX.search(path_q) and not NEVER_READ_ONLY_PATH_RX.search(path_q):
+            lifted.append("base:nav-path")
+        else:
+            return result(DENY, kind, url, "путь OAuth/оплаты/подписки/удаления/выхода — базовый запрет", "base:nav-path")
+    ro_ok = ro and any(re.search(p, full, re.I) for p in rules["read_only_urls"])
     for pat in rules["forbidden_url_patterns"]:
         if re.search(pat, full, re.I):
+            if ro_ok:
+                lifted.append(f"user:forbidden_url_patterns:{pat}")
+                continue
             return result(DENY, kind, url, f"URL запрещён пользователем: /{pat}/", f"user:forbidden_url_patterns:{pat}")
     for pat in rules["exclude_patterns"]:
         if re.search(pat, full, re.I):
+            if ro_ok:
+                lifted.append(f"user:exclude_patterns:{pat}")
+                continue
             return result(DENY, kind, url, f"исключено из охвата: /{pat}/", f"user:exclude_patterns:{pat}")
     allowed = rules["allowed_domains"]
     if allowed and not any(host_matches(host, p) for p in allowed):
         return result(DENY, kind, url, f"хост {host} вне allowed_domains — внешняя страница, не проверялась",
                       "base:outside-allowlist")
+    if lifted:
+        res = result(ALLOW, kind, url, "только чтение: открыть и прочитать, НИЧЕГО не нажимать и не отправлять "
+                     f"(снят запрет {', '.join(lifted)})", "read-only:" + lifted[0])
+        res["read_only"] = True
+        return res
     return result(ALLOW, kind, url, "в пределах разрешённых доменов", None)
 
 
@@ -263,6 +331,8 @@ def export(cfg):
         "base": {
             "deny_nav_hosts": BASE_DENY_NAV_HOSTS,
             "deny_path_regex": BASE_DENY_PATH_RX.pattern,
+            "read_only_path_regex": READ_ONLY_PATH_RX.pattern,
+            "never_read_only_path_regex": NEVER_READ_ONLY_PATH_RX.pattern,
             "blocked_origins": BASE_BLOCKED_ORIGINS,
         },
         "throttle_ms": (cfg.get("parallel") or {}).get("throttle_ms", 1500),
@@ -284,6 +354,12 @@ def selftest():
     cfg_pre = {"site": cfg["site"], "rules": {"preapproved_actions": [
         {"id": "P1", "source": "можно удалять собственные тестовые задачи", "texts": ["×", "Delete", "Купить"],
          "context": "todos"}]}}
+    cfg_ro = {"site": cfg["site"], "rules": dict(cfg["rules"], read_only_urls=["/profile/"])}
+    try:
+        validate_rules({"rules": {"forbidden_url_patterns": ["(unclosed"]}})
+        bad_regex_detected = False
+    except GuardUnavailable:
+        bad_regex_detected = True
     cases = [
         (check_url("https://example.com/a", cfg), ALLOW),
         (check_url("https://sub.example.com/a", cfg), ALLOW),
@@ -314,6 +390,20 @@ def selftest():
         (check_action("Google", cfg, context="Карта. Источник: Google Maps"), ALLOW),
         (check_action("Поддержать", cfg), DENY),
         (check_action("Поддержать проект ♥", cfg), DENY),
+        # nav --read-only (S-8): purchase/donate pages may be read; OAuth, logout, gateways, foreign hosts — never
+        (check_url("https://example.com/donate", cfg, read_only=True), ALLOW),
+        (check_url("https://example.com/donate", cfg), DENY),
+        (check_url("https://example.com/checkout?plan=pro", cfg, read_only=True), ALLOW),
+        (check_url("https://example.com/logout", cfg, read_only=True), DENY),
+        (check_url("https://example.com/oauth/authorize?client_id=1", cfg, read_only=True), DENY),
+        (check_url("https://checkout.stripe.com/pay/x", cfg, read_only=True), DENY),
+        (check_url("https://evil.test/donate", cfg, read_only=True), DENY),
+        (check_url("https://example.com/profile/1", cfg, read_only=True), DENY),
+        (check_url("https://example.com/profile/1", cfg_ro, read_only=True), ALLOW),
+        (check_url("https://example.com/profile/1", cfg_ro), DENY),
+        (check_url("https://ads.example.net/donate", cfg, read_only=True), DENY),
+        # fail closed: a broken user regex makes the guard unavailable
+        ({"decision": DENY if bad_regex_detected else ALLOW}, DENY),
     ]
     failed = [(c, exp) for c, exp in cases if c["decision"] != exp]
     for c, exp in failed:
@@ -322,8 +412,32 @@ def selftest():
     return 1 if failed else 0
 
 
+class FailClosedParser(argparse.ArgumentParser):
+    """Bad arguments are a guard failure (code 4), not argparse's code 2 (which means «confirm» here)."""
+
+    def error(self, message):
+        unavailable(f"неверные аргументы: {message}")
+
+
+def unavailable(reason):
+    print(json.dumps(result(UNAVAILABLE, "guard", None, "guard недоступен — СТОП, переход/действие не выполнять: "
+                            + reason, "guard:unavailable"), ensure_ascii=False))
+    sys.exit(EXIT[UNAVAILABLE])
+
+
+def append_log(path, entry):
+    if not path:
+        return
+    from datetime import datetime, timezone
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with p.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(dict(ts=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), **entry),
+                            ensure_ascii=False) + "\n")
+
+
 def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = FailClosedParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("command", choices=["nav", "resource", "action", "blocked-origins", "export", "selftest"])
     ap.add_argument("target", nargs="?")
     ap.add_argument("--config")
@@ -333,15 +447,33 @@ def main():
     ap.add_argument("--url")
     ap.add_argument("--context")
     ap.add_argument("--name", help="доступное имя элемента: aria-label / title / alt")
+    ap.add_argument("--read-only", action="store_true",
+                    help="nav: страница только для чтения, без кликов и отправок (safety-rules.md §3.13)")
+    ap.add_argument("--log", help="nav --read-only: дописать «прочитано без действий» в этот JSONL")
     ap.add_argument("--out")
     a = ap.parse_args()
     if a.command == "selftest":
         sys.exit(selftest())
-    cfg = load_config(a.config)
+    if a.command in ("nav", "resource", "action", "export") and not a.config:
+        unavailable("нет --config <RUN_DIR>/run-config.yaml: без правил прогона guard ничего не разрешает")
+    if a.config and not Path(a.config).is_file():
+        unavailable(f"файл конфига не найден: {a.config}")
+    try:
+        cfg = load_config(a.config)
+        if not isinstance(cfg, dict):
+            raise GuardUnavailable("конфиг прогона пустой или не словарь")
+        validate_rules(cfg)
+    except GuardUnavailable as ex:
+        unavailable(str(ex))
+    except Exception as ex:  # noqa: BLE001 — any parse failure must stop the caller
+        unavailable(f"конфиг не прочитан: {type(ex).__name__}: {ex}")
     if a.command in ("nav", "resource"):
         if not a.target:
             ap.error("нужен URL")
-        res = check_url(a.target, cfg, a.command)
+        res = check_url(a.target, cfg, a.command, read_only=a.read_only)
+        if res.get("read_only"):
+            append_log(a.log, {"type": "read-only", "decision": "allow", "url": a.target, "rule": res["rule"],
+                               "note": "прочитано без действий"})
     elif a.command == "action":
         if a.text is None and a.selector is None and a.name is None:
             ap.error("нужен --text, --name или --selector")
@@ -364,4 +496,9 @@ def main():
 if __name__ == "__main__":
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
-    main()
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception as ex:  # noqa: BLE001 — fail closed: an unexpected error is never «allow»
+        unavailable(f"внутренняя ошибка: {type(ex).__name__}: {ex}")

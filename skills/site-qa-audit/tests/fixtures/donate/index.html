@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Фикстура: страница доната (режим только чтения)</title></head>
+<body>
+<h1>Поддержать проект</h1>
+<p id="price">Подписка Pro — 199 ₽ в месяц</p>
+<label><input type="checkbox" id="consent"> Я согласен с офертой</label>
+<button id="pay" type="button">Оплатить 199 ₽</button>
+<button id="ping" type="button">Обновить цену</button>
+<div id="out"></div>
+<script>
+  // A background POST must not leave the browser in read-only mode.
+  fetch('/donate/order', { method: 'POST', body: 'x' }).then(r => { document.getElementById('out').dataset.post = String(r.status); })
+    .catch(() => { document.getElementById('out').dataset.post = 'blocked'; });
+  document.getElementById('ping').onclick = () => { document.getElementById('out').textContent = 'clicked'; };
+</script>
+</body></html>

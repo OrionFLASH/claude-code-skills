@@ -190,7 +190,7 @@ if (require.main === module) {
     let configs = configsFrom({ sizes: a.sizes, devices: a.device, browser: a.browser });
     if (!configs.length) configs = configsFrom({ sizes: '720x450', devices: 'pixel7-landscape' });
     let state = a.state ? JSON.parse(fs.readFileSync(a.state, 'utf8')) : undefined;
-    if (a.cdp) state = await captureState(a.cdp);
+    if (a.cdp) state = await captureState(a.cdp, rules && rules.rules.allowed_domains);
     const selectors = multiArg(process.argv.slice(2), 'selector');
     const runs = [];
     for (const cfg of configs) {
@@ -210,9 +210,9 @@ if (require.main === module) {
         const items = await check(dev.page, { frames: a.frames, selectors, max: +a.max, touch: !!cfg.options.hasTouch, engine: cfg.engine });
         runs.push({ url, config: cfg.name, engine: cfg.engine, engineNote: cfg.engineNote, viewport: dev.page.viewportSize(), items,
           unreachable: items.filter(i => i.verdict === 'недостижим').length });
-      } catch (e) { runs.push({ url, config: cfg.name, error: String(e.message || e).split('\n')[0] }); }
+      } catch (e) { if (e && e.exitCode === 4) throw e; runs.push({ url, config: cfg.name, error: String(e.message || e).split('\n')[0] }); }
       finally { if (dev) await dev.close().catch(() => {}); }
     }
     writeOut(a.out, { tool: 'reachability', runs, unreachable: runs.reduce((s, r) => s + (r.unreachable || 0), 0) });
-  })().catch(e => { console.error(e); process.exit(1); });
+  })().catch(e => { console.error(e); process.exit((e && e.exitCode) || 1); });
 }

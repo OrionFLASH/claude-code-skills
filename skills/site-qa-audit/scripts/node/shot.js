@@ -204,7 +204,7 @@ function cli() {
         try {
           dev = await openTarget(a, s);
           results.push({ name: s.name, ...(await shoot(dev.page, { ...common, targets: s.targets, out: path.join(dir, s.name + '.png') })) });
-        } catch (e) { results.push({ name: s.name, error: String(e.message || e).split('\n')[0] }); }
+        } catch (e) { if (e && e.exitCode === 4) throw e; results.push({ name: s.name, error: String(e.message || e).split('\n')[0] }); }
         finally { if (dev) await dev.close().catch(() => {}); }
       }
       const annotated = results.filter(r => r.annotated).map(r => r.annotated);
@@ -219,7 +219,7 @@ function cli() {
       const res = await shoot(dev.page, { ...common, targets, out: a.out });
       console.log(JSON.stringify(res, null, 1));
     } finally { await dev.close().catch(() => {}); }
-  })().catch(e => { console.error(String(e.message || e)); process.exit(1); });
+  })().catch(e => { console.error(String(e.message || e)); process.exit((e && e.exitCode) || 1); });
 }
 
 module.exports = { shoot, contactSheet, parseTarget, boxOf, annotateBest, selfCheck, cli };

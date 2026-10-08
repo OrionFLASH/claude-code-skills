@@ -45,4 +45,4 @@ const { pageText } = require('./frames');
   }
   await browser.close();
   writeOut(args.out, { tool: 'axe-core', frames: args.frames, browser: args.browser, viewport: `${args.width}x${args.height}`, blocked, results });
-})().catch(e => { console.error(e); process.exit(1); });
+})().catch(e => { console.error(e); process.exit((e && e.exitCode) || 1); });
