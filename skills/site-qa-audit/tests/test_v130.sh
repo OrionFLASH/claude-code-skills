@@ -199,4 +199,31 @@ check "claims plan --account-states guest,free: пункты с Pro помече
   '$PY' '$S/claims.py' plan '$F/registry-claims.json' --account-states guest,free --out '$TMP/plan2.md' >/dev/null;
   grep -q 'нет нужного состояния аккаунта (с Pro' '$TMP/plan2.md' && grep -q 'Не хватает: с Pro' '$TMP/plan2.md'"
 
+# ---------- S-6/S-7: tabs.py ----------
+TB="$S/tabs.py"; TR="$TMP/run-tabs"; mkdir -p "$TR"
+check "tabs open: одна вкладка на профиль — вторая -> код 3 и запись существующей" sh -c "
+  '$PY' '$TB' open '$TR' --owner qa-ux --profile pixel7 --tool cli --url https://example.com/ | grep -q '\"id\": \"T-001\"' &&
+  out=\$('$PY' '$TB' open '$TR' --owner qa-ux --profile pixel7 --tool cli); test \$? = 3 && echo \"\$out\" | grep -q 'используйте эту' &&
+  '$PY' '$TB' open '$TR' --owner qa-ux --profile desktop --tool cli >/dev/null &&
+  '$PY' '$TB' open '$TR' --owner qa-a11y --profile pixel7 --tool cli >/dev/null"
+CDPP="$("$PY" -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1]); s.close()')"
+printf '{"pages": [{"id": "U1", "type": "page", "url": "https://example.com/"}, {"id": "U2", "type": "page", "url": "https://example.com/"}, {"id": "Q9", "type": "page", "url": "https://example.com/map"}, {"id": "M1", "type": "page", "url": "https://mail.example/inbox"}]}' > "$TMP/cdp.json"
+"$PY" "$HERE/helpers/fake_cdp.py" "$CDPP" "$TMP/cdp.json" & CDPPID=$!
+for _ in 1 2 3 4 5 6 7 8 9 10; do "$PY" -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:$CDPP/json/list')" 2>/dev/null && break; sleep 0.2; done
+"$PY" "$TB" open "$TR" --owner qa-ux --profile phone-tab --tool cdp --target-id Q9 --url https://example.com/map >/dev/null
+check "tabs audit: дубли одного URL и незарегистрированные вкладки сайта; ничего не закрыто" sh -c "
+  '$PY' '$TB' audit '$TR' --cdp http://127.0.0.1:$CDPP --domains example.com | '$PY' -c \"
+import json,sys; d=json.load(sys.stdin)
+assert d['duplicates'][0]['count']==2 and d['site_pages']==3 and len(d['unregistered_site_tabs'])==2, d\" &&
+  '$PY' -c \"import json; assert len(json.load(open('$TMP/cdp.json'))['pages'])==4\""
+check "tabs cleanup: без --yes — только план; --yes закрывает только свою CDP-вкладку (Q9), CLI — команда close своей сессии" sh -c "
+  '$PY' '$TB' cleanup '$TR' --owner qa-ux --cdp http://127.0.0.1:$CDPP | grep -q 'playwright-cli -s=qa-ux close' &&
+  '$PY' -c \"import json; assert len(json.load(open('$TMP/cdp.json'))['pages'])==4\" &&
+  '$PY' '$TB' cleanup '$TR' --owner qa-ux --cdp http://127.0.0.1:$CDPP --yes >/dev/null &&
+  '$PY' -c \"import json; s=json.load(open('$TMP/cdp.json')); assert s['closed']==['Q9'] and len(s['pages'])==3, s\""
+check "tabs close/list: вкладки помечаются закрытыми; чужие (qa-a11y) не тронуты" sh -c "
+  '$PY' '$TB' close '$TR' --owner qa-ux >/dev/null && '$PY' '$TB' list '$TR' --open --json | '$PY' -c \"
+import json,sys; t=json.load(sys.stdin); assert [x['owner'] for x in t]==['qa-a11y'], t\""
+{ kill "$CDPPID"; wait "$CDPPID"; } 2>/dev/null
+
 echo "stream v1.3.0: PASS $pass, FAIL $fail"; [ $fail -eq 0 ]
