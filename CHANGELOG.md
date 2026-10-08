@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+## 2026-10-08 (5)
+### Добавлено
+- Скил `android-qa-audit` 1.0.0 (статус «в разработке»): QA-тестирование Android-приложений по APK, split APK, `.apks`, AAB или установленному пакету на эмуляторах и устройствах через adb — «брат» `site-qa-audit`: подтверждение намерения при автозапуске, опрос (версии Android, ОЗУ, ядра, экран, шрифт, тема, язык, сеть, батарея), память о приложении `.app-context/<package>/`, разбор APK (`apk_info.py`), стенды и AVD `qa-*` (`avd_manager.py`, чужие AVD не меняются), управление устройством под guard (`adb_helpers.py`, `guard.py`: покупки, внешние аккаунты, звонки и SMS — запрет; реальные устройства — только с согласием), матрица «API × железо × вариации» и до 4 потоков (`matrix.py`), черновики issues (dry-run), отчёт, вопрос про `.gitignore` для `qa-runs/` и `*.apk`, уборка эмуляторов; `INSTALL.md` с настройкой Android SDK для macOS, Windows и Linux.
+- `shared/scripts/runjournal.py` (журнал прогона — общий модуль, тот же, что `site-qa-audit/scripts/journal.py`) и `shared/scripts/qa_gitignore.py` (несколько шаблонов, режимы gitignore/exclude/keep); пока вендорятся только в `android-qa-audit`.
+### Изменено
+- README: ссылка на `android-qa-audit/INSTALL.md`.
+
 ## 2026-10-08 (4)
 ### Добавлено
 - Скил `site-qa-audit` 1.2.0: автозапуск по обычным формулировкам о тестировании сайта (RU/EN) с подтверждением намерения, расширенный опрос (что тестируем, успех, куда не переходить, запреты, источники о сайте), память о сайте `.site-context/<host>/context.md`, `report_destinations` (папка, GitHub, Artifact), вопрос про `qa-runs/` в `.gitignore` (`gitignore_helper.py`), до 4 параллельных потоков, `INSTALL.md` (macOS, Windows, промпты для Claude Code). Включает 1.1.1–1.1.2: все файлы прогона только в папке прогона, папка результатов по умолчанию — `<cwd>/qa-runs/`.

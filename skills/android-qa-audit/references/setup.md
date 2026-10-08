@@ -1,0 +1,36 @@
+# Проверка окружения при каждом запуске
+
+## Команда
+```bash
+bash <SKILL_DIR>/scripts/check_env.sh                                  # macOS / Linux
+powershell -ExecutionPolicy Bypass -File <SKILL_DIR>\scripts\check_env.ps1   # Windows
+python3 <SKILL_DIR>/scripts/check_env.py --fast --json <RUN_DIR>/env.json     # после создания папки прогона
+```
+Только чтение: ничего не ставит и не меняет. `--fast` — без `emulator -accel-check`, `java -version`, списка плагинов Claude Code и драйверов Appium; `--no-devices` — без `adb devices` (иначе он запускает сервер adb, если тот не запущен). До опроса папки прогона ещё нет — без `--json`.
+
+## Что проверяется
+| Компонент | Обязательно | Если нет |
+|-----------|-------------|----------|
+| Python 3.9+ | да | установить (только стандартная библиотека, pip не нужен) |
+| Android SDK: platform-tools (adb) | да | `INSTALL.md` → «Android SDK»; найден, но не в PATH — WARN: скил вызывает по полному пути, для терминала — строка для `~/.zshrc` / PowerShell |
+| build-tools (aapt2, apksigner) | да (разбор APK) | `sdkmanager "build-tools;35.0.0"` |
+| emulator + образ под ABI хоста + AVD или cmdline-tools | для эмуляторов | без них — только подключённые устройства; нет ни того, ни другого — FAIL «нет стенда» |
+| cmdline-tools (sdkmanager, avdmanager) | для создания AVD и загрузки образов | Android Studio → SDK Manager или `brew install --cask android-commandlinetools` |
+| Java (JDK 17+) | для sdkmanager, avdmanager, apksigner, bundletool | Temurin 17/21; ранние сборки (`-ea`) работают, avdmanager печатает безвредное «integer expression expected» |
+| Аппаратное ускорение | для эмуляторов | HVF (macOS), WHPX/AEHD (Windows), KVM (Linux) — `INSTALL.md` |
+| ОЗУ, ядра, диск | — | рекомендация числа потоков (`recommended_max_workers`); < 15 ГБ свободно — WARN |
+| Устройства | — | `unauthorized` — подтвердить отладку на телефоне; `offline` — переподключить; `no permissions` — правила udev (Linux) |
+| bundletool | для AAB | `brew install bundletool` или jar + `BUNDLETOOL_JAR` |
+| scrcpy, Maestro, Appium, python uiautomator2 | нет | необязательные усилители (`plugins-map.md`) |
+| gh + вход | только для GitHub issues | `gh auth login` |
+| `ANDROID_QA_OUTPUT_DIR` | нет | без неё — `<cwd>/qa-runs/` (`intake.md` → «Папка прогона») |
+| Скилы-усилители | нет | работа по собственным чек-листам |
+
+## Поведение
+- FAIL в обязательном → показать таблицу, предложить команду из колонки «Как исправить» и `INSTALL.md`; **глобальные установки — только после подтверждения** пользователя, одним списком.
+- WARN → продолжать; ограничение записать в отчёт («API 26 не проверялся: нет образа», «скорость сети не ограничивалась: реальное устройство»).
+- `env.json` — источник для `matrix.py` (образы, хост, ресурсы, устройства) и для `plugins-map.md` (`enhancers`, `banned`).
+- Реальные устройства в списке — ещё не разрешение их использовать (`safety-rules.md` §3, п. 6).
+
+## Оболочка
+В командах не использовать разделители из знаков равенства (`echo =====`): в zsh они ломают команду. Пути с пробелами — в кавычках. На Windows вместо `python3` — `python` или `py -3`; `.sh`-обёртки — в Git Bash или WSL.

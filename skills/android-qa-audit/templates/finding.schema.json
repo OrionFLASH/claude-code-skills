@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "android-qa-audit/finding.schema.json",
+  "title": "android-qa-audit findings.json",
+  "description": "Находки прогона по Android-приложению. Находки исполнителей (потоков) и скриптов приводятся к этому формату; id и fingerprint проставляет оркестратор (fingerprint.py compute). Секреты и персональные данные — замаскированы до записи (safety-rules.md §5).",
+  "type": "object",
+  "required": ["run", "findings"],
+  "properties": {
+    "run": {
+      "type": "object",
+      "required": ["id", "app", "depth", "mode"],
+      "properties": {
+        "id": {"type": "string", "description": "<YYYY-MM-DD>-<package>"},
+        "app": {"type": "string", "description": "package, например com.example.app"},
+        "app_version": {"type": "string", "description": "versionName (versionCode)"},
+        "depth": {"enum": ["smoke", "standard", "deep"]},
+        "mode": {"enum": ["live", "dry-run"]},
+        "started_at": {"type": "string"},
+        "finished_at": {"type": "string"}
+      }
+    },
+    "not_checked": {
+      "type": "array",
+      "description": "Что не проверено и почему (запрет, нет образа, нет стенда, ограничение adb, нужен вход…)",
+      "items": {
+        "type": "object",
+        "required": ["what", "reason"],
+        "properties": {
+          "what": {"type": "string"},
+          "reason": {"type": "string"},
+          "rule": {"type": ["string", "null"], "description": "id правила guard.py, если причина — запрет"},
+          "direction": {"type": "string"},
+          "cell": {"type": "string", "description": "ячейка матрицы c01…"}
+        }
+      }
+    },
+    "findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
+    "metrics": {
+      "type": "array",
+      "description": "Сводка метрик по ячейкам (холодный запуск, память, jank) — для отчёта",
+      "items": {"type": "object"}
+    }
+  },
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "required": ["id", "direction", "check_id", "type", "severity", "title", "screen", "sources"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^F-\\d{3,}$", "description": "F-001…, уникален в прогоне"},
+        "fingerprint": {"type": "string", "pattern": "^[0-9a-f]{16}$"},
+        "direction": {
+          "enum": ["functional", "logic-state", "ux", "visual-ui", "device-config-compat", "lifecycle-resilience",
+                   "accessibility", "performance", "security-passive", "compatibility", "content-i18n"]
+        },
+        "check_id": {"type": "string", "description": "id пункта чек-листа: fn.primary-flow, life.process-death, a11y.missing-label…"},
+        "type": {
+          "enum": ["bug", "crash", "anr", "ux-issue", "a11y", "performance", "content", "security", "visual", "compat",
+                   "proposal", "suggestion", "user-story"]
+        },
+        "severity": {"enum": ["critical", "high", "medium", "low", "info"]},
+        "title": {"type": "string", "maxLength": 120, "description": "Что не так и где, без оценок: «Профиль: текст кнопки «Сохранить» обрезан при шрифте 1.3»"},
+        "package": {"type": "string"},
+        "app_version": {"type": "string"},
+        "screen": {"type": "string", "description": "Экран: activity (com.example.app.ui.ProfileActivity) или название экрана, если activity одна"},
+        "element": {"type": ["string", "null"], "description": "Стабильный локатор: id=<resource-id> или text=\"…\" + класс"},
+        "steps": {"type": "array", "items": {"type": "string"}, "description": "Шаги воспроизведения с чистого запуска"},
+        "expected": {"type": "string"},
+        "actual": {"type": "string"},
+        "environment": {
+          "type": "object",
+          "properties": {
+            "api": {"type": "integer"},
+            "android_version": {"type": "string"},
+            "device_profile": {"type": "string", "description": "phone / low-end / tablet / fold / small / модель реального устройства"},
+            "ram_mb": {"type": "integer"},
+            "cores": {"type": "integer"},
+            "abi": {"type": "string"},
+            "screen": {"type": "string", "description": "WxH@dpi"},
+            "orientation": {"enum": ["portrait", "landscape", null]},
+            "locale": {"type": "string"},
+            "dark_mode": {"type": "boolean"},
+            "font_scale": {"type": "number"},
+            "network": {"type": "string", "description": "wifi / 4g / 3g / edge / offline / switch"},
+            "battery": {"type": "string"},
+            "stand": {"enum": ["own-emulator", "foreign-emulator", "real"]},
+            "avd": {"type": "string"},
+            "cell": {"type": "string", "description": "ячейка матрицы c01…"},
+            "date": {"type": "string"}
+          }
+        },
+        "environment_list": {"type": "array", "items": {"type": "string"}, "description": "Все окружения, где воспроизводится: «API 34 · phone 4 ГБ · dark»"},
+        "repro_rate": {"type": "string", "pattern": "^\\d+/\\d+$", "description": "Воспроизвелось / попыток: 3/3"},
+        "frequency": {"enum": ["always", "sometimes", "once", null]},
+        "crash": {
+          "type": "object",
+          "description": "Падение или ANR",
+          "properties": {
+            "type": {"enum": ["crash", "anr", "native"]},
+            "summary": {"type": "string", "description": "Исключение или причина ANR (замаскировано)"},
+            "process": {"type": "string"},
+            "time": {"type": "string"}
+          }
+        },
+        "logcat_excerpt": {"type": "string", "description": "Относящиеся к находке строки logcat, замаскированные, до ~40 строк"},
+        "logcat_file": {"type": "string", "description": "Путь относительно папки прогона: logs/logcat-….txt"},
+        "screenshots": {"type": "array", "items": {"type": "string"}, "description": "Пути относительно папки прогона"},
+        "recordings": {"type": "array", "items": {"type": "string"}},
+        "ui_dump": {"type": "string", "description": "raw/ui-….xml"},
+        "metrics": {"type": "object", "description": "Числа: TotalTime, janky_percent, total_pss_kb…"},
+        "evidence": {"type": "object", "description": "Направленческие данные; sensitive: true — не публиковать без решения"},
+        "hypothesis": {"type": "string", "description": "Гипотеза причины (без исходников — гипотеза)"},
+        "suggestion": {"type": "string"},
+        "priority": {"enum": ["quick-win", "major-project", "fill-in", "thankless", null]},
+        "sources": {"type": "array", "items": {"type": "string"}, "description": "own:checklist | own:script:<name> | plugin:<name>"},
+        "merged_ids": {"type": "array", "items": {"type": "string"}},
+        "status": {
+          "enum": ["NEW", "DUPLICATE-OPEN", "FIXED-OK", "FIXED-INSUFFICIENT", "REGRESSION", "ALREADY-COPIED", "UNSURE-MATCH",
+                   "NOT-CHECKED", null]
+        },
+        "status_reason": {"type": "string"},
+        "not_checked_reason": {"enum": ["forbidden", "no-stand", "no-image", "adb-limitation", "needs-login", "steps-unclear", "other", null]},
+        "account_state": {"type": ["string", "null"]},
+        "matches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "repo": {"type": "string"},
+              "number": {"type": "integer"},
+              "url": {"type": "string"},
+              "how": {"enum": ["marker", "fuzzy", "manual"]}
+            }
+          }
+        },
+        "question": {"type": ["string", "null"], "description": "Открытый вопрос пользователю (баг или задумано)"},
+        "published": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "repo": {"type": "string"},
+              "number": {"type": "integer"},
+              "url": {"type": "string"},
+              "kind": {"enum": ["issue", "comment", "draft"]}
+            }
+          }
+        },
+        "related": {"type": "array", "items": {"type": "string"}}
+      },
+      "if": {"properties": {"type": {"enum": ["proposal", "user-story", "suggestion"]}}},
+      "else": {"required": ["actual"]},
+      "description": "Находка. actual обязателен для всех типов, кроме proposal, suggestion и user-story."
+    }
+  }
+}

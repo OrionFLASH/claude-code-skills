@@ -1,0 +1,6 @@
+Latency: 2ms [512B Data Write]
+Data-Free: 4000000K / 6000000K total = 66% free
+Package Names: ["com.android.settings","com.example.app"]
+App Sizes: [100000,15000000]
+App Data Sizes: [20000,3000000]
+Cache Sizes: [1000,250000]

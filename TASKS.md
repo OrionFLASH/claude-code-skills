@@ -89,3 +89,26 @@
 - Проверки: `tools/validate.sh` — 0 ошибок, 0 предупреждений; `tests/unit.sh` — PASS 36, FAIL 0 (A 32, v1.2 24, B 29, C 34); pytest typesafe-triage — 200 passed.
 - Осталось: merge fix/default-output-cwd и этой ветки в main, push, теги (делает вызывающий); живой прогон автозапуска и подтверждения намерения в новой сессии Claude Code (здесь не проверялся); промпты INSTALL.md на чистой машине не прогонялись.
 - Следующий шаг: влить ветку, затем в новой сессии сказать «проверь вёрстку https://example.com» и убедиться, что скил спрашивает подтверждение.
+
+## 2026-10-08 android-qa-audit 1.0.0
+Ветка feature/android-qa-audit (от main). Чужая правка `skills/site-qa-audit/scripts/node/device_context.js` не трогается и не коммитится. В main не вливать (делает вызывающий).
+- [x] Изучить CONVENTIONS, tools, site-qa-audit (SKILL, references, scripts, templates, tests)
+- [x] Ветка, каркас через tools/new-skill.sh (README-таблица и marketplace.json)
+- [x] shared: runjournal.py (= journal.py site-qa-audit), qa_gitignore.py (несколько шаблонов) в shared/scripts, .shared, sync
+- [x] scripts: sdkutil, check_env(.py/.sh/.ps1), apk_info, avd_manager, adb_helpers, guard, masking, intake, matrix, journal, build_report, validate_findings, render_draft, fingerprint, gitignore_helper
+- [x] templates: run-config.example.yaml, finding.schema.json, issue-detailed.md, run-report.md, app-context.md
+- [x] references: intake, safety-rules, stands, device-control, depth-matrix, parallelism, plugins-map, run-files, repo-sync, severity, setup, checklists/ (11; чек-листы писал субагент, проверены по командам скриптов)
+- [x] SKILL.md (103 строки, description 972 символа), README.md, INSTALL.md, CHANGELOG 1.0.0, plugin.json 1.0.0, .status «в разработке»
+- [x] tests: unit.sh, helpers/fake_adb.py + fake_tools.py, фикстуры — 110 PASS на Python 3.14 и 3.9 (/usr/bin/python3)
+- [x] Корневые README/CHANGELOG/marketplace (skillsrepo.py sync), validate 0 ошибок
+- [x] Read-only проверки на машине: adb version, aapt2 badging, check_env, apk_info, avd_manager list (+ matrix по реальному env)
+- [x] Найдено по дороге: f-строка с вложенными кавычками (только 3.12+) в avd_manager — исправлено, unit.sh компилирует ещё и интерпретатором < 3.12; формат `emulator -accel-check` на macOS (код статуса, без «usable») — разбор исправлен, тест добавлен; `text --env` писал секрет в actions.jsonl — исправлено, тест
+- [x] Коммит в ветке, «Где остановился»
+- [ ] Не делалось (решение вызывающего/пользователя): merge в main, push, тег `android-qa-audit/v1.0.0`; живой прогон на эмуляторе и устройстве; перевод site-qa-audit на shared runjournal/qa_gitignore
+
+### Где остановился
+2026-10-08, скил android-qa-audit 1.0.0 реализован в ветке feature/android-qa-audit (один коммит; в main не вливался).
+- Сделано: SKILL.md, README, INSTALL (macOS/Windows/Linux, Android SDK, промпты), CHANGELOG, 11 справочников + 11 чек-листов, 5 шаблонов, 15 скриптов (+ sdkutil, masking) и 2 общих модуля в shared/scripts (runjournal, qa_gitignore), тесты на фейковом adb/SDK.
+- Проверки: `tools/validate.sh` — 0 ошибок, 0 предупреждений; `skills/android-qa-audit/tests/unit.sh` — PASS 110, FAIL 0 (Python 3.14 и 3.9); `skills/site-qa-audit/tests/unit.sh` — PASS 36 (не сломан); read-only на машине: check_env «можно работать», apk_info по APK из Downloads совпадает с aapt2/apksigner, avd_manager list — 3 чужих AVD помечены «не менять».
+- Осталось: merge/push/тег; живой прогон (создать qa-AVD на установленном образе API 37, start --headless, install, dump-ui, tap, crashes, cleanup) — делает вызывающий вручную; после живого прогона — статус «стабильный».
+- Следующий шаг: живой прогон по tests/README.md → «Живая проверка», исправления → 1.0.1.

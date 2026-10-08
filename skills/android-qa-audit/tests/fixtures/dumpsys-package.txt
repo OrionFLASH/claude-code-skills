@@ -1,0 +1,21 @@
+Packages:
+  Package [com.example.app] (a1b2c3d):
+    userId=10190
+    pkg=Package{a1b2c3d com.example.app}
+    codePath=/data/app/~~AbC==/com.example.app-XyZ==
+    primaryCpuAbi=arm64-v8a
+    versionCode=42 minSdk=24 targetSdk=34
+    versionName=2.3.1
+    flags=[ DEBUGGABLE HAS_CODE ALLOW_CLEAR_USER_DATA ALLOW_BACKUP ]
+    firstInstallTime=2026-10-08 10:00:00
+    lastUpdateTime=2026-10-08 10:00:00
+    installerPackageName=null
+    requested permissions:
+      android.permission.INTERNET
+      android.permission.CAMERA
+      android.permission.POST_NOTIFICATIONS
+    install permissions:
+      android.permission.INTERNET: granted=true
+    runtime permissions:
+      android.permission.POST_NOTIFICATIONS: granted=false, flags=[ USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED]
+      android.permission.CAMERA: granted=true, flags=[ USER_SET|USER_SENSITIVE_WHEN_GRANTED]

@@ -9,13 +9,14 @@
 <!-- skills-table:start -->
 | Имя | Описание | Версия | Статус |
 |-----|----------|--------|--------|
+| [android-qa-audit](skills/android-qa-audit/) | Универсальное QA-тестирование Android-приложений по APK, AAB или установленному пакету на эмуляторах и устройствах через adb: функциональность, логика, UX, UI, версии Android и конфигурации устройств (ОЗУ, ядра, экран, шрифт, тема, язык, сеть), жизненный цикл, доступность, производительность, пассивная безопасность, тексты; матрица стендов, до 4 потоков, черновики GitHub issues по правилам | 1.0.0 | в разработке |
 | [site-qa-audit](skills/site-qa-audit/) | Универсальный QA-аудит любого сайта через браузер: функциональность, логика, UX, UI, адаптивность, доступность, производительность, SEO, тексты и локализация, пассивная безопасность, продуктовые предложения; сверка с issues, перепроверка исправлений и публикация по правилам | 1.2.0 | стабильный |
 | [typesafe-triage](skills/typesafe-triage/) | Универсальный триаж любых задач через TypeSafe (Jev) и локальные сигналы: выбор уровня модели haiku/sonnet/opus/fable и reasoning effort low…max (haiku, fable, low и max — только с подтверждения пользователя), заметка хука и запуск отдельного агента | 2.1.3 | стабильный |
 <!-- skills-table:end -->
 
 ## Установка
 
-Подробные инструкции «Установка и обновление» для macOS и Windows — с промптами, которые можно вставить в Claude Code, — лежат в каждом скиле: [site-qa-audit/INSTALL.md](skills/site-qa-audit/INSTALL.md), [typesafe-triage/INSTALL.md](skills/typesafe-triage/INSTALL.md).
+Подробные инструкции «Установка и обновление» для macOS и Windows — с промптами, которые можно вставить в Claude Code, — лежат в каждом скиле: [android-qa-audit/INSTALL.md](skills/android-qa-audit/INSTALL.md) (с настройкой Android SDK и эмулятора), [site-qa-audit/INSTALL.md](skills/site-qa-audit/INSTALL.md), [typesafe-triage/INSTALL.md](skills/typesafe-triage/INSTALL.md).
 
 ### Через маркетплейс (обычное использование)
 

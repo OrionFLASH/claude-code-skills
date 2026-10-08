@@ -1,0 +1,147 @@
+# run-config.yaml — конфиг одного прогона android-qa-audit.
+# Создаётся скилом по итогам опроса (references/intake.md) в <OUTPUT_ROOT>/qa-runs/<YYYY-MM-DD>-<package>/
+# (черновик из свободного запроса — scripts/intake.py from-text).
+# Формат — подмножество YAML (scripts/shared/miniyaml.py): без якорей и inline-словарей.
+# Секреты сюда НЕ пишутся — только имена переменных окружения.
+
+version: 1
+output_dir: /abs/path/to/results   # OUTPUT_ROOT: путь из запроса / ANDROID_QA_OUTPUT_DIR / <cwd>; результаты в <OUTPUT_ROOT>/qa-runs/
+mode: dry-run                 # dry-run (черновики issues в drafts/) | live (публикация только после «да» по сводной таблице)
+language: ru                  # язык отчётов и issues
+
+app:
+  source: apk                 # apk | splits | apks | aab | installed
+  paths:                      # исходные файлы; копии с sha256 — в <RUN_DIR>/apk/ (apk_info.py --copy-to)
+    - /abs/path/to/app-release.apk
+  package: com.example.app    # из apk-info.json; для installed — обязательно
+  launch_activity: null       # если null — launchable-activity из манифеста
+  allowed_packages: []        # другие пакеты, с которыми можно взаимодействовать (компаньон-приложение)
+  deeplink_hosts: []          # домены deep links приложения (из apk-info.json → deep_links)
+  login:                      # вход в приложение (если нужен): только имена переменных окружения
+    mode: none                # none | test-account | manual (пользователь входит сам на стенде)
+    username_env: QA_USERNAME
+    password_env: QA_PASSWORD
+
+goal:                         # что тестируем и что считать успехом (intake.md, вопросы 2–4)
+  what: null                  # что за приложение и для чего — кратко (подробно — в памяти приложения)
+  focus: [main-flows]         # main-flows | screen | onboarding | permissions | offline | performance | accessibility | all
+  notes: null                 # какие сценарии, экраны, роли
+  success: findings           # findings | scenarios | release-gate | custom
+  success_notes: null
+
+context:                      # память о приложении: <OUTPUT_ROOT>/qa-runs/.app-context/<package>/ (intake.md)
+  reuse: new                  # new | as-is | update | relearn
+  sources:                    # откуда узнать о приложении
+    - type: app               # app (само приложение) | store | site | docs | github | file | chat | none
+  notes: null
+  # Пример:
+  #  - type: store
+  #    ref: https://play.google.com/store/apps/details?id=com.example.app
+  #  - type: github
+  #    ref: owner/repo
+
+android:
+  apis: auto                  # auto (по глубине и minSdk/targetSdk) или список: [26, 29, 33, 34, 35]
+  include_latest: false       # добавить последнюю установленную версию
+  image_tag: null             # google_apis (по умолчанию) | google_apis_playstore | default
+
+devices:                      # железо и вариации (depth-matrix.md); null — по глубине
+  hardware: null              # [phone, low-end, low-1gb, small, large, tablet, fold]
+  custom: []                  # свои профили: id, profile, ram_mb, cores, data, label
+  # Пример:
+  #  - id: ram-1536
+  #    profile: small
+  #    ram_mb: 1536
+  #    cores: 2
+  #    data: 4G
+  #    label: "1,5 ГБ ОЗУ, 2 ядра"
+  variants: null              # [base, dark, font-1.3, font-2.0, dark-font, landscape, display-large, rtl, locale,
+                              #  net-3g, net-edge, offline, net-switch, battery-low, saver, doze, timezone]
+  locale: null                # для варианта locale: ru-RU, en-US …
+  timezone: null              # для варианта timezone: Asia/Tokyo …
+
+matrix:
+  mode: reduced               # reduced (основной профиль на всех API, остальные — на целевом) | full (все сочетания)
+
+stands:
+  create_avds: true           # создавать AVD qa-* (avd_manager.py); false — только подключённые устройства
+  headless: false             # эмуляторы без окна (-no-window)
+  use_devices: []             # serial реальных устройств / эмуляторов пользователя, разрешённых пользователем
+  consent: []                 # согласие на устройство: что можно делать (safety-rules.md §3)
+  # Пример:
+  #  - serial: R58N00EXAMPLE
+  #    scope: app-only          # read-only | app-only (только тестируемое приложение) | full (и настройки устройства)
+  use_avds: []                # AVD пользователя, которые можно запускать только с -read-only (по разрешению)
+  cleanup: ask                # ask | keep | delete-run-avds — что сделать с AVD qa-*, созданными прогоном
+
+directions:                   # functional, logic-state, ux, visual-ui, device-config-compat, lifecycle-resilience,
+  - functional                # accessibility, performance, security-passive, compatibility, content-i18n
+  - lifecycle-resilience
+  - accessibility
+
+tests:                        # виды тестов: manual-scenarios, monkey, ui-auto, lifecycle, permissions, notifications,
+  - manual-scenarios          # deeplinks, background, low-memory, crashes-anr, performance, accessibility, security,
+  - crashes-anr               # install-update, edge-input
+
+monkey:                       # только для tests: monkey, только на своих эмуляторах
+  events: 500
+  seed: 42
+  throttle_ms: 300
+
+depth: standard               # smoke | standard | deep
+
+repos: []
+# Пример записи репозитория (references/repo-sync.md):
+#  - url: https://github.com/owner/repo
+#    roles: [check]              # check | write-new | copies | comment
+#    template: detailed          # detailed (templates/issue-detailed.md) | их шаблон (.github/ISSUE_TEMPLATE/…)
+#    style: detailed             # brief | detailed
+#    labels: existing            # existing | create | inline | none
+#    extra_labels: [android]
+#    confirm_before_publish: true
+#    attachments: none           # none | commit (скриншоты коммитятся в ветку/папку, нужен push)
+#    attachments_base: null      # URL папки с закоммиченными вложениями
+#    disclosure: full            # full | none
+#    cross_links: true
+#    marker: skill               # skill | neutral | none
+#    severity_map:
+#      critical: P0
+#      high: P1
+#      medium: P2
+#      low: P3
+#      info: P3
+
+report_destinations:          # куда записать итоги, кроме <RUN_DIR> (intake.md, вопрос 20)
+  - type: local               # local | folder | github | artifact | custom
+# Пример:
+#  - type: folder
+#    path: /abs/path/to/reports
+#  - type: github
+#    repo: owner/repo
+
+rules:
+  # Базовые запреты (references/safety-rules.md §1) действуют всегда и здесь не перечисляются.
+  forbidden_packages: []      # приложения, с которыми нельзя взаимодействовать
+  forbidden_screens: []       # регэкспы по activity/названию экрана: "(?i)payment|checkout"
+  forbidden_deeplinks: []     # регэкспы URI
+  forbidden_actions: []
+  # Пример:
+  #  - id: U1
+  #    source: "не нажимать «Опубликовать»"
+  #    texts: ["Опубликовать", "Publish"]   # текст или contentDescription, все языки приложения
+  #    ids: []                  # resource-id: "btn_publish" или "com.example.app:id/btn_publish"
+  #    descs: []
+  #    classes: []
+  #    screen_pattern: null     # регэксп activity
+  #    context: null            # подстрока текста экрана/диалога
+  require_confirmation_actions: []
+  preapproved_actions: []     # снимают только confirm, никогда deny
+  adb_require_confirmation: []  # регэкспы adb-команд, которые всегда спрашивать
+
+plugins:
+  policy: all-installed       # all-installed | selected | own-only
+  selected: []
+
+parallel:
+  max_workers: 2              # 1–4 потока (эмуляторы/устройства одновременно), references/parallelism.md
+  throttle_ms: 500            # пауза после каждого действия в интерфейсе
