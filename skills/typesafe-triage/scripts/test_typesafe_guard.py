@@ -23,6 +23,7 @@ def isolated(tmp_path, monkeypatch):
     monkeypatch.setattr(t.guard, "HOME", tmp_path / "guard")
     monkeypatch.setattr(t, "LOG_PATH", tmp_path / "log.jsonl")
     monkeypatch.delenv("TYPESAFE_TRIAGE", raising=False)
+    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
 
 
 # ---------- классификация ответов ----------

@@ -17,6 +17,8 @@ def isolated_state(tmp_path, monkeypatch):
     monkeypatch.setattr(t, "LOG_PATH", tmp_path / "log.jsonl")
     monkeypatch.setattr(t.guard, "HOME", tmp_path / "guard")     # состояние защиты — во временный каталог
     monkeypatch.delenv("TYPESAFE_TRIAGE", raising=False)
+    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)        # офлайн: никаких живых запросов из тестов
+    monkeypatch.delenv("CLAUDE_CODE_EFFORT_LEVEL", raising=False)
 
 
 FLAG_NAMES = ("read_only", "mechanical", "needs_investigation", "silent_errors", "irreversible", "novel_design", "conversational")
@@ -431,9 +433,10 @@ def note(tier, source="typesafe"):
 
 def test_note_is_short_imperative_and_keeps_rules():
     txt = note("opus")
-    assert txt.startswith("TypeSafe-триаж: уровень opus") and "Agent(model=opus)" in txt
+    assert txt.startswith("TypeSafe-триаж: уровень opus, effort ") and "Agent(model=opus, effort=" in txt
     assert "AskUserQuestion" not in txt and "делай сам" in txt and "не применять" in txt and "Model Selection" in txt
-    assert len(txt) < 1200 and txt.count("\n") <= 6
+    assert "effort указывай явно" in txt
+    assert len(txt) < 2000 and txt.count("\n") <= 8
 
 
 @pytest.mark.parametrize("tier,safe", [("fable", "opus"), ("haiku", "sonnet")])

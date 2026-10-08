@@ -1,0 +1,16 @@
+{
+  "description": "TypeSafe-триаж: заметка «модель + effort» к каждому запросу (python3, при его отсутствии — python)",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/typesafe_triage.py\" --hook || python \"${CLAUDE_PLUGIN_ROOT}/scripts/typesafe_triage.py\" --hook",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

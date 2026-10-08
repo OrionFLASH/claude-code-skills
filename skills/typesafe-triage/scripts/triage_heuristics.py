@@ -7,8 +7,13 @@
   * при ответе TypeSafe — только ПОДНИМАЮТ нагрузку (вверх легко) и могут запретить haiku / разрешить fable;
   * без TypeSafe — единственный источник уровня (запасной вариант: только sonnet или opus, уверенность низкая).
 
-Все словари и пороги — константы ниже; меняются вместе с `--selftest --heuristic` (triage_cases.json).
-Публичное API: signals(text) -> dict, is_chatter(text) -> bool.
+С версии 2.1 здесь же — сигналы второй оси, reasoning effort (глубина размышления): тип намерения (найти / объяснить /
+исправить / спроектировать / доказать …), требования и критерии приёмки, ограничения, неопределённость, диагностика,
+объём, математика, повтор после неудачи, язык; и явные указания пользователя («effort max», «ultrathink», «на opus»,
+«тщательно», «быстро», с учётом отрицаний) — directives(text).
+
+Все словари и пороги — константы ниже; меняются вместе с `--selftest --heuristic` / `--calibrate` (triage_cases.json).
+Публичное API: signals(text) -> dict, is_chatter(text) -> bool, directives(text) -> dict.
 """
 import re
 
@@ -19,13 +24,17 @@ CRITICAL_GROUPS = {
     "production": r"\bпрод\b|\bпродакшн|\bпродуктив|\bбоев|\bproduction\b|\bprod\b|\blive (?:site|system|data|database)",
     "irreversible": (r"необратим|безвозврат|irreversib|cannot be undone|force.?push|drop (?:table|database)|rm -rf|truncate"
                      r"|удал\w* (?:вс\w*|баз\w*|ветк\w*|репозитор\w*|аккаунт\w*|данн\w*|таблиц\w*|истори\w*|бэкап\w*)"
-                     r"|delete (?:all|the database|the branch|the repo|account|data|history)|\bмиграц|\bmigrat|переезд"),
+                     r"|delete (?:all|the database|the branch|the repo|account|data|history)|\bмиграц|\bmigrat|переезд\w* (?:баз|сервер|данн|систем|кластер)"),
     "security": (r"безопасн|уязвим|\bsecurity\b|vulnerab|\bauth\b|аутентифик|авторизац|прав\w* доступа|\bpermission|\bсекрет"
-                 r"|шифров|encrypt|\bcrypto|\bпарол|\bpassword|\boauth|\bsso\b|\bcve-"),
+                 r"|шифров|encrypt|\bcrypto|\bпарол|\bpassword|\boauth|\bsso\b|\bcve-|credential|учётн\w* данн|api.?keys?|ключ\w* доступа"
+                 r"|session handling|сесси\w* пользоват"),
     "money": (r"\bденьг|\bденеж|платеж|платёж|\bоплат|\bpayment|\bbilling|\binvoice|\bсчёт|\bсчет\w* на оплат|бюджет"
-              r"|\bbudget|финанс|financ|\bналог|\btax\b|бухгалт|accounting|зарплат|payroll|\bбанк|\bbank|\bтранзакц|transaction"),
+              r"|\bbudget|финанс|financ|\bналог|\btax\b|бухгалт|accounting|зарплат|payroll|\bбанк|\bbank|\bтранзакц|transaction"
+              r"|\bкредит|ипотек|\bloans?\b|mortgage|interest rate|годовых|valuation|\bdcf\b|acquisition|инвестор|investor"
+              r"|совет\w* директоров|board of directors|the board\b|\bledger|reconcil|проводк|остатк\w* (?:по|на) сч"),
     "legal_medical": (r"юридич|\blegal\b|\bдоговор(?:а|у|ом|е|ы|ов|ами|ах)?\b|\bcontract\b|лицензи|licens|медицин|medical|\bдиагноз|\bgdpr|персональн\w* данн"
-                      r"|\bpii\b|compliance|регулятор|152-фз|\bсуд\b|\bиск\b"),
+                      r"|\bpii\b|compliance|регулятор|152-фз|\bсуд\b|\bиск\b|лекарств|препарат|medicat|drug interaction|\bврач|\bdoctor"
+                      r"|\bзакон\w*|\blaws?\b|штраф|\bfines?\b"),
     "data_loss": (r"данн\w* (?:клиент|пользовател|заказчик)|customer data|user data|\bбэкап|\bbackup|резервн\w* коп"
                   r"|потер\w* данн|data loss|без простоя|zero.?downtime"),
 }
@@ -67,6 +76,101 @@ WORK_RE = re.compile(  # глаголы-поручения: если они ес
 
 CRITICAL_RES = {k: re.compile(v, FLAGS_RE) for k, v in CRITICAL_GROUPS.items()}
 
+# ---------- вторая ось: reasoning effort (глубина размышления) ----------
+EFFORTS = ("low", "medium", "high", "xhigh", "max")
+# Тип намерения → «естественная» глубина 0..1 (берётся максимум найденных). Порядок не важен.
+INTENTS = {
+    "lookup": (0.10, r"\bнайди,? где|\bгде (?:лежит|находится|задаётся|задается|настраивается)|\bпокажи|\bвыведи|\bперечисли|\bсписок"
+                     r"|\bпосчитай|\bсколько\b|where is|\bshow\b|\blist\b|\bcount\b|how many|\bwhat is\b|\bчто такое|\bчто означает"),
+    "transform": (0.15, r"переименуй|\brename|отсортируй|\bsort\b|отформатируй|\bformat\b|переведи|\btranslate|сконвертируй|\bconvert"
+                        r"|замени .{1,60} на|\breplace\b|исправь опечат|\btypo|скопируй|copy (?:the|this|it)\b"),
+    "explain": (0.30, r"\bобъясни|\bрасскажи|\bопиши|\bчто делает|explain|describe|what does|\bsummari[sz]|резюме|\bсводк|\bперескажи"),
+    "write": (0.35, r"\bнапиши|\bсоставь|\bподготовь|\bсделай (?:пост|письмо|текст|резюме|отчёт|отчет)|\bwrite\b|\bdraft\b|\bcompose"
+                    r"|\bотредактируй|\bedit\b|\bдобавь|\badd\b|\bобнови|\bupdate\b"),
+    "fix": (0.50, r"\bисправь|\bпочини|\bfix\b|\brepair|\bустрани|\bпочему не работает"),
+    "calculate": (0.50, r"\bрассчитай|\bрасч[её]т|\bcalculat|\bпосчитай.{0,40}(?:процент|кредит|ставк|плат[её]ж|налог|прибыл|убыт|переплат)"
+                        r"|\bформул|\bformula|\bпрогноз|forecast|\bграфик плат"),
+    "verify": (0.60, r"\bпроверь\b|\bперепроверь|\bсверь|\breview\b|\baudit|\bcheck (?:the|our|for|that|whether)|\bvalidate|\bverify"),
+    "research": (0.60, r"\bsurvey|\bисследуй|\bизучи|\bresearch|\bfind out|\bвыясни|\bpropose|\bпредложи (?:план|подход|вариант)"),
+    "compare": (0.60, r"\bсравни|\bcompare|\bвыбери|\bпосоветуй|\brecommend|\bоцени\b|\bevaluat|\bassess|\breview\b|\bпроверь договор|\bпроанализируй"
+                      r"|\banaly[sz]e"),
+    "optimize": (0.65, r"оптимизир|\boptimi[sz]|ускор|\bspeed up|производительн|performance|узк\w* мест|bottleneck"),
+    "migrate": (0.65, r"рефактор|refactor|\bмигр|\bmigrat|\bперенеси (?:баз|данн|систем|бухгалт|сервис|учёт|учет)|переезд\w* (?:баз|сервер|данн|систем|кластер)|перепиш|\brewrite|перестр|\bupgrade|\brotate|cutover|переключ"
+                      r"|\bswitch (?:traffic|over)"),
+    "diagnose": (0.70, r"\bпочему|\bwhy\b|\bразбер(?:ись|итесь|у|ёмся|емся|\w*ся)|\bразобраться|\bпричин|root cause|\bdebug|\bотлад"
+                       r"|\binvestigat|диагност|\bfigure out|в ч[её]м дело|что не так|откуда (?:расхожд|разниц)|\blook into|what'?s wrong"),
+    "design": (0.75, r"спроектир|\bdesign\b|архитектур|architect|стратеги|strateg|\bразработай (?:стратег|план|модел|архитект|схем)"
+                     r"|модель данных|data model|финансов\w* модел|\bbuild (?:a|the) (?:[\w-]+ ){0,3}model|\bпострой (?:модель|прогноз)"),
+    "prove": (0.85, r"\bдокажи|\bдоказ|\bprove\b|\bproof\b|формально провер|formally verif|\bверифицир|\bverify (?:that|the correctness)"),
+}
+REQUIRE_RE = re.compile(r"\bдолж(?:ен|на|но|ны)\b|\bнужно\b|\bнеобходимо\b|\bтребуется\b|\bmust\b|\bshould\b|\bneeds? to\b|\brequired?\b", FLAGS_RE)
+ACCEPT_RE = re.compile(
+    r"критери\w* (?:приёмки|приемки|готовности|успеха)|acceptance criteria|definition of done|\bdod\b|тест\w* должн\w* (?:проход|быть зел)"
+    r"|must pass|should pass|все тесты|all tests|\bчтобы (?:все|тесты|сборка)|so that (?:all|the tests|the build)", FLAGS_RE)
+CONSTRAINT_RE = re.compile(
+    r"\bнельзя\b|\bобязательно\b|\bстрого\b|\bне (?:меняй|трогай|ломай|удаляй|менять|трогать|ломать)\b|\bбез (?:потери|простоя|изменени|поломки)"
+    r"|\bне более\b|\bне менее\b|\bровно\b|\bне позже\b|\bдо \d|\bmust not\b|\bnever\b|\bdo not\b|\bdon'?t (?:change|touch|break|remove)"
+    r"|\bwithout (?:breaking|downtime|losing|changing)|\bat most\b|\bat least\b|\bexactly\b|\bno later than\b|обратн\w* совместим|backward.?compat",
+    FLAGS_RE)
+UNCERTAIN_RE = re.compile(
+    r"как-нибудь|как-то\b|не знаю|непонятно|неясно|не уверен|может быть|\bвозможно\b|\bили\b|какой (?:лучше|выбрать)|что лучше|\bне понимаю"
+    r"|\bnot sure\b|\bsomehow\b|\bunclear\b|\bmaybe\b|\bperhaps\b|\bor\b|which (?:is better|one)|i don'?t know|no idea", FLAGS_RE)
+DIAG_RE = re.compile(
+    r"\bошибк|\bлог(?:и|ов|е|ам)?\b|трассиров|\bstack ?trace|traceback|\bиногда\b|плавающ|не воспроизвод|\bintermittent|\bflaky|\bsometimes\b"
+    r"|\brandomly\b|не работает|сломал|\bпадает|\bупал|\bcrash|\bfails?\b|\bfailing\b|exception|регресс|regression|утечк|\bleak|зависа|\bhangs?\b"
+    r"|тайм-?аут|time[ds]?[ -]?out|не реагирует|\bнеправильн\w* (?:результат|цифр|сумм)|wrong (?:result|numbers|total)|расхожд|discrepanc"
+    r"|периодически|не сход|off by one|\b(?:http|отда\w*|returns?) 5\d\d\b|\bbroken\b", FLAGS_RE)
+SCOPE_RE = re.compile(
+    r"все файлы|весь проект|всего проекта|во всех (?:файлах|модулях|экранах|документах|листах)|по всему (?:проекту|коду|репозиторию)"
+    r"|whole (?:project|codebase|repo)|all (?:files|modules|documents|sheets)|entire (?:project|codebase|repo|dataset)|everywhere"
+    r"|\b\d{2,}\s*(?:страниц|pages|файл|files|лист|sheets|документ|documents|строк|rows|записей|records)", FLAGS_RE)
+MATH_RE = re.compile(
+    r"докаж|теорем|\bлемм|формул|уравнен|интеграл|производн|вероятност|статистич|дисперси|регресси\w* модел|\bproof\b|theorem|\blemma"
+    r"|equation|integral|derivative|probabilit|statistic|variance|[∑∫√≤≥≠∀∃]", FLAGS_RE)
+RETRY_RE = re.compile(  # повтор ПОСЛЕ НЕУДАЧИ, а не просто «снова»/«ещё раз» («чтобы он снова читался» — не повтор)
+    r"(?:\bопять|\bснова)\s+(?:не\b|падает|упал|сломал|ошибк|то же|та же|глючит|висит|вылета)|всё ещё не|все ещё не|все еще не"
+    r"|до сих пор не|не помогло|не сработало|по-прежнему не|по-прежнему (?:падает|ошибк)|та же (?:ошибка|проблема)|ошибка та же"
+    r"|\bstill (?:fails|failing|broken|not|the same|doesn'?t|wrong|off)|didn'?t (?:help|work|fix)|doesn'?t work|same (?:error|problem|issue)"
+    r"|not fixed|(?:fails?|broken|wrong) again|again (?:fails?|broken)", FLAGS_RE)
+CYR_RE = re.compile(r"[а-яё]", re.I)
+LAT_RE = re.compile(r"[a-z]", re.I)
+
+# Явные указания пользователя. Тир — только с «маркером» рядом («на opus», «model haiku», «use fable»), чтобы не ловить
+# слово «opus» в постороннем смысле. Эффорт: «effort max», «max effort», «усилия: высокие», «ultrathink» — жёсткие
+# (точный уровень); «тщательно/глубоко/think hard» — мягкий пол, «кратко/навскидку/quick answer» — мягкий потолок low.
+TIER_ALIASES = {"haiku": r"haiku|хайку", "sonnet": r"sonnet|сонн?ет\w*", "opus": r"opus|опус\w*", "fable": r"fable|фейбл\w*"}
+TIER_DIRECTIVE_RE = re.compile(
+    r"(?:\bна|\bмодел\w*|\bmodel|\buse|\busing|\bon|\bwith|\bчерез|\bвозьми|\bзапусти\w*(?:\s+агента)?(?:\s+на)?|\brun(?:\s+it)?\s+on)\s+"
+    r"(?:модел\w+\s+|model\s+)?(?P<t>" + "|".join(TIER_ALIASES.values()) + r")\b", FLAGS_RE)
+EFFORT_WORDS = {"low": "low", "medium": "medium", "high": "high", "xhigh": "xhigh", "max": "max",
+                "минимальн": "low", "низк": "low", "средн": "medium", "высок": "high", "очень высок": "xhigh", "максимальн": "max",
+                "максимум": "max", "минимум": "low"}
+EFFORT_DIRECTIVE_RE = re.compile(
+    r"(?:\b(?:reasoning\s+)?effort|\bусили[еяй]\w*|\bуровень усилий)\s*[:=]?\s*(?:на\s+)?(?P<a>low|medium|high|xhigh|max|очень высок\w*|минимальн\w*|"
+    r"низк\w*|средн\w*|высок\w*|максимальн\w*|максимум|минимум)\b"
+    r"|\b(?P<b>low|medium|high|xhigh|max|минимальн\w*|низк\w*|средн\w*|высок\w*|максимальн\w*)\s+(?:reasoning\s+)?(?:effort|усили\w*)", FLAGS_RE)
+HARD_PHRASES = [  # (регэксп, уровень) — точный уровень, согласие пользователя
+    (r"\bultrathink\b|\bультрасинк", "max"),
+    (r"без размышлений|не думая\b|минимум усилий|минимальн\w* усили|without thinking|\bno thinking\b|minimal effort|\bno reasoning\b", "low"),
+]
+SOFT_MIN = [  # (регэксп, пол) — «подумай как следует» и т. п.
+    (r"максимально (?:тщательно|глубоко|подробно|внимательно)|очень (?:тщательно|глубоко|внимательно)|think (?:really |very )?harder"
+     r"|think (?:really|very) hard|as thoroughly as possible|leave no stone unturned", "xhigh"),
+    (r"подумай (?:как следует|хорошенько|хорошо|внимательно)|хорошенько подумай|\bтщательн\w*|\bглубок\w*|\bосновательн\w*|\bдосконально"
+     r"|\bвдумчиво|не торопись|не спеши|без спешки|продумай вс[её]|think hard|think carefully|think deeply|\bthorough(?:ly)?\b"
+     r"|\bcarefully\b|in depth|\bdeep(?:ly)? (?:dive|analy)|take your time", "high"),
+]
+SOFT_MAX = [  # (регэксп, потолок) — «кратко», «навскидку»: просьба о быстром ответе
+    (r"\bкратко\b|\bкоротко\b|в двух словах|\bнавскидку\b|по-быстрому|на скорую руку|быстрый ответ|(?:ответь|скажи|глянь|посмотри|подскажи) быстро"
+     r"|быстро (?:ответь|скажи|глянь|посмотри|подскажи)|одн\w+(?:-двумя)? (?:фраз|строк|предложени)|\bbriefly\b|\bin short\b|in a nutshell"
+     r"|quick answer|quickly (?:answer|tell|check)|off the top of your head|\btl;?dr\b|one sentence|one line answer|\bdon'?t overthink", "low"),
+]
+NEG_BEFORE_RE = re.compile(r"(?:\bне|\bнет|\bни|\bno|\bnot|n't|\bnever|\bбез)(?:\s+[\w-]+){0,2}\s*[,:]?\s*$", FLAGS_RE)
+_HARD = [(re.compile(rx, FLAGS_RE), lvl) for rx, lvl in HARD_PHRASES]
+_SMIN = [(re.compile(rx, FLAGS_RE), lvl) for rx, lvl in SOFT_MIN]
+_SMAX = [(re.compile(rx, FLAGS_RE), lvl) for rx, lvl in SOFT_MAX]
+_INTENT_RES = {k: (w, re.compile(rx, FLAGS_RE)) for k, (w, rx) in INTENTS.items()}
+
 # Нормировки «сырых» счётчиков в 0..1
 SIZE_FROM, SIZE_TO = 150, 1500     # знаков прозы: короче — 0, длиннее — 1
 ITEMS_FULL = 8                     # столько пунктов списка = максимум структуры
@@ -79,6 +183,108 @@ MAX_CHARS = 100000                 # сверхдлинный ввод: счит
 
 def clamp(x, lo=0.0, hi=1.0):
     return max(lo, min(hi, x))
+
+
+INTENT_DEFAULT = 0.35               # намерение не распознано — «обычная работа»
+REQUIRE_FULL = 4                   # столько «должен/нужно/must» = максимум требований
+CONSTRAINT_FULL = 3                # столько ограничений = максимум
+DIAG_FULL = 3                      # столько слов диагностики = максимум
+UNCERTAIN_FULL = 3
+# Вклад сигналов в «глубину» текста (ось effort, 0..1). Подбираются через --calibrate; сумма положительных ≈ 1.
+DEPTH_BASE = 0.12
+DEPTH_W = {"intent": 0.34, "diag": 0.12, "structure": 0.08, "require": 0.05, "constraints": 0.06, "accept": 0.05,
+           "uncertain": 0.05, "critical": 0.12, "scope": 0.05, "math": 0.06, "logs": 0.04, "size": 0.04}
+DEPTH_LIGHT = 0.12                 # «лёгкие» слова без «глубоких» — вычитается
+DEPTH_SHORT_QUESTION = 0.06        # короткий вопрос (< 120 знаков прозы) — вычитается: ответ, а не работа
+
+
+def _norm(level):
+    """Слово уровня (рус./англ.) → один из EFFORTS."""
+    s = level.lower()
+    if s in EFFORTS:
+        return s
+    for k in sorted(EFFORT_WORDS, key=len, reverse=True):
+        if s.startswith(k):
+            return EFFORT_WORDS[k]
+    return None
+
+
+def _negated(text, start):
+    return bool(NEG_BEFORE_RE.search(text[max(0, start - 30):start]))
+
+
+def _step(level, d):
+    i = max(0, min(len(EFFORTS) - 1, EFFORTS.index(level) + d))
+    return EFFORTS[i]
+
+
+def directives(text):
+    """Явные указания пользователя в тексте → {"tier", "tier_not", "effort", "effort_min", "effort_max", "phrases"}.
+    tier/effort — точный выбор (это согласие, повторный вопрос не нужен); effort_min/effort_max — мягкие границы.
+    Отрицания учитываются: «не на opus» → tier_not, «не нужно глубоко» → потолок medium, «не кратко» → пол high."""
+    text = FENCE_RE.sub(" ", text or "")[:MAX_CHARS]
+    out = {"tier": None, "tier_not": [], "effort": None, "effort_min": None, "effort_max": None, "phrases": []}
+    for mt in TIER_DIRECTIVE_RE.finditer(text):
+        word = mt.group("t").lower()
+        tier = next(k for k, rx in TIER_ALIASES.items() if re.fullmatch(rx, word, FLAGS_RE))
+        if _negated(text, mt.start()):
+            out["tier_not"].append(tier)
+            out["phrases"].append("не %s" % tier)
+        elif out["tier"] in (None, tier):
+            out["tier"] = tier
+            out["phrases"].append(mt.group(0).strip())
+        else:
+            out["tier"] = None            # два разных уровня в одном тексте — не угадываем
+    hard = []
+    for mt in EFFORT_DIRECTIVE_RE.finditer(text):
+        lvl = _norm(mt.group("a") or mt.group("b"))
+        if lvl:
+            hard.append((lvl, mt.start(), mt.group(0).strip()))
+    for rx, lvl in _HARD:
+        for mt in rx.finditer(text):
+            hard.append((lvl, mt.start(), mt.group(0).strip()))
+    for lvl, start, phrase in hard:
+        if _negated(text, start):         # «не нужен effort max» → потолок на ступень ниже; «без low» → пол выше
+            if EFFORTS.index(lvl) >= 2:
+                out["effort_max"] = _step(lvl, -1)
+            else:
+                out["effort_min"] = _step(lvl, 1)
+            out["phrases"].append("не " + phrase)
+        elif out["effort"] in (None, lvl):
+            out["effort"] = lvl
+            out["phrases"].append(phrase)
+        else:
+            out["effort"] = None
+    lo, hi = [], []
+    for rx, lvl in _SMIN:
+        for mt in rx.finditer(text):
+            neg = _negated(text, mt.start()) and not re.match(r"не |без ", mt.group(0), FLAGS_RE)
+            (hi if neg else lo).append(("medium" if neg else lvl, ("не " if neg else "") + mt.group(0)))
+    for rx, lvl in _SMAX:
+        for mt in rx.finditer(text):
+            neg = _negated(text, mt.start())
+            (lo if neg else hi).append(("high" if neg else lvl, ("не " if neg else "") + mt.group(0)))
+    if lo and hi:                         # «быстро, но тщательно» — противоречие: мягкие указания не применяем
+        out["phrases"].append("противоречивые указания (%s / %s) — не учтены" % (lo[0][1], hi[0][1]))
+    elif lo:
+        out["effort_min"] = max((x[0] for x in lo), key=EFFORTS.index)
+        out["phrases"] += [x[1] for x in lo]
+    elif hi:
+        out["effort_max"] = min((x[0] for x in hi), key=EFFORTS.index)
+        out["phrases"] += [x[1] for x in hi]
+    return out
+
+
+def language(text):
+    cyr, lat = len(CYR_RE.findall(text)), len(LAT_RE.findall(text))
+    if cyr + lat == 0:
+        return "other"
+    return "ru" if cyr >= 2 * lat else "en" if lat >= 2 * cyr else "mixed"
+
+
+def is_retry(text):
+    """Признаки повтора после неудачи («опять не работает», «не помогло», "still fails")."""
+    return bool(RETRY_RE.search(FENCE_RE.sub(" ", text or "")[:MAX_CHARS]))
 
 
 def is_chatter(text):
@@ -125,8 +331,32 @@ def signals(text):
         "risk": clamp(0.10 + 0.60 * crit_s + (0.10 if "irreversible" in critical else 0.0) - 0.05 * light_s),
         "breadth": clamp(0.10 + 0.50 * width + 0.25 * size + 0.15 * (has_code or has_logs)),
     }
+    # ---- ось effort: сколько думать (не «сколько работы») ----
+    intents = sorted(k for k, (_, rx) in _INTENT_RES.items() if rx.search(prose))
+    intent = max((_INTENT_RES[k][0] for k in intents), default=INTENT_DEFAULT)
+    require = len(REQUIRE_RE.findall(prose))
+    constraints = len(CONSTRAINT_RE.findall(prose))
+    accept = bool(ACCEPT_RE.search(prose))
+    uncertain = len(UNCERTAIN_RE.findall(prose))
+    diag = len(DIAG_RE.findall(text if has_logs else prose))
+    scope = bool(SCOPE_RE.search(prose))
+    math = bool(MATH_RE.search(prose))
+    parts = {
+        "intent": intent, "diag": clamp(diag / float(DIAG_FULL)), "structure": structure,
+        "require": clamp(require / float(REQUIRE_FULL)), "constraints": clamp(constraints / float(CONSTRAINT_FULL)),
+        "accept": float(accept), "uncertain": clamp(uncertain / float(UNCERTAIN_FULL)), "critical": crit_s,
+        "scope": float(scope), "math": float(math), "logs": float(has_logs or has_code), "size": size,
+    }
+    depth = DEPTH_BASE + sum(DEPTH_W[k] * v for k, v in parts.items())
+    depth -= DEPTH_LIGHT * light_s
+    if question and prose_chars < 120 and not deep and not diag:
+        depth -= DEPTH_SHORT_QUESTION
     return {
         "chars": len(text), "prose_chars": prose_chars, "items": items, "paths": paths, "steps": steps,
         "clauses": clauses, "deep": deep, "light": light, "critical": critical, "question": question,
         "has_code": has_code, "has_logs": has_logs, "chatter": is_chatter(text), "axes": axes,
+        "effort": {"depth": round(clamp(depth), 3), "intents": intents, "require": require, "constraints": constraints,
+                   "accept": accept, "uncertain": uncertain, "diag": diag, "scope": scope, "math": math,
+                   "retry": is_retry(text), "lang": language(prose),
+                   "parts": {k: round(v, 2) for k, v in parts.items()}},
     }

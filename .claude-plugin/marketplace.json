@@ -26,12 +26,13 @@
     {
       "name": "typesafe-triage",
       "source": "./skills/typesafe-triage",
-      "description": "Универсальный триаж любых задач через TypeSafe (Jev) и локальные эвристики: выбор уровня модели haiku/sonnet/opus/fable (haiku и fable — только с подтверждения пользователя) и запуск отдельного агента",
-      "version": "2.0.0",
+      "description": "Универсальный триаж любых задач через TypeSafe (Jev) и локальные сигналы: выбор уровня модели haiku/sonnet/opus/fable и reasoning effort low…max (haiku, fable, low и max — только с подтверждения пользователя), заметка хука и запуск отдельного агента",
+      "version": "2.1.0",
       "keywords": [
         "typesafe",
         "triage",
         "model-routing",
+        "reasoning-effort",
         "hook"
       ]
     }

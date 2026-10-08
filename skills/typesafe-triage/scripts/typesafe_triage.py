@@ -28,6 +28,12 @@
   * В TypeSafe уходит только дайджест текста (до HARD_CHARS знаков), секреты маскируются; см. make_digest и --digest.
   * Выключатели: TYPESAFE_TRIAGE=off или файл .typesafe-triage-off в каталоге проекта (или выше).
 
+Вторая ось (2.1) — reasoning effort low < medium < high < xhigh < max, независимо от модели (triage_effort.py): те же
+ответы TypeSafe + узкие вопросы effort в том же запросе, сигналы текста, окружение, история сессии, правила
+согласованности. low и max — только с подтверждения (CONFIRM_EFFORTS), без него low → medium, max → xhigh. Явные
+указания пользователя в тексте («на opus», «effort max», «ultrathink», «тщательно», «кратко») — согласие и приоритет.
+Повторный вызов хука на тот же запрос (session_id + хеш) в пределах DEDUP_S молчит (ручной хук + хук плагина).
+
 Запуск (только стандартная библиотека; ключ — переменная окружения TYPESAFE_API_KEY):
     python3 typesafe_triage.py "текст задачи"        # JSON с метриками, сигналами и рекомендацией
     python3 typesafe_triage.py --hook                # режим хука UserPromptSubmit (stdin = JSON хука)
@@ -39,6 +45,8 @@
     python3 typesafe_triage.py --check                # диагностика: ключ, сеть, сертификаты
     python3 typesafe_triage.py --selftest            # эталонные задачи (triage_cases.json) через TypeSafe; нужна сеть
     python3 typesafe_triage.py --selftest --heuristic   # те же задачи только по эвристике (офлайн)
+    python3 typesafe_triage.py --calibrate [--heuristic] [--split train|holdout|all] [--cache F]
+                                                     # распределение effort/моделей, «ниже/выше ожидаемого», журнал
     python3 typesafe_triage.py --run "текст задачи"  # триаж + запуск отдельного агента `claude -p` на нужной модели
         --readonly          агент только читает и планирует (--permission-mode plan), файлы не правит
         --edit              агент может править файлы в текущем каталоге (--permission-mode acceptEdits); без --edit и --readonly
@@ -47,6 +55,8 @@
         --tier haiku|sonnet|opus|fable   вместо рекомендации; haiku и fable — только вместе с --confirmed, иначе отказ (код 2)
         --confirmed         пользователь явно подтвердил haiku/fable; без него рекомендация haiku/fable понижается
                             до sonnet/opus соответственно
+        --effort low|medium|high|xhigh|max   вместо рекомендации; low и max — только вместе с --confirmed-effort
+        --confirmed-effort  пользователь явно подтвердил low/max; без него рекомендация low → medium, max → xhigh
         --budget USD        потолок расходов агента (--max-budget-usd)
         --dry-run           только показать рекомендацию и команду, ничего не запускать
 """
@@ -66,6 +76,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import typesafe_guard as guard  # паузы, учёт расходов, предупреждения (см. его докстринг)
 import triage_heuristics as heur  # локальные сигналы по тексту (без сети)
+import triage_effort as eff       # вторая ось: reasoning effort (политика, окружение, история)
 
 API_URL = os.environ.get("TYPESAFE_API_URL") or "https://api.typesafe.ai/v1/systemone"  # переопределение — только для тестов
 MODEL = "jev-latest"
@@ -84,6 +95,12 @@ MIN_HOOK_CHARS = 40        # короче — реплика, в TypeSafe не �
 LOG_PATH = guard.HOME / "log.jsonl"
 OFF_MARKER = ".typesafe-triage-off"
 CHILD_ENV = "TYPESAFE_TRIAGE_CHILD"   # ставится в окружение агента, запущенного через --run: в нём хук молчит, вложенный --run запрещён
+DEDUP_S = 8                # второй вызов хука на тот же запрос (session_id + хеш промпта) за это время — молчит
+DEDUP_NAME = "dedup"       # каталог в guard.HOME: пустые файлы-метки, имя = хеш (без содержимого промпта), права 0600
+CLARIFY_RISK = 0.67        # уточняющий вопрос: риск не ниже этого (или необратимость / слова критичности) …
+CLARIFY_CONF = 0.5         # … и уверенность ниже этого (или нет ответа TypeSafe)
+CLARIFY_AMBIG = 0.6        # … и задача открытая (неясность TypeSafe) / есть слова неопределённости
+SESSION_EFFORT_GAP = 2     # строка «/effort …» для основной сессии — если её effort известен и отличается на столько ступеней
 
 # ---------- уровни ----------
 TIERS = ["haiku", "sonnet", "opus", "fable"]
@@ -113,11 +130,14 @@ FABLE_FLAG_MIN = 0.8        # необратимость для fable — уве
 FABLE_HEUR_MIN = 0.45       # fable — только если и текст говорит о тяжёлой задаче (или есть слова критичности)
 CHAT_SKIP = 0.8             # «это просто реплика» уверенно и работы почти нет — заметку не добавляем
 H_LOAD_OPUS = 0.36          # без TypeSafe: эвристическая нагрузка от — opus, ниже — sonnet
-H_CRITICAL_OPUS = 2         # без TypeSafe: столько разных групп слов критичности при заметном объёме — opus
+H_CRITICAL_OPUS = 2         # без TypeSafe: столько разных групп слов критичности — opus
+H_INTENT_OPUS = 0.6         # без TypeSafe: одна группа риска + намерение не легче «проверить/сравнить» — opus
+H_INTENT_ALONE_OPUS = 0.8   # без TypeSafe: намерение «доказать» само по себе — opus
 AGENT_TIMEOUT_S = 1800
 HOOK_TIMEOUT_S = 3
 # Уверенность считаем по осям, несущим выбор уровня: «неясность» и «объём» — вспомогательные (их уверенность системно ниже).
 CONF_AXES = ("complexity", "reasoning", "risk")
+EFFORT_CONF_AXES = ("reasoning", "shallow_cost", "planning")   # уверенность второй оси
 
 AGENT_RULES = (
     "Работай по правилам CLAUDE.md репозитория: доработка только в отдельной ветке, в main не коммитить и не вливать "
@@ -211,6 +231,44 @@ CHOICES = {
         },
     },
 }
+# Вопросы второй оси (effort: сколько думать) — тем же запросом, отдельно от SCORES/FLAGS (их веса — в triage_effort).
+# Доменно-нейтрально: код, документы, данные, письма, анализ, планирование, ops, исследование, дизайн, право, финансы, учёба.
+# «Творчество/новизна» — уже есть флаг novel_design (используется и для effort).
+EFFORT_SCORES = {
+    "planning": {
+        "instructions": "How many dependent steps must be planned and kept in order to do this request well?" + ANY_FIELD,
+        "criteria": [
+            {"what": "One step or a direct answer", "examples": ["answer a question", "rename a label", "sort a list"]},
+            {"what": "A few steps in an obvious order",
+             "examples": ["edit a document and re-read it", "add a field and a test", "write and format an email"]},
+            {"what": "Many steps where later steps depend on earlier findings or decisions",
+             "examples": ["reproduce a bug, find the cause, fix it and add a test", "collect data, clean it, analyse it and report",
+                          "plan a trip with bookings and a budget"]},
+            {"what": "A long chain of dependent stages with checkpoints or a rollback plan",
+             "examples": ["a staged migration with verification and rollback", "a multi-month project plan with dependencies",
+                          "a research study from hypotheses to conclusions"]},
+        ],
+    },
+    "shallow_cost": {
+        "instructions": "What happens if this request gets a quick first-impression answer without careful thought?",
+        "criteria": [
+            {"what": "A quick answer is exactly what is wanted", "examples": ["a definition", "a fact", "a list", "a simple reformat"]},
+            {"what": "A quick answer is fine if done with ordinary care",
+             "examples": ["a routine email", "a small edit following a pattern", "a short summary"]},
+            {"what": "A quick answer would probably miss important points or edge cases",
+             "examples": ["comparing options", "debugging", "reviewing a contract", "planning a budget"]},
+            {"what": "A quick answer would likely be wrong in a way that looks right and causes real harm",
+             "examples": ["a proof", "a financial model others rely on", "a security fix", "a data migration",
+                          "a medical or legal judgment"]},
+        ],
+    },
+}
+EFFORT_FLAGS = {
+    "verification": "Does doing this well require checking the result before it can be trusted, such as running tests, re-checking calculations, proofreading against sources or validating edge cases?",
+    "exploration": "Does this request require searching for or exploring unknown information first, such as where something is, what causes a problem, or what options exist?",
+    "constraints": "Does the request state strict constraints or acceptance criteria that the result must satisfy all at once, such as must or must not, an exact format, limits, deadlines or tests that must pass?",
+    "coordination": "Must several separate parts, such as files, documents, data sources, systems or people, be kept consistent with each other?",
+}
 AXIS_RU = {"complexity": "сложность", "reasoning": "рассуждение", "ambiguity": "неясность", "risk": "риск", "breadth": "объём"}
 
 
@@ -225,8 +283,8 @@ def redact(text):
 
 
 def build_questions():
-    q = {name: {"type": "score", **spec} for name, spec in SCORES.items()}
-    for name, text in FLAGS.items():
+    q = {name: {"type": "score", **spec} for name, spec in list(SCORES.items()) + list(EFFORT_SCORES.items())}
+    for name, text in list(FLAGS.items()) + list(EFFORT_FLAGS.items()):
         q[name] = {"type": "noul", "instructions": text,
                    "criteria": {"true": "Yes, clearly", "false": "No"}}
     for name, spec in CHOICES.items():
@@ -328,6 +386,20 @@ def metrics_from(answers):
     for name in FLAGS:
         p = float(answers[name]["noul"])
         out[name] = (p, abs(2 * p - 1), p)
+    # вопросы effort: отсутствие ответа не ошибка (старый/поддельный сервер) — веса перенормируются в triage_effort
+    for name, spec in EFFORT_SCORES.items():
+        try:
+            a = answers[name]
+            top = len(spec["criteria"]) - 1
+            out[name] = (float(a["score"]) / top, float(a["confidence"]), upper_mass(a, top))
+        except (KeyError, TypeError, ValueError):
+            pass
+    for name in EFFORT_FLAGS:
+        try:
+            p = float(answers[name]["noul"])
+            out[name] = (p, abs(2 * p - 1), p)
+        except (KeyError, TypeError, ValueError):
+            pass
     return out
 
 
@@ -414,9 +486,15 @@ def decide_heuristic(h):
     if load >= H_LOAD_OPUS:
         tier = "opus"
         why.append("≥ %.2f → opus" % H_LOAD_OPUS)
-    elif len(h["critical"]) >= H_CRITICAL_OPUS and h["axes"]["complexity"] >= 0.5:
+    elif len(h["critical"]) >= H_CRITICAL_OPUS:
         tier = "opus"
-        why.append("слова риска (%s) и заметный объём → opus" % ", ".join(h["critical"]))
+        why.append("слова риска (%s) → opus" % ", ".join(h["critical"]))
+    elif h.get("effort", {}).get("parts", {}).get("intent", 0) >= H_INTENT_ALONE_OPUS:
+        tier = "opus"
+        why.append("доказательство/формальная проверка → opus")
+    elif h["critical"] and h.get("effort", {}).get("parts", {}).get("intent", 0) >= H_INTENT_OPUS:
+        tier = "opus"
+        why.append("риск (%s) и тяжёлое намерение (%s) → opus" % (", ".join(h["critical"]), "/".join(h["effort"]["intents"])))
     return tier, why
 
 
@@ -434,7 +512,50 @@ def compact_signals(h):
     keep = ("prose_chars", "items", "paths", "steps", "deep", "light", "critical", "has_code", "has_logs")
     out = {k: h[k] for k in keep}
     out["axes"] = {k: round(x, 2) for k, x in h["axes"].items()}
+    e = h.get("effort")
+    if e:
+        out["effort"] = {k: e[k] for k in ("depth", "intents", "diag", "constraints", "accept", "uncertain", "scope", "math",
+                                           "retry", "lang")}
     return out
+
+
+def prompt_id(task):
+    return hashlib.sha1(task.encode("utf-8")).hexdigest()[:10]
+
+
+def add_effort(r, m, h, task, env="auto", history=None, session=None, cwd=None, min_conf=None):
+    """Вторая ось + явные указания + история: дописывает в результат поля effort_* и при необходимости меняет модель
+    (явный выбор пользователя / эскалация по истории). Старые поля сохраняются (формат аддитивный)."""
+    d = heur.directives(task)
+    if env == "auto":
+        env = eff.env_context(cwd)
+    records = eff.read_history(LOG_PATH, session) if history is None else history
+    pid = prompt_id(task)
+    retry_now = h["effort"]["retry"]
+    hist = eff.history_escalation(records, retry_now, pid)
+    r["retry"] = bool(hist[0])
+    tier, why = r["model"], [r["reason"]] if r.get("reason") else []
+    if hist[1] and tier in ("haiku", "sonnet"):
+        tier = TIERS[TIERS.index(tier) + 1]
+        why.append("история: повторы подряд → модель %s" % tier)
+    tier, user_tier, note = eff.apply_tier_directive(tier, d)
+    if note:
+        why.append(note)
+    e = eff.decide_effort(m, h, tier, env=env, hist=hist, d=d, min_conf=min_conf)
+    r.update(model=tier, confirm=tier in CONFIRM_TIERS and not user_tier, fallback=tier if user_tier else CONFIRM_TIERS.get(tier, tier),
+             model_source="user" if user_tier else "auto", reason="; ".join(why), **e)
+    if d["phrases"]:
+        r["explicit"] = d["phrases"][:4]
+    v = {k: x[0] for k, x in (m or {}).items()}
+    stakes = v.get("risk", 0) >= CLARIFY_RISK or v.get("irreversible", 0) >= eff.FLAG_ON or bool(h["critical"])
+    unsure = m is None or (min_conf is not None and min_conf < CLARIFY_CONF)
+    open_ = v.get("ambiguity", 0) >= CLARIFY_AMBIG or h["effort"]["uncertain"] >= 1
+    r["clarify"] = bool(stakes and unsure and open_ and not (user_tier or e["effort_source"] == "user"))
+    if env:
+        r["env"] = {k: env[k] for k in ("repo", "tests", "ci", "lock", "files", "marker") if k in env}
+    if session:
+        r["session"] = session
+    return r
 
 
 def finish(tier, why, source, h, **extra):
@@ -447,21 +568,25 @@ def finish(tier, why, source, h, **extra):
     return r
 
 
-def fallback(task, h, reason, **extra):
+def fallback(task, h, reason, ctx=None, **extra):
     tier, why = decide_heuristic(h)
-    return finish(tier, [reason] + why, "heuristic", h, **extra)
+    return add_effort(finish(tier, [reason] + why, "heuristic", h, **extra), None, h, task, **(ctx or {}))
 
 
-def triage(task, key=None, timeout=TIMEOUT_S):
+def triage(task, key=None, timeout=TIMEOUT_S, **ctx):
     """Оценка задачи. TypeSafe недоступен (оплата, ключ, сеть, лимиты, пауза) → уровень по эвристике + notice при необходимости;
-    при жёсткой паузе (нет средств, ключ, доступ, потолок расходов) сеть не используется вовсе."""
+    при жёсткой паузе (нет средств, ключ, доступ, потолок расходов) сеть не используется вовсе.
+    ctx (необязательно): session — session_id хука (история), cwd — каталог (окружение), env — готовый env_context
+    ({} — не учитывать окружение), history — готовые записи журнала (для --calibrate)."""
+    if ctx.get("session"):
+        ctx["session"] = eff.session_tag(ctx["session"])
     h = heur.signals(task)
     key = key or os.environ.get("TYPESAFE_API_KEY")
     if not key:
-        return fallback(task, h, "нет TYPESAFE_API_KEY")
+        return fallback(task, h, "нет TYPESAFE_API_KEY", ctx)
     g = guard.status(key)
     if not g["allowed"]:
-        return fallback(task, h, "TypeSafe приостановлен (%s)" % g["kind"], paused=g["kind"], notice=g["notice"])
+        return fallback(task, h, "TypeSafe приостановлен (%s)" % g["kind"], ctx, paused=g["kind"], notice=g["notice"])
     sent = make_digest(task)
     info = lambda: {"chars": len(task), "sent": len(sent)}
     try:
@@ -478,12 +603,12 @@ def triage(task, key=None, timeout=TIMEOUT_S):
     except urllib.error.HTTPError as e:
         kind, detail, wait = guard.classify_http(e.code, http_detail(e), e.headers)
         if kind == "size":  # не авария и не повод для паузы
-            return fallback(task, h, "вход слишком велик для TypeSafe даже после сжатия", input=info())
+            return fallback(task, h, "вход слишком велик для TypeSafe даже после сжатия", ctx, input=info())
         notice = guard.record_failure(kind, detail, wait, key)
-        return fallback(task, h, "TypeSafe: %s (HTTP %d)" % (kind, e.code), paused=kind, notice=notice, input=info())
+        return fallback(task, h, "TypeSafe: %s (HTTP %d)" % (kind, e.code), ctx, paused=kind, notice=notice, input=info())
     except Exception as e:  # сеть, тайм-аут, разбор ответа: эвристика, а не понижение и не падение
         notice = guard.record_failure("outage", type(e).__name__, None, key)
-        return fallback(task, h, "TypeSafe недоступен (%s)" % type(e).__name__, paused="outage", notice=notice)
+        return fallback(task, h, "TypeSafe недоступен (%s)" % type(e).__name__, ctx, paused="outage", notice=notice)
     tier, why = decide(m, h)
     tokens = resp.get("usage", {}).get("input_tokens")
     min_conf = min(m[k][1] for k in CONF_AXES)
@@ -493,7 +618,8 @@ def triage(task, key=None, timeout=TIMEOUT_S):
                domain=domain_from(resp["answers"]), input=info(), tokens=tokens)
     if m["conversational"][0] >= CHAT_SKIP and m["complexity"][0] <= 0.2 and tier in ("haiku", "sonnet"):
         r["skip"] = True  # реплика, а не задача: заметку не добавляем
-    return r
+    eff_conf = min(m[k][1] for k in EFFORT_CONF_AXES if k in m)
+    return add_effort(r, m, h, task, min_conf=eff_conf, **ctx)
 
 
 def log(task, result):
@@ -502,10 +628,14 @@ def log(task, result):
         return
     try:
         LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        rec = {"ts": int(time.time()), "id": hashlib.sha1(task.encode("utf-8")).hexdigest()[:10],
+        rec = {"ts": int(time.time()), "id": prompt_id(task),
                "task": redact(task)[:200], "model": result.get("model"), "source": result.get("source"),
                "reason": result.get("reason"), "metrics": result.get("metrics"), "signals": result.get("signals"),
-               "domain": result.get("domain"), "input": result.get("input"), "tokens": result.get("tokens")}
+               "domain": result.get("domain"), "input": result.get("input"), "tokens": result.get("tokens"),
+               # 2.1: вторая ось и история (session — хеш session_id, не сам идентификатор)
+               "effort": result.get("effort"), "effort_source": result.get("effort_source"),
+               "effort_depth": result.get("effort_depth"), "model_source": result.get("model_source"),
+               "session": result.get("session"), "retry": result.get("retry")}
         new = not LOG_PATH.exists()
         with LOG_PATH.open("a", encoding="utf-8") as f:
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
@@ -523,30 +653,59 @@ def axes_line(result):
     return ", ".join("%s %.1f" % (AXIS_RU[k], vals[k]) for k in WEIGHTS)
 
 
-def hook_context(result):
-    """Короткая императивная заметка для основной модели: что делать с этим уровнем."""
+def effort_question(e, fb):
+    return "«Effort %s%s?» с вариантами «Да, %s» / «Нет, %s»" % (
+        e, " — дольше и дороже" if e in eff.COSTLY_EFFORTS else " — минимум размышлений", e, fb)
+
+
+def hook_context(result, cur_effort=None):
+    """Короткая императивная заметка для основной модели: пара «модель + effort», причины, что делать."""
     tier = result["model"]
+    e = result.get("effort") or eff.DEFAULT_EFFORT
     src = ("TypeSafe, уверенность %s" % result.get("confidence", "обычная")) if result.get("source") == "typesafe" \
         else "только эвристика, уверенность низкая"
     kind = (result.get("domain") or {}).get("kind")
-    head = "TypeSafe-триаж: уровень %s (%s%s; %s). Причины: %s." % (
-        tier, src, ("; тип: %s" % kind) if kind else "", axes_line(result), result.get("reason", ""))
-    run = tier
+    ereasons = "; ".join(result.get("effort_reasons") or [])
+    head = "TypeSafe-триаж: уровень %s, effort %s (%s%s; %s). Причины: %s. Effort (%s): %s." % (
+        tier, e, src, ("; тип: %s" % kind) if kind else "", axes_line(result), result.get("reason", ""),
+        result.get("effort_confidence", "низкая"), ereasons or "по умолчанию")
     lines = [head]
-    if tier in CONFIRM_TIERS:
-        fb = CONFIRM_TIERS[tier]
+    m_conf, e_conf = result.get("confirm", tier in CONFIRM_TIERS), result.get("effort_confirm", False)
+    mfb = result.get("fallback") if m_conf else tier
+    efb = result.get("effort_fallback") if e_conf else e
+    if m_conf and e_conf:
+        lines.append(
+            "• %s и effort %s не запускать без подтверждения: ОДИН вызов AskUserQuestion с двумя вопросами — «Запустить агента на %s?» "
+            "с вариантами «Да, %s» / «Нет, %s» и %s. Нет явного «да» → работай на %s / effort %s." % (
+                tier, e, tier, tier, mfb, effort_question(e, efb), mfb, efb))
+    elif m_conf:
         lines.append(
             "• %s не запускать без подтверждения. Прежде чем делегировать — AskUserQuestion «Запустить агента на %s?» "
-            "с вариантами «Да, %s» / «Нет, %s». Нет явного «да» → работай на %s." % (tier, tier, tier, fb, fb))
-        run = "%s (или %s без подтверждения)" % (tier, fb)
+            "с вариантами «Да, %s» / «Нет, %s». Нет явного «да» → работай на %s." % (tier, tier, tier, mfb, mfb))
+    elif e_conf:
+        lines.append("• effort %s не ставить без подтверждения: AskUserQuestion %s. Нет явного «да» → effort %s." % (
+            e, effort_question(e, efb), efb))
+    if result.get("explicit"):
+        lines.append("• Задано пользователем в запросе (%s) — это согласие, повторно не спрашивай." % ", ".join(result["explicit"]))
+    run = "Agent(model=%s, effort=%s)" % (tier, e)
+    if m_conf or e_conf:
+        run += " (без подтверждения — Agent(model=%s, effort=%s))" % (mfb, efb)
+    cost = " xhigh/max — заметно больше токенов и времени." if e in eff.COSTLY_EFFORTS else ""
     lines += [
         "• Делегируй, если работа содержательная (анализ, проектирование, нетривиальная правка, поиск причины, большой текст) "
-        "и уровень выше твоей модели, или задача большая и изолируемая: Agent(model=%s) с самодостаточным промптом "
-        "(цель, пути, ограничения, критерии готовности, что вернуть); результат проверь сам." % run,
+        "и уровень выше твоей модели, или задача большая и изолируемая: %s с самодостаточным промптом "
+        "(цель, пути, ограничения, критерии готовности, что вернуть); effort указывай явно — этого требует пользователь; "
+        "результат проверь сам.%s" % (run, cost),
         "• Иначе (диалог, мелочь, уровень не выше твоего) — делай сам, триаж не упоминай.",
-        "• Субагентам скилл typesafe-triage не применять. План SuperPowers: модели ролей — из его Model Selection (model явно), "
-        "«most capable» = opus, «cheapest» = sonnet (haiku/fable — только с подтверждения). Проверки (тесты, чтение результата, данные) обязательны; при сомнении — уровень выше.",
     ]
+    if cur_effort and abs(eff.idx(cur_effort) - eff.idx(efb)) >= SESSION_EFFORT_GAP:
+        lines.append("• Делаешь сам в основной сессии (её effort %s): одной строкой предложи пользователю «/effort %s»." % (cur_effort, efb))
+    if result.get("clarify"):
+        lines.append("• Неуверенная оценка при высокой цене ошибки: сначала задай пользователю ОДИН короткий уточняющий вопрос "
+                     "(цель, границы, критерий готовности), не угадывай.")
+    lines.append(
+        "• Субагентам скилл typesafe-triage не применять. План SuperPowers: модели ролей — из его Model Selection (model явно), "
+        "«most capable» = opus, «cheapest» = sonnet (haiku/fable — только с подтверждения). Проверки (тесты, чтение результата, данные) обязательны; при сомнении — уровень выше.")
     return "\n".join(lines)
 
 
@@ -576,6 +735,37 @@ def should_skip(prompt):
             or is_harness_message(prompt) or heur.is_chatter(prompt))
 
 
+def already_handled(session_id, prompt, now=None):
+    """Идемпотентность хука: True, если этот же запрос (session_id + хеш промпта) уже обработан за последние DEDUP_S секунд.
+    Метка — пустой файл с именем-хешем в ~/.claude/typesafe-triage/dedup/ (0600, без текста промпта); создание атомарное
+    (O_EXCL), поэтому из двух одновременных вызовов говорит только один. Любая ошибка файловой системы — не дубль."""
+    if not session_id:
+        return False                      # без session_id нельзя отличить дубль от нового запроса (Claude Code его всегда передаёт)
+    now = time.time() if now is None else now
+    digest = hashlib.sha256((session_id + "\0" + prompt).encode("utf-8")).hexdigest()[:32]
+    d = guard.HOME / DEDUP_NAME
+    try:
+        d.mkdir(parents=True, exist_ok=True)
+        os.chmod(d, 0o700)
+        f = d / digest
+        try:
+            os.close(os.open(str(f), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
+        except FileExistsError:
+            if now - f.stat().st_mtime < DEDUP_S:
+                return True
+            os.utime(f, (now, now))       # тот же запрос, но позже — это новый запрос пользователя
+            return False
+        for x in d.iterdir():             # уборка старых меток
+            try:
+                if now - x.stat().st_mtime > 60 * DEDUP_S:
+                    x.unlink()
+            except OSError:
+                pass
+    except OSError:
+        return False
+    return False
+
+
 def run_hook():
     """Хук не должен ни ломать, ни тормозить работу: любая неожиданность = молчание и код 0."""
     try:
@@ -587,11 +777,14 @@ def run_hook():
         prompt = data.get("prompt", "") or ""
         if should_skip(prompt) or switched_off(data.get("cwd")):
             return 0
-        result = triage(prompt, timeout=HOOK_TIMEOUT_S)
+        sid = data.get("session_id") if isinstance(data.get("session_id"), str) else None
+        if already_handled(sid, prompt):
+            return 0  # второй хук (ручной в settings.json + хук плагина) на тот же запрос — молчим
+        result = triage(prompt, timeout=HOOK_TIMEOUT_S, session=sid, cwd=data.get("cwd"))
         log(prompt, result)
         parts, out = [], {}
         if result.get("model") and not result.get("skip"):
-            parts.append(hook_context(result))
+            parts.append(hook_context(result, eff.session_effort(data.get("cwd"))))
         if result.get("notice"):  # проблема с TypeSafe: показать пользователю прямо (systemMessage) и поручить сообщить в ответе
             out["systemMessage"] = result["notice"]
             parts.append("ВАЖНО (TypeSafe): в начале ответа одной-двумя строками сообщи пользователю: " + result["notice"])
@@ -603,47 +796,171 @@ def run_hook():
     return 0
 
 
-def run_selftest(heuristic_only=False):
-    """Эталонные задачи. expect: уровень или "skip" (реплика: заметки быть не должно).
-    С --heuristic ожидания сводятся к sonnet/opus (запасной вариант других уровней не даёт)."""
-    cases = json.loads((Path(__file__).with_name("triage_cases.json")).read_text(encoding="utf-8"))
-    ok = under = over = fail = 0
+CASES_FILE = "triage_cases.json"
+HOLDOUT_MOD = 5            # отложенная часть кейсов (~20 %): sha1(task) % HOLDOUT_MOD == 0 — не используется при подстройке
+
+
+def is_holdout(task):
+    return int(hashlib.sha1(task.encode("utf-8")).hexdigest(), 16) % HOLDOUT_MOD == 0
+
+
+def history_records(prev):
+    """Предыдущие запросы кейса → записи журнала одной сессии (как их пишет log)."""
+    recs, seen = [], set()
+    for i, p in enumerate(prev or []):
+        pid = prompt_id(p)
+        recs.append({"ts": int(time.time()) - 60 * (len(prev) - i), "session": "selftest", "id": pid,
+                     "retry": heur.is_retry(p) or pid in seen})
+        seen.add(pid)
+    return recs
+
+
+def _range(c, key, single, order):
+    vals = c.get(key) or ([c[single]] if c.get(single) else [])
+    vals = [x for x in vals if x in order]
+    return (min(vals, key=order.index), max(vals, key=order.index)) if vals else None
+
+
+def _cmp(got, rng, order):
+    """-1 ниже допустимого, 0 в диапазоне, +1 выше."""
+    if rng is None or got not in order:
+        return 0
+    return -1 if order.index(got) < order.index(rng[0]) else 1 if order.index(got) > order.index(rng[1]) else 0
+
+
+class Replay:
+    """Кэш ответов TypeSafe для --calibrate: ключ = (набор вопросов, дайджест). Нет ответа в кэше — живой запрос и запись."""
+
+    def __init__(self, path):
+        self.path = Path(path)
+        try:
+            self.data = json.loads(self.path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            self.data = {}
+        self.qhash = hashlib.sha1(json.dumps(build_questions(), sort_keys=True).encode("utf-8")).hexdigest()[:10]
+        self.live = ask_typesafe
+
+    def __call__(self, task, key, timeout=TIMEOUT_S):
+        k = self.qhash + ":" + hashlib.sha1(task.encode("utf-8")).hexdigest()
+        if k not in self.data:
+            self.data[k] = self.live(task, key, timeout)
+            self.path.write_text(json.dumps(self.data, ensure_ascii=False), encoding="utf-8")
+        return self.data[k]
+
+
+def run_cases(heuristic_only=False, split="all", calibrate=False):
+    """Эталонные задачи (triage_cases.json): модель и effort против ожидаемого диапазона.
+    expect — уровень модели или "skip"; effort / effort_ok — ожидаемый effort и допустимый диапазон; tier_ok — диапазон модели;
+    history — предыдущие запросы той же сессии. С --heuristic ожидания сводятся к запасной полосе (sonnet/opus, medium..xhigh),
+    кроме явных указаний пользователя. Возврат: словарь счётчиков по частям train/holdout."""
+    cases = json.loads(Path(__file__).with_name(CASES_FILE).read_text(encoding="utf-8"))
+    stats = {part: {"n": 0, "m_ok": 0, "m_under": 0, "m_over": 0, "e_ok": 0, "e_under": 0, "e_over": 0, "nosig": 0}
+             for part in ("train", "holdout")}
+    dist, confusion = {}, {}
     for c in cases:
-        exp, task = c["expect"], c["task"]
-        if exp == "skip":
-            got_skip = should_skip(task) or (not heuristic_only and triage(task).get("skip"))
-            ok, over = ok + bool(got_skip), over + (not got_skip)
-            print("%-6s ожид skip   %s | %s" % ("ok" if got_skip else "over", "пропуск" if got_skip else "заметка", task[:60]))
+        task = c["task"]
+        part = "holdout" if is_holdout(task) else "train"
+        if split != "all" and part != split:
             continue
+        st = stats[part]
+        if c["expect"] == "skip":
+            got_skip = should_skip(task) or (not heuristic_only and triage(task, env={}, history=[]).get("skip"))
+            st["n"] += 1
+            st["m_ok"] += bool(got_skip)
+            st["m_over"] += not got_skip
+            print("%-6s %-7s ожид skip   %s | %s" % ("ok" if got_skip else "over", part, "пропуск" if got_skip else "заметка", task[:60]))
+            continue
+        hist = history_records(c.get("history"))
         if heuristic_only:
-            r = fallback(task, heur.signals(task), "офлайн-проверка")
-            exp = CONFIRM_TIERS.get(exp, exp)
+            r = fallback(task, heur.signals(task), "офлайн-проверка", {"env": {}, "history": hist})
         else:
-            r = triage(task)
+            r = triage(task, env={}, history=hist)
             if r.get("source") != "typesafe":
-                fail += 1
-                print("NOSIG  %-9s %s | %s" % (exp, r.get("reason"), task[:60]))
+                st["nosig"] += 1
+                print("NOSIG  %-7s %s | %s" % (part, r.get("reason"), task[:60]))
                 continue
-        got = r["model"]
-        d = TIERS.index(got) - TIERS.index(exp)
-        tag = "ok" if d == 0 else "UNDER" if d < 0 else "over"
-        ok, under, over = ok + (d == 0), under + (d < 0), over + (d > 0)
-        print("%-6s ожид %-6s дано %-6s | %s | %s" % (tag, exp, got, r["reason"], task[:60]))
-    print("\nсовпало %d, ниже ожидаемого (опасно) %d, выше (дорого) %d, без сигнала %d, всего %d" % (
-        ok, under, over, fail, len(cases)))
+        st["n"] += 1
+        mr = _range(c, "tier_ok", "expect", TIERS)
+        er = _range(c, "effort_ok", "effort", eff.EFFORTS)
+        if heuristic_only:
+            mr = tuple(CONFIRM_TIERS.get(x, x) for x in mr) if r.get("model_source") != "user" else mr
+            if er and r.get("effort_source") != "user":
+                lo, hi = eff.H_EFFORT_BAND
+                er = (eff.at_most(eff.at_least(er[0], lo), hi), eff.at_most(eff.at_least(er[1], lo), hi))
+        dm, de = _cmp(r["model"], mr, TIERS), _cmp(r["effort"], er, eff.EFFORTS)
+        for ax, dv in (("m", dm), ("e", de)):
+            st[ax + ("_ok" if dv == 0 else "_under" if dv < 0 else "_over")] += 1
+        dist[r["effort"]] = dist.get(r["effort"], 0) + 1
+        if c.get("effort"):
+            confusion.setdefault(c["effort"], {}).setdefault(r["effort"], 0)
+            confusion[c["effort"]][r["effort"]] += 1
+        tag = "UNDER" if dm < 0 or de < 0 else "over" if dm > 0 or de > 0 else "ok"
+        print("%-6s %-7s модель %-6s (ожид %s) effort %-6s (ожид %s) глубина %.2f | %s" % (
+            tag, part, r["model"], "-".join(mr) if mr else "?", r["effort"], "-".join(er) if er else "?",
+            r.get("effort_depth", 0), task[:70]))
+        if calibrate or tag != "ok":
+            print("        модель: %s\n        effort: %s" % (r.get("reason", ""), "; ".join(r.get("effort_reasons", []))))
+    for part, st in stats.items():
+        if st["n"] or st["nosig"]:
+            print("\n[%s] кейсов %d | модель: совпало %d, ниже ожидаемого (опасно) %d, выше (дорого) %d | effort: совпало %d, "
+                  "ниже ожидаемого (опасно) %d, выше (дорого) %d | без сигнала %d" % (
+                      part, st["n"], st["m_ok"], st["m_under"], st["m_over"], st["e_ok"], st["e_under"], st["e_over"], st["nosig"]))
+    if calibrate:
+        print("\nРаспределение effort: " + ", ".join("%s %d" % (e, dist.get(e, 0)) for e in eff.EFFORTS))
+        print("Ожидаемый → выданный effort:")
+        for e in eff.EFFORTS:
+            if e in confusion:
+                print("  %-6s → %s" % (e, ", ".join("%s %d" % (g, confusion[e].get(g, 0)) for g in eff.EFFORTS if confusion[e].get(g))))
+    return stats
+
+
+def log_summary():
+    """Сводка журнала: распределение моделей и effort, источники effort, доля повторов."""
+    try:
+        recs = [json.loads(x) for x in LOG_PATH.read_text(encoding="utf-8").splitlines() if x.strip()]
+    except (OSError, ValueError):
+        recs = []
+    if not recs:
+        print("\nЖурнал %s пуст или недоступен." % LOG_PATH)
+        return
+    def count(key):
+        out = {}
+        for r in recs:
+            out[r.get(key)] = out.get(r.get(key), 0) + 1
+        return ", ".join("%s %d" % (k, v) for k, v in sorted(out.items(), key=lambda kv: -kv[1]))
+    print("\nЖурнал %s: записей %d" % (LOG_PATH, len(recs)))
+    print("  модели: " + count("model"))
+    print("  effort: " + count("effort") + "  (None — записи до 2.1)")
+    print("  источник effort: " + count("effort_source"))
+    print("  повторы (эскалация по истории): %d" % sum(1 for r in recs if r.get("retry")))
+
+
+def run_selftest(heuristic_only=False, split="all", calibrate=False):
+    stats = run_cases(heuristic_only, split, calibrate)
+    if calibrate:
+        log_summary()
+    under = sum(st["m_under"] + st["e_under"] for st in stats.values())
     return 1 if under else 0
 
 
-def build_agent_cmd(tier, readonly=False, budget=None, edit=False, allow=(), confirmed=False):
-    """Команда запуска отдельного агента Claude Code на заданном уровне. haiku/fable — только с confirmed=True."""
+def build_agent_cmd(tier, readonly=False, budget=None, edit=False, allow=(), confirmed=False, effort=None, confirmed_effort=False):
+    """Команда запуска отдельного агента Claude Code на заданном уровне. haiku/fable — только с confirmed=True;
+    effort low/max — только с confirmed_effort=True (неизвестный уровень CLI молча игнорирует, поэтому проверяем здесь)."""
     if tier not in TIERS:
         raise ValueError("недопустимый уровень модели %r: разрешены %s" % (tier, ", ".join(TIERS)))
     if tier in CONFIRM_TIERS and not confirmed:
         raise ValueError("уровень %s запускается только с явным подтверждением пользователя (--confirmed); без него — %s"
                          % (tier, CONFIRM_TIERS[tier]))
+    if effort is not None and effort not in eff.EFFORTS:
+        raise ValueError("недопустимый effort %r: разрешены %s" % (effort, ", ".join(eff.EFFORTS)))
+    if effort in eff.CONFIRM_EFFORTS and not confirmed_effort:
+        raise ValueError("effort %s ставится только с явным подтверждением пользователя (--confirmed-effort); без него — %s"
+                         % (effort, eff.safe_effort(effort)))
+    if effort is not None and effort not in eff.MODEL_EFFORTS.get(tier, eff.EFFORTS):
+        raise ValueError("сочетание %s + effort %s не поддерживается" % (tier, effort))
     if readonly and edit:
         raise ValueError("--readonly и --edit несовместимы")
-    cmd = ["claude", "-p", "--model", tier, "--append-system-prompt", AGENT_RULES]
+    cmd = ["claude", "-p", "--model", tier] + (["--effort", effort] if effort else []) + ["--append-system-prompt", AGENT_RULES]
     if readonly:
         cmd += ["--permission-mode", "plan"]
     elif edit:
@@ -672,7 +989,7 @@ def run_agent(argv):
     for a in argv[1:]:
         if skip:
             skip = False
-        elif a in ("--tier", "--budget", "--allow"):
+        elif a in ("--tier", "--budget", "--allow", "--effort"):
             skip = True
         elif not a.startswith("--"):
             words.append(a)
@@ -686,34 +1003,59 @@ def run_agent(argv):
     if len(task) > AGENT_MAX_CHARS:
         print("Задача длиннее %d знаков: сохраните её в файл и поставьте агенту задачу «прочитай файл …»." % AGENT_MAX_CHARS)
         return 2
-    confirmed = "--confirmed" in argv
-    forced = opt(argv, "--tier")
-    if forced:
-        if forced in CONFIRM_TIERS and not confirmed:
-            print("Уровень %s запускается только после явного подтверждения пользователя: добавьте --confirmed или выберите %s."
-                  % (forced, CONFIRM_TIERS[forced]))
+    confirmed, confirmed_effort = "--confirmed" in argv, "--confirmed-effort" in argv
+    forced, forced_effort = opt(argv, "--tier"), opt(argv, "--effort")
+    if forced and forced in CONFIRM_TIERS and not confirmed:
+        print("Уровень %s запускается только после явного подтверждения пользователя: добавьте --confirmed или выберите %s."
+              % (forced, CONFIRM_TIERS[forced]))
+        return 2
+    if forced_effort is not None:
+        if forced_effort not in eff.EFFORTS:
+            print("Недопустимый effort %r: разрешены %s." % (forced_effort, ", ".join(eff.EFFORTS)))
             return 2
-        tier, why = forced, "уровень задан вручную"
-    else:
-        result = triage(task)
+        if forced_effort in eff.CONFIRM_EFFORTS and not confirmed_effort:
+            print("Effort %s ставится только после явного подтверждения пользователя: добавьте --confirmed-effort или выберите %s."
+                  % (forced_effort, eff.safe_effort(forced_effort)))
+            return 2
+    result = {}
+    if not (forced and forced_effort):
+        result = triage(task, cwd=os.getcwd())
         log(task, result)
         if result.get("notice"):
             print(result["notice"], file=sys.stderr)
+    why = []
+    if forced:
+        tier = forced
+        why.append("уровень задан вручную")
+    else:
         tier = result.get("model") or DEFAULT_TIER
-        why = result.get("reason") or "рекомендации нет; беру %s по умолчанию" % DEFAULT_TIER
+        why.append(result.get("reason") or "рекомендации нет; беру %s по умолчанию" % DEFAULT_TIER)
         if result.get("source") == "heuristic":
-            why += " (уверенность низкая)"
-        if tier in CONFIRM_TIERS and not confirmed:
-            why += "; рекомендован %s, но без --confirmed запускаю %s" % (tier, CONFIRM_TIERS[tier])
+            why[-1] += " (уверенность низкая)"
+        # явный выбор модели в тексте задачи — согласие пользователя
+        if tier in CONFIRM_TIERS and not confirmed and result.get("model_source") != "user":
+            why.append("рекомендован %s, но без --confirmed запускаю %s" % (tier, CONFIRM_TIERS[tier]))
             tier = CONFIRM_TIERS[tier]
+        confirmed = confirmed or result.get("model_source") == "user"
+    if forced_effort:
+        effort = forced_effort
+        why.append("effort задан вручную")
+    else:
+        effort = result.get("effort") or eff.DEFAULT_EFFORT
+        why.append("effort %s: %s" % (effort, "; ".join(result.get("effort_reasons") or ["по умолчанию"])))
+        if effort in eff.CONFIRM_EFFORTS and not confirmed_effort and result.get("effort_source") not in ("user", "project"):
+            why.append("рекомендован effort %s, но без --confirmed-effort ставлю %s" % (effort, eff.safe_effort(effort)))
+            effort = eff.safe_effort(effort)
+        confirmed_effort = confirmed_effort or result.get("effort_source") in ("user", "project")
     try:
-        cmd = build_agent_cmd(tier, "--readonly" in argv, opt(argv, "--budget"), "--edit" in argv, opts(argv, "--allow"), confirmed)
+        cmd = build_agent_cmd(tier, "--readonly" in argv, opt(argv, "--budget"), "--edit" in argv, opts(argv, "--allow"), confirmed,
+                              effort, confirmed_effort)
     except ValueError as e:
         print(e)
         return 2
-    print("Агент: %s | %s" % (tier, why), file=sys.stderr)
+    print("Агент: %s, effort %s | %s" % (tier, effort, " | ".join(why)), file=sys.stderr)
     if "--dry-run" in argv:
-        print(" ".join(cmd[:4]) + " … (задача — через stdin)\n" + task)
+        print(" ".join(cmd[:6]) + " … (задача — через stdin)\n" + task)
         return 0
     cmd = [shutil.which(cmd[0]) or cmd[0]] + cmd[1:]   # Windows: claude может быть claude.cmd/.exe — ищем по PATH
     try:
@@ -779,8 +1121,10 @@ def main(argv):
         text = " ".join(a for a in argv[1:] if not a.startswith("--")) or sys.stdin.read()
         h = heur.signals(text)
         tier, why = decide_heuristic(h)
+        e = eff.decide_effort(None, h, tier, env={}, d=heur.directives(text))
         print(json.dumps({"skip": should_skip(text), "heuristic_tier": tier, "reason": "; ".join(why),
-                          "load": round(heur_load(h), 2), "signals": compact_signals(h)}, ensure_ascii=False, indent=2))
+                          "load": round(heur_load(h), 2), "heuristic_effort": e["effort"], "effort_reasons": e["effort_reasons"],
+                          "directives": heur.directives(text), "signals": compact_signals(h)}, ensure_ascii=False, indent=2))
         return 0
     if "--check" in argv:
         r = triage("Исправь падение теста test_login: таймаут при вызове сервиса авторизации", timeout=10)
@@ -792,13 +1136,19 @@ def main(argv):
         return 0 if r.get("source") == "typesafe" else 1
     if "--hook" in argv:
         return run_hook()
-    if "--selftest" in argv:
-        return run_selftest("--heuristic" in argv)
+    if "--selftest" in argv or "--calibrate" in argv:
+        if opt(argv, "--cache"):
+            globals()["ask_typesafe"] = Replay(opt(argv, "--cache"))
+        split = opt(argv, "--split") or "all"
+        if split not in ("all", "train", "holdout"):
+            print("--split: all | train | holdout")
+            return 2
+        return run_selftest("--heuristic" in argv, split, "--calibrate" in argv)
     if len(argv) < 2:
         print(__doc__)
         return 2
     task = " ".join(a for a in argv[1:] if not a.startswith("--"))
-    result = triage(task)
+    result = triage(task, cwd=os.getcwd())
     log(task, result)
     if result.get("notice"):
         print(result["notice"], file=sys.stderr)
