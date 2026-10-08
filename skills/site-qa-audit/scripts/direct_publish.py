@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Direct publication mode (G-6, references/repo-sync.md §6) — site-qa-audit.
+"""Direct publication mode (G-6, references/repo-sync.md §4a) — site-qa-audit.
 
   direct_publish.py check  <RUN_DIR> --id F-001 --repo owner/repo [--registry <RUN_DIR>/registry.json] [--ack-candidates]
   direct_publish.py record <RUN_DIR> --id F-001 --repo owner/repo --number 12 --url https://github.com/owner/repo/issues/12

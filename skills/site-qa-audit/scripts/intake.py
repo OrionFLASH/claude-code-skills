@@ -128,6 +128,15 @@ def parse(text, output_dir=None):
     states = [name for rx, name in ACCOUNT_STATES if re.search(rx, low)]
     if states:
         cfg["auth"]["account_states"] = states
+    # paid tiers (G-4): ask in advance which states are available and plan both passes
+    if re.search(r"\bpro\b|премиум|premium|подписк|платн\w* (тариф|уров|верси|функци)", low):
+        cfg["auth"]["paid_tiers"] = ["pro"]
+        notes.append("есть платный уровень: спросить заранее, какие состояния доступны (без Pro / с Pro) и можно ли "
+                     "переключать; спланировать проход в каждом состоянии (claims.py plan --account-states)")
+    # publication mode (G-6): «сразу в репозиторий» -> direct
+    cfg["publish_mode"] = "direct" if re.search(
+        r"сразу (в (целевой |их |чужой )?репозитори|заводи|публикуй|создавай)|без черновик|direct[- ]publish|"
+        r"прям\w* публикац", low) else "batch"
 
     # scope, directions, depth
     scope = "whole-site"
@@ -140,8 +149,14 @@ def parse(text, output_dir=None):
         dirs = list(DIRECTIONS)
         if not re.search(r"все направлени|полн\w* (qa|аудит)|full audit", low):
             notes.append("направления не названы — взяты все")
+    # legal-ui is opt-in (not part of «все направления»): cookie banner, consent, documents, operator, age marks
+    if re.search(r"юридическ|законодательств|cookie-?баннер|баннер\w* (cookie|куки)|согласи\w* на (cookie|куки|обработк)|"
+                 r"обработк\w* персональн|gdpr|152-фз|политик\w* конфиденциальн|оферт|возрастн\w* маркир|legal-ui", low) \
+            and "legal-ui" not in dirs:
+        dirs.append("legal-ui")
+        notes.append("направление legal-ui: только факты; нормы права — со второй проверкой и пометкой «проверить юристом»")
     cfg["directions"] = dirs
-    cfg["depth"] = ("smoke" if re.search(r"smoke|быстр\w* (проверк|прогон)|поверхностн", low)
+    cfg["depth"] =("smoke" if re.search(r"smoke|быстр\w* (проверк|прогон)|поверхностн", low)
                     else "deep" if re.search(r"\bdeep\b|глубок|тщательн|подробн\w* прогон", low) else "standard")
 
     # devices and browsers

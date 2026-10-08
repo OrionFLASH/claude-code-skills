@@ -199,6 +199,17 @@ check "claims plan --account-states guest,free: пункты с Pro помече
   '$PY' '$S/claims.py' plan '$F/registry-claims.json' --account-states guest,free --out '$TMP/plan2.md' >/dev/null;
   grep -q 'нет нужного состояния аккаунта (с Pro' '$TMP/plan2.md' && grep -q 'Не хватает: с Pro' '$TMP/plan2.md'"
 
+# ---------- intake.py: legal-ui, paid tiers, publish_mode ----------
+check "intake: «законодательство РФ, cookie-баннер» -> legal-ui; Pro -> paid_tiers и заметка о двух состояниях; «сразу в репозиторий» -> direct" sh -c "
+  '$PY' '$S/intake.py' from-text --text 'Протестируй https://example.com/ по законодательству РФ: cookie-баннер, без Pro и с Pro, заводи сразу в репозиторий owner/repo' --json |
+  '$PY' -c \"
+import json,sys; d=json.load(sys.stdin); c=d['config']
+assert 'legal-ui' in c['directions'] and c['auth']['paid_tiers']==['pro'] and c['publish_mode']=='direct', c
+assert set(c['auth']['account_states'])>={'free','pro'} and any('двух' in n or 'каждом состоянии' in n for n in d['notes']), d['notes']\""
+check "intake: обычный запрос -> без legal-ui, publish_mode batch" sh -c "
+  '$PY' '$S/intake.py' from-text --text 'Протестируй https://example.com/ на телефоне, не очищай cookie' --json |
+  '$PY' -c \"import json,sys; c=json.load(sys.stdin)['config']; assert 'legal-ui' not in c['directions'] and c['publish_mode']=='batch', c\""
+
 # ---------- S-6/S-7: tabs.py ----------
 TB="$S/tabs.py"; TR="$TMP/run-tabs"; mkdir -p "$TR"
 check "tabs open: одна вкладка на профиль — вторая -> код 3 и запись существующей" sh -c "

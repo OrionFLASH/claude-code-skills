@@ -9,6 +9,8 @@ output_dir: /abs/path/to/results   # OUTPUT_ROOT: путь из запроса /
 skill_dir: /abs/path/to/site-qa-audit  # SKILL_DIR прогона: python3 <скил>/scripts/skill_dir.py (SITE_QA_AUDIT_DIR / плагин);
                               # подставляется в блок §4 и задания исполнителей, исполнитель проверяет его до работы
 mode: dry-run                 # live | dry-run (dry-run: всё, кроме публикации; черновики в drafts/)
+publish_mode: batch           # batch — черновики и сводная таблица в конце; direct — по запросу пользователя: каждая
+                              # находка «воспроизвести дважды → дубли → issue → скриншоты» сразу (repo-sync.md §4a)
 language: ru                  # язык отчётов и issues
 
 site:
@@ -31,6 +33,8 @@ auth:
   username_env: QA_USERNAME   # только имена переменных окружения
   password_env: QA_PASSWORD
   account_states: []          # состояния аккаунта для проверок: guest | free | pro | своё; пишутся в находку (account_state)
+  paid_tiers: []              # платные уровни сайта (pro, premium…): спросить заранее, как переключать, и пройти план
+                              # в каждом состоянии (intake.md, вопрос 5b; claims.py plan --account-states)
 
 scope:
   type: whole-site            # whole-site | section | url-list | current-screen
@@ -59,7 +63,8 @@ context:                      # что известно о сайте (intake.md
   #    ref: /abs/path/to/notes.md
 
 directions:                   # functional, logic-state, ux, visual-ui, responsive-cross-browser,
-  - functional                # accessibility, performance, seo-content, content-i18n, security-passive, product
+  - functional                # accessibility, performance, seo-content, content-i18n, security-passive, product;
+                              # legal-ui — только если выбрано (checklists/legal-ui.md)
   - ux
   - accessibility
 
@@ -137,6 +142,9 @@ rules:
   preapproved_actions: []
   # Те же поля; заранее одобренные действия уровня confirm (например, удаление записей, созданных прогоном).
   # Запреты (deny) не снимают.
+  read_only_urls: []
+  # Регэкспы URL, которые можно ОТКРЫТЬ ТОЛЬКО ДЛЯ ЧТЕНИЯ (url_guard.py nav --read-only), даже если они под
+  # forbidden_url_patterns: например "/auth/sign(in|up)" — прочитать тексты согласий, ничего не нажимая.
 
 frames: main                  # main | all — all: детекторы заходят во iframe (вложенные приложения), references/layout-detectors.md
 

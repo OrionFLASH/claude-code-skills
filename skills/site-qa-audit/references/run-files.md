@@ -111,5 +111,18 @@ python3 <SKILL_DIR>/scripts/build_report.py publish-table <RUN_DIR>
   - `new` — новый issue (связь с исходным, если `cross_links` разрешены);
   - `skip` — пропуск, только отчёт.
 - `FIXED-OK`, `NOT-CHECKED` — только отчёт; `UNSURE-MATCH` — вопрос пользователю; `evidence.sensitive` — не публиковать без решения.
+- Колонка **«Перепроверка»**: находка без независимой перепроверки (`recheck.status` не `confirmed`, меньше 2 воспроизведений, ручное подтверждение тем же исполнителем) или с правовыми нормами без второй проверки получает в действии «— НЕ публиковать до перепроверки» (`recheck.py gate`, `parallelism.md` → «Независимая перепроверка»).
 
 Таблицу показать пользователю и ждать «да» (если `confirm_before_publish: true`).
+
+## Файлы исполнителей и публикации (1.3.0)
+| Файл | Кто пишет | Что |
+|------|-----------|-----|
+| `raw/messages/<время>-<поток>.md` | `ingest_findings.py` | последнее сообщение исполнителя с блоком ```` ```qa-findings ```` (след для проверки) |
+| `questions.json` | `ingest_findings.py` | вопросы исполнителей («баг или задумано», confirm-действия) — оркестратор задаёт их пользователю |
+| `tabs.json` | `tabs.py` | реестр вкладок прогона: кто открыл, профиль устройства, инструмент, сессия, закрыта ли |
+| `logs/read-only.jsonl` | `url_guard.py nav --read-only --log`, `guard.js` (`readOnly`) | страницы, открытые только для чтения («прочитано без действий») |
+| `published.json` | `direct_publish.py record` | что опубликовано в режиме прямой публикации (защита от двойной публикации после сбоя) |
+| `published/<owner>__<repo>/F-NNN.md` | `render_draft.py --body-only` | тело опубликованного issue (режим прямой публикации — вместо `drafts/`) |
+| `findings.json → recheck`, `legal` | `recheck.py` | результат независимой перепроверки и второй проверки правовых норм |
+| `logs/auth-state.json` | `device_context.js state` | секрет: только cookie `allowed_domains` + localStorage/sessionStorage сайта; удаляется `state-rm` |

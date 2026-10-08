@@ -48,6 +48,7 @@ python3 scripts/fetch_issues.py sync owner/repo --cache qa-runs/.cache/issues   
 
 ## 4. Публикация (шаг 9 прогона)
 
+0. **Независимая перепроверка** (обязательно, `parallelism.md` → «Независимая перепроверка»): `recheck.py run <RUN_DIR>` (каждая находка воспроизводится дважды по `repro`), что не перезапускается скриптом — отдельный исполнитель и `recheck.py set`; правовые нормы — `recheck.py legal`. `recheck.py gate <RUN_DIR>` — что можно публиковать. Не подтвердилось — в отчёт, без issue.
 1. **Сводная таблица** перед публикацией: `build_report.py publish-table <RUN_DIR>` (`references/run-files.md`) — статус | severity по шкале репозитория | заголовок | куда | действие (issue/комментарий/пропуск) и над ней политика `closed_claims` каждого репозитория. Если `confirm_before_publish: true` — ждать «да» (можно частично: «публикуй всё, кроме 3 и 7»).
    **Недоработка в закрытом issue** (`FIXED-INSUFFICIENT`, `REGRESSION`) — по `repos[].closed_claims`: `comment` (по умолчанию) — комментарий в закрытом issue, не переоткрывать; `new` — новый issue, связь с исходным, если `cross_links` разрешены; `skip` — не публиковать, только отчёт.
 2. **Чувствительные находки** (`evidence.sensitive: true`, `safety-rules.md` §6) в публичные репозитории не публикуются — только по отдельному решению пользователя.
@@ -79,6 +80,24 @@ python3 scripts/fetch_issues.py sync owner/repo --cache qa-runs/.cache/issues   
    Тело — всегда через файл (`--body-file`), не в командной строке.
 10. **Лимиты API**: пауза 3 с между созданиями, не больше 20 issues в минуту; при `secondary rate limit` / 403 / 5xx — пауза 60 с, повтор до 3 раз; при повторной ошибке — остановиться, оставшиеся сохранить в drafts и сообщить.
 11. После публикации записать в `findings.json` для каждой находки: `published: [{repo, number, url, kind: issue|comment}]` — это защищает от дублей при сбое на середине (перед каждым созданием проверять, нет ли уже `published` для этого repo).
+
+### Мелкие находки и предложения — одним issue по теме
+Несколько мелких недочётов (`low`, `info`) или предложений одной темы — один issue с таблицей «№ · где · что не так / сейчас · ожидалось / предлагаю · скриншот» и подробностями, по маркеру на каждую находку (повторный прогон находит каждую):
+```bash
+python3 <SKILL_DIR>/scripts/render_draft.py group <RUN_DIR>/findings.json --ids F-003,F-007,F-009 [--type suggestion] \
+  --config <RUN_DIR>/run-config.yaml --repo owner/repo --out <RUN_DIR>/drafts/owner__repo/group-texts.md
+python3 <SKILL_DIR>/scripts/render_draft.py groups <RUN_DIR>/findings.json --run-dir <RUN_DIR>   # темы автоматически
+```
+Тип `suggestion` (предложение) — с теми же скриншотами, колонки «Сейчас / Предлагаю». Если у репозитория своя форма для предложений — сначала их шаблон (`read_templates.py render`), таблица — в поле описания.
+
+## 4a. Прямая публикация (`publish_mode: direct`, по запросу пользователя)
+Пользователь просит «сразу в репозиторий», без накопления черновиков и сводной таблицы. Каждая находка проходит по очереди:
+1. **воспроизвести дважды**: `recheck.py run <RUN_DIR> --id F-NNN` (или независимый исполнитель + `recheck.py set`);
+2. **поиск дублей**: выгрузка issues уже есть (`fetch_issues.py sync` + `registry`), затем `python3 <SKILL_DIR>/scripts/direct_publish.py check <RUN_DIR> --id F-NNN --repo owner/repo`: код 0 — публиковать (печатает команды), 1 — gate закрыт (нет перепроверки, правовые нормы без второй проверки, чувствительная находка), 2 — похожие issues: прочитать, решить (дубль — `DUPLICATE-OPEN`, новое — `--ack-candidates`), 3 — уже опубликовано или точный дубль по маркеру;
+3. **issue**: `render_draft.py detailed … --body-only --out <RUN_DIR>/published/<owner>__<repo>/F-NNN.md` (печатает `TITLE:`) → при `confirm_before_publish: true` — вопрос «Опубликовать F-NNN …?» по одной находке → `gh issue create -R owner/repo --title "<TITLE>" --body-file …`;
+4. **скриншоты**: `screenshots: web-upload` — `node <SKILL_DIR>/scripts/node/publish_web.mjs --attach-to <N> --repo owner/repo --shots-dir <RUN_DIR>/screenshots --cdp … --confirm-publish` (плейсхолдеры в теле → вложения; по одному номеру); `commit` — как в п. 7;
+5. **запись**: `direct_publish.py record <RUN_DIR> --id F-NNN --repo owner/repo --number <N> --url <URL>` → `published.json` и `findings.json → published` (после сбоя повторный `check` вернёт 3).
+`direct_publish.py next <RUN_DIR> --repo owner/repo` — следующая находка по severity; `status` — что опубликовано. Лимиты API (п. 10) действуют; в конце — обычный отчёт (`build_report.py report`).
 
 ## 5. Итоговый issue
 Если есть репозиторий с ролью `copies` — после всех находок создать итоговый issue «QA-аудит <host> от <дата>» по `templates/run-report.md` со ссылками на все созданные issues. Маркер: `<!-- site-qa-audit:run=<YYYY-MM-DD>-<host> -->`; при повторном прогоне в тот же день — комментарий к нему, а не новый issue.

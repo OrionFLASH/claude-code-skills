@@ -39,7 +39,7 @@
    - `qa-visual`: visual-ui + responsive-cross-browser (ширины, WebKit/Firefox — `playwright-cli open --browser webkit`);
    - `qa-a11y-kbd`: клавиатура и фокус (то, чего нет в axe).
    При `max_workers = 2` — объединять попарно; при 3–4 — отдельными потоками, свободные потоки — на группы страниц и гипотезы; при 1 — всё в MCP-потоке.
-4. **Сведение**: оркестратор собирает `raw/*.json` и находки субагентов → `findings.json` → `fingerprint.py compute` → `dedupe`.
+4. **Сведение**: оркестратор собирает `raw/*.json` и блоки ```` ```qa-findings ```` из сообщений субагентов (`ingest_findings.py`) → `findings.json` → `fingerprint.py compute` → `dedupe` → независимая перепроверка (`recheck.py run`, ниже).
 
 Авторизация в CLI-потоках: вход выполняется один раз в MCP-потоке (тестовый аккаунт или ручной вход пользователя в видимом окне). Затем оркестратор получает состояние `browser_run_code_unsafe` с кодом `async (page) => JSON.stringify(await page.context().storageState())` (включает httpOnly-cookies; `browser_evaluate` их не видит), сохраняет в `<RUN_DIR>/logs/auth-state.json`, а потоки делают `playwright-cli -s=<id> state-load <файл>`. Файл состояния — секрет: не печатать, не коммитить, удалить в конце прогона. Если сайт привязывает сессию к устройству и state-load не работает — авторизованные проверки только в MCP-потоке.
 
@@ -53,19 +53,41 @@
 
 Можно параллельно и при входе: скриптовые проверки без браузерного состояния (`headers.js`, `links.js`, `fetch_issues.py`), гостевые потоки (без `storageState`), отдельные тестовые аккаунты на поток. Сомнение — последовательно; при 401/выходе из аккаунта в любом потоке — остановить все потоки и спросить пользователя.
 
+## Сессии, вкладки и окна (S-6, S-7)
+- **Никогда** `playwright-cli close-all`, `kill-all`, закрытие чужих сессий и окон: у каждого потока своя именованная сессия `-s=qa-<id>`, закрывается только она (`playwright-cli -s=qa-<id> close`). Чужая сессия «пропала» — сообщить оркестратору, не пересоздавать вход.
+- **Одна вкладка на профиль устройства** у каждого исполнителя: перед открытием — `python3 <SKILL_DIR>/scripts/tabs.py open <RUN_DIR> --owner <qa-id> --profile <desktop|pixel7|…> --tool cli|mcp|cdp [--target-id …]`; код 3 — вкладка уже есть, работать в ней, новую не открывать. После закрытия — `tabs.py close`.
+- В браузере пользователя (CDP) вкладки не плодить: скрипты скила сами закрывают созданную ими вкладку; `tabs.py audit <RUN_DIR> --cdp <URL> --domains <allowed>` показывает дубли и незарегистрированные вкладки сайта (ничего не закрывает).
+- **Уборка** — перед завершением шага и прогона: `tabs.py cleanup <RUN_DIR> [--owner <qa-id>] [--cdp <URL>]` (план) → `--yes` (закрывает только свои вкладки из реестра; для CLI/MCP печатает точную команду закрытия своей сессии/вкладки).
+
+## Находки — блоком в последнем сообщении (S-5)
+Субагенту запись файлов может быть запрещена («subagents should return findings as text») — поэтому исполнитель **не пишет** `findings.json`, `report.md` и другие отчёты. Он возвращает находки в последнем сообщении блоком ```` ```qa-findings ```` (формат — `python3 <SKILL_DIR>/scripts/ingest_findings.py example`), а оркестратор сохраняет сообщение и выполняет `python3 <SKILL_DIR>/scripts/ingest_findings.py <RUN_DIR> --from <файл сообщения> --thread <qa-id>`: проверка по схеме, id `F-NNN`, `not_checked` в findings.json, вопросы — в `questions.json`, само сообщение — в `raw/messages/`. Ошибка схемы — код 1, ничего не записано (вернуть исполнителю или `--partial`). Скриншоты исполнитель по-прежнему делает скриптами (`shot.js`) в `<RUN_DIR>/screenshots/<qa-id>-*.png` — их пишет скрипт, а не инструмент записи.
+
+## Независимая перепроверка (S-9) — обязательна до публикации
+1. У каждой находки — поле `repro`: как перезапустить измерение одной командой (`{url, js}` — выражение «дефект есть»; `{url, selector, assert}` — проверка рамки элемента; `{argv}` — команда скрипта скила). Без `repro` находка публикуется только после ручной независимой проверки.
+2. Оркестратор (не исполнитель, нашедший дефект) запускает `python3 <SKILL_DIR>/scripts/recheck.py run <RUN_DIR>` — каждая находка воспроизводится **дважды**; результат — `recheck` в находке (`confirmed`, `flaky`, `not-reproduced`, `error`, `refused`). Запускаются только скрипты скила.
+3. Что не перезапускается скриптом (сценарий из многих шагов, состояние аккаунта) — отдельный исполнитель-проверяющий (`qa-verify`) проходит шаги заново и возвращает результат; оркестратор записывает `recheck.py set <RUN_DIR> --id F-NNN --status confirmed --by "qa-verify: …"`. Подтверждение тем же исполнителем, что нашёл, не считается (`--same-executor` → gate закрыт).
+4. `recheck.py gate <RUN_DIR>` и колонка «Перепроверка» в `build_report.py publish-table` — без подтверждения находка **не публикуется** (в том числе в режиме прямой публикации). `not-reproduced` — в отчёт как «не подтвердилось», без issue.
+5. Правовые и финансовые утверждения — вторая проверка другим исполнителем: `recheck.py legal … --result confirmed|corrected|rejected` (`checklists/legal-ui.md`).
+
 ## Задание субагенту (шаблон)
 ```text
 Ты — исполнитель site-qa-audit, поток <qa-id>, направления: <list>.
-Браузер: ТОЛЬКО `playwright-cli -s=<qa-id> …` (Bash). Playwright MCP НЕ использовать.
+SKILL_DIR: <SKILL_DIR> (путь из run-config.yaml → skill_dir). ДО ПЕРВОГО ДЕЙСТВИЯ:
+  python3 <SKILL_DIR>/scripts/skill_dir.py --check <SKILL_DIR> && python3 <SKILL_DIR>/scripts/url_guard.py selftest
+  ошибка, «No such file» или код ≠ 0 — СТОП, ничего не открывать, вернуть «SKILL_DIR недоступен: <вывод>».
+Браузер: ТОЛЬКО `playwright-cli -s=<qa-id> …` (Bash). Playwright MCP НЕ использовать. Вкладки — по реестру tabs.py
+(одна на профиль устройства); close-all / kill-all и чужие сессии — НИКОГДА.
 Конфиг: <RUN_DIR>/run-config.yaml. Страницы: <list or file>. Ширины/браузеры: <…>.
 Контекст сайта (роли, сценарии, термины, «задумано так»): <OUTPUT_ROOT>/qa-runs/.site-context/<host>/context.md — прочитать до начала.
 Чек-листы: <SKILL_DIR>/references/checklists/<direction>.md — раздел(ы) <Smoke|Standard|Deep>.
 Усилители (методики): <skills from plugins-map> — используй как источник проверок, действия выполняй сам под правилами.
 <БЛОК ПРАВИЛ из safety-rules.md §4, дословно, с RULES_TABLE>
-Выход: <RUN_DIR>/raw/findings-<qa-id>.json — массив находок по templates/finding.schema.json
-(без id и fingerprint — их проставит оркестратор), скриншоты в <RUN_DIR>/screenshots/<qa-id>-*.png,
-заметки «не проверено» — в поле not_checked файла. Вопросы (confirm-действия, «баг или задумано») — не решай сам,
-верни списком questions в конце файла. В конце закрой сессию: playwright-cli -s=<qa-id> close.
+Выход: файлы находок и отчёты НЕ писать. Скриншоты — скриптами в <RUN_DIR>/screenshots/<qa-id>-*.png.
+В ПОСЛЕДНЕМ сообщении — блок ```qa-findings``` (формат: ingest_findings.py example): находки по
+templates/finding.schema.json без id и fingerprint, у каждой repro (команда/JS/селектор+URL для перезапуска),
+not_checked — что не проверено и почему, questions — вопросы (confirm-действия, «баг или задумано»: не решай сам).
+Правовые нормы — только как «возможно применимо», в legal.norms; вывода о нарушении не делать.
+В конце: tabs.py cleanup <RUN_DIR> --owner <qa-id> и playwright-cli -s=<qa-id> close (только свою сессию).
 ```
 
 ## Темп и нагрузка на сайт
