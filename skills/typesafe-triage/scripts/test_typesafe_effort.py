@@ -409,11 +409,12 @@ def test_second_hook_call_for_same_prompt_is_silent(monkeypatch, capsys):
     assert hook_raw(monkeypatch, capsys, dict(p, session_id="sess-2"))    # другая сессия — говорит
     d = t.guard.HOME / t.DEDUP_NAME
     files = list(d.iterdir())
-    assert files and all(oct(f.stat().st_mode & 0o777) == "0o600" and f.stat().st_size == 0 for f in files)
+    assert files and all(oct(f.stat().st_mode & 0o777) == "0o600" for f in files)
+    assert all(set(json.loads(f.read_text())) == {"state", "pid", "ts"} for f in files)   # 2.2: состояние без текста
     assert all("квартал" not in f.name and len(f.name) == 32 for f in files)   # только хеш, без текста
     old = time.time() - t.DEDUP_S - 1
     for f in files:
-        os.utime(f, (old, old))
+        f.write_text(json.dumps({"state": "done", "pid": 1, "ts": old}))
     assert hook_raw(monkeypatch, capsys, p)                               # прошло больше DEDUP_S — это новый запрос
 
 
@@ -425,7 +426,8 @@ def test_dedup_needs_session_and_survives_fs_errors(monkeypatch):
 
 def test_hook_still_silent_for_chatter_commands_and_child(monkeypatch, capsys):
     for p in ("ок, продолжай", "/review посмотри последние изменения в ветке, пожалуйста", "<task-notification>x</task-notification>"):
-        assert hook_raw(monkeypatch, capsys, {"prompt": p, "session_id": "s"}) == {}
+        out = hook_raw(monkeypatch, capsys, {"prompt": p, "session_id": "s"})   # 2.2: только строка о пропуске
+        assert set(out) == {"hookSpecificOutput"} and out["hookSpecificOutput"]["additionalContext"].startswith(t.SKIP_PREFIX)
     monkeypatch.setenv(t.CHILD_ENV, "1")
     assert hook_raw(monkeypatch, capsys, {"prompt": "Составь план подготовки к квартальной встрече", "session_id": "s"}) == {}
 

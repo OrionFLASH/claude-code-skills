@@ -201,7 +201,9 @@ def hook_out(monkeypatch, capsys, prompt, cwd=None):
 def test_hook_skips_chatter_commands_and_harness_without_network(monkeypatch, capsys, prompt):
     calls = []
     monkeypatch.setattr(t, "triage", lambda *a, **k: calls.append(1) or {"model": "opus", "source": "typesafe", "reason": "x"})
-    assert hook_out(monkeypatch, capsys, prompt) == {} and calls == []
+    out = hook_out(monkeypatch, capsys, prompt)                          # 2.2: строка о пропуске вместо молчания
+    assert calls == [] and set(out) == {"hookSpecificOutput"}
+    assert out["hookSpecificOutput"]["additionalContext"].startswith("TypeSafe-триаж пропущен: ")
 
 
 @pytest.mark.parametrize("prompt", [
@@ -230,7 +232,9 @@ def test_hook_silent_when_typesafe_says_it_is_just_conversation(monkeypatch, cap
     a["answers"]["complexity"] = {"score": 0.0, "confidence": 1.0}
     monkeypatch.setattr(t, "ask_typesafe", lambda *a_, **k: a)
     monkeypatch.setenv("TYPESAFE_API_KEY", "k-test")
-    assert hook_out(monkeypatch, capsys, "Хорошо, я посмотрю это вечером, а пока просто держу в курсе команды") == {}
+    assert not t.should_skip("Я посмотрю это вечером, а пока просто держу в курсе команды проекта")
+    out = hook_out(monkeypatch, capsys, "Я посмотрю это вечером, а пока просто держу в курсе команды проекта")
+    assert out["hookSpecificOutput"]["additionalContext"].startswith("TypeSafe-триаж пропущен: реплика (по оценке TypeSafe)")
 
 
 def test_hook_silent_when_switched_off(monkeypatch, capsys, tmp_path):
@@ -264,7 +268,8 @@ def test_hook_survives_garbage_and_pauses_after_failure(monkeypatch, capsys):
     for raw in ("[]", "null", "не json", json.dumps({"prompt": 123})):
         monkeypatch.setattr(t.sys, "stdin", io.StringIO(raw))
         assert t.run_hook() == 0
-    assert capsys.readouterr().out == ""
+        out = json.loads(capsys.readouterr().out)                        # 2.2: отказ виден пользователю
+        assert out["systemMessage"].startswith("TypeSafe-триаж пропущен: некорректный ввод хука")
     calls = []
     monkeypatch.setattr(t, "ask_typesafe", lambda *a, **k: calls.append(1) or (_ for _ in ()).throw(t.urllib.error.URLError("down")))
     monkeypatch.setenv("TYPESAFE_API_KEY", "k-test")
@@ -294,7 +299,8 @@ def test_harness_messages_are_not_sent(monkeypatch, capsys):
         assert t.is_harness_message(p)
         monkeypatch.setattr(t.sys, "stdin", io.StringIO(json.dumps({"prompt": p})))
         assert t.run_hook() == 0
-    assert calls == [] and capsys.readouterr().out == ""
+        assert "служебное сообщение среды" in json.loads(capsys.readouterr().out)["hookSpecificOutput"]["additionalContext"]
+    assert calls == []
     assert not t.is_harness_message("Исправь падение теста test_login в сервисе авторизации")
 
 

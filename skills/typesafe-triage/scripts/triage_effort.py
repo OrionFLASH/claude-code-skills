@@ -25,6 +25,7 @@
 import hashlib
 import json
 import os
+import re
 import time
 from pathlib import Path
 
@@ -184,6 +185,106 @@ def env_context(cwd=None):
     return out
 
 
+# ---------- 2.2.0: активная задача (T-1) и общее интерактивное состояние (T-3) — локально, по файлам проекта ----------
+TASKS_FILES = ("TASKS.md", "tasks.md", "Tasks.md")
+TASKS_MAX_BYTES = 64 * 1024
+ACTIVE_TASK_CHARS = 200
+PROFILE_DIRS = (".profile", ".chrome-profile", ".browser-profile")   # профиль браузера пользователя в проекте
+OPEN_ITEM_RE = re.compile(r"^\s*[-*+]\s+\[ \]\s+(.+?)\s*$", re.M)
+STOPPED_RE = re.compile(r"^#+\s*(?:где\s+остановил\w*|следующий\s+шаг|next\s+step|where\s+i\s+stopped)\b.*$", re.I | re.M)
+ACTIVE_RUN_RE = re.compile(r"прогон|браузер|\bCDP\b|вкладк|залогин|вход\s+пользовател|\bbrowser\b|test\s+run|\bQA\b", re.I)
+
+
+def _project_dirs(cwd):
+    """Каталог запуска и вверх до корня репозитория (не выше домашнего каталога), не больше 6 уровней."""
+    try:
+        start = Path(cwd or os.getcwd()).resolve()
+    except (OSError, ValueError):
+        return []
+    root = _find_root(start)
+    out = []
+    for p in [start, *start.parents][:6]:
+        if p == Path.home():
+            break
+        out.append(p)
+        if root is not None and p == root:
+            break
+    return out
+
+
+def tasks_file(cwd):
+    for d in _project_dirs(cwd):
+        for name in TASKS_FILES:
+            f = d / name
+            if f.is_file():
+                return f
+    return None
+
+
+def _tasks_text(f):
+    try:
+        with open(f, "rb") as h:
+            return h.read(TASKS_MAX_BYTES).decode("utf-8", "replace")
+    except OSError:
+        return ""
+
+
+def active_task(cwd):
+    try:
+        return _active_task(cwd)
+    except OSError:
+        return None
+
+
+def _active_task(cwd):
+    """Одна строка «активной задачи» из TASKS.md: первый открытый пункт «- [ ] …», иначе первая строка раздела
+    «Где остановился»/«Следующий шаг». Не длиннее ACTIVE_TASK_CHARS; None — нет файла или пункта."""
+    f = tasks_file(cwd)
+    if f is None:
+        return None
+    text = _tasks_text(f)
+    m = OPEN_ITEM_RE.search(text)
+    line = m.group(1) if m else None
+    if not line:
+        h = STOPPED_RE.search(text)
+        if h:
+            rest = [x.strip(" -*\t") for x in text[h.end():].split("\n") if x.strip() and not x.lstrip().startswith("#")]
+            line = rest[0] if rest else None
+    if not line:
+        return None
+    line = re.sub(r"\s+", " ", line).strip()
+    return line[:ACTIVE_TASK_CHARS] + ("…" if len(line) > ACTIVE_TASK_CHARS else "")
+
+
+def shared_state_env(cwd):
+    """Признаки общего интерактивного состояния в проекте: профиль браузера (.profile/), открытый порт отладки (CDP —
+    файл DevToolsActivePort в профиле), активный прогон в TASKS.md (открытые пункты про прогон/браузер/вход). → причины."""
+    try:
+        return _shared_state_env(cwd)
+    except OSError:
+        return []
+
+
+def _shared_state_env(cwd):
+    why = []
+    for d in _project_dirs(cwd):
+        for name in PROFILE_DIRS:
+            prof = d / name
+            if prof.is_dir():
+                cdp = (prof / "DevToolsActivePort").exists() or any(
+                    (x / "DevToolsActivePort").exists() for x in list(prof.iterdir())[:20] if x.is_dir())
+                why.append("браузер с отладкой (CDP) в %s/" % name if cdp else "профиль браузера %s/" % name)
+                break
+        if why:
+            break
+    f = tasks_file(cwd)
+    if f is not None:
+        items = OPEN_ITEM_RE.findall(_tasks_text(f))
+        if any(ACTIVE_RUN_RE.search(x) for x in items):
+            why.append("активный прогон в %s" % f.name)
+    return why
+
+
 def env_adjust(env, works_on_project):
     """→ (прибавка к глубине, причины). Окружение само effort не задаёт, только слегка уточняет работу над проектом."""
     bump, why = 0.0, []
@@ -223,7 +324,8 @@ def read_history(log_path, session, now=None):
             rec = json.loads(ln)
         except ValueError:
             continue
-        if isinstance(rec, dict) and rec.get("session") == session and now - rec.get("ts", 0) <= HISTORY_WINDOW_S:
+        if (isinstance(rec, dict) and rec.get("session") == session and rec.get("model")   # 2.2: пропуски (skipped) — не история
+                and now - rec.get("ts", 0) <= HISTORY_WINDOW_S):
             out.append(rec)
     return out
 

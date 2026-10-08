@@ -26,7 +26,18 @@ from pathlib import Path
 HOME = Path(os.environ.get("TYPESAFE_TRIAGE_HOME") or (Path.home() / ".claude" / "typesafe-triage"))
 PRICE_PER_MTOK_USD = 0.042          # публичная цена: за входные токены, выходные бесплатны
 CONSOLE_URL = "https://console.typesafe.ai"
-SCRIPT = "~/.claude/skills/typesafe-triage/scripts/typesafe_triage.py"
+def _script_hint():
+    """Фактический путь typesafe_triage.py рядом с этим модулем (домашний каталог — $HOME) — для подсказок «выполните …».
+    2.2.0: раньше здесь был жёсткий ~/.claude/skills/…, которого при установке плагином нет."""
+    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "typesafe_triage.py")
+    home = os.path.expanduser("~")
+    if home and p.startswith(home + os.sep):
+        p = "$HOME" + p[len(home):]
+    p = p.replace("\\", "/")
+    return ('"%s"' % p) if " " in p else p
+
+
+SCRIPT = _script_hint()
 HARD_KINDS = ("billing", "auth", "forbidden", "manual")   # без автоповтора: нужно действие пользователя
 DEFAULT_CONFIG = {
     "monthly_budget_usd": 2.0,      # локальный потолок расходов в месяц (оценка); 0 или меньше — без потолка
