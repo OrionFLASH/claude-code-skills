@@ -94,13 +94,14 @@ async function attachCdp(cdpUrl, pageMatch) {
   return { browser, context, page, close: async () => { if (created) await page.close().catch(() => {}); await browser.close().catch(() => {}); }, device: null };
 }
 
-async function openDevice({ device, browser: engineOverride, cdp, storageState, rules, logFile, headless = true, pageMatch } = {}) {
+async function openDevice({ device, browser: engineOverride, cdp, storageState, rules, logFile, headless = process.env.SITE_QA_HEADLESS === '1', pageMatch } = {}) {
+  // Tests run in a VISIBLE window by default (user requirement): set SITE_QA_HEADLESS=1 to hide it; SITE_QA_SLOWMO=ms slows actions down.
   if (cdp && !device) return attachCdp(cdp, pageMatch);
   const d = resolveDevice(device || 'desktop', engineOverride);
   const pw = require('playwright');
   let state = storageState;
   if (cdp) state = await captureState(cdp);  // in memory only, never written here
-  const browser = await pw[d.engine].launch({ headless });
+  const browser = await pw[d.engine].launch({ headless, ...(headless ? {} : { slowMo: Number(process.env.SITE_QA_SLOWMO || 250) }) });
   const context = await browser.newContext({ ...d.options, ...(state ? { storageState: state } : {}) });
   if (rules) await require('./guard').guardContext(context, rules, { logFile });
   const page = await context.newPage();
