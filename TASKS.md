@@ -151,7 +151,15 @@
 - [x] B: T-1, T-2, T-3, T-6
 - [x] Проверка мной: validate, site unit.sh, android unit.sh, pytest typesafe-triage
 - [x] Живая проверка: S-2 (нашлась дыра с пустым allowed_domains — исправлена), S-4 (pointer:coarse=true у pixel7, false у 412x915), targets.js; хук 2.2.0 — только в новой сессии
-- [ ] Слияние A и B в main, push, `skillsrepo.py sync`, CHANGELOG корневой, INSTALL.md (SITE_QA_AUDIT_DIR, SITE_QA_HEADLESS, SITE_QA_SLOWMO)
-- [ ] Теги site-qa-audit/v1.3.0, android-qa-audit/v1.1.0, typesafe-triage/v2.2.0
-- [ ] Обновление установки через маркетплейс (`claude plugin marketplace update`, `claude plugin update` ×3), `claude plugin list`
-- [ ] «Где остановился»
+- [x] Слияние A и B в main, push, `skillsrepo.py sync`, CHANGELOG корневой, INSTALL.md (SITE_QA_AUDIT_DIR, SITE_QA_HEADLESS, SITE_QA_SLOWMO)
+- [x] Теги site-qa-audit/v1.3.0, android-qa-audit/v1.1.0, typesafe-triage/v2.2.0
+- [x] Обновление установки через маркетплейс (`claude plugin marketplace update`, `claude plugin update` ×3), `claude plugin list`
+- [x] «Где остановился»
+
+### Где остановился
+2026-10-09, волны 1 и 2 влиты в main и запушены (d5db382), теги site-qa-audit/v1.3.0, android-qa-audit/v1.1.0, typesafe-triage/v2.2.0.
+- Сделано: все пункты плана (S-1…S-9, G-1…G-12, T-1…T-6, кроме отложенных частей T-1); исправлена найденная живой проверкой дыра пустого `allowed_domains`; корневой CHANGELOG, README, marketplace.json синхронизированы; issues #1–#8 закрыты с комментариями.
+- Проверки: validate — 0 ошибок; site unit.sh PASS 56; android unit.sh PASS 160; pytest typesafe-triage 244 passed; живо: guard код 4/3, pointer:coarse, targets.js.
+- Не проверено вживую: реальные сайты, github.com (`--attach-to`, direct publish), `legal_guest.js --cdp`, эмуляторы, хук typesafe-triage 2.2.0 в настоящей сессии.
+- Открыто: issues #9 (tabs.py в node-скрипты), #10 (источники дайджеста T-1, нужно решение по приватности), #11 (github-issue-structuring вне репозитория — нужно решение владельца), #12 (общий doc_commands.py).
+- Следующий шаг: в новой сессии проверить хук (`--where`, заметка на запрос), `npm install` в папке новой версии site-qa-audit, затем #9.
