@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Фикстура: цели нажатия</title>
+<style>
+  body { font: 14px sans-serif; margin: 16px; }
+  .tgt { display: inline-block; width: 20px; height: 20px; padding: 0; border: 1px solid #333; }
+  .mid { width: 30px; height: 30px; }
+  .big { width: 50px; height: 50px; }
+  /* Like many sites: larger touch targets only for coarse pointers (S-4). */
+  @media (pointer: coarse) { .tgt { width: 48px; height: 48px; } }
+  .ghost { pointer-events: none; }
+</style></head>
+<body>
+<button class="tgt" id="b1" aria-label="Закрыть">×</button>
+<button class="tgt" id="b2" aria-label="Меню">≡</button>
+<button class="tgt mid" id="b3" aria-label="Поиск">⌕</button>
+<button class="big" id="b4">Большая</button>
+<a class="tgt" id="l1" href="#a" aria-label="Иконка-ссылка">i</a>
+<p>Это длинный абзац текста, в котором есть <a id="inl" href="#b">ссылка</a> внутри предложения: исключение 2.5.8.</p>
+<label id="lab" style="display:inline-block;width:120px;height:30px"><input type="checkbox" id="cb"> Согласие</label>
+<button class="tgt" id="hidden" style="display:none">скрыта</button>
+<button class="tgt ghost" id="ghost">ghost</button>
+</body></html>

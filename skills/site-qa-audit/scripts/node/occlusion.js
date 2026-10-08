@@ -5,11 +5,15 @@
 // (nor its <label>), the pair «закрыт / закрывает» is recorded with the covered area and z-index.
 // Elements covered only by a fixed/sticky panel that a user scroll would move away are "transient", not defects.
 // Iframes (--frames all): elements are tested inside the frame and against the parent document.
+// Filters against false positives (G-11): the tested element must be visible (not display:none / visibility:hidden /
+// opacity:0, non-zero visible part) and accept clicks (pointer-events is not none); a pair is reported only if the
+// covered area is at least --min-area px² (default 16). An invisible occluder (opacity 0) is kept — it still eats
+// clicks — but marked occluderInvisible. Counts of filtered elements/pairs: runs[].filtered.
 //
 //   node occlusion.js URL [URL...] [--sizes 1280x720,1024x768,768x1024,720x450] [--device pixel7,iphone15]
 //        [--frames all|main] [--rules rules.json] [--setup setup.js] [--state auth-state.json | --cdp URL]
-//        [--log blocked.jsonl] [--out occlusion.json]
-// Exit code 0; result JSON: runs[].pairs[] = { occluded, occluder, area: {w, h, px}, points, transient? }.
+//        [--min-area 16] [--locales ru-RU,ar-SA] [--log blocked.jsonl] [--out occlusion.json]
+// Exit code 0 (4 — guard unavailable); result JSON: runs[].pairs[] = { occluded, occluder, area: {w, h, px}, points, transient? }.
 const path = require('path');
 const { parseArgs, loadRules, writeOut, urlsFromArgs } = require('./lib');
 const { listFrames } = require('./frames');
@@ -19,7 +23,7 @@ const INTERACTIVE = 'a[href],button,input:not([type=hidden]),select,textarea,sum
   '[role=radio],[role=switch],[role=tab],[role=menuitem],[role=option],[role=slider],[role=combobox],[tabindex]:not([tabindex="-1"]),[onclick]';
 
 // Runs inside one frame. Returns pairs found in this frame + the list of clean points for the parent-document check.
-function detectInFrame({ INTERACTIVE }) {
+function detectInFrame({ INTERACTIVE, minArea = 0 }) {
   const vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
   const inter = (a, b) => { const x = Math.max(a.x, b.x), y = Math.max(a.y, b.y), r = Math.min(a.x + a.w, b.x + b.w), btm = Math.min(a.y + a.h, b.y + b.h); return r > x && btm > y ? { x, y, w: r - x, h: btm - y } : null; };
   const R = (r) => ({ x: r.left, y: r.top, w: r.width, h: r.height });
@@ -107,8 +111,11 @@ function detectInFrame({ INTERACTIVE }) {
   };
 
   const pairs = []; const cleanPoints = []; let checked = 0, transient = 0;
+  const filtered = { inert: 0, small: 0 };
+  const invisible = (n) => { for (; n && n.nodeType === 1; n = n.parentElement) { const cs = getComputedStyle(n); if (+cs.opacity === 0 || cs.visibility === 'hidden') return true; } return false; };
   const els = [...document.querySelectorAll(INTERACTIVE)].filter(styleVisible);
   for (const el of els) {
+    if (getComputedStyle(el).pointerEvents === 'none') { filtered.inert++; continue; }  // not clickable anyway
     const t = test(el);
     if (!t) continue;
     checked++;
@@ -132,15 +139,19 @@ function detectInFrame({ INTERACTIVE }) {
       const ob = occ.getBoundingClientRect();
       const ov = inter(t.r, inter(R(ob), { x: 0, y: 0, w: vw, h: vh }) || { x: 0, y: 0, w: 0, h: 0 }) || { x: 0, y: 0, w: 0, h: 0 };
       const zi = zInfo(occ), ze = zInfo(el);
+      const px = Math.round(ov.w * ov.h);
+      if (px < minArea) { filtered.small++; continue; }
       pairs.push({
         occluded: { selector: cssPath(el), tag: el.tagName.toLowerCase(), name: label(el), box: [t.r.x, t.r.y, t.r.w, t.r.h].map(Math.round), zIndex: ze.zIndex },
-        occluder: { selector: cssPath(occ), tag: occ.tagName.toLowerCase(), name: label(occ), box: [ob.left, ob.top, ob.width, ob.height].map(Math.round), zIndex: zi.zIndex, position: zi.position },
-        area: { x: Math.round(ov.x), y: Math.round(ov.y), w: Math.round(ov.w), h: Math.round(ov.h), px: Math.round(ov.w * ov.h) },
+        occluder: { selector: cssPath(occ), tag: occ.tagName.toLowerCase(), name: label(occ), box: [ob.left, ob.top, ob.width, ob.height].map(Math.round), zIndex: zi.zIndex, position: zi.position,
+          ...(invisible(occ) ? { invisible: true } : {}) },
+        area: { x: Math.round(ov.x), y: Math.round(ov.y), w: Math.round(ov.w), h: Math.round(ov.h), px },
         points: n,
+        ...(invisible(occ) ? { occluderInvisible: true } : {}),
       });
     }
   }
-  return { pairs, cleanPoints, checked, transient, viewport: [vw, vh] };
+  return { pairs, cleanPoints, checked, transient, filtered, viewport: [vw, vh] };
 }
 
 // Points that are clean inside a frame must hit the <iframe> element in the parent document.
@@ -166,13 +177,14 @@ function parentCheck(iframeEl, { pts, INTERACTIVE }) {
 
 const shift = (box, o) => [box[0] + Math.round(o.x), box[1] + Math.round(o.y), box[2], box[3]];
 
-async function detect(page, { frames = 'main' } = {}) {
+async function detect(page, { frames = 'main', minArea = 16 } = {}) {
   const list = await listFrames(page, frames);
-  const res = { pairs: [], checked: 0, transient: 0, frames: [] };
+  const res = { pairs: [], checked: 0, transient: 0, filtered: { inert: 0, small: 0 }, frames: [] };
   for (const f of list) {
     let r;
-    try { r = await f.frame.evaluate(detectInFrame, { INTERACTIVE }); } catch (e) { res.frames.push({ url: f.url, error: String(e.message || e).split('\n')[0] }); continue; }
+    try { r = await f.frame.evaluate(detectInFrame, { INTERACTIVE, minArea }); } catch (e) { res.frames.push({ url: f.url, error: String(e.message || e).split('\n')[0] }); continue; }
     res.checked += r.checked; res.transient += r.transient;
+    res.filtered.inert += r.filtered.inert; res.filtered.small += r.filtered.small;
     res.frames.push({ url: f.url, depth: f.depth, offset: f.offset, checked: r.checked });
     for (const p of r.pairs) {
       p.frame = f.depth ? f.url : null;
@@ -195,6 +207,7 @@ async function detect(page, { frames = 'main' } = {}) {
         const cb = shift(c.box.x !== undefined ? [c.box.x, c.box.y, c.box.w, c.box.h].map(Math.round) : c.box, f.offset);
         const x = Math.max(cb[0], ob[0]), y = Math.max(cb[1], ob[1]);
         const w = Math.max(0, Math.min(cb[0] + cb[2], ob[0] + ob[2]) - x), hh = Math.max(0, Math.min(cb[1] + cb[3], ob[1] + ob[3]) - y);
+        if (w * hh < minArea) { res.filtered.small++; continue; }
         res.pairs.push({ frame: f.url, crossFrame: true, occluded: { selector: c.path, name: c.name, box: cb },
           occluder: { ...h.occluder, box: ob }, area: { x, y, w, h: hh, px: w * hh }, points: h.points });
       }
@@ -207,31 +220,34 @@ module.exports = { detect, detectInFrame, INTERACTIVE };
 
 if (require.main === module) {
   (async () => {
-    const a = parseArgs(process.argv.slice(2), { frames: 'main' });
+    const a = parseArgs(process.argv.slice(2), { frames: 'main', 'min-area': '16' });
     const urls = a.cdp && !a._.length ? [null] : urlsFromArgs(a);
     const rules = loadRules(a.rules);
     const setup = a.setup ? require(path.resolve(a.setup)) : null;
     let configs = configsFrom({ sizes: a.sizes, devices: a.device, browser: a.browser });
     let state = a.state ? JSON.parse(require('fs').readFileSync(a.state, 'utf8')) : undefined;
-    if (a.cdp && configs.length) state = await captureState(a.cdp);
+    if (a.cdp && configs.length) state = await captureState(a.cdp, rules && rules.rules.allowed_domains);
     if (!configs.length && !a.cdp) configs = configsFrom({ sizes: '1440x900' });
+    const locales = a.locales && a.locales !== true ? String(a.locales).split(',').map(s => s.trim()).filter(Boolean) : [null];
     const runs = [];
     const targets = configs.length ? configs : [null];  // null = the user's CDP page as is
-    for (const url of urls) for (const cfg of targets) {
+    for (const url of urls) for (const cfg of targets) for (const locale of (cfg ? locales : [null])) {
       let dev;
       try {
-        dev = cfg ? await openDevice({ device: cfg.name, browser: cfg.engine, storageState: state, rules, logFile: a.log }) : await attachCdp(a.cdp, a['page-match']);
+        dev = cfg ? await openDevice({ device: cfg.name, browser: cfg.engine, storageState: state, rules, logFile: a.log, locale }) : await attachCdp(a.cdp, a['page-match']);
         const { guardedPage } = require('./guard');
         const guarded = guardedPage(dev.page, rules, { logFile: a.log, throttleMs: 0 });
-        if (url) { const nav = await guarded.goto(url, { waitUntil: 'load', timeout: 45000 }); if (!nav.performed) { runs.push({ url, config: cfg && cfg.name, blocked: nav }); continue; } }
+        if (url) { const nav = await guarded.goto(url, { waitUntil: 'load', timeout: 45000 }); if (!nav.performed) { runs.push({ url, config: cfg && cfg.name, locale, blocked: nav }); continue; } }
         await dev.page.waitForTimeout(+(a.wait || 500));
         if (setup) await setup({ page: dev.page, guarded });
-        const r = await detect(dev.page, { frames: a.frames });
+        const r = await detect(dev.page, { frames: a.frames, minArea: +a['min-area'] });
         runs.push({ url: url || dev.page.url(), config: cfg ? cfg.name : 'cdp', engine: cfg ? cfg.engine : 'chromium',
-          viewport: dev.page.viewportSize(), ...r });
-      } catch (e) { runs.push({ url, config: cfg && cfg.name, error: String(e.message || e).split('\n')[0] }); }
-      finally { if (dev) await dev.close().catch(() => {}); }
+          ...(locale ? { locale } : {}), viewport: dev.page.viewportSize(), ...(dev.media ? { media: dev.media } : {}), ...r });
+      } catch (e) {
+        if (e && e.exitCode === 4) throw e;  // guard unavailable: stop
+        runs.push({ url, config: cfg && cfg.name, locale, error: String(e.message || e).split('\n')[0] });
+      } finally { if (dev) await dev.close().catch(() => {}); }
     }
-    writeOut(a.out, { tool: 'occlusion', frames: a.frames, runs, total: runs.reduce((s, r) => s + ((r.pairs || []).length), 0) });
-  })().catch(e => { console.error(e); process.exit(1); });
+    writeOut(a.out, { tool: 'occlusion', frames: a.frames, minArea: +a['min-area'], runs, total: runs.reduce((s, r) => s + ((r.pairs || []).length), 0) });
+  })().catch(e => { console.error(e); process.exit((e && e.exitCode) || 1); });
 }

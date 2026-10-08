@@ -20,7 +20,26 @@ node <SKILL_DIR>/scripts/node/occlusion.js https://example.com/ \
 
 Пример результата: `{"occluded": {"selector": "#whole-map", "name": "Вся карта", "box": [1388,733,40,40]}, "occluder": {"selector": "#bell", "zIndex": 1250, "position": "fixed"}, "area": {"w": 36, "h": 20, "px": 720}, "points": 2}`.
 
+**Фильтры против ложных срабатываний** (раньше «106 перекрытий, большинство — скрытые и нулевые элементы»):
+| Фильтр | Как |
+|--------|-----|
+| элемент видим | без `display:none`, `visibility:hidden`, `opacity:0` по цепочке предков; видимая часть ≥ 1×1 px (окно ∩ обрезающие предки) |
+| элемент кликабелен | `pointer-events: none` — пропуск (`filtered.inert`) |
+| площадь | пара только при пересечении ≥ `--min-area` px² (по умолчанию 16; `filtered.small`) |
+| прокрутка | перекрытие закреплённой панелью, уходящее при прокрутке, — `transient` (п. 5) |
+| невидимый закрывающий | `opacity:0` поверх элемента всё равно забирает клики — пара остаётся с `occluderInvisible: true` (проверить глазами) |
+
+`--locales ru-RU,ar-SA` — каждая конфигурация в каждом языке (контекст с `locale` и `Accept-Language`); у телефона в каждом прогоне поле `media` (`pointer: coarse`, `devices-auth.md`).
+
 Что не ловит: перекрытие элементами с `pointer-events: none` (визуально закрыто, но клик проходит) — это проверяется глазами по скриншоту; наложение текста на текст без интерактивных элементов.
+
+## Цели нажатия: `node/targets.js`
+```bash
+node <SKILL_DIR>/scripts/node/targets.js https://example.com/ --device pixel7 --sizes 1440x900 \
+  --rules <RUN_DIR>/rules.json --out <RUN_DIR>/raw/targets.json
+# stderr: pixel7 https://example.com/: 44 из 85 меньше 24×24 (link 30, button 10, checkbox 4); меньше 44×44: 70 (…)
+```
+Сводка одной строкой — самое показательное число для `a11y.target-size` (WCAG 2.5.8, 24×24) и мобильных целей (44×44): видимые кликабельные элементы по типам (`button`, `link`, `checkbox`, `field`, `other`); у флажка с `<label>` считается и подпись; ссылки внутри текста — исключение 2.5.8 (`inline`, не в нарушениях); `smallest` — самые мелкие с селекторами (для `shot.js`). На телефоне результат действителен только при `valid: true` (`pointer: coarse`); иначе в `warning` — почему. Страница только читается, ничего не нажимается.
 
 ## Достижимость: `node/reachability.js`
 ```bash

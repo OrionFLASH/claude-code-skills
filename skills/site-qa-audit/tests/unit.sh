@@ -69,7 +69,7 @@ for f in claims intake journal build_report gitignore_helper export_results shar
   "$PY" -c "import ast,sys; ast.parse(open(sys.argv[1],encoding='utf-8').read(), sys.argv[1])" "$S/$f.py" 2>"$TMP/pyc.err" \
     && ok "syntax $f.py" || { cat "$TMP/pyc.err"; bad "syntax $f.py"; }
 done
-for f in guard invariants occlusion reachability device_context shot frames annotate; do
+for f in guard invariants occlusion reachability device_context shot frames annotate targets; do
   node --check "$S/node/$f.js" && ok "node --check $f.js" || bad "node --check $f.js"
 done
 for f in publish_web comment_web web_upload_lib; do
@@ -118,6 +118,8 @@ if [ $have_browser -eq 1 ]; then
     && ok "stream B browser ($(grep '^stream B:' "$TMP/stream-b.log" | tail -1))" || { tail -n 30 "$TMP/stream-b.log"; bad "stream B browser"; }
   bash "$HERE/test_stream_c.sh" > "$TMP/stream-c.log" 2>&1 \
     && ok "stream C web-upload ($(grep '^passed:' "$TMP/stream-c.log" | tail -1))" || { tail -n 30 "$TMP/stream-c.log"; bad "stream C web-upload"; }
+  bash "$HERE/test_v130_browser.sh" > "$TMP/v130b.log" 2>&1 \
+    && ok "v1.3.0 browser ($(grep '^stream v1.3.0 browser:' "$TMP/v130b.log" | tail -1))" || { tail -n 30 "$TMP/v130b.log"; bad "v1.3.0 browser"; }
 else
   echo "SKIP stream B/C: нет node, playwright (cd scripts/node && npm install) или Chromium (npx playwright install chromium)"
 fi
