@@ -79,6 +79,17 @@ WORK_RE = re.compile(  # глаголы-поручения: если они ес
 
 CRITICAL_RES = {k: re.compile(v, FLAGS_RE) for k, v in CRITICAL_GROUPS.items()}
 
+# 2.2.0 (T-1): короткое продолжение текущей работы («продолжай тесты», «и ещё добавь…») — оценивать вместе с активной задачей
+CONTINUE_RE = re.compile(
+    r"(?:\bпродолж\w*|\bдальше\b|\bи\s+ещ[её]\b|\bещ[её]\s+(?:добавь|сделай|проверь|допиши)|\bgo on\b|\bcontinue\b|\bkeep going\b"
+    r"|\bcarry on\b|\band also\b)", FLAGS_RE)
+CONTINUE_MAX_CHARS = 300
+# 2.2.0 (T-3): работа в общем интерактивном состоянии (браузер пользователя, его вход, открытая сессия) — по тексту запроса
+SHARED_TEXT_RE = re.compile(
+    r"(?:\bв\s+(?:мо[её]м|моей|открыт\w+|том\s+же|общем|этом|этой)\s+(?:браузере|окне|вкладке|профиле|сессии)"
+    r"|\bпод\s+моим\s+(?:входом|аккаунтом|логином)|\bя\s+(?:уже\s+)?(?:вош[её]л|вошла|залогинил\w*|авторизовал\w*)"
+    r"|\bCDP\b|\b9222\b|\bmy\s+(?:browser|open\s+tab|logged[- ]in\s+session)|\balready\s+logged\s+in\b)", FLAGS_RE)
+
 # ---------- вторая ось: reasoning effort (глубина размышления) ----------
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
 # Тип намерения → «естественная» глубина 0..1 (берётся максимум найденных). Порядок не важен.
@@ -435,6 +446,18 @@ def language(text):
 def is_retry(text):
     """Признаки повтора после неудачи («опять не работает», «не помогло», "still fails")."""
     return bool(RETRY_RE.search(FENCE_RE.sub(" ", text or "")[:MAX_CHARS]))
+
+
+def is_continuation(text):
+    """Короткое продолжение текущей работы: «продолжай …», «и ещё …», "continue …" (не длиннее CONTINUE_MAX_CHARS)."""
+    t = FENCE_RE.sub(" ", (text or "")).strip()
+    return len(t) <= CONTINUE_MAX_CHARS and bool(CONTINUE_RE.search(t))
+
+
+def shared_state_text(text):
+    """Признаки общего интерактивного состояния в тексте запроса (браузер пользователя, его вход, CDP) — найденные фразы."""
+    t = FENCE_RE.sub(" ", (text or ""))[:MAX_CHARS]
+    return sorted({m.group(0).lower() for m in SHARED_TEXT_RE.finditer(t)})[:3]
 
 
 def is_chatter(text):

@@ -231,7 +231,9 @@ CHOICES = {
     "domain": {
         "instructions": "What kind of work does this request ask for?",
         "criteria": {
-            "software": "Writing, changing, debugging, testing or reviewing code, scripts, builds or repositories",
+            "software": "Writing, changing, debugging or reviewing code, scripts, builds or repositories, including automated tests",
+            "qa": "Testing or quality assurance of a product: running test scenarios, checking a site or app for bugs, "
+                  "reproducing, measuring and reporting defects with evidence such as screenshots",
             "writing": "Writing or editing prose: letters, articles, documentation, posts, translations",
             "analysis": "Analysis, comparison, evaluation or review of information, documents or options",
             "data": "Working with data: tables, spreadsheets, queries, calculations, reports",
@@ -368,6 +370,26 @@ def make_digest(text, hard=HARD_CHARS):
     mark = "\n[… середина пропущена, всего %d знаков …]\n" % len(text)
     head = (hard - len(mark)) * 55 // 100
     return text[:head] + mark + text[len(text) - (hard - len(mark) - head):]
+
+
+CONTEXT_ENV = "TYPESAFE_TRIAGE_CONTEXT"   # off — не добавлять к дайджесту строку «активная задача» (2.2.0, T-1)
+CONTEXT_HEAD = "[Context, not part of the request] The user is continuing this active task: "
+
+
+def context_enabled():
+    return os.environ.get(CONTEXT_ENV, "").lower() not in ("off", "0", "false", "no")
+
+
+def request_digest(task, cwd=None, hard=HARD_CHARS):
+    """Дайджест для TypeSafe + (для короткого продолжения «продолжай …», если задан каталог) одна строка «активная задача»
+    из TASKS.md проекта: первый открытый пункт, до 200 знаков, секреты скрыты. → (текст, добавлен ли контекст)."""
+    sent = make_digest(task, hard)
+    if not (cwd and context_enabled() and heur.is_continuation(task)):
+        return sent, False
+    line = eff.active_task(cwd)
+    if not line:
+        return sent, False
+    return sent + "\n\n" + CONTEXT_HEAD + redact(line), True
 
 
 def ask_with_retry(task, key, timeout=TIMEOUT_S):
@@ -548,6 +570,24 @@ def prompt_id(task):
     return hashlib.sha1(task.encode("utf-8")).hexdigest()[:10]
 
 
+INHERIT_MAX_TIER = "opus"     # продолжение наследует оценку предыдущего запроса сессии, но не выше этого …
+INHERIT_MAX_EFFORT = "xhigh"  # … и не выше этого effort (haiku/fable, low/max — только с подтверждения, не по наследству)
+
+
+def inherit_from(task, records):
+    """Короткое продолжение («продолжай тесты», «и ещё добавь…») наследует оценку последнего оценённого запроса этой
+    сессии (журнал, окно истории): → (модель, effort) с потолком opus/xhigh, или None."""
+    if not records or not heur.is_continuation(task):
+        return None
+    last = records[-1]
+    tier, effort = last.get("model"), last.get("effort") or eff.DEFAULT_EFFORT
+    if tier not in TIERS or effort not in eff.EFFORTS:
+        return None
+    tier = TIERS[min(TIERS.index(tier), TIERS.index(INHERIT_MAX_TIER))]
+    tier = CONFIRM_TIERS.get(tier, tier) if tier == "haiku" else tier
+    return tier, eff.at_most(eff.at_least(effort, "medium"), INHERIT_MAX_EFFORT)
+
+
 def add_effort(r, m, h, task, env="auto", history=None, session=None, cwd=None, min_conf=None):
     """Вторая ось + явные указания + история: дописывает в результат поля effort_* и при необходимости меняет модель
     (явный выбор пользователя / эскалация по истории). Старые поля сохраняются (формат аддитивный)."""
@@ -566,7 +606,19 @@ def add_effort(r, m, h, task, env="auto", history=None, session=None, cwd=None, 
     tier, user_tier, note = eff.apply_tier_directive(tier, d)
     if note:
         why.append(note)
+    prev = inherit_from(task, records)
+    if prev and not user_tier and TIERS.index(tier) < TIERS.index(prev[0]):
+        tier = prev[0]
+        why.append("продолжение предыдущей задачи → модель не ниже %s" % tier)
     e = eff.decide_effort(m, h, tier, env=env, hist=hist, d=d, min_conf=min_conf)
+    if prev:
+        r["inherited"] = {"model": prev[0], "effort": prev[1]}
+        if e["effort_source"] != "user" and eff.idx(e["effort"]) < eff.idx(prev[1]):
+            e.update(effort=prev[1], effort_confirm=False, effort_fallback=prev[1], effort_source="history")
+            e["effort_reasons"] = list(e.get("effort_reasons") or []) + ["продолжение предыдущей задачи → effort не ниже %s" % prev[1]]
+        e["effort_confidence"] = "унаследована"
+        if r.get("confidence") == "низкая":
+            r["confidence"] = "унаследована от предыдущего запроса"
     r.update(model=tier, confirm=tier in CONFIRM_TIERS and not user_tier, fallback=tier if user_tier else CONFIRM_TIERS.get(tier, tier),
              model_source="user" if user_tier else "auto", reason="; ".join(why), **e)
     if d["phrases"]:
@@ -578,7 +630,10 @@ def add_effort(r, m, h, task, env="auto", history=None, session=None, cwd=None, 
     stakes = v.get("risk", 0) >= CLARIFY_RISK or v.get("irreversible", 0) >= eff.FLAG_ON or bool(h["critical"])
     unsure = m is None or (min_conf is not None and min_conf < CLARIFY_CONF)
     open_ = v.get("ambiguity", 0) >= CLARIFY_AMBIG or h["effort"]["uncertain"] >= 1
-    r["clarify"] = bool(stakes and unsure and open_ and not (user_tier or e["effort_source"] == "user"))
+    r["clarify"] = bool(stakes and unsure and open_ and not (user_tier or e["effort_source"] == "user" or prev))
+    shared = heur.shared_state_text(task) + (eff.shared_state_env(cwd) if cwd and env != {} else [])
+    if shared:
+        r["shared_state"] = shared[:4]
     if env:
         r["env"] = {k: env[k] for k in ("repo", "tests", "ci", "lock", "files", "marker") if k in env}
     if session:
@@ -615,7 +670,7 @@ def triage(task, key=None, timeout=TIMEOUT_S, **ctx):
     g = guard.status(key)
     if not g["allowed"]:
         return fallback(task, h, "TypeSafe приостановлен (%s)" % g["kind"], ctx, paused=g["kind"], notice=g["notice"])
-    sent = make_digest(task)
+    sent, with_ctx = request_digest(task, ctx.get("cwd"))
     info = lambda: {"chars": len(task), "sent": len(sent)}
     try:
         try:
@@ -623,7 +678,7 @@ def triage(task, key=None, timeout=TIMEOUT_S, **ctx):
         except urllib.error.HTTPError as e:
             # слишком большой вход (400 max_tokens_exceeded): один повтор с более коротким дайджестом
             if e.code == 400 and "max_tokens" in http_detail(e):
-                sent = make_digest(task, RETRY_CHARS)
+                sent, with_ctx = request_digest(task, ctx.get("cwd"), RETRY_CHARS)
                 resp = ask_typesafe(sent, key, timeout)
             else:
                 raise
@@ -643,7 +698,7 @@ def triage(task, key=None, timeout=TIMEOUT_S, **ctx):
     r = finish(tier, why, "typesafe", h, notice=guard.record_success(tokens),
                conf_label="высокая" if min_conf >= CONF_DOWNGRADE else "средняя" if min_conf >= CONF_ESCALATE else "низкая",
                metrics={k: {"value": round(x[0], 2), "confidence": round(x[1], 2)} for k, x in m.items()},
-               domain=domain_from(resp["answers"]), input=info(), tokens=tokens)
+               domain=domain_from(resp["answers"]), input=info(), tokens=tokens, active_task=with_ctx)
     if m["conversational"][0] >= CHAT_SKIP and m["complexity"][0] <= 0.2 and tier in ("haiku", "sonnet"):
         r["skip"] = True  # реплика, а не задача: заметку не добавляем
     eff_conf = min(m[k][1] for k in EFFORT_CONF_AXES if k in m)
@@ -789,12 +844,18 @@ def hook_context(result, cur_effort=None):
         run += " (без подтверждения — Agent(model=%s, effort=%s))" % (mfb, efb)
     cost = " (xhigh/max — больше токенов)" if e in eff.COSTLY_EFFORTS else ""
     how = result.get("effort_delivery") or effort_delivery(result)
+    shared = result.get("shared_state")
+    if shared:   # 2.2.0 (T-3): исполнитель не увидит окна браузера, входа пользователя и открытой сессии основной модели
+        lines.append(
+            "• Общее интерактивное состояние (%s): делегируй только независимые части — исполнитель получит свой браузер "
+            "и сессию, твоих вкладок и входа пользователя не увидит; шаги в общем окне (воспроизвести, измерить, снять "
+            "скриншот под входом) делай сам." % "; ".join(shared))
     lines.append(
-        "• Делегируй, если работа содержательная (анализ, проектирование, нетривиальная правка, поиск причины) "
+        "• Делегируй%s, если работа содержательная (анализ, проектирование, нетривиальная правка, поиск причины) "
         "и уровень выше твоей модели, или задача большая и изолируемая: %s с самодостаточным промптом "
         "(цель, пути, ограничения, критерии готовности, что вернуть); результат проверь сам. effort — если параметр есть "
         "у Agent%s; нет — не пытайся и не ссылайся на него (не ошибка)%s." % (
-            run, cost, ", глубину задай в промпте" if how == "agent_param" else ""))
+            " (только независимые части)" if shared else "", run, cost, ", глубину задай в промпте" if how == "agent_param" else ""))
     if how in ("prompt", "run"):   # запасные способы — только для необычного или критичного effort (не больше одного пункта)
         lang = ((result.get("signals") or {}).get("effort") or {}).get("lang")
         tail = ""
@@ -1401,6 +1462,108 @@ def run_agent(argv):
     return r.returncode
 
 
+# ---------- --where: где скрипт и какие хуки на него смотрят (2.2.0, T-5) ----------
+HOOK_PATH_RE = re.compile(r'"([^"]*typesafe_triage\.py)"|(\S*typesafe_triage\.py)')
+
+
+def _expand(path, home):
+    path = path.replace("${HOME}", home).replace("$HOME", home).replace("%USERPROFILE%", home)
+    if path.startswith("~"):
+        path = home + path[1:]
+    return path
+
+
+def hook_entries(settings_files, home):
+    """Хуки UserPromptSubmit с typesafe_triage.py в файлах настроек → [(файл, команда, путь, существует|None)].
+    Читается только блок hooks (ключи и прочие настройки не выводятся)."""
+    out = []
+    for sf in settings_files:
+        try:
+            data = json.loads(Path(sf).read_text(encoding="utf-8"))
+            groups = (data.get("hooks") or {}).get("UserPromptSubmit") or []
+        except (OSError, ValueError, AttributeError):
+            continue
+        for g in groups if isinstance(groups, list) else []:
+            for hk in (g.get("hooks") or []) if isinstance(g, dict) else []:
+                cmd = hk.get("command") if isinstance(hk, dict) else None
+                if not isinstance(cmd, str) or "typesafe_triage" not in cmd:
+                    continue
+                m = HOOK_PATH_RE.search(cmd)
+                raw = (m.group(1) or m.group(2)) if m else None
+                if raw and "CLAUDE_PLUGIN_ROOT" in raw:
+                    out.append((str(sf), cmd, raw, None))
+                elif raw:
+                    p = _expand(raw, home)
+                    out.append((str(sf), cmd, p, os.path.isfile(p)))
+                else:
+                    out.append((str(sf), cmd, None, None))
+    return out
+
+
+def plugin_installs(home, settings_files):
+    """Включён ли плагин typesafe-triage@… и какие версии лежат в кэше плагинов."""
+    enabled = []
+    for sf in settings_files:
+        try:
+            ep = json.loads(Path(sf).read_text(encoding="utf-8")).get("enabledPlugins") or {}
+        except (OSError, ValueError, AttributeError):
+            continue
+        enabled += [k for k, v in ep.items() if k.startswith("typesafe-triage@") and v]
+    cache = sorted(str(p) for p in Path(home, ".claude", "plugins", "cache").glob("*/typesafe-triage/*") if p.is_dir())
+    return sorted(set(enabled)), cache
+
+
+def install_kind(path):
+    s = path.replace("\\", "/")
+    if "/plugins/cache/" in s:
+        return "плагин из маркетплейса (папка версии меняется при обновлении — путь не прописывайте вручную)"
+    if "/.claude/skills/" in s:
+        return "копия в каталоге скиллов"
+    return "рабочая копия или клон репозитория"
+
+
+def where_report(home=None, cwd=None):
+    """Текст для --where: первая строка — фактический путь скрипта (её можно брать в переменную), дальше — диагностика."""
+    home = home or os.path.expanduser("~")
+    cwd = cwd or os.getcwd()
+    me = os.path.abspath(__file__)
+    real = os.path.realpath(me)
+    sf = [Path(home, ".claude", "settings.json"), Path(home, ".claude", "settings.local.json"),
+          Path(cwd, ".claude", "settings.json"), Path(cwd, ".claude", "settings.local.json")]
+    lines = [me,
+             "# каталог скриптов: %s" % os.path.dirname(me),
+             "# установка: %s" % install_kind(real)]
+    if real != me:
+        lines.append("# ссылка ведёт в: %s" % real)
+    if os.environ.get("CLAUDE_PLUGIN_ROOT"):
+        lines.append("# CLAUDE_PLUGIN_ROOT: %s" % os.environ["CLAUDE_PLUGIN_ROOT"])
+    lines.append("# python: %s (%s)" % (sys.version.split()[0], sys.executable))
+    lines.append("# состояние и журнал: %s" % guard.HOME)
+    lines.append("# запуск: %s <команда>" % self_command())
+    hooks = hook_entries(sf, home)
+    enabled, cache = plugin_installs(home, sf[:2])
+    warn = []
+    lines.append("# хуки UserPromptSubmit на typesafe_triage.py в settings.json:" + ("" if hooks else " нет"))
+    for f, cmd, p, ok in hooks:
+        state = "через ${CLAUDE_PLUGIN_ROOT}" if p and ok is None else "файл есть" if ok else "ФАЙЛА НЕТ" if p else "путь не распознан"
+        lines.append("#   %s: %s — %s" % (f, cmd, state))
+        if p and ok is False:
+            warn.append("хук в %s ведёт в несуществующий файл %s: Claude Code не сможет запустить скрипт — заметок не будет, "
+                        "а python3 вернёт код 2 (такой код блокирует запрос). Уберите этот хук или поправьте путь" % (f, p))
+    lines.append("# плагин typesafe-triage: %s" % (("включён (%s)" % ", ".join(enabled)) if enabled else "не включён"))
+    if cache:
+        lines.append("# версии в кэше плагинов: %s" % ", ".join(os.path.basename(c) for c in cache))
+    if enabled and hooks:
+        warn.append("хук прописан и в settings.json, и в плагине: заметка будет одна, но оставьте один хук")
+    if not enabled and not hooks:
+        warn.append("хук не найден ни в settings.json, ни среди включённых плагинов — заметок «TypeSafe-триаж» не будет")
+    for w in warn:
+        lines.append("# ВНИМАНИЕ: " + w)
+    lines.append("# открытые сессии: правки хуков в settings.json подхватываются на лету, а хук только что установленного "
+                 "или включённого плагина — после /reload-plugins или перезапуска Claude Code")
+    return "\n".join(lines)
+
+
 def format_status():
     """Человекочитаемое состояние защиты: пауза, расходы за месяц, потолок."""
     sm = guard.summary()
@@ -1423,6 +1586,9 @@ def format_status():
 
 
 def main(argv):
+    if "--where" in argv:
+        print(where_report())
+        return 0
     if "--status" in argv:
         print(format_status())
         return 0
@@ -1446,8 +1612,9 @@ def main(argv):
         return run_agent([a for a in argv if a != "--run"])
     if "--digest" in argv:  # показать, что именно уйдёт в TypeSafe
         text = " ".join(a for a in argv[1:] if not a.startswith("--")) or sys.stdin.read()
-        d = make_digest(text)
-        print("знаков: было %d, уйдёт %d\n---\n%s" % (len(text), len(d), d))
+        d, with_ctx = request_digest(text, os.getcwd())
+        print("знаков: было %d, уйдёт %d%s\n---\n%s" % (len(text), len(d), " (с строкой «активная задача» из TASKS.md)"
+                                                       if with_ctx else "", d))
         return 0
     if "--signals" in argv:  # локальные сигналы, без сети
         text = " ".join(a for a in argv[1:] if not a.startswith("--")) or sys.stdin.read()
