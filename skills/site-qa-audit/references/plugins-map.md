@@ -30,6 +30,7 @@
 | performance | `node/lighthouse.js` (свой) | всегда | оценки, CWV, возможности |
 | performance | `performance-analyzer` (browser-devtools) | только если включён | трассы |
 | seo-content, security-passive | `node/links.js`, `node/headers.js` (свои) | всегда | — |
+| content-i18n | собственный чек-лист `checklists/content-i18n.md` (Playwright MCP, видимый текст) | всегда | усилителей нет |
 | product | `ux-audit`, `frontend-design`, `ui-audit-redesign` | принципы для предложений по редизайну | обоснования и варианты |
 
 ## Запрещено (не использовать никогда)

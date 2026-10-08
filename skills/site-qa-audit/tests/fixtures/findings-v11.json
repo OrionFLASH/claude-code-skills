@@ -1,0 +1,31 @@
+{
+  "run": {"id": "2026-10-08-example.com", "site": "https://example.com/", "depth": "standard", "mode": "dry-run", "started_at": "2026-10-08T09:00:00Z", "finished_at": "2026-10-08T13:00:00Z"},
+  "not_checked": [{"what": "Загрузка сохранения с публикацией в рейтинг", "reason": "запрет пользователя", "rule": "user:U2", "direction": "functional"}],
+  "rechecks": [
+    {"repo": "owner/repo", "number": 51, "title": "Лаборатория: числа в английском формате", "quote": "Частично сделали (v1.2.382): числа пишутся по правилам языка интерфейса", "status": "FIXED-INSUFFICIENT", "reason": null, "checked_by": "Chrome 1440x813, /lab-full, скриншот F-003", "finding_id": "F-003"},
+    {"repo": "owner/repo", "number": 14, "title": "Pro не включается сразу", "quote": "Спасибо, ошибка подтвердилась", "status": "NOT-CHECKED", "reason": "other-account-type", "reason_text": "нужен аккаунт без Pro", "checked_by": ""},
+    {"repo": "owner/repo", "number": 54, "title": "Повторный клик по строке", "quote": "Исправили (v1.2.359): повторный щелчок…", "status": "FIXED-OK", "checked_by": "Chrome 1440x813, шаги 1–3 из issue"}
+  ],
+  "findings": [
+    {"id": "F-001", "direction": "content-i18n", "check_id": "i18n.number-format", "type": "content", "severity": "low",
+     "title": "Лаборатория: число 3,354 в русском интерфейсе", "url": "https://example.com/lab", "element": "role=cell name=/3,354/",
+     "steps": ["Открыть https://example.com/lab", "Посмотреть столбец «ОЗ»"], "expected": "3 354", "actual": "3,354",
+     "frequency": "always", "account_state": "free", "platform": "desktop",
+     "environment": {"browser": "chromium", "viewport": "1440x900", "auth": "manual", "date": "2026-10-08"},
+     "triage": {"severity": "minor", "confidence": 0.8, "kind": "content", "note": "внешняя оценка склоняется к minor"},
+     "target_forms": {"owner/repo": {"area": "Лаборатория сборок", "severity_label": "Незначительно"}},
+     "matches": [{"repo": "owner/qa-copy", "number": 7, "how": "manual"}],
+     "sources": ["own:checklist", "plugin:ux-audit"], "status": "NEW"},
+    {"id": "F-002", "direction": "product", "check_id": "prod.idea", "type": "proposal", "severity": "info",
+     "title": "Добавить фильтр «только ненайденные» в список", "url": "https://example.com/", "suggestion": "Переключатель над списком", "sources": ["own:checklist"]},
+    {"id": "F-003", "direction": "content-i18n", "check_id": "i18n.mixed-language", "type": "content", "severity": "medium",
+     "title": "Пояснения: английский термин regulation.bin в русском тексте", "url": "https://example.com/lab", "actual": "В подсказке стоит «regulation.bin»",
+     "claim_ref": {"repo": "owner/repo", "number": 51, "quote": "Частично сделали (v1.2.382)"},
+     "matches": [{"repo": "owner/repo", "number": 51, "how": "manual"}, {"repo": "owner/qa-copy", "number": 12, "how": "manual"}],
+     "status": "FIXED-INSUFFICIENT", "status_reason": "осталась одна подсказка", "sources": ["own:checklist"]},
+    {"id": "F-004", "direction": "functional", "check_id": "fn.recheck", "type": "bug", "severity": "medium",
+     "title": "Перепроверка: Pro не включается сразу", "url": "https://example.com/", "actual": "не проверено",
+     "claim_ref": {"repo": "owner/repo", "number": 14, "quote": "Спасибо, ошибка подтвердилась"},
+     "status": "NOT-CHECKED", "not_checked_reason": "other-account-type", "status_reason": "нужен аккаунт без Pro", "sources": ["own:checklist"]}
+  ]
+}

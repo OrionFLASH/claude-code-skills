@@ -18,6 +18,12 @@ EMAIL = re.compile(r"\b[A-Za-z0-9._%+-]{2,}@[A-Za-z0-9-]{2,}\.[A-Za-z]{2,}\b")
 TOKEN = re.compile(r"\b(?=[A-Za-z0-9_\-]*\d)(?=[A-Za-z0-9_\-]*[a-z])(?=[A-Za-z0-9_\-]*[A-Z])[A-Za-z0-9_\-]{32,}\b")
 
 
+def is_slug(s):
+    """Hyphenated human-readable names are not secrets: 3+ parts, each short."""
+    parts = s.split("-")
+    return len(parts) >= 3 and all(len(x) <= 16 for x in parts)
+
+
 def check(value, schema, root, path, errors):
     if "$ref" in schema:
         ref = schema["$ref"].lstrip("#/").split("/")
@@ -47,6 +53,18 @@ def check(value, schema, root, path, errors):
         for k, sub in schema.get("properties", {}).items():
             if k in value and value[k] is not None:
                 check(value[k], sub, root, f"{path}.{k}", errors)
+        extra = schema.get("additionalProperties")
+        if isinstance(extra, dict):
+            for k, v in value.items():
+                if k not in schema.get("properties", {}) and v is not None:
+                    check(v, extra, root, f"{path}.{k}", errors)
+    if "if" in schema:
+        # JSON Schema if/then/else: the "if" branch is evaluated silently
+        probe = []
+        check(value, schema["if"], root, path, probe)
+        branch = schema.get("then") if not probe else schema.get("else")
+        if branch:
+            check(value, branch, root, path, errors)
     if isinstance(value, list) and "items" in schema:
         for i, item in enumerate(value):
             check(item, schema["items"], root, f"{path}[{i}]", errors)
@@ -74,6 +92,8 @@ def main():
         if "***" not in m.group(0):
             warnings.append(f"e-mail без маскирования: {m.group(0)[:3]}…")
     for m in TOKEN.finditer(text):
+        if is_slug(m.group(0)):
+            continue  # file names / ids like F-012-bell-over-legend-annotated
         warnings.append(f"похоже на немаскированный токен: {m.group(0)[:4]}…({len(m.group(0))})")
     for w in warnings:
         print("WARN ", w)

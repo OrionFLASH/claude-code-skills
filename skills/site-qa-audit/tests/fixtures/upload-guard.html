@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Фикстура (г): защитный флажок после загрузки файла</title>
+<style>body { font: 14px sans-serif; padding: 16px; }</style></head>
+<body>
+<h1>Загрузка сохранения</h1>
+<p>Варианты: <code>?variant=ok</code> (флажок через 1 с, отмечен), <code>?variant=unchecked</code> (через 1 с, не отмечен),
+<code>?variant=missing</code> (не появляется), <code>?variant=renamed</code> (переименован), <code>?variant=early</code> (есть до загрузки).</p>
+<form id="f" onsubmit="return false">
+  <label>Файл сохранения <input id="upload" type="file" aria-label="Загрузить сохранение"></label>
+  <div id="guard-slot"></div>
+  <button type="button" id="remember">Запомнить</button>
+</form>
+<div id="status" role="status"></div>
+<script>
+  const variant = new URLSearchParams(location.search).get('variant') || 'ok';
+  const slot = document.getElementById('guard-slot');
+  const addGuard = (text, checked) => { slot.innerHTML = '<label><input type="checkbox" id="foreign"' + (checked ? ' checked' : '') + '> ' + text + '</label>'; };
+  if (variant === 'early') addGuard('Чужое сохранение', true);
+  document.getElementById('upload').addEventListener('change', () => {
+    document.getElementById('status').textContent = 'Файл загружен';
+    localStorage.setItem('save-copy', '1');   // a local copy stays in the browser
+    if (variant === 'missing' || variant === 'early') return;
+    setTimeout(() => addGuard(variant === 'renamed' ? 'Не моё сохранение' : 'Чужое сохранение', variant === 'ok'), 1000);
+  });
+</script>
+</body></html>

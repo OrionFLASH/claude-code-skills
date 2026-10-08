@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Фикстура: действия под правилами безопасности</title></head>
+<body>
+<h1>Проект</h1>
+<section aria-label="Поддержка проекта"><p>Нравится проект?</p><button id="donate">Поддержать</button></section>
+<button id="safe" onclick="document.getElementById('out').textContent='clicked-safe'">Показать карту</button>
+<a id="ext" href="http://sibling.example/">Соседний сайт</a>
+<button id="popup" onclick="window.open('http://sibling.example/promo')">Открыть промо</button>
+<button id="del" aria-label="Удалить">×</button>
+<label>Сообщение <textarea id="msg"></textarea></label>
+<img id="tracker" src="http://ads.blocked.example/pixel.png" alt="">
+<div id="out"></div>
+<script>document.getElementById('donate').onclick = () => { document.getElementById('out').textContent = 'clicked-donate'; };</script>
+</body></html>

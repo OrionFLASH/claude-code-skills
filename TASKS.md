@@ -37,8 +37,28 @@
 - [x] Прогон standard, 5 направлений, 20 находок, отчёт и черновики (dry-run, вне репозитория скилов)
 - [x] 1.0.3: guard — OAuth-провайдеры и «Поддержать»; замок навигации nav_lock.js; notes про playwright-cli/WebKit
 
+## 1.0.4 — папка результатов и аннотированные скриншоты
+- [x] output_dir: run-config, intake (вопрос), SITE_QA_OUTPUT_DIR, check_env, SKILL.md
+- [x] SITE_QA_OUTPUT_DIR в ~/.claude/settings.json (env) — задана
+- [x] scripts/node/annotate.js: пунктирная обводка, тонкая стрелка, подпись без перекрытия, автоцвет (жёлтый/зелёный/фиолетовый)
+- [x] scripts/snap_mcp.js (MCP) и node/shot.js (CDP): скриншот + координаты элементов
+- [x] references/screenshots.md, SKILL.md, render_draft (поле annotations в схеме не делалось: скриншоты `-annotated.png` в `screenshots`)
+- [x] tests: annotate через shot.js на фикстурах (test_stream_b.sh)
+- [ ] Проверить на скриншотах реального прогона, пересобрать черновики (вне репозитория, вручную)
+- [x] validate, CHANGELOG — 1.0.4 влит в запись 1.1.0 (отдельного тега 1.0.4 нет)
+
+## 1.1.0 — доработки по итогам боевого прогона (спека: scratchpad/spec.md, пункты 1–17)
+Ветка feature/output-dir-annotations (1.0.4 вливается в 1.1.0). Параллельно три потока по владению файлами.
+- [x] Поток A (Python/схема): 1 claims.py, 9 схема+content-i18n+render_draft, 11 closed_claims, 12 intake from-text, 13 journal, 14 read_templates fetch, 15 check_env, 16 report.md, 17 zsh
+- [x] Поток B (Node/браузер): 2 side_effects/invariants, 3 guard.js, 4 occlusion.js, 5 reachability.js, 6 device_context.js, 7 frames, 8 shot.js, фикстуры (а–д)
+- [x] Поток C: 10 publish_web.mjs / comment_web.mjs (только на локальных фикстурах)
+- [x] Интеграция: SKILL.md, README, run-config.example.yaml, CHANGELOG 1.1.0, tests/unit.sh, validate
+- [x] Завершить 1.0.4 (output_dir, annotate, screenshots.md), проверить
+- [ ] Коммит, тег site-qa-audit/v1.1.0, merge в main, push; симлинк ~/.claude/skills/site-qa-audit уже на репозиторий
+
 ## Где остановился
-Скил site-qa-audit 1.0.3 в main, теги v1.0.0–v1.0.3, установлен симлинком; Claude in Chrome подключён.
-Идеи на будущее: lighthouse.js — LCP-элемент из insights Lighthouse 13 (старое поле largest-contentful-paint-element пустое);
-эмуляция touch (--device) для deep; a11y.js с подготовкой состояния; публикация в боевом режиме не опробована на реальном репозитории.
-Вопрос пользователю — удалять ли влитые ветки.
+2026-10-08, интеграция 1.1.0 завершена (ветка feature/output-dir-annotations, без коммита).
+- Сделано: фрагменты потоков A/B/C внесены в SKILL.md (106 строк), README скила, run-config.example.yaml, repo-sync.md, intake.md, parallelism.md, tests/unit.sh, tests/README.md; CHANGELOG скила [1.1.0] (включая 1.0.4), plugin.json 1.1.0, корневые README/marketplace.json (skillsrepo.py sync), корневой CHANGELOG. Фикстуры обезличены (названия игр, соседний домен). .integration/ и __pycache__ удалены.
+- Проверки: tools/validate.sh — 0 ошибок; tests/unit.sh — 34 PASS (A 32, B 29, C 34); url_guard selftest 29/29; validate_findings на findings.json и findings-v11.json — 0 ошибок.
+- Осталось: коммит, тег site-qa-audit/v1.1.0, merge в main, push (делает пользователь); проверка на скриншотах реального прогона.
+- Следующий шаг: git add skills/site-qa-audit README.md CHANGELOG.md .claude-plugin/marketplace.json TASKS.md → commit → tag → merge.

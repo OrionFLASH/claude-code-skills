@@ -80,6 +80,64 @@
       "items": {
         "$ref": "#/$defs/finding"
       }
+    },
+    "rechecks": {
+      "type": "array",
+      "description": "Перепроверка заявленных исправлений (claims.py plan → результат): таблица «№, статус, чем проверено» в report.md",
+      "items": {
+        "type": "object",
+        "required": [
+          "repo",
+          "number"
+        ],
+        "properties": {
+          "repo": {
+            "type": "string"
+          },
+          "number": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "quote": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "FIXED-OK",
+              "FIXED-INSUFFICIENT",
+              "REGRESSION",
+              "NOT-CHECKED",
+              null
+            ]
+          },
+          "reason": {
+            "enum": [
+              "logout-required",
+              "other-account-type",
+              "forbidden",
+              "steps-unclear",
+              "environment",
+              "other",
+              null
+            ]
+          },
+          "reason_text": {
+            "type": "string"
+          },
+          "checked_by": {
+            "type": "string",
+            "description": "Чем проверено: шаги, устройство, скриншот"
+          },
+          "finding_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
     }
   },
   "$defs": {
@@ -93,7 +151,6 @@
         "severity",
         "title",
         "url",
-        "actual",
         "sources"
       ],
       "properties": {
@@ -117,7 +174,8 @@
             "performance",
             "seo-content",
             "security-passive",
-            "product"
+            "product",
+            "content-i18n"
           ]
         },
         "check_id": {
@@ -286,12 +344,119 @@
             "REGRESSION",
             "ALREADY-COPIED",
             "UNSURE-MATCH",
+            "NOT-CHECKED",
             null
           ]
         },
         "status_reason": {
           "type": "string",
           "description": "Почему такой статус; для FIXED-INSUFFICIENT — чего не хватает в исправлении"
+        },
+        "not_checked_reason": {
+          "enum": [
+            "logout-required",
+            "other-account-type",
+            "forbidden",
+            "steps-unclear",
+            "environment",
+            "other",
+            null
+          ],
+          "description": "Для status NOT-CHECKED: нужен выход из аккаунта / нужен другой тип аккаунта / запрет / шаги неясны / окружение / другое; подробности — в status_reason"
+        },
+        "frequency": {
+          "enum": [
+            "always",
+            "sometimes",
+            "once",
+            null
+          ],
+          "description": "Как часто воспроизводится: всегда / иногда / один раз"
+        },
+        "account_state": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Состояние аккаунта при воспроизведении: guest, free (без Pro), pro (с Pro) или своё значение из run-config"
+        },
+        "platform": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Платформа: desktop, mobile, tablet, ios, android, landscape…"
+        },
+        "claim_ref": {
+          "type": "object",
+          "required": [
+            "repo",
+            "number"
+          ],
+          "description": "Заявленное исправление, которое перепроверяет находка (scripts/claims.py)",
+          "properties": {
+            "repo": {
+              "type": "string"
+            },
+            "number": {
+              "type": "integer"
+            },
+            "quote": {
+              "type": "string",
+              "description": "Цитата заявления владельца"
+            },
+            "url": {
+              "type": "string"
+            },
+            "version": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "triage": {
+          "type": "object",
+          "description": "Оценка из внешней системы (с оговоркой, не замена своей severity)",
+          "properties": {
+            "severity": {
+              "type": "string"
+            },
+            "confidence": {
+              "type": [
+                "number",
+                "string"
+              ]
+            },
+            "kind": {
+              "type": "string"
+            },
+            "note": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string"
+            }
+          }
+        },
+        "target_forms": {
+          "type": "object",
+          "description": "Поля формы целевого репозитория: {\"owner/repo\": {\"area\": \"…\", \"severity_label\": \"…\"}}",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "area": {
+                "type": "string"
+              },
+              "severity_label": {
+                "type": "string"
+              },
+              "template": {
+                "type": "string"
+              }
+            }
+          }
         },
         "matches": {
           "type": "array",
@@ -355,7 +520,23 @@
           },
           "description": "id связанных находок (для proposal/user-story — основание)"
         }
-      }
+      },
+      "if": {
+        "properties": {
+          "type": {
+            "enum": [
+              "proposal",
+              "user-story"
+            ]
+          }
+        }
+      },
+      "else": {
+        "required": [
+          "actual"
+        ]
+      },
+      "description": "Находка. actual обязателен для всех типов, кроме proposal и user-story."
     }
   }
 }

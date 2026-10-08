@@ -5,6 +5,11 @@
     --fast         не опрашивать `claude mcp list` (медленно) — Playwright MCP проверяется по списку плагинов
     --no-browsers  не запускать браузеры для проверки
     --json FILE    сохранить результат (таблица + доступные плагины/скилы/браузеры) для прогона
+    --session-tools "a,b,…" | --session-tools-file FILE
+                   имена инструментов, которые видит текущая сессия Claude Code (агент передаёт свой список):
+                   по ним пишется, какие браузерные инструменты доступны именно сейчас, а не только «настроены»
+    --browser-tools-only   только раздел «Браузерные инструменты» (быстро, без claude/gh/браузеров)
+    --cdp-ports 9222,9223  проверить браузер с отладочным портом на localhost (подключение по CDP)
 
 Печатает таблицу «компонент / версия / статус / примечание / как исправить».
 Код выхода: 0 — можно работать, 1 — есть FAIL в обязательных компонентах.
@@ -12,6 +17,7 @@
 import argparse
 import json
 import os
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -75,6 +81,89 @@ def find_chrome_native_host():
     return False
 
 
+BROWSER_TOOL_GROUPS = [  # (key, title, regex over tool names)
+    ("playwright_mcp", "Playwright MCP", re.compile(r"playwright.*__browser_", re.I)),
+    ("claude_in_chrome", "Claude in Chrome", re.compile(r"^mcp__claude-in-chrome__", re.I)),
+    ("chrome_devtools_mcp", "Chrome DevTools MCP", re.compile(r"chrome-devtools|chrome_devtools", re.I)),
+]
+KEY_TOOLS = {"playwright_mcp": ["browser_navigate", "browser_snapshot", "browser_take_screenshot",
+                                "browser_run_code_unsafe", "browser_evaluate", "browser_network_requests"],
+             "claude_in_chrome": ["tabs_context_mcp", "navigate", "read_page", "computer", "javascript_tool"]}
+
+
+def parse_session_tools(a):
+    names = []
+    if a.session_tools:
+        names += re.split(r"[\s,]+", a.session_tools)
+    if a.session_tools_file:
+        names += re.split(r"[\s,]+", Path(a.session_tools_file).read_text(encoding="utf-8"))
+    return [x for x in names if x] if (a.session_tools or a.session_tools_file) else None
+
+
+def probe_cdp(ports):
+    """Browsers listening on a local remote-debugging port (connect via CDP)."""
+    import urllib.request
+    found = {}
+    for port in ports:
+        try:
+            with urllib.request.urlopen(f"http://127.0.0.1:{port}/json/version", timeout=0.7) as r:
+                info = json.loads(r.read().decode("utf-8", "replace"))
+                found[str(port)] = info.get("Browser") or "?"
+        except Exception:  # noqa: BLE001 — closed port, timeout, not a browser
+            continue
+    return found
+
+
+def browser_tools(session, mcp_configured, chrome_host, cdp):
+    """Rows and JSON about which browser tools are usable in the current session."""
+    rows, res = [], {"session_tools_known": session is not None, "groups": {}}
+    for key, title, rx in BROWSER_TOOL_GROUPS:
+        have = sorted(n for n in session or [] if rx.search(n))
+        short = [re.sub(r"^.*__", "", n) for n in have]
+        configured = {"playwright_mcp": mcp_configured, "claude_in_chrome": chrome_host}.get(key)
+        res["groups"][key] = {"in_session": bool(have) if session is not None else None, "tools": short,
+                              "configured": configured}
+        if session is None:
+            status = ec.WARN
+            note = ("настроен; " if configured else "не настроен; " if configured is False else "") + \
+                "есть ли в этой сессии — неизвестно (передайте --session-tools)"
+        elif have:
+            missing = [k for k in KEY_TOOLS.get(key, []) if k not in short]
+            status = ec.OK
+            note = f"в сессии: {len(have)} инструментов ({', '.join(short[:6])}{'…' if len(short) > 6 else ''})"
+            if missing:
+                note += "; нет: " + ", ".join(missing)
+                if "browser_run_code_unsafe" in missing:
+                    note += " (nav_lock.js и snap_mcp.js не запустить)"
+        else:
+            status = ec.WARN
+            note = "в этой сессии нет" + (" (настроен — нужен перезапуск/включение)" if configured else "")
+        if key == "chrome_devtools_mcp" and not have:
+            continue
+        rows.append(ec.Row(f"{title} (сессия)", "", status, note))
+    cli = shutil.which("playwright-cli")
+    rows.append(ec.Row("playwright-cli (сессия)", "", ec.OK if cli else ec.WARN,
+                       "доступен: параллельные потоки -s=qa-<id>" if cli else "нет — один браузерный поток"))
+    res["playwright_cli"] = bool(cli)
+    rows.append(ec.Row("CDP на localhost", ",".join(cdp) if cdp else "", ec.OK if cdp else ec.WARN,
+                       "; ".join(f"порт {p}: {b}" for p, b in cdp.items()) if cdp
+                       else "нет браузера с --remote-debugging-port (режим auth: manual-cdp недоступен)"))
+    res["cdp"] = cdp
+    usable = [t for k, t, _ in BROWSER_TOOL_GROUPS if res["groups"][k]["in_session"]]
+    usable += ["playwright-cli"] if cli else []
+    usable += [f"CDP :{p}" for p in cdp]
+    res["usable_now"] = usable
+    return rows, res
+
+
+def usable_line(bres, session):
+    if session is None:
+        rest = [x for x in bres["usable_now"]]
+        return ("Доступно в этой сессии: MCP-инструменты — неизвестно (нужен --session-tools)"
+                + (f"; вне MCP: {', '.join(rest)}" if rest else ""))
+    return "Доступно в этой сессии: " + (", ".join(bres["usable_now"]) or "ничего")
+
+
 def check_node_deps(rows):
     pkg = NODE_DIR / "node_modules"
     if not pkg.exists():
@@ -113,7 +202,23 @@ def main():
     ap.add_argument("--fast", action="store_true")
     ap.add_argument("--no-browsers", action="store_true")
     ap.add_argument("--json")
+    ap.add_argument("--session-tools")
+    ap.add_argument("--session-tools-file")
+    ap.add_argument("--browser-tools-only", action="store_true")
+    ap.add_argument("--cdp-ports", default="9222")
     a = ap.parse_args()
+    session = parse_session_tools(a)
+    cdp = probe_cdp([p for p in a.cdp_ports.split(",") if p.strip()])
+
+    if a.browser_tools_only:
+        brows, bres = browser_tools(session, None, find_chrome_native_host(), cdp)
+        print("## Браузерные инструменты\n")
+        ec.print_table(brows)
+        print("\n" + usable_line(bres, session))
+        if a.json:
+            Path(a.json).parent.mkdir(parents=True, exist_ok=True)
+            Path(a.json).write_text(json.dumps({"browser_tools": bres}, ensure_ascii=False, indent=2), encoding="utf-8")
+        sys.exit(0 if bres["usable_now"] or session is None else 1)
 
     rows = [ec.Row("ОС", ec.os_name())]
     rows.append(ec.tool_version("git", fix="https://git-scm.com"))
@@ -139,6 +244,14 @@ def main():
     rows.append(ec.Row("Playwright MCP", "", ec.OK if mcp_ok else ec.FAIL, "" if mcp_ok else "не подключён",
                        "/plugin install playwright@claude-plugins-official  или  claude mcp add --transport stdio "
                        "--scope user playwright -- npx -y @playwright/mcp@latest"))
+    out_root = os.environ.get("SITE_QA_OUTPUT_DIR")
+    if out_root:
+        p = Path(out_root).expanduser()
+        rows.append(ec.Row("SITE_QA_OUTPUT_DIR", str(p), ec.OK if p.is_dir() else ec.WARN,
+                           "папка результатов по умолчанию" + ("" if p.is_dir() else " — папки нет, будет создана"), ""))
+    else:
+        rows.append(ec.Row("SITE_QA_OUTPUT_DIR", "", ec.WARN, "не задана — скил спросит, куда сохранять результаты",
+                           'добавить в ~/.claude/settings.json → "env": {"SITE_QA_OUTPUT_DIR": "<путь>"}'))
     chrome_host = find_chrome_native_host()
     rows.append(ec.Row("Claude in Chrome", "", ec.OK if chrome_host else ec.WARN,
                        "native host есть; инструменты mcp__claude-in-chrome__* появляются в сессии, запущенной с "
@@ -160,8 +273,12 @@ def main():
     if disabled:
         rows.append(ec.Row("отключённые плагины", str(len(disabled)), ec.OK, ", ".join(disabled)))
 
+    brows, bres = browser_tools(session, mcp_ok, bool(chrome_host), cdp)
     print(f"## Окружение site-qa-audit\n")
     ec.print_table(rows)
+    print("\n## Браузерные инструменты\n")
+    ec.print_table(brows)
+    print("\n" + usable_line(bres, session))
     required = {"git", "node", "npm", "npx", py, "gh", "gh auth", "Playwright MCP", "браузер chromium",
                 "playwright", "@axe-core/playwright", "lighthouse"}
     fails = [r for r in rows if r["status"] == ec.FAIL and r["component"] in required]
@@ -170,8 +287,8 @@ def main():
         Path(a.json).parent.mkdir(parents=True, exist_ok=True)
         Path(a.json).write_text(json.dumps({"rows": rows, "browsers": browsers, "playwright_mcp": mcp_ok,
                                             "playwright_cli": bool(shutil.which("playwright-cli")),
-                                            "claude_in_chrome": bool(chrome_host), "enhancers": available,
-                                            "banned": BANNED, "disabled_plugins": disabled},
+                                            "claude_in_chrome": bool(chrome_host), "output_dir": out_root, "enhancers": available,
+                                            "banned": BANNED, "disabled_plugins": disabled, "browser_tools": bres},
                                            ensure_ascii=False, indent=2), encoding="utf-8")
     sys.exit(1 if fails else 0)
 

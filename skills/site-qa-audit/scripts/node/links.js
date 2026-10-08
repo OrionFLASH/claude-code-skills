@@ -3,6 +3,7 @@
 // Собирает карту страниц, битые ссылки (4xx/5xx), SEO-мета (title, description, canonical, OG, hreflang, h1, lang).
 // Внешние ссылки проверяются только HEAD/GET-статусом, на них не переходим.
 // node links.js START_URL [--rules rules.json] [--max-pages 50] [--check-external] [--throttle 700] [--out links.json]
+//      [--frames all]  documents of <iframe src> within allowed_domains are crawled too (marked frameOf)
 const { parseArgs, loadRules, navAllowed, sleep, writeOut } = require('./lib');
 
 const UA = 'Mozilla/5.0 site-qa-audit (passive crawl)';
@@ -41,6 +42,7 @@ async function fetchStatus(url) {
   if (!start) { console.error('нужен START_URL'); process.exit(1); }
   const rules = loadRules(args.rules) || { rules: { allowed_domains: [new URL(start).hostname], forbidden_domains: [], forbidden_url_patterns: [], exclude_patterns: [] },
     base: { deny_nav_hosts: [], deny_path_regex: '(?!)', blocked_origins: [] } };
+  const frameOf = new Map();
   const queue = [start], seen = new Set([start.split('#')[0]]), pages = [], linkSources = new Map(), external = new Map(), skipped = [];
   while (queue.length && pages.length < +args['max-pages']) {
     const url = queue.shift();
@@ -52,6 +54,18 @@ async function fetchStatus(url) {
     } catch (e) { pages.push({ url, status: 0, error: String(e.cause && e.cause.code || e.message || e) }); continue; }
     const page = { url, status: res.status, finalUrl: res.url, timeMs: Date.now() - t0, meta: html ? meta(html) : null, links: 0 };
     pages.push(page);
+    if (args.frames === 'all') {
+      page.frames = [];
+      for (const m of html.matchAll(/<iframe\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi)) {
+        let src; try { src = new URL(m[1], res.url).href; } catch { continue; }
+        if (!/^https?:/.test(src)) continue;
+        page.frames.push(src);
+        const v = navAllowed(src, rules, 'subframe');
+        const inside = v.ok && navAllowed(src, rules).ok;
+        if (inside && !seen.has(src)) { seen.add(src); queue.unshift(src); frameOf.set(src, url); }
+      }
+    }
+    if (frameOf.has(url)) page.frameOf = frameOf.get(url);
     for (const m of html.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["']/gi)) {
       let href;
       try { href = new URL(m[1], res.url).href.split('#')[0]; } catch { continue; }

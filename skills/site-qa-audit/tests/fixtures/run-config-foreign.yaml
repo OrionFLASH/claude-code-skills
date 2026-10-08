@@ -1,0 +1,31 @@
+# Test config: foreign repository without disclosure and cross links (render_draft, build_report).
+version: 1
+output_dir: /tmp/qa
+mode: dry-run
+language: ru
+site:
+  start_urls:
+    - https://example.com/
+  allowed_domains:
+    - example.com
+repos:
+  - url: https://github.com/owner/repo
+    roles: [write-new, comment]
+    disclosure: none
+    cross_links: false
+    marker: none
+    closed_claims: comment
+    severity_map:
+      critical: Блокирует
+      high: Серьёзно
+      medium: Обычно
+      low: Незначительно
+      info: Незначительно
+  - url: https://github.com/owner/qa-copy
+    roles: [copies]
+    disclosure: full
+    cross_links: true
+    closed_claims: new
+  - url: https://github.com/owner/other
+    roles: [comment]
+    closed_claims: skip
