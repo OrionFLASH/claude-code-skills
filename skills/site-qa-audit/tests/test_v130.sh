@@ -237,4 +237,16 @@ check "tabs close/list: вкладки помечаются закрытыми; 
 import json,sys; t=json.load(sys.stdin); assert [x['owner'] for x in t]==['qa-a11y'], t\""
 { kill "$CDPPID"; wait "$CDPPID"; } 2>/dev/null
 
+# ---------- documentation: command examples are accepted by the scripts ----------
+check "примеры python-команд в SKILL.md, README, INSTALL, references принимаются argparse (--help)" sh -c "
+  '$PY' '$HERE/helpers/doc_commands.py' '$HERE/..' --python '$PY' > '$TMP/doc.out' 2>&1 || { cat '$TMP/doc.out'; exit 1; }"
+check "примеры node-команд в документации: скрипты существуют, --опции читаются" sh -c "
+  '$PY' '$HERE/helpers/doc_node_flags.py' '$HERE/..' > '$TMP/docn.out' 2>&1 || { cat '$TMP/docn.out'; exit 1; }"
+mkdir -p "$TMP/fake-skill/scripts/node"; printf 'const a = parseArgs(); if (a.yes) {}\n' > "$TMP/fake-skill/scripts/node/x.js"
+printf -- '---\nname: x\n---\n`node <SKILL_DIR>/scripts/node/x.js --yes --nope`\n`node <SKILL_DIR>/scripts/node/missing.js`\n' > "$TMP/fake-skill/SKILL.md"
+check "doc_node_flags (негативный): неизвестная опция и несуществующий скрипт — ошибки" sh -c "
+  out=\$('$PY' '$HERE/helpers/doc_node_flags.py' '$TMP/fake-skill'); test \$? = 1 && echo \"\$out\" | grep -q -- '--nope' && echo \"\$out\" | grep -q 'missing.js' && ! echo \"\$out\" | grep -q -- 'не читает --yes'"
+check "SKILL.md: ≤ 300 строк, пример shot.js «селектор|подпись» в первых 40 строках" sh -c "
+  test \$(wc -l < '$HERE/../SKILL.md') -le 300 && head -40 '$HERE/../SKILL.md' | grep -q 'shot.js' && head -40 '$HERE/../SKILL.md' | grep -q '\"#menu|'"
+
 echo "stream v1.3.0: PASS $pass, FAIL $fail"; [ $fail -eq 0 ]
