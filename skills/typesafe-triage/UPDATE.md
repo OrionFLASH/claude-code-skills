@@ -39,7 +39,7 @@ Rename-Item $HOME\.claude\skills\typesafe-triage typesafe-triage.bak
 Copy-Item -Recurse $HOME\dev\claude-code-skills\skills\typesafe-triage $HOME\.claude\skills\typesafe-triage
 ```
 
-(macOS / Linux: `mv … …​.bak` и `cp -R`.) Старую копию `.bak` удалите после проверки.
+(macOS / Linux: `mv` для переименования и `cp -R` для копирования.) Старую копию `.bak` удалите после проверки.
 
 **Маркетплейс:**
 
@@ -75,7 +75,7 @@ python $HOME\.claude\skills\typesafe-triage\scripts\typesafe_triage.py --check
 
 ## Откат
 
-Верните папку `typesafe-triage.bak` на место (или `git checkout typesafe-triage/v<версия>` в клоне и скопируйте заново). Для маркетплейса: `claude plugin update` на нужную версию недоступен — переключитесь на клонирование. Ключ и журнал откат не затрагивает.
+Верните папку `typesafe-triage.bak` на место (или `git checkout typesafe-triage/v<версия>` в клоне и скопируйте заново). Для маркетплейса откат на конкретную версию не гарантирован: для управляемого отката ставьте через клонирование и тег `typesafe-triage/v<версия>`. Ключ и журнал откат не затрагивает.
 
 ## Обновление промптом (Claude Code сделает сам)
 
