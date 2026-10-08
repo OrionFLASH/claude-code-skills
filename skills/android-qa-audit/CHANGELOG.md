@@ -2,6 +2,23 @@
 
 Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/), версии — SemVer, теги `android-qa-audit/vX.Y.Z`.
 
+## [1.1.0] — 2026-10-09
+Перенос применимого из обратной связи по site-qa-audit (08–09.10.2026). Новые поля run-config и схемы находок необязательные: старые `run-config.yaml` и `findings.json` проходят без изменений. Намеренно несовместимое: guard больше не «пропускает» при сбое.
+
+### Безопасность (исправлено)
+- **Fail closed.** `guard.py`: нет `--config` или файла, битый YAML, неверный регэксп в правилах (`forbidden_screens`, `forbidden_deeplinks`, `adb_require_confirmation`, `screen_pattern`), неверные аргументы (раньше код 2 argparse читался как «confirm»), внутренняя ошибка — `{"decision": "unavailable"}` и **код 4**; без `--config` решения больше не выдаются. `adb_helpers.py`: конфиг указан, но не найден или не прочитан, неверное правило, ошибка guard — **код 6**, ничего не выполняется (4 у него по-прежнему «не поддерживается / не найдено»). Блок правил §4 и задание исполнителю: эти коды, traceback, «No such file» = СТОП; до работы — `guard.py selftest`.
+- **Стенды потоков (вместо реестра вкладок).** `avd_manager.py start` не запускает уже запущенный AVD второй раз (код 3: работать в нём), `--owner wN` записывает поток в `stands.json`, `stop --owner wN` не останавливает стенд другого потока (код 3). `guard.py`: `adb kill-server` — всегда запрет (обрывает все стенды и потоки).
+
+### Добавлено
+- **Находки текстом.** Исполнитель возвращает блок ```` ```qa-findings ```` в последнем сообщении (файлы не пишет); `scripts/ingest_findings.py` — проверка по схеме, id, `not_checked`, `questions.json`, сообщение в `raw/messages/` (общий модуль `shared/scripts/qa_ingest.py`).
+- **Независимая перепроверка до публикации.** Поле `repro` у находки (`{"adb": [аргументы adb_helpers.py], "expect_exit"|"expect"}` или `{"argv"}` скрипта скила); `scripts/recheck.py` (`run --subst SERIAL=…` — дважды, `set` — ручная проверка другим исполнителем, `legal`, `gate`); `build_report.py publish-table` — колонка «Перепроверка», без подтверждения — «НЕ публиковать» (общий модуль `qa_recheck.py`).
+- **Прямая публикация** (`publish_mode: direct`): `scripts/direct_publish.py` (`check` — gate и дубли через `fingerprint.py match` по выгрузке `raw/issues-*.json`, `record` → `published.json`, `next`, `status`); `repo-sync.md` §4a; `render_draft.py detailed --body-only` (общий модуль `qa_direct.py`).
+- **Юридическое.** Нормы права и финансовые последствия — только «возможно применимо» (`legal.norms`), вторая проверка другим исполнителем (`recheck.py legal`), «требуется проверка юристом» в черновике (`render_draft.py`, раздел «Правовые нормы»); без этого gate закрыт. SKILL.md, `safety-rules.md` §3 п. 12.
+- Схема находки: `repro`, `recheck`, `legal`, `ingested`, `source_id`. `parallelism.md`: реестр стендов, находки блоком, независимая перепроверка, новое задание исполнителю. `INSTALL.md`: обновление через маркетплейс по шагам.
+
+### Тесты
+- `tests/unit.sh`: fail closed `guard.py` (без конфига, нет файла, аргументы, регэксп) и `adb_helpers.py` (код 6, на устройстве ничего не выполнено), `adb kill-server`, повторный `start` того же AVD и `stop` чужого потока, `ingest_findings.py`, `recheck.py` на фейковом adb (confirmed / not-reproduced / refused, gate, ручная и правовая проверка), `direct_publish.py`, `render_draft.py --body-only`, колонка «Перепроверка». Тест запуска эмулятора больше не предполагает, что порт 5556 свободен на машине (берёт фактический serial).
+
 ## [1.0.1] — 2026-10-08
 Исправления по первому боевому прогону (smoke, API 34, эмулятор скила) и правило «результаты по умолчанию в `.gitignore`». Старые `run-config.yaml` и `findings.json` работают без изменений.
 

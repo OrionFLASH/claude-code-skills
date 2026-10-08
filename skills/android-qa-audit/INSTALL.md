@@ -272,9 +272,17 @@ python <SKILL_DIR>\scripts\check_env.py --fast    # то же без обёрт�
 
 | Установка | Как обновить |
 |-----------|--------------|
-| Маркетплейс | `/plugin marketplace update claude-code-skills`, затем `/plugin update android-qa-audit@claude-code-skills`; перезапуск Claude Code |
+| Маркетплейс | шаги ниже: «Обновление через маркетплейс» |
 | Клон + ссылка | `git pull --ff-only` в клоне; `tools/install.sh android-qa-audit` (Windows: `install.ps1`) ещё раз — проверит ссылку |
 | Копия | скачать заново, старую папку переименовать в `android-qa-audit.bak-ГГГГММДД`, скопировать новую |
+
+### Обновление через маркетплейс (по шагам)
+1. `/plugin marketplace update claude-code-skills` (или в терминале `claude plugin marketplace update claude-code-skills`).
+2. `/plugin update android-qa-audit@claude-code-skills` (или `claude plugin update android-qa-audit@claude-code-skills`).
+3. Новая папка версии — `installPath` из `claude plugin list --json` (`~/.claude/plugins/cache/claude-code-skills/android-qa-audit/<новая версия>/`): в заданиях исполнителей `<SKILL_DIR>` — этот путь, а не прежний (папка старой версии может исчезнуть).
+4. Перезапустить Claude Code (новая версия видна только в новой сессии).
+5. Проверить: `bash <installPath>/scripts/check_env.sh --fast` и `python3 <installPath>/scripts/guard.py selftest`; при желании `bash <installPath>/tests/unit.sh`.
+Node-зависимостей у скила нет; Android SDK, образы и AVD обновление не затрагивает.
 
 После обновления — `check_env` (новые требования) и перезапуск Claude Code. Результаты прогонов, память о приложениях (`qa-runs/.app-context/`) и AVD лежат вне папки скила — обновление их не затрагивает.
 
@@ -309,6 +317,8 @@ Windows — `%USERPROFILE%\.claude\settings.json` (обратный слэш в 
 |---------|-------------|
 | `/android-qa-audit` нет в списке, «Unknown skill» сразу после установки | скил виден только в новой сессии Claude Code; в текущей — попросить Claude прочитать `<SKILL_DIR>/SKILL.md` и работать по нему; иначе проверить, есть ли `<SKILL_DIR>/SKILL.md` и включён ли плагин (`claude plugin list`) |
 | Два одинаковых скила | стоит и плагин, и папка/ссылка в `~/.claude/skills` — оставить один способ |
+| `guard.py` — код 4, `adb_helpers.py` — код 6 «guard недоступен» | так и задумано (fail closed): нет или битый `run-config.yaml` (`--config` / `<RUN_DIR>/run-config.yaml`), неверный регэксп в правилах — исправить и повторить; на устройстве при этом ничего не выполнено |
+| `avd_manager.py start` — код 3 «AVD уже запущен» | один стенд — один исполнитель: работать в уже запущенном эмуляторе (serial в сообщении), второй экземпляр — только `--read-only` |
 | `adb: command not found`, а check_env видит adb | adb не в PATH — скил работает и так; для терминала — «Переменные окружения» выше |
 | check_env: «Android SDK не найден» | задать `ANDROID_HOME` (в профиле и в `env` настроек Claude Code) или поставить SDK по разделу «Android SDK» |
 | `sdkmanager`: «Could not determine SDK root» / «JAVA_HOME is not set» | структура `<SDK>/cmdline-tools/latest/bin`; задать `JAVA_HOME` (JDK 17+) |

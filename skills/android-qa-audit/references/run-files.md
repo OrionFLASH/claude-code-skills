@@ -9,9 +9,13 @@ journal.md        журнал для продолжения               findi
 matches.json      сверка с issues                     report.md, summary.md
 apk/              копии APK/AAB + SHA256SUMS          screenshots/      снимки экрана (PNG)
 recordings/       видео (screenrecord)                 logs/             logcat-*.txt, actions.jsonl, blocked.jsonl, emulator-*.log
-raw/              ui-*.xml/json, metrics.jsonl, crashes-*.json, findings-<поток>.json, issues-*.json
+raw/              ui-*.xml/json, metrics.jsonl, crashes-*.json, findings-<поток>.json, issues-*.json,
+                  messages/ (сообщения исполнителей с блоком qa-findings — ingest_findings.py)
 drafts/           черновики issues (dry-run)
+questions.json    вопросы исполнителей (ingest_findings.py)   published.json   прямая публикация (direct_publish.py)
+published/        тела опубликованных issues (прямая публикация, render_draft.py --body-only)
 ```
+В `findings.json` у находки: `repro` (как перезапустить проверку), `recheck` (результат независимой перепроверки, `recheck.py`), `legal` (нормы и вторая проверка); в `stands.json` у эмулятора — `owner` (поток).
 Общее для прогонов: память о приложении `<OUTPUT_ROOT>/qa-runs/.app-context/<package>/`.
 
 ## journal.md — продолжение после обрыва

@@ -29,22 +29,42 @@
 2. Основной поток (оркестратор): ячейка `primary` — все направления и вариации; там же разведка и память о приложении.
 3. Остальные потоки (субагенты): свои ячейки по очереди: `start` → `wait-boot` → `install` → направления ячейки → `stop` → следующая ячейка.
 4. Фоном в каждом потоке: `logcat start` на своём стенде; после каждого сценария `crashes`.
-5. Сведение: находки потоков `raw/findings-<поток>.json` → оркестратор → `findings.json` → `fingerprint.py compute` → `dedupe` (одна и та же проблема на разных версиях сливается, окружения — в `environment_list`).
+5. Сведение: находки потоков — блоком ```` ```qa-findings ```` в последнем сообщении исполнителя → оркестратор: `python3 <SKILL_DIR>/scripts/ingest_findings.py <RUN_DIR> --from <файл сообщения> --thread <wN>` → `findings.json` → `fingerprint.py compute` → `dedupe` (одна и та же проблема на разных версиях сливается, окружения — в `environment_list`) → независимая перепроверка (ниже).
+
+## Реестр стендов вместо вкладок
+`<RUN_DIR>/stands.json` (`avd_manager.py`) — какие эмуляторы запущены, кем (`owner`: `orchestrator`, `w1`, `w2`…), на каком порту. Правила:
+- **один стенд — один исполнитель и одно действие за раз**; уже запущенный AVD повторно не запускается (`start` → код 3, работать в нём), лишние эмуляторы не запускать;
+- исполнитель запускает свои ячейки с `--owner <wN>` и останавливает только свои (`stop <SERIAL> --owner <wN>`; чужой стенд → код 3);
+- `adb kill-server` — никогда (обрывает все стенды всех потоков; `guard.py` запрещает), `adb emu kill` — только своему эмулятору через `avd_manager.py stop`;
+- перед завершением потока — `logcat stop`, вернуть вариации, `stop` своих стендов (если поручено).
+
+## Находки — блоком в последнем сообщении
+Субагенту запись файлов может быть запрещена — поэтому исполнитель **не пишет** `findings.json` и отчёты, а возвращает блок ```` ```qa-findings ```` (формат — `python3 <SKILL_DIR>/scripts/ingest_findings.py example`; поля — `templates/finding.schema.json`, без id и fingerprint). Скриншоты и записи по-прежнему делает `adb_helpers.py` в `<RUN_DIR>/screenshots/<wN>-*.png`. Ошибка схемы — код 1, ничего не записано.
+
+## Независимая перепроверка — обязательна до публикации
+1. У каждой находки — `repro`: аргументы `adb_helpers.py` для перезапуска проверки (`{"adb": ["find", "--text", "Купить"], "expect_exit": 0}`, `{"adb": "crashes", "expect": "…"}`) или `{"argv": [...]}` скрипта скила.
+2. Оркестратор (не исполнитель, нашедший дефект): `python3 <SKILL_DIR>/scripts/recheck.py run <RUN_DIR> --subst SERIAL=<serial стенда>` — каждая находка дважды; результат — `recheck` в находке.
+3. Сценарий из многих шагов — другой исполнитель на своём стенде проходит шаги и возвращает результат; оркестратор: `recheck.py set <RUN_DIR> --id F-NNN --status confirmed --by "w-verify: …"` (тот же исполнитель не считается).
+4. `recheck.py gate <RUN_DIR>` и колонка «Перепроверка» в `build_report.py publish-table` — без подтверждения не публикуется; правовые нормы — `recheck.py legal` (вторая проверка) и «проверить юристом».
 
 ## Задание субагенту (шаблон)
 ```text
 Ты — исполнитель android-qa-audit, поток <wN>. Стенд: <SERIAL> (<own-emulator|real>), ячейки: <c03, c05> из <RUN_DIR>/device-matrix.json.
+SKILL_DIR: <SKILL_DIR>. До первого действия: python3 <SKILL_DIR>/scripts/guard.py selftest — ошибка или «No such file» = СТОП.
 Всё — только через <SKILL_DIR>/scripts/adb_helpers.py … --serial <SERIAL> --run-dir <RUN_DIR> (и avd_manager.py start/wait-boot/stop
-для своих ячеек, если оркестратор так поручил). Другие стенды не трогать. AVD не создавать и не удалять.
+--owner <wN> для своих ячеек, если оркестратор так поручил). Другие стенды не трогать, adb kill-server — никогда. AVD не создавать
+и не удалять; уже запущенный AVD второй раз не запускать.
 Приложение: <package> из <RUN_DIR>/apk/<файл>; контекст (сценарии, термины, «задумано так»):
 <OUTPUT_ROOT>/qa-runs/.app-context/<package>/context.md — прочитать до начала.
 Для каждой ячейки: вариации <список> (команды и сброс — device-matrix.json → variants), направления <список>,
 чек-листы <SKILL_DIR>/references/checklists/<направление>.md — разделы <Smoke|Standard|Deep>.
 Перед началом: logcat start; после каждого сценария: crashes; метрики: start-time --mode cold --runs 3, meminfo.
 <БЛОК ПРАВИЛ из safety-rules.md §4, дословно, с RULES_TABLE>
-Выход: <RUN_DIR>/raw/findings-<wN>.json — массив находок по templates/finding.schema.json (без id и fingerprint),
-environment.cell = id ячейки, repro_rate после повтора; скриншоты <RUN_DIR>/screenshots/<wN>-*.png; «не проверено» —
-в поле not_checked. Вопросы (код 2 от guard, «баг или задумано») — не решай сам, верни списком questions.
+Выход: файлы находок и отчёты НЕ писать. В ПОСЛЕДНЕМ сообщении — блок ```qa-findings``` (формат: ingest_findings.py example):
+находки по templates/finding.schema.json без id и fingerprint, environment.cell = id ячейки, repro_rate после повтора,
+repro — аргументы adb_helpers.py для перезапуска проверки; скриншоты <RUN_DIR>/screenshots/<wN>-*.png (их пишет adb_helpers.py);
+not_checked — что не проверено; questions — вопросы (код 2 от guard, «баг или задумано»: не решай сам).
+Нормы права — только «возможно применимо» в legal.norms.
 В конце: logcat stop; вернуть настройки вариаций; stop своих эмуляторов, если так поручено.
 ```
 

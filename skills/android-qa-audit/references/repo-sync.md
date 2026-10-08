@@ -50,6 +50,7 @@ python3 <SKILL_DIR>/scripts/build_report.py publish-table <RUN_DIR>
 ```
 - Черновики: `<RUN_DIR>/drafts/<owner__repo>/NN-<статус>-<отпечаток>.md` (первая строка `TITLE:`), `….body.md` (тело для `--body-file`), `index.md` — заголовки, метки и команда `gh`, которой черновик **был бы** опубликован. Находки с `evidence.sensitive` в черновики не попадают (решение пользователя, `safety-rules.md` §6).
 - Настройки из `repos[]` (флаги главнее): `disclosure: none` — без подписи скила и маркера; `cross_links: false` — без ссылок на issues других репозиториев; `marker: skill|neutral|none`; `severity_map` — метка шкалы репозитория в заголовке; `labels: existing|create|inline|none`, `extra_labels`.
+- **Перед публикацией — независимая перепроверка** (`parallelism.md`): `recheck.py run <RUN_DIR> --subst SERIAL=<serial>` (каждая находка дважды по `repro`), многошаговые — другой исполнитель и `recheck.py set`, правовые нормы — `recheck.py legal`; `recheck.py gate <RUN_DIR>`. В сводной таблице колонка «Перепроверка»: без подтверждения — «НЕ публиковать до перепроверки».
 - **Публикация:** показать сводную таблицу (`publish-table`) → ждать «да» (можно частично: «всё, кроме 3 и 7») → по одному:
   ```bash
   gh issue create -R owner/repo --title "<заголовок>" --body-file <RUN_DIR>/drafts/owner__repo/01-NEW-<fp>.body.md --label bug
@@ -57,6 +58,14 @@ python3 <SKILL_DIR>/scripts/build_report.py publish-table <RUN_DIR>
   ```
   Тело — всегда через файл. Пауза 3 с между созданиями; ошибка лимита (403 secondary rate limit, 5xx) — пауза 60 с, до 3 повторов, затем остановиться, оставшееся — в черновиках. После каждой публикации — `published: [{repo, number, url, kind}]` в findings.json (защита от дублей при обрыве).
 - **Вложения:** `gh` не прикладывает картинки к issue. `attachments: none` (по умолчанию) — в теле «скриншот: `screenshots/…` (файл в папке прогона, приложу по запросу)»; `attachments: commit` (нужен `push`, свой репозиторий) — закоммитить скриншоты и видео в отдельную папку/ветку (`qa-runs/<дата>/` в репозитории — после «да»), затем `render_draft.py … --attachments-base https://github.com/owner/repo/blob/<ветка>/<папка>`. Перед публикацией проверить, что на скриншотах нет персональных данных. logcat — только выдержкой в теле (замаскирован, ≤ 40 строк).
+
+## 4a. Прямая публикация (`publish_mode: direct`, только по запросу пользователя)
+Пользователь просит «сразу в репозиторий» — без накопления черновиков. Для каждой находки по очереди:
+1. **воспроизвести дважды** — `recheck.py run <RUN_DIR> --id F-NNN --subst SERIAL=<serial>` (или другой исполнитель + `recheck.py set`);
+2. **поиск дублей** — выгрузка `gh issue list … --json number,title,body,state,url > <RUN_DIR>/raw/issues-owner__repo.json` (§2), затем `python3 <SKILL_DIR>/scripts/direct_publish.py check <RUN_DIR> --id F-NNN --repo owner/repo`: 0 — публиковать (печатает команды), 1 — gate закрыт (нет перепроверки, нормы без второй проверки, чувствительная находка, нет выгрузки), 2 — похожие issues: прочитать и решить (`--ack-candidates` — новое), 3 — уже опубликовано или точный дубль по маркеру;
+3. **issue** — `render_draft.py detailed … --body-only --out <RUN_DIR>/published/owner__repo/F-NNN.md` (печатает `TITLE:`) → при `confirm_before_publish: true` — вопрос по этой находке → `gh issue create -R owner/repo --title "<TITLE>" --body-file …`;
+4. **запись** — `direct_publish.py record <RUN_DIR> --id F-NNN --repo owner/repo --number <N> --url <URL>` → `published.json` и `findings.json → published`.
+`direct_publish.py next <RUN_DIR> --repo owner/repo` — следующая по severity; `status` — что опубликовано. Паузы и лимиты — как в §4.
 
 ## 5. Итоговый issue (по `report_destinations: github`)
 `build_report.py summary <RUN_DIR>` → `render_draft.py summary --run-dir <RUN_DIR> --repo owner/repo` → `drafts/<owner__repo>/summary.md` (без локальных путей, маркер `<!-- android-qa-audit:run=<id> -->`). Публикация — как в §4, после «да»; повторный прогон в тот же день — комментарий к нему, а не новый issue.
