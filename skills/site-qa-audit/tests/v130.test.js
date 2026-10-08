@@ -103,6 +103,59 @@ function exportRules(cfgText, name) {
     assert(r.code === 0 && r.json.ok && /ожидаемо/.test(r.json.checks[0].before), r.out + r.err);
   });
 
+  // ---------------- shot.js: gutter (G-7), --locales (G-9) ----------------
+  const shots = path.join(TMP, 'shots');
+  await t('shot.js на телефоне: подписи в поле справа (gutter), несколько целей на кадре, сырой PNG и spec.json рядом', async () => {
+    const r = run('shot.js', ['--url', B + '/targets.html', '--device', 'pixel7', '--rules', rules, '--out', path.join(shots, 'F-010-phone.png'),
+      '#b1|Цель 48 px — ок|note', '#cb|Подпись флажка 30 px в высоту|error']);
+    assert(r.code === 0 && r.json.annotated && r.json.items.length === 2, r.out + r.err);
+    const vw = 412;
+    assert(r.json.canvas.gutter >= 260 && r.json.canvas.width === vw + r.json.canvas.gutter, JSON.stringify(r.json.canvas));
+    assert(r.json.items.every(i => i.label[0] >= vw && i.inside), JSON.stringify(r.json.items));
+    assert(fs.existsSync(path.join(shots, 'F-010-phone.png')) && JSON.parse(fs.readFileSync(path.join(shots, 'F-010-phone.spec.json'), 'utf8')).items.length === 2, 'нет сырого снимка/spec');
+    const off = run('shot.js', ['--url', B + '/targets.html', '--device', 'pixel7', '--gutter', 'off', '--rules', rules, '--out', path.join(shots, 'F-011.png'), '#b1|x|note']);
+    assert(off.json.canvas.gutter === 0, 'gutter off: ' + JSON.stringify(off.json.canvas));
+    const land = run('shot.js', ['--url', B + '/targets.html', '--size', '1440x813', '--rules', rules, '--out', path.join(shots, 'F-012.png'), '#b1|x|note']);
+    assert(land.json.canvas.gutter === 0, 'альбомный снимок без поля: ' + JSON.stringify(land.json.canvas));
+  });
+
+  await t('shot.js --locales: снимок на каждый язык, суффикс локали в имени', async () => {
+    const r = run('shot.js', ['--url', B + '/legal.html', '--rules', rules, '--locales', 'ru-RU,de-DE', '--out', path.join(shots, 'F-020-legal.png'), 'footer|Ссылки|note']);
+    assert(r.code === 0 && r.json.locales.length === 2 && r.json.locales.every(x => x.annotated), r.out + r.err);
+    assert(fs.existsSync(path.join(shots, 'F-020-legal-ru-RU-annotated.png')) && fs.existsSync(path.join(shots, 'F-020-legal-de-DE-annotated.png')), 'нет файлов по локалям');
+  });
+
+  await t('a11y.js --locales: результаты по каждому языку с lang и dir', async () => {
+    const r = run('a11y.js', [B + '/legal.html', '--rules', rules, '--throttle', '0', '--locales', 'ru-RU,en-US']);
+    assert(r.code === 0 && r.json.results.length === 2 && r.json.results[0].locale === 'ru-RU' && r.json.results[1].lang === 'en', JSON.stringify(r.json.results.map(x => [x.locale, x.lang, x.error])));
+  });
+
+  // ---------------- legal_guest.js (G-1, G-9) ----------------
+  await t('legal_guest.js: cookie сразу и позже без взаимодействия, сторонние хосты, баннер и его кнопки, ссылки, ИНН, 18+, локали', async () => {
+    const r = run('legal_guest.js', [B + '/legal.html', '--rules', rules, '--locales', 'ru-RU,en-US', '--wait', '1500']);
+    assert(r.code === 0 && r.json.runs.length === 2, r.out + r.err);
+    const [ru, en] = r.json.runs;
+    assert(ru.cookies.t0.some(c => c.name === 'fp') && !ru.cookies.t0.some(c => c.name === 'late'), 'cookie t0: ' + JSON.stringify(ru.cookies.t0));
+    assert(ru.cookies.tN.some(c => c.name === 'late' && c.party === 'first' && c.expires === '1d'), 'cookie tN: ' + JSON.stringify(ru.cookies.tN));
+    assert(!JSON.stringify(ru.cookies).includes('"value"'), 'значения cookie в выводе');
+    assert(ru.hosts.third.includes('localhost') && ru.storage.t0.local.includes('seen'), JSON.stringify(ru.hosts) + JSON.stringify(ru.storage));
+    assert(ru.banner.present && ru.banner.buttons.join('|') === 'Принять|Настроить', JSON.stringify(ru.banner));
+    assert(ru.links.some(l => /privacy/.test(l.href)) && ru.links.some(l => /terms/.test(l.href)) && ru.operator.length && ru.age.includes('18+'), JSON.stringify(ru));
+    assert(ru.lang === 'ru' && en.lang === 'en' && ru.webdriver && /webdriver/.test(ru.note), ru.lang + ' ' + en.lang);
+    assert(/cookie сразу 1/.test(r.err), r.err);
+  });
+
+  // ---------------- rtl.js (G-10) ----------------
+  await t('rtl.js: панель не отзеркалена, имя без изоляции (Oleg L.), <bdi> пропущен, «справа» в тексте, text-align:left', async () => {
+    const r = run('rtl.js', [B + '/rtl.html', '--rules', rules]);
+    const x = r.json.runs[0];
+    assert(x.rtl && x.dir === 'rtl' && x.notMirrored.some(p => p.selector === '#side'), JSON.stringify(x.panels));
+    assert(x.bidiNames.some(b => b.text === 'Oleg L.') && !x.bidiNames.some(b => /Anna/.test(b.text)), JSON.stringify(x.bidiNames));
+    assert(x.sideWords.length >= 1 && x.alignLeft.length >= 1 && x.candidates >= 4, JSON.stringify(x));
+    const ltr = run('rtl.js', [B + '/targets.html', '--rules', rules]).json.runs[0];
+    assert(!ltr.rtl && ltr.candidates === 0, 'LTR-страница: ' + JSON.stringify(ltr));
+  });
+
   // ---------------- repro.js + recheck.py (S-9) ----------------
   await t('repro.js: --js true -> код 0; --selector + --assert по рамке; не воспроизвелось -> код 1; запрещённый URL -> 2', async () => {
     const yes = run('repro.js', ['--url', B + '/targets.html', '--rules', rules, '--js', "document.querySelectorAll('button').length > 3"]);

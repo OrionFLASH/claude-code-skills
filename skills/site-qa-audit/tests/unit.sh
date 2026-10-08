@@ -69,7 +69,7 @@ for f in claims intake journal build_report gitignore_helper export_results skil
   "$PY" -c "import ast,sys; ast.parse(open(sys.argv[1],encoding='utf-8').read(), sys.argv[1])" "$S/$f.py" 2>"$TMP/pyc.err" \
     && ok "syntax $f.py" || { cat "$TMP/pyc.err"; bad "syntax $f.py"; }
 done
-for f in guard invariants occlusion reachability device_context shot frames annotate targets repro; do
+for f in guard invariants occlusion reachability device_context shot frames annotate targets repro legal_guest rtl a11y; do
   node --check "$S/node/$f.js" && ok "node --check $f.js" || bad "node --check $f.js"
 done
 for f in publish_web comment_web web_upload_lib; do

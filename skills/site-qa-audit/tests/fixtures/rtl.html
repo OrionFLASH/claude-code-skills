@@ -1,0 +1,17 @@
+<!doctype html>
+<html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>Фикстура: RTL</title>
+<style>
+  body { margin: 0; font: 15px sans-serif; }
+  #side { position: fixed; left: 0; top: 0; width: 200px; height: 100%; background: #eef; }   /* not mirrored */
+  main { margin-left: 220px; padding: 16px; }
+  .forced-left { text-align: left; }
+</style></head>
+<body>
+<nav id="side" aria-label="القائمة">القائمة</nav>
+<main>
+  <p>مرحبا <span id="user">Oleg L.</span> في الموقع</p>
+  <p>المستخدم <bdi id="iso">Anna K.</bdi> متصل</p>
+  <p>اضغط على الزر على اليمين للمتابعة</p>
+  <p class="forced-left">نص بمحاذاة إلى اليسار</p>
+</main>
+</body></html>

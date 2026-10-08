@@ -5,7 +5,8 @@
 //   node shot.js --out <RUN_DIR>/screenshots/F-001-bell.png
 //        (--url URL | --cdp http://127.0.0.1:9222 [--page-match substr] [--url URL])
 //        [--device pixel7 | --size 1440x813] [--setup setup.js] [--rules rules.json] [--log blocked.jsonl]
-//        [--state auth-state.json] [--frames all|main] [--max-cost 100] [--no-neighbors] [--wait 500]
+//        [--state auth-state.json] [--frames all|main] [--max-cost 100] [--no-neighbors] [--wait 500] [--locales de-DE,ar-SA]
+//        [--gutter auto|on|off]   portrait shots (phone): captions in a dark field to the RIGHT of the image, never over the UI
 //        "selector|подпись|kind[|row]" ...           kind: error|question|note (default error); row — обвести строку/карточку
 //        "selector|@avoid"  или  "rect:x,y,w,h|@avoid" зона, которую подпись не должна закрывать
 //        Селектор внутри iframe: "iframe#app >>> button.save" (координаты кадра прибавляются автоматически).
@@ -127,7 +128,7 @@ async function shoot(page, opts) {
   }
   fs.mkdirSync(path.dirname(path.resolve(opts.out)), { recursive: true });
   await page.screenshot({ path: opts.out, scale: 'css' });
-  const spec = { scale: 1, items: items.map(({ selector, ...i }) => i), avoid, viewport: page.viewportSize(), missing };
+  const spec = { scale: 1, items: items.map(({ selector, ...i }) => i), avoid, viewport: page.viewportSize(), missing, gutter: opts.gutter || 'auto' };
   const base = opts.out.replace(/\.png$/i, '');
   fs.writeFileSync(base + '.spec.json', JSON.stringify(spec, null, 1));
   const res = { out: path.resolve(opts.out), spec: path.resolve(base + '.spec.json'), missing, autoAvoid: auto.length };
@@ -138,7 +139,7 @@ async function shoot(page, opts) {
     const best = await annotateBest(browser, opts.out, spec, opts.maxCost);
     const annotated = base + '-annotated.png';
     fs.writeFileSync(annotated, best.buffer);
-    Object.assign(res, { annotated: path.resolve(annotated), labelWidth: best.labelWidth, items: best.report,
+    Object.assign(res, { annotated: path.resolve(annotated), labelWidth: best.labelWidth, items: best.report, canvas: best.canvas,
       warnings: selfCheck(best.report, items, opts.maxCost).concat(missing.length ? ['не найдены: ' + missing.join(', ')] : []) });
     res.ok = res.warnings.length === 0;
   } finally { await browser.close(); }
@@ -169,8 +170,9 @@ async function contactSheet(files, out, { cols = 3, per = 9, thumb = 460 } = {})
 async function openTarget(a, shotOpts = {}) {
   const rules = loadRules(a.rules);
   const device = shotOpts.device || a.device || shotOpts.size || a.size;
-  const dev = a.cdp && !device ? await attachCdp(a.cdp, a['page-match'])
-    : await openDevice({ device: device || 'desktop', cdp: a.cdp, storageState: a.state ? JSON.parse(fs.readFileSync(a.state, 'utf8')) : undefined, rules, logFile: a.log });
+  const locale = shotOpts.locale || null;
+  const dev = a.cdp && !device && !locale ? await attachCdp(a.cdp, a['page-match'])
+    : await openDevice({ device: device || 'desktop', cdp: a.cdp, storageState: a.state ? JSON.parse(fs.readFileSync(a.state, 'utf8')) : undefined, rules, logFile: a.log, locale });
   const guarded = guardedPage(dev.page, rules, { logFile: a.log, throttleMs: 0 });
   const url = shotOpts.url || a.url;
   if (url) {
@@ -194,7 +196,7 @@ function cli() {
       console.log(JSON.stringify({ sheets: await contactSheet(files, a.out, { cols: +(a.cols || 3), per: +(a.per || 9) }) }));
       return;
     }
-    const common = { frames: a.frames, maxCost: +a['max-cost'], noNeighbors: !!a['no-neighbors'] };
+    const common = { frames: a.frames, maxCost: +a['max-cost'], noNeighbors: !!a['no-neighbors'], gutter: a.gutter && a.gutter !== true ? String(a.gutter) : 'auto' };
     if (a.batch) {
       const list = JSON.parse(fs.readFileSync(a.batch, 'utf8'));
       const dir = a.dir || path.dirname(path.resolve(a.batch));
@@ -214,6 +216,20 @@ function cli() {
     }
     if (!a.out) throw new Error('нужен --out <RUN_DIR>/screenshots/F-NNN-name.png');
     const targets = a._.concat(multiArg(argv, 'target'));
+    const locales = a.locales && a.locales !== true ? String(a.locales).split(',').map(s => s.trim()).filter(Boolean) : null;
+    if (locales) {
+      // One shot per locale: F-001-menu-de-DE.png, F-001-menu-ar-SA.png … (G-9)
+      const results = [];
+      for (const locale of locales) {
+        let dev;
+        const out = a.out.replace(/(\.png)?$/i, `-${locale}.png`);
+        try { dev = await openTarget(a, { locale }); results.push({ locale, ...(await shoot(dev.page, { ...common, targets, out })) }); }
+        catch (e) { if (e && e.exitCode === 4) throw e; results.push({ locale, error: String(e.message || e).split('\n')[0] }); }
+        finally { if (dev) await dev.close().catch(() => {}); }
+      }
+      console.log(JSON.stringify({ locales: results }, null, 1));
+      return;
+    }
     const dev = await openTarget(a);
     try {
       const res = await shoot(dev.page, { ...common, targets, out: a.out });

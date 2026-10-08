@@ -15,8 +15,11 @@
 //       "color": "auto" | "yellow" | "green" | "purple" | "#rrggbb" }
 //   ],
 //   "avoid": [[x, y, w, h], ...],     // области, которые подпись не должна закрывать (важный контент)
-//   "labelWidth": 240                 // макс. ширина подписи в CSS px (shot.js перебирает 240/180/320/140)
-// }
+//   "labelWidth": 240,                // макс. ширина подписи в CSS px (shot.js перебирает 240/180/320/140)
+//   "gutter": "auto"                  // auto | on | off: поле подписей справа от снимка; auto — для портретных снимков
+// }                                   //   (телефон): подписи не закрывают интерфейс, стрелки ведут к рамкам
+// Перерисовка без повторного воспроизведения: сырой снимок и spec.json лежат рядом (shot.js сохраняет оба) —
+//   node annotate.js --in F-001.png --spec F-001.spec.json [--out F-001-annotated.png]
 // В отчёте на каждый элемент: color, label (рамка подписи), overlapCost, contrast (цвет к фону вокруг рамки),
 // inside (подпись целиком в картинке), covers (px² подписи поверх чужих рамок, avoid и других подписей).
 // Правила оформления — references/screenshots.md.
@@ -33,8 +36,16 @@ function renderInPage({ img, spec, palette }) {
       try {
         const S = spec.scale || 1;
         const W = image.naturalWidth, H = image.naturalHeight;
-        const c = document.createElement('canvas'); c.width = W; c.height = H;
-        const g = c.getContext('2d'); g.drawImage(image, 0, 0);
+        // Portrait shots (phones): captions go to a dark field to the right of the image, never over the UI (G-7).
+        const portrait = H > W * 1.2;
+        const wantGutter = spec.gutter === 'on' || spec.gutter === true ||
+          ((spec.gutter === undefined || spec.gutter === 'auto') && portrait && (spec.items || []).some(i => i.label));
+        const GUT = wantGutter ? Math.round(Math.max(260 * S, W * 0.8)) : 0;
+        const CW = W + GUT;
+        const c = document.createElement('canvas'); c.width = CW; c.height = H;
+        const g = c.getContext('2d');
+        if (GUT) { g.fillStyle = '#1b1b1f'; g.fillRect(W, 0, GUT, H); }
+        g.drawImage(image, 0, 0);
         const src = g.getImageData(0, 0, W, H).data;
 
         // ---- цвет ----
@@ -108,13 +119,18 @@ function renderInPage({ img, spec, palette }) {
 
         const labelBox = (it) => {
           const icon = it.kind === 'question' ? '?' : it.kind === 'note' ? '•' : '✕';
-          const lines = wrap(it.label || '', (it.labelWidth || spec.labelWidth || 240) * S);
+          const lines = wrap(it.label || '', GUT ? GUT - 64 * S : (it.labelWidth || spec.labelWidth || 240) * S);
           const tw = Math.max(...lines.map(l => g.measureText(l).width)) + 22 * S;
           const lh = 17 * S; const w = tw + 12 * S, h = lines.length * lh + 10 * S;
           return { icon, lines, w, h, lh };
         };
         const candidates = (b, lb) => {
           const [x, y, w, h] = outer(b); const cx = x + w / 2, cy = y + h / 2; const out = [];
+          if (GUT) {  // gutter: the label column on the right, as close as possible to the element's height
+            for (const k of [0, -1, 1, -2, 2, -3, 3, -4, 4, -6, 6, -8, 8, -11, 11, -15, 15])
+              out.push([Math.round(W + 16 * S), Math.round(cy - lb.h / 2 + k * (lb.h + 8 * S)), 40]);
+            return out;
+          }
           for (const dist of [26, 48, 80, 130, 200, 300, 420]) for (let k = 0; k < 16; k++) {
             const ang = (k / 16) * Math.PI * 2; const dx = Math.cos(ang), dy = Math.sin(ang);
             // точка на расстоянии dist от рамки в направлении ang; подпись примыкает к ней ближним краем
@@ -156,7 +172,7 @@ function renderInPage({ img, spec, palette }) {
           let best = null;
           for (const [lx, ly, dist] of candidates(it.box, lb)) {
             const r = [lx, ly, lb.w, lb.h];
-            const off = Math.max(0, -lx) + Math.max(0, -ly) + Math.max(0, lx + lb.w - W) + Math.max(0, ly + lb.h - H);
+            const off = Math.max(0, -lx) + Math.max(0, -ly) + Math.max(0, lx + lb.w - CW) + Math.max(0, ly + lb.h - H);
             if (off > 0) continue;
             const ov = blockers.reduce((s, bl) => s + inter(r, bl), 0) / (lb.w * lb.h);  // доля перекрытия
             const ar = arrowFor(it.box, r); const len = Math.hypot(ar[2] - ar[0], ar[3] - ar[1]) / S;
@@ -167,7 +183,7 @@ function renderInPage({ img, spec, palette }) {
           }
           if (!best) best = { x: 4 * S, y: 4 * S, cost: 9999 };
           // в крайнем случае — прижать к краю изображения
-          best.x = Math.min(Math.max(4 * S, best.x), W - lb.w - 4 * S); best.y = Math.min(Math.max(4 * S, best.y), H - lb.h - 4 * S);
+          best.x = Math.min(Math.max(4 * S, best.x), CW - lb.w - 4 * S); best.y = Math.min(Math.max(4 * S, best.y), H - lb.h - 4 * S);
           return best;
         };
         const drawArrow = (from, to, col) => {
@@ -217,11 +233,11 @@ function renderInPage({ img, spec, palette }) {
           const lr = [pos.x, pos.y, lb.w, lb.h];
           const others = [...items.filter(i => i !== it).map(i => outer(i.box)), outer(it.box), ...avoid, ...placed.slice(0, -1)];
           const covers = Math.round(others.reduce((sum, b) => sum + inter(lr, b), 0) / (S * S));
-          const inside = pos.x >= 0 && pos.y >= 0 && pos.x + lb.w <= W && pos.y + lb.h <= H;
+          const inside = pos.x >= 0 && pos.y >= 0 && pos.x + lb.w <= CW && pos.y + lb.h <= H;
           report.push({ color: col, label: [pos.x, pos.y, lb.w, lb.h].map(v => Math.round(v / S)), overlapCost: pos.cost,
             contrast: lastContrast === null ? null : +lastContrast.toFixed(2), inside, covers });
         }
-        resolve({ data: c.toDataURL('image/png'), report });
+        resolve({ data: c.toDataURL('image/png'), report, canvas: { width: Math.round(CW / S), height: Math.round(H / S), gutter: Math.round(GUT / S) } });
       } catch (e) { reject(String(e && e.stack || e)); }
     };
     image.onerror = () => reject('не удалось загрузить изображение');
@@ -235,8 +251,8 @@ async function render(browser, input, spec) {
   try {
     await page.setContent('<!doctype html><meta charset="utf-8"><body></body>');
     const img = 'data:image/png;base64,' + fs.readFileSync(input).toString('base64');
-    const { data, report } = await page.evaluate(renderInPage, { img, spec, palette: PALETTE });
-    return { buffer: Buffer.from(data.split(',')[1], 'base64'), report };
+    const { data, report, canvas } = await page.evaluate(renderInPage, { img, spec, palette: PALETTE });
+    return { buffer: Buffer.from(data.split(',')[1], 'base64'), report, canvas };
   } finally { await page.close(); }
 }
 

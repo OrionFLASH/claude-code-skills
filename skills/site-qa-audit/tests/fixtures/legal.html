@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Фикстура: юридически значимые элементы для гостя</title>
+<style>#cookie-banner { position: fixed; bottom: 0; left: 0; right: 0; background: #eee; padding: 8px; }</style></head>
+<body>
+<h1>Главная</h1>
+<p>Сайт для взрослых 18+</p>
+<div id="cookie-banner" role="dialog" aria-label="Cookies">Мы используем cookie и обрабатываем персональные данные.
+  <button type="button">Принять</button> <button type="button">Настроить</button></div>
+<footer>
+  <a href="/legal/privacy">Политика конфиденциальности</a> · <a href="/legal/terms">Пользовательское соглашение</a> ·
+  <a href="/about">О нас</a> · ИНН 0000000000
+</footer>
+<img src="" id="px" alt="">
+<script>
+  document.documentElement.lang = (navigator.language || 'ru').split('-')[0];
+  document.cookie = 'fp=1; path=/';                                   // set before any interaction
+  localStorage.setItem('seen', '1');
+  setTimeout(() => { document.cookie = 'late=1; path=/; max-age=86400'; }, 800);   // set later, still no interaction
+  // a third-party request: the same fixture server under another host name
+  document.getElementById('px').src = 'http://localhost:' + location.port + '/targets.html?px=1';
+</script>
+</body></html>
