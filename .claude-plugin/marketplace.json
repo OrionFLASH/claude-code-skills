@@ -22,6 +22,18 @@
         "playwright",
         "github-issues"
       ]
+    },
+    {
+      "name": "typesafe-triage",
+      "source": "./skills/typesafe-triage",
+      "description": "Универсальный триаж любых задач через TypeSafe (Jev) и локальные эвристики: выбор уровня модели haiku/sonnet/opus/fable (haiku и fable — только с подтверждения пользователя) и запуск отдельного агента",
+      "version": "2.0.0",
+      "keywords": [
+        "typesafe",
+        "triage",
+        "model-routing",
+        "hook"
+      ]
     }
   ]
 }
