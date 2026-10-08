@@ -512,3 +512,181 @@ def test_retry_gives_up_after_second_failure(monkeypatch):
     with pytest.raises(Exception):
         t.ask_with_retry("x", "k", 5)
     assert len(calls) == 2
+
+
+# ---------- 2.1.2: у Agent может не быть параметра effort ----------
+TYPICAL_CMD = "python3 $HOME/.claude/skills/typesafe-triage/scripts/typesafe_triage.py"
+
+
+def risky_result(tier="opus", effort="high", **kw):
+    r = base_result(tier, effort, **kw)
+    r["metrics"]["risk"] = {"value": 1.0, "confidence": 0.9}
+    return r
+
+
+def test_note_effort_is_conditional_never_unconditional():
+    for r in (base_result("opus", "medium"), base_result("opus", "high"), base_result("opus", "xhigh"), risky_result("opus", "high"),
+              base_result("opus", "max", effort_confirm=True, effort_fallback="xhigh"), base_result("sonnet", "low")):
+        txt = t.hook_context(r)
+        assert "effort указывай явно" not in txt and "этого требует пользователь" not in txt
+        assert "если параметр есть у Agent" in txt and "не пытайся и не ссылайся на него (не ошибка)" in txt
+        assert "Agent(model=%s, effort=%s)" % (r["model"], r["effort"]) in txt
+
+
+def test_note_default_effort_has_no_fallback_extras():
+    for e in ("medium", "high"):
+        r = base_result("opus", e)
+        assert t.effort_delivery(r) == "agent_param"
+        txt = t.hook_context(r)
+        assert "глубину задай в промпте" in txt and "в промпт агента «" not in txt and "--run" not in txt
+
+
+def test_note_unusual_effort_gives_prompt_phrase_only():
+    txt = t.hook_context(base_result("opus", "xhigh"))
+    assert t.effort_delivery(base_result("opus", "xhigh")) == "prompt"
+    assert "в промпт агента «%s»" % t.EFFORT_PROMPT["xhigh"][0] in txt and "--run" not in txt
+    low = t.hook_context(base_result("sonnet", "low", effort_confirm=True, effort_fallback="medium"))
+    assert "кратко" in low and "--run" not in low
+    en = base_result("opus", "xhigh")
+    en["signals"]["effort"]["lang"] = "en"
+    assert t.EFFORT_PROMPT["xhigh"][1] in t.hook_context(en)
+
+
+@pytest.mark.parametrize("r,flags,after_yes", [
+    (risky_result("opus", "high"), "--tier opus --effort high", False),
+    (risky_result("opus", "xhigh"), "--tier opus --effort xhigh", False),
+    (base_result("opus", "max", effort_confirm=True, effort_fallback="xhigh"), "--tier opus --effort max --confirmed-effort", True),
+    (base_result("fable", "max", confirm=True, effort_confirm=True, effort_fallback="xhigh"),
+     "--tier fable --confirmed --effort max --confirmed-effort", True),
+    (base_result("opus", "max", effort_source="user", explicit=["effort max"]), "--tier opus --effort max --confirmed-effort", False),
+])
+def test_note_critical_effort_offers_run_with_full_path(monkeypatch, r, flags, after_yes):
+    assert t.effort_delivery(r) == "run"
+    txt = t.hook_context(r)
+    line = next(ln for ln in txt.split("\n") if "--run" in ln)
+    assert line.startswith("• Без параметра effort: в промпт агента «%s»" % t.EFFORT_PROMPT[r["effort"]][0])
+    assert t.self_command() + " --run " + flags + " [--edit|--readonly]" in line
+    assert t.self_command().split()[1].replace("$HOME", os.path.expanduser("~")).endswith("scripts/typesafe_triage.py")
+    assert ("после «да»" in line) == after_yes
+    plain = t.hook_context(base_result("opus", "medium"))
+    assert txt.count("\n• ") <= plain.count("\n• ") + 1 + (1 if "AskUserQuestion" in txt else 0) + (1 if r.get("explicit") else 0)
+
+
+def test_note_run_command_is_accepted_by_run(monkeypatch, capsys):
+    txt = t.hook_context(base_result("opus", "max", effort_confirm=True, effort_fallback="xhigh"))
+    args = txt.split("--run ", 1)[1].split(" [--edit|--readonly]")[0].split()
+    assert t.run_agent(["x"] + args + ["--edit", "--dry-run", "проверь расчёт налога за год"]) == 0
+    assert "claude -p --model opus --effort max" in capsys.readouterr().out
+
+
+def test_self_command_uses_python_and_this_script():
+    cmd = t.self_command()
+    assert cmd.split()[0] == ("python" if os.name == "nt" else "python3")
+    assert cmd.rstrip('"').endswith("/scripts/typesafe_triage.py") and "\\" not in cmd
+
+
+def test_result_has_effort_delivery(monkeypatch):
+    r = t.triage("Мигрируй боевую базу платежей без простоя, откатить нельзя, ошибка — потеря денег", env={}, history=[])
+    assert r["effort_delivery"] in t.EFFORT_DELIVERY and r["effort_delivery"] == "run"
+    assert t.triage("Напиши короткое письмо коллеге о переносе встречи на четверг", env={}, history=[])["effort_delivery"] \
+        == "agent_param"
+
+
+# Длина заметки 2.1.1 на тех же входах (замер до правки): рост не больше ~25 %.
+OLD_NOTE_LEN = [
+    (dict(level=0.6), "Найди причину, почему тест test_login иногда падает по таймауту в CI, и исправь", 1061),
+    (dict(level=0.9, irreversible=0.9), "Мигрируй боевую базу платежей на новый кластер без простоя: двойная запись, сверка, откат", 1409),
+    (dict(level=0.5), "Сделай на opus с effort max: проверь расчёт налога на имущество организации за год", 1260),
+    (dict(level=0.85, risk=1.0), "Rotate all production database credentials for the payment service with a rollback path", 1075),
+]
+
+
+@pytest.mark.parametrize("resp,task,old", OLD_NOTE_LEN)
+def test_note_size_grows_at_most_a_quarter(monkeypatch, resp, task, old):
+    monkeypatch.setattr(t, "self_command", lambda: TYPICAL_CMD)
+    monkeypatch.setattr(t, "ask_typesafe", lambda *a, **k: fake_resp(**resp))
+    txt = t.hook_context(t.triage(task, key="k", env={}, history=[]))
+    assert len(txt) <= old * 1.26, (len(txt), old)
+
+
+# ---------- 2.1.2: упоминание (mention) против использования (use) ----------
+REPORT_PARA = (
+    "Кроме модели, заметка советует effort (насколько глубоко модели думать): от low до max. Effort для субагента я передать "
+    "не могу, у инструмента Agent здесь нет такого параметра. Поэтому из заметки в работе используется только выбор модели.\n"
+    "Глубину можно задать словами в запросе: «тщательно» поднимает её, «кратко» и «навскидку» снижают, «effort max» и "
+    "«ultrathink» ставят максимум. Модель тоже можно назвать прямо: «на opus».")
+NONE = {"tier": None, "tier_not": [], "effort": None, "effort_min": None, "effort_max": None, "phrases": []}
+
+
+@pytest.mark.parametrize("text", [REPORT_PARA + "\n" + REPORT_PARA, REPORT_PARA + "\n\n" + REPORT_PARA,
+                                  REPORT_PARA + " " + REPORT_PARA, REPORT_PARA])
+def test_pasted_report_with_quoted_examples_is_not_a_directive(text):
+    d = heur.directives(text)
+    assert {k: d[k] for k in NONE} == NONE and d["report"] and d["mentions"] >= 5
+
+
+def test_pasted_report_gives_no_explicit_in_result_and_note():
+    r = t.triage(REPORT_PARA + "\n" + REPORT_PARA, env={}, history=[])
+    assert r["model_source"] == "auto" and r["effort_source"] != "user" and "explicit" not in r and r["mentions"] >= 5
+    assert "Задано пользователем" not in t.hook_context(r)
+
+
+@pytest.mark.parametrize("text,key,val", [
+    ("ultrathink: разбери архитектуру шардирования событий", "effort", "max"),
+    ("на opus сделай ревью модуля оплаты", "tier", "opus"),
+    ("effort max, пожалуйста: проверь миграцию базы", "effort", "max"),
+    ("Сделай это «на opus»: перепиши модуль импорта", "tier", "opus"),
+    ('Run it "on opus" please and review the PR', "tier", "opus"),
+    ("Ответь кратко: что такое SLA", "effort_max", "low"),
+])
+def test_direct_use_still_works(text, key, val):
+    assert heur.directives(text)[key] == val
+
+
+@pytest.mark.parametrize("text", [
+    "Слово «ultrathink» ставит максимум, а «кратко» снижает — объясни, как это работает",
+    "Ассистент ответил: effort max я передать не могу. Почему так?",
+    "Use `effort max` in the docs? Explain what it does",
+    "Заметка советует на opus, а я не уверен. Сравни варианты",
+    "Модель можно назвать прямо: «на opus».",
+    "Он сказал: ultrathink ставит максимум. Это правда?",
+    'The note says "effort max" — what does it change?',
+    "В отчёте написано effort max и на opus, проверь отчёт",
+])
+def test_mentions_are_not_directives(text):
+    d = heur.directives(text)
+    assert d["tier"] is None and d["effort"] is None and d["mentions"] >= 1, d
+
+
+def test_label_marks_only_the_next_quote_as_mention():
+    d = heur.directives("Фраза «на opus» не сработала, сделай на opus и проверь отчёт")
+    assert d["tier"] == "opus" and d["phrases"] == ["на opus"] and d["mentions"] == 1
+    assert heur.directives("Как написано в ТЗ, сделай на opus миграцию")["tier"] == "opus"   # «написано» без двоеточия — не цитата
+
+
+def test_directive_phrases_are_deduplicated():
+    d = heur.directives("Сделай на opus с effort max: проверь расчёт, на opus, effort max, Effort max")
+    assert d["tier"] == "opus" and d["effort"] == "max" and d["phrases"] == ["на opus", "effort max"]
+    r = t.triage("Сделай на opus с effort max: проверь расчёт налога, на opus, effort max", env={}, history=[])
+    assert r["explicit"] == ["на opus", "effort max"]
+    assert "(на opus, effort max)" in t.hook_context(r)
+
+
+def test_negations_still_work_with_mentions():
+    assert heur.directives("Не нужен effort max, хватит обычного")["effort_max"] == "xhigh"
+    d = heur.directives("Don't use opus for this, sonnet is enough")
+    assert d["tier"] is None and d["tier_not"] == ["opus"]
+    assert heur.directives("Не нужно глубоко разбираться, поправь отступы")["effort_max"] == "medium"
+
+
+def test_repeated_log_lines_do_not_hide_own_request():
+    text = "Разберись тщательно, почему падает сервис.\n" + "ERROR connection timeout to auth service after 30 seconds\n" * 6
+    d = heur.directives(text)
+    assert d["effort_min"] == "high" and not d["report"]
+
+
+def test_mentions_masking_is_fast_on_long_input():
+    t0 = time.time()
+    heur.directives("Слово «ultrathink» и «effort max» в кавычках. " * 2500)
+    heur.directives("Обычный текст без маркеров, просто описание задачи. " * 2000)
+    assert time.time() - t0 < 2.0

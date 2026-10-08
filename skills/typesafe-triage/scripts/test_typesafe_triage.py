@@ -435,7 +435,8 @@ def test_note_is_short_imperative_and_keeps_rules():
     txt = note("opus")
     assert txt.startswith("TypeSafe-триаж: уровень opus, effort ") and "Agent(model=opus, effort=" in txt
     assert "AskUserQuestion" not in txt and "делай сам" in txt and "не применять" in txt and "Model Selection" in txt
-    assert "effort указывай явно" in txt
+    assert "effort указывай явно" not in txt                         # 2.1.2: у Agent параметра effort может не быть
+    assert "если параметр есть у Agent" in txt and "не ссылайся на него" in txt
     assert len(txt) < 2000 and txt.count("\n") <= 8
 
 
