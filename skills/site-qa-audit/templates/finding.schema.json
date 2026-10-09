@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "site-qa-audit/finding.schema.json",
   "title": "site-qa-audit findings.json",
-  "description": "Файл находок прогона. Находки субагентов и плагинов приводятся к этому формату; id и fingerprint проставляет оркестратор (fingerprint.py compute).",
+  "description": "Файл находок прогона. Находки субагентов и плагинов приводятся к этому формату; id и fingerprint проставляет оркестратор (fingerprint.py compute). Результат исполнителя — массив находок без id (блок qa-findings; оркестратор хранит его в <RUN_DIR>/findings/<поток>.json), сведения о прогоне — <RUN_DIR>/run.json по схеме run; проверка — validate_findings.py --array … --run run.json.",
   "type": "object",
   "required": [
     "run",
@@ -71,7 +71,14 @@
           },
           "direction": {
             "type": "string"
-          }
+          },
+          "category": {
+            "enum": ["time", "forbidden", "auth", "environment", "data", "other", null],
+            "description": "Почему не проверено: не хватило времени / запрет / нужен вход или другой аккаунт / окружение (браузер, устройство) / нет данных или варианта стенда / другое — для второй волны (coverage.py again)"
+          },
+          "thread": {"type": "string", "description": "Поток исполнителя (ingest_findings.py)"},
+          "variant": {"type": ["string", "null"], "description": "Вариант данных или стенд (run-config variants[].id)"},
+          "pages": {"type": "array", "items": {"type": "string"}}
         }
       }
     },
@@ -580,8 +587,20 @@
         "source_id": {
           "type": "string",
           "description": "id находки у исполнителя (до присвоения F-NNN)"
-        }
+        },
+        "dup_check": {
+          "enum": ["done", "skipped"],
+          "description": "Сверка с реестром известных issues (срез в задании): done — сверено, skipped — не сверялось (оркестратор сверит fingerprint.py match). Обязательно у находок исполнителей"
+        },
+        "dup_of": {"type": ["string", "null"], "description": "Известный issue, который находка, по мнению исполнителя, повторяет: owner/repo#N или #N (статус — после сверки оркестратором)"},
+        "dup_candidates": {"type": "array", "items": {"type": "string"}, "description": "Похожие issues из среза реестра (owner/repo#N), если не уверен"},
+        "variant": {"type": ["string", "null"], "description": "Вариант данных или стенд, на котором воспроизводится (run-config variants[].id)"},
+        "verify": {"type": "string", "description": "Как проверить исправление: команда, сценарий или условие «до — да, после — нет» (блок «Как проверить» в issue)"},
+        "group": {"type": ["string", "null"], "description": "id группы по первопричине (groups.yaml, render_draft.py group --map)"}
       },
+      "allOf": [
+        {"if": {"required": ["ingested"]}, "then": {"required": ["dup_check"]}, "description": "Находка исполнителя (пришла через ingest_findings.py) — с dup_check"}
+      ],
       "if": {
         "properties": {
           "type": {

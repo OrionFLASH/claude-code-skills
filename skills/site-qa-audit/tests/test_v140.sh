@@ -194,5 +194,139 @@ check "intake from-text: «с открытым окном, замедли до 4
   '$PY' '$S/intake.py' from-text --text 'Проверь https://example.com/ в фоне' --json | '$PY' -c \"import json,sys; b=json.load(sys.stdin)['config']['browser']; assert b['headed'] is False, b\" &&
   '$PY' '$S/intake.py' from-text --text 'Проверь https://example.com/' --json | '$PY' -c \"import json,sys; b=json.load(sys.stdin)['config']['browser']; assert b=={'headed': None, 'slowmo': None}, b\""
 
+# ---------- #25: one format of executor results, dup_check, registry slice, one place of truth ----------
+VF="$S/validate_findings.py"; IN="$S/ingest_findings.py"; CV="$S/coverage.py"; BR="$S/brief.py"
+cat > "$TMP/arr.json" <<'EOF'
+[{"direction": "ux", "check_id": "ux.feedback", "type": "bug", "severity": "medium", "title": "Поиск без ответа",
+  "url": "https://example.com/", "actual": "ничего", "repro": {"url": "https://example.com/", "js": "true"},
+  "dup_check": "done", "sources": ["own:checklist"]}]
+EOF
+"$PY" -c "import json,sys; d=json.load(open(sys.argv[1])); del d[0]['dup_check']; json.dump(d, open(sys.argv[2],'w'))" "$TMP/arr.json" "$TMP/arr-nodup.json"
+check "validate_findings --array: массив без id — 0; файл-массив распознаётся и без --array" sh -c "
+  '$PY' '$VF' --array '$TMP/arr.json' >/dev/null && '$PY' '$VF' '$TMP/arr.json' | grep -q 'результат исполнителя (массив): 1'"
+check "validate_findings --array: без dup_check — ошибка (код 1)" sh -c "
+  out=\$('$PY' '$VF' --array '$TMP/arr-nodup.json'); test \$? = 1 && echo \"\$out\" | grep -q 'dup_check'"
+check "validate_findings --array -: блок qa-findings из сообщения на stdin; не JSON и без блока — код 2" sh -c "
+  sed 's/\"sources\": \[\"own:checklist\"\]}/\"dup_check\": \"skipped\", \"sources\": [\"own:checklist\"]}/' '$F/agent-message.md' | '$PY' '$VF' --array - | grep -q 'ошибок 0' &&
+  test \$(echo 'просто текст' | '$PY' '$VF' --array - >/dev/null; echo \$?) = 2"
+printf '{"id": "r", "site": "https://example.com/", "mode": "dry-run"}' > "$TMP/run-bad.json"
+check "validate_findings --run: run.json без depth — ошибка" sh -c "
+  out=\$('$PY' '$VF' --array '$TMP/arr.json' --run '$TMP/run-bad.json'); test \$? = 1 && echo \"\$out\" | grep -q 'depth'"
+check "validate_findings: в findings.json находка исполнителя (ingested) без dup_check — ошибка; старые файлы — 0" sh -c "
+  '$PY' -c \"import json,sys; d=json.load(open(sys.argv[1])); d['findings'][0]['ingested']={'thread':'qa-x'}; json.dump(d, open(sys.argv[2],'w'))\" '$F/findings.json' '$TMP/fj.json' &&
+  test \$('$PY' '$VF' '$TMP/fj.json' >/dev/null; echo \$?) = 1 && '$PY' '$VF' '$F/findings.json' >/dev/null"
+
+R5="$TMP/run25"; mkdir -p "$R5"
+printf 'version: 1\noutput_dir: %s\ndepth: standard\nsite:\n  start_urls:\n    - https://example.com/\n  allowed_domains:\n    - example.com\nrules:\n  forbidden_actions:\n    - id: U1\n      source: "не нажимать Купить"\n      texts: ["Купить"]\nparallel:\n  max_workers: 2\n  throttle_ms: 900\n' "$TMP" > "$R5/run-config.yaml"
+cp "$F/registry-claims.json" "$R5/registry.json"
+check "fetch_issues brief: строка на issue, закрытый исправленный — «исправлено», лимит с остатком; json" sh -c "
+  '$PY' '$S/fetch_issues.py' brief '$R5/registry.json' --limit 4 > '$TMP/rb.md' &&
+  test \$(grep -c '^- owner/repo#' '$TMP/rb.md') = 4 && grep -q 'ещё .* issues' '$TMP/rb.md' &&
+  '$PY' '$S/fetch_issues.py' brief '$F/registry.json' | grep -q 'owner/repo#5 \[closed: исправлено\]' &&
+  '$PY' '$S/fetch_issues.py' brief '$F/registry.json' --format json | '$PY' -c \"import json,sys; d=json.load(sys.stdin); assert d['total']==2 and d['issues'][0]['ref']=='owner/repo#9', d\""
+check "brief.py: задание целиком — без {{…}}, блок правил §4 дословно с таблицей правил, срез реестра, --trace, формат" sh -c "
+  '$PY' '$BR' '$R5' --thread qa-ux --directions ux,product --pages 'главная' --minutes 20 --registry-limit 3 >/dev/null &&
+  B='$R5/briefs/qa-ux.md' && ! grep -q '{{' \"\$B\" && grep -q 'ПРАВИЛА БЕЗОПАСНОСТИ site-qa-audit' \"\$B\" &&
+  grep -q 'не нажимать Купить' \"\$B\" && grep -q 'Пауза между действиями не меньше 900 мс' \"\$B\" &&
+  grep -q 'owner/repo#48' \"\$B\" && grep -q -- '--trace $R5/logs/guard-qa-ux.jsonl' \"\$B\" && grep -q '\"dup_check\": \"done\"' \"\$B\" &&
+  grep -q 'Время: 20 минут' \"\$B\" && grep -q 'checklists/ux.md' \"\$B\" && test -f '$R5/playwright-cli.json' &&
+  '$PY' -c \"import json,sys; t=json.load(open(sys.argv[1]))['qa-ux']; assert t['minutes']==20 and t['started_at'] and t['directions']==['ux','product'], t\" '$R5/threads.json'"
+check "brief.py: без registry.json — «реестра нет, dup_check: skipped»; битые правила — код 2, задание не создано" sh -c "
+  mkdir -p '$TMP/r5b' && cp '$R5/run-config.yaml' '$TMP/r5b/' && '$PY' '$BR' '$TMP/r5b' --thread qa-a >/dev/null &&
+  grep -q 'реестра нет' '$TMP/r5b/briefs/qa-a.md' &&
+  printf 'site:\n  allowed_domains: [example.com]\nrules:\n  forbidden_url_patterns: [\"(bad\"]\n' > '$TMP/r5b/run-config.yaml' &&
+  test \$('$PY' '$BR' '$TMP/r5b' --thread qa-b >/dev/null 2>&1; echo \$?) = 2 && test ! -e '$TMP/r5b/briefs/qa-b.md'"
+# the executor works: guard decisions with --trace
+UGT(){ "$PY" "$UG" "$@" --config "$R5/run-config.yaml" --trace "$R5/logs/guard-qa-ux.jsonl" >/dev/null 2>&1; }
+UGT nav https://example.com/; UGT nav "https://example.com/catalog?token=secret123"; UGT nav https://evil.test/
+UGT action --text "Найти" --url https://example.com/ --context "секретный текст формы"; UGT action --text "Найти" --url https://example.com/
+UGT action --text "Фильтр" --url https://example.com/catalog; UGT action --text "Купить" --url https://example.com/
+check "url_guard --trace: строка на каждое решение, значения query и текст контекста не пишутся" sh -c "
+  test \$(wc -l < '$R5/logs/guard-qa-ux.jsonl') -eq 7 && ! grep -q 'secret123' '$R5/logs/guard-qa-ux.jsonl' &&
+  ! grep -q 'секретный' '$R5/logs/guard-qa-ux.jsonl' && grep -q '\"decision\": \"deny\"' '$R5/logs/guard-qa-ux.jsonl'"
+check "url_guard --trace: журнал не записать — решение то же (0), предупреждение" sh -c "
+  mkdir -p '$TMP/tracedir.jsonl' && test \$('$PY' '$UG' nav https://example.com/ --config '$R5/run-config.yaml' --trace '$TMP/tracedir.jsonl' >/dev/null 2>&1; echo \$?) = 0"
+cat > "$TMP/msg5.md" <<'EOF'
+Готово.
+```qa-findings
+{"thread": "qa-ux",
+ "findings": [
+  {"direction": "ux", "check_id": "ux.feedback", "type": "bug", "severity": "medium", "title": "Поиск без ответа",
+   "url": "https://example.com/", "actual": "ничего", "repro": {"url": "https://example.com/", "js": "true"},
+   "dup_check": "done", "sources": ["own:checklist"]},
+  {"direction": "ux", "check_id": "ux.copy", "type": "content", "severity": "low", "title": "Опечатка в кнопке",
+   "url": "https://example.com/catalog", "actual": "«Найт»", "sources": ["own:checklist"]}
+ ],
+ "checked": [{"what": "главная: поиск", "direction": "ux"}],
+ "not_checked": [{"what": "корзина", "reason": "запрет U1", "rule": "user:forbidden_actions:U1"},
+                 {"what": "каталог на iPad", "reason": "не успел, лимит 20 минут"},
+                 {"what": "WebKit", "reason": "браузер не запускается", "category": "environment"},
+                 {"what": "каталог на iPad", "reason": "не успел, лимит 20 минут"}],
+ "metrics": {"minutes": 18},
+ "questions": ["пустой поиск — задумано?"]}
+```
+EOF
+"$PY" "$IN" "$R5" --from "$TMP/msg5.md" > "$TMP/in5.json" 2>&1
+check "ingest: findings/<поток>.json — массив с id, coverage/<поток>.json и .md, run.json по схеме run" sh -c "
+  '$PY' -c \"import json,sys; a=json.load(open(sys.argv[1])); assert isinstance(a, list) and [x['id'] for x in a]==['F-001','F-002'], a\" '$R5/findings/qa-ux.json' &&
+  test -f '$R5/coverage/qa-ux.json' && test -f '$R5/coverage/qa-ux.md' &&
+  '$PY' '$VF' --array '$R5/findings/qa-ux.json' --run '$R5/run.json' >/dev/null && '$PY' '$VF' '$R5/findings.json' >/dev/null"
+check "ingest: нет dup_check — записано skipped с предупреждением; повтор not_checked убран" sh -c "
+  grep -q 'dup_check не указан у F-002' '$TMP/in5.json' &&
+  '$PY' -c \"import json,sys; d=json.load(open(sys.argv[1])); assert d['findings'][1]['dup_check']=='skipped'; nc=[x['what'] for x in d['not_checked']]; assert nc.count('каталог на iPad')==1, nc\" '$R5/findings.json'"
+check "ingest: повторное уведомление тем же сообщением — «уже принято», ничего не изменилось; --force — дубли пропущены" sh -c "
+  '$PY' '$IN' '$R5' --from '$TMP/msg5.md' | grep -q '\"duplicate\": true' &&
+  '$PY' -c \"import json,sys; d=json.load(open(sys.argv[1])); assert len(d['findings'])==2 and len(d['not_checked'])==3, d\" '$R5/findings.json' &&
+  '$PY' '$IN' '$R5' --from '$TMP/msg5.md' --force | grep -q 'уже есть с тем же заголовком' &&
+  '$PY' -c \"import json,sys; d=json.load(open(sys.argv[1])); assert len(d['findings'])==2 and len(d['not_checked'])==3, d\" '$R5/findings.json'"
+# deterministic times: the brief 30 min before the last guard decision, the result ingested 31 min after the brief
+"$PY" - "$R5" <<'EOF'
+import json, sys
+from pathlib import Path
+r = Path(sys.argv[1])
+t = json.loads((r / "threads.json").read_text(encoding="utf-8")); t["qa-ux"]["started_at"] = "2026-10-09T10:00:00Z"
+(r / "threads.json").write_text(json.dumps(t), encoding="utf-8")
+c = json.loads((r / "coverage" / "qa-ux.json").read_text(encoding="utf-8")); c["updated_at"] = "2026-10-09T10:31:00Z"
+(r / "coverage" / "qa-ux.json").write_text(json.dumps(c), encoding="utf-8")
+lines = [json.loads(x) for x in (r / "logs" / "guard-qa-ux.jsonl").read_text(encoding="utf-8").splitlines()]
+for i, e in enumerate(lines):
+    e["ts"] = f"2026-10-09T10:{5 + i:02d}:00Z"
+(r / "logs" / "guard-qa-ux.jsonl").write_text("".join(json.dumps(e, ensure_ascii=False) + "\n" for e in lines), encoding="utf-8")
+EOF
+check "coverage build: время от задания до результата (31 мин, больше лимита 20), переходы 3 (страниц 2), действия 4 (элементов 2)" sh -c "
+  '$PY' '$CV' build '$R5' --thread qa-ux >/dev/null &&
+  '$PY' -c \"import json,sys; m=json.load(open(sys.argv[1]))['auto_metrics']; assert m['minutes']==31.0 and m['over_limit'] and m['nav_checks']==3 and m['pages']==2 and m['action_checks']==4 and m['controls']==2 and m['denied']==2, m\" '$R5/coverage/qa-ux.json' &&
+  grep -q 'больше лимита' '$R5/coverage/qa-ux.md' && grep -q 'главная: поиск' '$R5/coverage/qa-ux.md' && grep -q 'Самооценка исполнителя: minutes: 18' '$R5/coverage/qa-ux.md'"
+check "coverage summary: таблица потоков в coverage/summary.md" sh -c "
+  '$PY' '$CV' summary '$R5' >/dev/null && grep -q '^| qa-ux | 31.0 ⚠ | 3 (2) | 4 (2) | 2 |' '$R5/coverage/summary.md'"
+check "build_report: «Охват по потокам», «Скриншоты находок» и строка о несверенных находках" sh -c "
+  '$PY' -c \"import json,sys; d=json.load(open(sys.argv[1])); d['findings'][0]['screenshots']=['screenshots/qa-ux-01-annotated.png']; json.dump(d, open(sys.argv[1],'w'))\" '$R5/findings.json' &&
+  '$PY' '$S/build_report.py' report '$R5' >/dev/null && grep -q '## Охват по потокам' '$R5/report.md' &&
+  grep -q '## Скриншоты находок' '$R5/report.md' && grep -q 'qa-ux-01-annotated.png' '$R5/report.md' &&
+  grep -q 'не делал у 1 находок (F-002)' '$R5/report.md' && grep -q '| каталог на iPad |' '$R5/report.md' &&
+  '$PY' '$S/build_report.py' summary '$R5' >/dev/null && grep -q '## Охват по потокам' '$R5/summary.md'"
+check "build_report: варианты данных/стенды — таблица по variants из run-config" sh -c "
+  cp '$R5/run-config.yaml' '$TMP/rc5.bak' && printf 'variants:\n  - id: test\n  - id: prod\n' >> '$R5/run-config.yaml' &&
+  '$PY' -c \"import json,sys; d=json.load(open(sys.argv[1])); d['findings'][0]['variant']='test'; json.dump(d, open(sys.argv[1],'w'))\" '$R5/findings.json' &&
+  '$PY' '$S/build_report.py' report '$R5' >/dev/null && grep -q '| test | 1 | 0 |' '$R5/report.md' && grep -q '| prod | 0 | 0 |' '$R5/report.md' &&
+  cp '$TMP/rc5.bak' '$R5/run-config.yaml'"
+
+# ---------- #24: second wave by «not checked» ----------
+"$PY" "$S/journal.py" init "$R5" >/dev/null
+check "coverage again: волна 2 — запреты отдельно, категории (time, environment), задачи потоков, todo в журнале" sh -c "
+  '$PY' '$CV' again '$R5' --minutes 10 --per-item 5 > '$TMP/ag.out' &&
+  test -f '$R5/waves/2/plan.md' && test -f '$R5/waves/2/qa-w2-1.json' &&
+  '$PY' -c \"import json,sys; p=json.load(open(sys.argv[1])); assert len(p['held_forbidden'])==1 and p['held_forbidden'][0]['what']=='корзина'; cats=sorted(x['category'] for t in p['threads'] for x in t['items']); assert cats==['environment','time'], cats\" '$R5/waves/2/plan.json' &&
+  grep -q 'Нужно решение пользователя' '$R5/waves/2/plan.md' && grep -q 'Волна 2: qa-w2-1' '$R5/journal.md'"
+check "coverage again: --include-forbidden и повтор — волна 3; лимит времени делит пункты по потокам" sh -c "
+  '$PY' '$CV' again '$R5' --minutes 5 --per-item 5 --threads 4 --include-forbidden --json > '$TMP/ag3.json' &&
+  '$PY' -c \"import json,sys; p=json.load(open(sys.argv[1])); assert p['wave']==3 and len(p['threads'])==3 and all(len(t['items'])==1 for t in p['threads']) and not p['held_forbidden'], p\" '$TMP/ag3.json'"
+check "brief.py --items: задачи второй волны в задании" sh -c "
+  '$PY' '$BR' '$R5' --thread qa-w2-1 --items '$R5/waves/2/qa-w2-1.json' --minutes 10 >/dev/null &&
+  grep -q 'вторая волна по списку «не проверено»' '$R5/briefs/qa-w2-1.md' && grep -q 'WebKit' '$R5/briefs/qa-w2-1.md'"
+check "coverage again: пустой список «не проверено» — код 1" sh -c "
+  mkdir -p '$TMP/r-empty' && printf '{\"run\": {}, \"findings\": []}' > '$TMP/r-empty/findings.json' &&
+  test \$('$PY' '$CV' again '$TMP/r-empty' >/dev/null; echo \$?) = 1"
+
 echo "stream v1.4.0: PASS $pass, FAIL $fail"
 [ $fail -eq 0 ]

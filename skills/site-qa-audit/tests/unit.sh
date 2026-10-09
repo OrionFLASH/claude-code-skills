@@ -66,8 +66,8 @@ node -e "const s=require('fs').readFileSync(process.argv[1],'utf8').replace('__A
 
 # 1.1.0: syntax of new scripts (no browser, no network)
 for f in claims intake journal build_report gitignore_helper export_results skill_dir ingest_findings recheck direct_publish tabs \
-         runcfg skill_snapshot local_app browser_mode \
-         shared/qa_gitignore shared/qa_export shared/qa_ingest shared/qa_recheck shared/qa_direct shared/qa_snapshot; do
+         runcfg skill_snapshot local_app browser_mode brief coverage \
+         shared/qa_gitignore shared/qa_export shared/qa_ingest shared/qa_recheck shared/qa_direct shared/qa_snapshot shared/qa_threads; do
   "$PY" -c "import ast,sys; ast.parse(open(sys.argv[1],encoding='utf-8').read(), sys.argv[1])" "$S/$f.py" 2>"$TMP/pyc.err" \
     && ok "syntax $f.py" || { cat "$TMP/pyc.err"; bad "syntax $f.py"; }
 done

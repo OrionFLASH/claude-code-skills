@@ -28,6 +28,7 @@ python3 scripts/fetch_issues.py sync owner/repo --cache qa-runs/.cache/issues   
 - В каждом созданном issue/комментарии — скрытый маркер `<!-- site-qa-audit:fp=<fingerprint> -->`. По нему повторный прогон находит свои прошлые записи точно.
 - `fingerprint.py match <run>/findings.json <run>/registry.json --out <run>/matches.json` → для каждой находки `exact` (по маркеру) и `candidates` (нечёткие: заголовок/текст + путь URL, score ≥ 0.35).
 - Кандидатов **всегда читает агент**: открыть issue, сравнить шаги/URL/элемент. Числу не доверять вслепую.
+- **Срез реестра — в задание исполнителю** (`brief.py` делает сам): `python3 <SKILL_DIR>/scripts/fetch_issues.py brief <RUN_DIR>/registry.json --limit 150` — строка на issue: номер, статус (закрытый как исправленный — «исправлено»: повтор = регрессия), заголовок, ключевые слова. Исполнитель сверяет находку со срезом и пишет `dup_check: done` (и `dup_of` / `dup_candidates`, если похоже) или `skipped`. Находки со `skipped` и все остальные всё равно проходят `fingerprint.py match` — сверка исполнителя ускоряет, но не заменяет её.
 
 ## 3. Статусы
 
