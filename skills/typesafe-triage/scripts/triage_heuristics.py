@@ -419,9 +419,26 @@ def directives(text):
     return out
 
 
+# 2.7.0 (#55): «на модели Haiku» в описании выбора модели («убери подтверждение … то есть на модели Haiku, либо Fable»,
+# «например, на opus») — не просьба. Не указание: рядом слова обсуждения выбора модели или перечисление нескольких уровней.
+DISCUSS_BEFORE_RE = re.compile(
+    r"подтвержд\w*|разрешени\w*|выбор\w*|распредел\w*|\bубер\w*|\bубра\w*|отключ\w*|\bто есть\b|\bт\.\s?е\.|например|\bописан\w*|"
+    r"переключ\w*|\bпро\s+модел\w*|\bдля\s+модел\w*|тип\w*\s+модел\w*|(?:выше|ниже|высок\w*|низк\w*|дорог\w*|дёшев\w*)\s+модел\w*|"
+    r"which model|choice of|\bconfirm\w*|\be\.g\.|\bi\.e\.|such as|\bselect\w* (?:a )?model", FLAGS_RE)
+ENUM_AFTER_RE = re.compile(
+    r"^[^.!?\n]{0,12}?(?:,|\bлибо\b|\bили\b|\bи\b|/|\bor\b|\band\b)\s*(?:модел\w+\s+|model\s+)?(?:" + "|".join(TIER_ALIASES.values()) + r")\b", FLAGS_RE)
+
+
+def _is_discussion(text, mt):
+    return bool(DISCUSS_BEFORE_RE.search(text[max(0, mt.start() - 70):mt.start()]) or ENUM_AFTER_RE.match(text[mt.end():mt.end() + 40]))
+
+
 def _directives(text, report=False):
     out = {"tier": None, "tier_not": [], "effort": None, "effort_min": None, "effort_max": None, "phrases": []}
     for mt in TIER_DIRECTIVE_RE.finditer(text):
+        if not _negated(text, mt.start()) and _is_discussion(text, mt):
+            out["discussed"] = True          # упоминание уровня в обсуждении — не указание
+            continue
         word = mt.group("t").lower()
         tier = next(k for k, rx in TIER_ALIASES.items() if re.fullmatch(rx, word, FLAGS_RE))
         if _negated(text, mt.start()):
@@ -626,6 +643,7 @@ def signals(text):
         "chars": len(text), "prose_chars": prose_chars, "items": items, "paths": paths, "steps": steps,
         "clauses": clauses, "deep": deep, "light": light, "critical": critical, "question": question,
         "has_code": has_code, "has_logs": has_logs, "chatter": is_chatter(text), "axes": axes,
+        "horizon": horizon(prose), "fable_avoid": fable_avoid(prose), "precise": precise_edit(prose),
         "effort": {"depth": round(clamp(depth), 3), "intents": intents, "require": require, "constraints": constraints,
                    "accept": accept, "uncertain": uncertain, "diag": diag, "scope": scope, "math": math,
                    "retry": is_retry(text), "lang": language(prose),
@@ -678,3 +696,54 @@ def force_trigger(text):
     if not report and FORCE_PHRASE_RE.search(masked):
         return "phrase", t.strip()
     return None, t
+
+
+# ---------- 2.7.0: признаки из источников выбора модели (references/sources.md) ----------
+# R10: Fable — многочасовые агентные сессии, глубокое исследование, изменения по всей кодовой базе, поиск первопричин.
+HORIZON_RE = re.compile(
+    r"несколько\s+часов|многочасов\w*|\bвсю\s+ночь|\bсутки\b|\bмного\s*дн\w*|по\s+всей\s+(?:кодов\w+\s+баз\w+|кодбаз\w*|репозитори\w+|системе)|"
+    r"(?:всю|вся|всей)\s+кодов\w+\s+баз\w+|глубок\w+\s+исследован\w+|первопричин\w+|"
+    r"multi-?hour|long[- ]running|codebase-wide|across\s+(?:the\s+)?(?:whole\s+|entire\s+)?(?:codebase|repo)|deep\s+research|root[- ]cause", FLAGS_RE)
+# R10: запросы по кибербезопасности и биологии на Fable автоматически перенаправляются на менее мощные модели — платить за неё незачем.
+FABLE_AVOID_RE = re.compile(
+    r"эксплойт|\bexploit|вредонос|\bmalware|\bransomware|шифровальщик|уязвимост|\bvulnerab|пентест|\bpentest|взлом|\bхакер|"
+    r"reverse[- ]engineer|обратн\w+\s+инженери|кибер\w*|\bcyber|патоген|\bpathogen|биооруж|bioweapon|токсин|\btoxin|нейротоксин", FLAGS_RE)
+# R3: точно описанные правки и вопросы по коду в контексте — рутина для меньшей модели.
+PRECISE_EDIT_RE = re.compile(
+    r"\bзамени\w*\s+[`\"'«]?\S+[`\"'»]?\s+на\s+[`\"'«]?\S+|\bпереименуй\w*\s+\S+|\b(?:поправь|исправь)\s+опечатк\w+|\bопечатк\w+|"
+    r"\b(?:в|на)\s+(?:файле\s+)?\S+\s+(?:в\s+)?строк[еау]\s+\d+|\brename\s+\S+\s+to\s+\S+|\bfix\s+(?:the\s+|a\s+)?typo|"
+    r"\bline\s+\d+|\bдобавь\s+(?:одно\s+|ещё одно\s+)?поле\s+\S+|\bbump\s+(?:the\s+)?version|\bизмени\w*\s+(?:значение|название|текст|имя)\s+\S+", FLAGS_RE)
+CODE_QUESTION_RE = re.compile(
+    r"\bчто\s+делает\s+(?:эта\s+|данная\s+)?(?:функци|класс|метод|команд|строк)|\bгде\s+(?:используется|определ[её]н\w*|объявлен\w*|лежит|находится)|"
+    r"\bпокажи\s+(?:файл|функци|где)|\bwhat\s+does\s+(?:this|the)\s+\w+\s+(?:do|mean)|\bwhere\s+is\s+\w+\s+(?:used|defined|declared)", FLAGS_RE)
+# R2: причина неудачи — «не знала» (модель мощнее) или «не старалась» (выше effort).
+RETRY_EFFORT_RE = re.compile(
+    r"пропустил\w*|не\s+(?:запустил|прогнал|проверил|выполнил|дочитал|дописал|доделал|учёл|учел)\w*|забыл\w*|недоделал\w*|бросил\w*|не\s+до\s+конца|"
+    r"только\s+часть|половин\w+\s+(?:сделал|работ)\w*|остановил\w*\s+на\s+половине|"
+    r"\bskipped\b|didn'?t\s+(?:run|test|check|finish|read)|forgot\s+to|incomplete|half[- ]?done|left\s+out|stopped\s+(?:early|halfway)", FLAGS_RE)
+RETRY_KNOWLEDGE_RE = re.compile(
+    r"выдумал\w*|придумал\w*|несуществующ\w+|не\s+существует|галлюцин\w*|не\s+понял\w*|не\s+понимает|(?:неправильно|неверно)\s+понял\w*|"
+    r"не\s+тот\s+подход|не\s+знает|не\s+разобрал\w*|не\s+видит\s+(?:причин|архитектур)\w*|неверн\w+\s+(?:подход|архитектур|API|предположен)\w*|"
+    r"\bhallucinat\w*|made\s+up|doesn'?t\s+exist|misunderstood|wrong\s+(?:approach|assumption|api)|doesn'?t\s+understand|has\s+no\s+idea", FLAGS_RE)
+
+
+def horizon(text):
+    return bool(HORIZON_RE.search(FENCE_RE.sub(" ", text or "")[:MAX_CHARS]))
+
+
+def fable_avoid(text):
+    """Слова кибер/био-тем: для таких запросов Fable не выбирается (они уходят на менее мощные модели)."""
+    return sorted({m.group(0).lower() for m in FABLE_AVOID_RE.finditer(FENCE_RE.sub(" ", text or "")[:MAX_CHARS])})[:3]
+
+
+def precise_edit(text):
+    t = FENCE_RE.sub(" ", text or "")[:MAX_CHARS]
+    return bool(PRECISE_EDIT_RE.search(t) or CODE_QUESTION_RE.search(t))
+
+
+def retry_kind(text):
+    """Причина неудачи в тексте: "knowledge" (не знала/не поняла/выдумала → модель мощнее), "effort" (пропустила, не запустила,
+    не доделала → выше effort), "both" или None (не сказано)."""
+    t = FENCE_RE.sub(" ", text or "")[:MAX_CHARS]
+    k, e = bool(RETRY_KNOWLEDGE_RE.search(t)), bool(RETRY_EFFORT_RE.search(t))
+    return "both" if k and e else "knowledge" if k else "effort" if e else None

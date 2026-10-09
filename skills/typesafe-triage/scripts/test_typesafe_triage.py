@@ -53,7 +53,8 @@ def test_haiku_only_for_safe_confident_light_tasks():
 
 def test_haiku_by_confident_lower_half_even_with_split_levels():
     # уверенность шкал низкая (модель колеблется между «механикой» и «рутиной»), но верхняя половина почти пуста
-    assert t.decide(m(reasoning=0.2, read_only=0.95, conf=0.55, upper=0.05))[0] == "haiku"
+    assert t.decide(m(reasoning=0.2, read_only=0.95, conf=0.78, upper=0.05))[0] == "haiku"
+    assert t.decide(m(reasoning=0.2, read_only=0.95, conf=0.55, upper=0.4))[0] == "sonnet"           # и уверенности нет, и верхняя половина не пуста
     assert t.decide(m(reasoning=0.2, read_only=0.95, conf=0.55, upper=0.3))[0] == "sonnet"
 
 

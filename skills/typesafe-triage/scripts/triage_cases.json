@@ -1,91 +1,1329 @@
 [
- {"expect": "haiku", "effort": "low", "effort_ok": ["low", "medium"], "domain": "code", "task": "Где в проекте лежит код, который строит полосу сроков турниров? Просто покажи файл и функцию."},
- {"expect": "haiku", "effort": "low", "effort_ok": ["low", "medium"], "domain": "code", "task": "Переименуй подпись кнопки «Загрузить» на «Открыть пакет» во всех экранах веб-редактора, больше ничего не меняй."},
- {"expect": "haiku", "effort": "low", "effort_ok": ["low", "medium"], "domain": "code", "task": "Объясни, что делает функция mapRewardTree в game_fill_map.js, без изменений кода."},
- {"expect": "haiku", "effort": "low", "effort_ok": ["low", "medium"], "domain": "documents", "task": "Посчитай сколько в ROADMAP веб-части пунктов со статусом [w] и перечисли номера."},
- {"expect": "haiku", "effort": "low", "effort_ok": ["low", "medium"], "domain": "code", "task": "Найди в проекте, где настраивается порт сервера, и покажи файл и строку."},
- {"expect": "haiku", "effort": "low", "effort_ok": ["low", "medium"], "domain": "data", "task": "Отсортируй по алфавиту этот список городов: Тверь, Абакан, Москва, Омск, Казань, Владимир."},
- {"expect": "haiku", "effort": "low", "effort_ok": ["low", "medium"], "domain": "legal", "task": "Что означает аббревиатура SLA в договорах на поддержку? Ответь одной-двумя фразами."},
- {"expect": "haiku", "effort": "low", "effort_ok": ["low", "medium"], "domain": "learning", "task": "Расскажи коротко, чем отличается стоицизм от эпикуреизма, для общего развития."},
- {"expect": "haiku", "effort": "low", "effort_ok": ["low", "medium"], "domain": "household", "task": "Какая сегодня погода в Москве и стоит ли брать зонт на завтра?"},
- {"expect": "haiku", "effort": "low", "effort_ok": ["low", "medium"], "domain": "legal", "lang": "en", "task": "What does the acronym GDPR stand for? One sentence is enough."},
- {"expect": "haiku", "effort": "low", "effort_ok": ["low", "medium"], "domain": "data", "lang": "en", "task": "Sort these numbers in ascending order: 42, 7, 19, 3, 88, 21, 64, 15."},
- {"expect": "haiku", "effort": "low", "effort_ok": ["low", "medium"], "domain": "household", "task": "Сколько граммов сахара в одной столовой ложке? Ответь навскидку, точность не важна."},
- {"expect": "haiku", "effort": "low", "effort_ok": ["low", "medium"], "domain": "household", "task": "Напомни, сколько минут варить яйцо всмятку после закипания воды?"},
- {"expect": "haiku", "tier_ok": ["haiku", "sonnet"], "effort": "low", "effort_ok": ["low", "medium"], "domain": "learning", "task": "Объясни разницу между средним и медианой на примере зарплат в отделе из пяти человек."},
-
- {"expect": "sonnet", "effort": "medium", "effort_ok": ["medium", "high"], "domain": "code", "task": "Добавь в карточку конкурса поле «Стенд» со всплывающей подсказкой, по аналогии с полем «Сезон», и покрой тестом."},
- {"expect": "sonnet", "effort": "medium", "effort_ok": ["medium", "high"], "domain": "code", "task": "Сделай, чтобы фильтр «Конкурсы» запоминал выбранный бизнес-блок между перезагрузками страницы, как это сделано в «Турнирах»."},
- {"expect": "sonnet", "effort": "medium", "effort_ok": ["medium", "high"], "domain": "documents", "task": "Обнови документацию Docs/DOCS_INDEX.md: добавь строку про новый документ и поправь ссылки на ROADMAP."},
- {"expect": "sonnet", "tier_ok": ["sonnet", "opus"], "effort": "high", "effort_ok": ["high", "xhigh"], "domain": "code", "task": "Кнопка «Дозагрузить» в плашке пакета иногда не реагирует на клик в Safari. Найди причину и исправь."},
- {"expect": "sonnet", "effort": "medium", "effort_ok": ["medium", "high"], "domain": "code", "task": "Добавь проверку формата ТН (табельный номер) в справочник USER_ROLE: ровно 20 цифр, предупреждением, как остальные форматные проверки."},
- {"expect": "sonnet", "effort": "medium", "effort_ok": ["medium", "high"], "domain": "letters", "task": "Помоги написать вежливое письмо арендодателю с просьбой снизить плату за квартиру на 10 % из-за ремонта в подъезде."},
- {"expect": "sonnet", "effort": "medium", "effort_ok": ["medium", "high"], "domain": "planning", "task": "Составь план тренировок на неделю для новичка, три дня в зале, с упражнениями и количеством подходов."},
- {"expect": "sonnet", "effort": "medium", "effort_ok": ["medium", "high"], "domain": "documents", "task": "Сделай краткое резюме статьи о трендах электронной коммерции на полстраницы для коллег из отдела продаж."},
- {"expect": "sonnet", "effort": "medium", "effort_ok": ["medium", "high"], "domain": "documents", "task": "Отредактируй раздел «Установка» в README: сделай шаги нумерованными и добавь пример для Windows."},
- {"expect": "sonnet", "effort": "medium", "effort_ok": ["medium", "high"], "domain": "letters", "task": "Подготовь пост для блога компании о выходе новой версии приложения: что нового, кому полезно, ссылка на скачивание."},
- {"expect": "sonnet", "effort": "medium", "effort_ok": ["medium", "high"], "domain": "documents", "task": "Сведи заметки с трёх созвонов в один протокол встречи: решения, ответственные, сроки."},
- {"expect": "sonnet", "effort": "medium", "effort_ok": ["medium", "high"], "domain": "letters", "lang": "en", "task": "Write a friendly reminder email to the team about Friday's deadline for submitting expense reports."},
- {"expect": "sonnet", "tier_ok": ["haiku", "sonnet"], "effort": "medium", "effort_ok": ["low", "high"], "domain": "learning", "lang": "en", "task": "Explain recursion to a 12-year-old with two simple everyday examples."},
- {"expect": "sonnet", "effort": "medium", "effort_ok": ["medium", "high"], "domain": "data", "task": "Сделай в таблице формулу, которая считает сумму продаж по каждому менеджеру из листа «Сделки» и выводит её на лист «Итоги»."},
- {"expect": "sonnet", "effort": "medium", "effort_ok": ["medium", "high"], "domain": "household", "task": "Составь список покупок на неделю для семьи из трёх человек с бюджетом 7000 рублей и простыми рецептами."},
- {"expect": "sonnet", "effort": "medium", "effort_ok": ["medium", "high"], "domain": "ops", "lang": "en", "task": "Add a cron job that runs the backup script every night at 2 am and appends its output to a log file."},
- {"expect": "sonnet", "effort": "medium", "effort_ok": ["medium", "high"], "domain": "learning", "task": "Составь 10 вопросов для проверочной работы по теме «Дроби» для 5 класса, с ответами."},
- {"expect": "sonnet", "effort": "medium", "effort_ok": ["medium", "high"], "domain": "design", "lang": "en", "task": "Suggest three colour palettes for a calm meditation app landing page, with hex codes and where to use each colour."},
- {"expect": "sonnet", "tier_ok": ["sonnet", "opus"], "effort": "high", "effort_ok": ["high", "xhigh"], "domain": "finance", "task": "Посчитай, сколько я переплачу по кредиту 500 000 рублей на 3 года под 18 % годовых при аннуитетных платежах, покажи формулу и помесячный график."},
- {"expect": "sonnet", "effort": "medium", "effort_ok": ["medium", "high"], "domain": "code", "lang": "en", "task": "Add a --verbose flag to the CLI that prints each processed file name, following the style of the existing flags."},
- {"expect": "sonnet", "tier_ok": ["sonnet", "opus"], "effort": "medium", "effort_ok": ["medium", "high"], "domain": "planning", "lang": "en", "task": "Plan a two-day team offsite for 25 people: venue options, agenda, budget and logistics."},
- {"expect": "sonnet", "tier_ok": ["sonnet", "opus"], "effort": "medium", "effort_ok": ["medium", "high"], "domain": "household", "lang": "en", "task": "Help me choose between two used cars: a 2017 sedan with 90k miles for $12k or a 2019 hatchback with 60k miles for $14k."},
- {"expect": "sonnet", "effort": "medium", "effort_ok": ["medium", "high"], "domain": "design", "task": "Опиши структуру экранов мобильного приложения для записи к врачу: какие экраны, переходы между ними и основные элементы."},
- {"expect": "sonnet", "tier_ok": ["sonnet", "opus"], "effort": "medium", "effort_ok": ["medium", "high"], "domain": "legal", "lang": "en", "task": "Draft a simple NDA for a freelance designer based on our standard confidentiality terms."},
-
- {"expect": "sonnet", "tier_ok": ["sonnet", "opus"], "effort": "high", "effort_ok": ["high", "xhigh"], "domain": "code", "lang": "en", "task": "The nightly build sometimes fails with a timeout in the integration tests, but I can't reproduce it locally. Figure out why and fix it."},
- {"expect": "sonnet", "tier_ok": ["sonnet", "opus"], "effort": "high", "effort_ok": ["high", "xhigh"], "domain": "data", "task": "В отчёте за август сумма по регионам не сходится с общим итогом примерно на 3 %. Найди, откуда расхождение."},
- {"expect": "opus", "tier_ok": ["sonnet", "opus"], "effort": "high", "effort_ok": ["high", "xhigh"], "domain": "ops", "task": "Сайт периодически отдаёт 502, в логах nginx upstream timed out, нагрузка вроде обычная. Разберись, в чём дело."},
- {"expect": "sonnet", "tier_ok": ["sonnet", "opus"], "effort": "high", "effort_ok": ["high", "xhigh"], "domain": "design", "lang": "en", "task": "Our onboarding feels clunky and I'm not sure whether it's the copy or the flow. Look at it and suggest what to change."},
- {"expect": "sonnet", "tier_ok": ["sonnet", "opus"], "effort": "high", "effort_ok": ["medium", "xhigh"], "domain": "legal", "task": "Можно ли вернуть товар надлежащего качества через 10 дней после покупки в интернет-магазине? Объясни, что говорит закон и какие есть исключения."},
- {"expect": "sonnet", "tier_ok": ["sonnet", "opus"], "effort": "high", "effort_ok": ["medium", "xhigh"], "domain": "research", "lang": "en", "task": "Find out which open-source licenses allow commercial use without publishing modifications, and summarize the differences and caveats."},
- {"expect": "opus", "tier_ok": ["sonnet", "opus"], "effort": "high", "effort_ok": ["high", "xhigh"], "domain": "research", "lang": "en", "task": "Survey recent approaches to evaluating retrieval-augmented generation and propose an evaluation plan for our support chatbot."},
- {"expect": "opus", "effort": "high", "effort_ok": ["high", "xhigh"], "domain": "analysis", "lang": "en", "task": "Analyse churn in the customer dataset (50k rows, 40 columns): find the main drivers, quantify their effect and check the conclusions for confounders."},
-
- {"expect": "opus", "effort": "xhigh", "effort_ok": ["high", "max"], "domain": "code", "task": "Переделай правила проверки пересечения периодов CONTEST_PERIOD так, чтобы учитывались наборы разных турниров и общие награды; сейчас часть наложений проходит молча. Нужно продумать модель правил и не сломать боевые данные."},
- {"expect": "opus", "effort": "high", "effort_ok": ["high", "xhigh"], "domain": "code", "task": "Спроектируй и реализуй массовую правку полей выделенных строк в таблице записей редактора конкурса (этап 2): выбор строк, задание поля, зависимости от типа конкурса, откат, проверки, тесты и e2e."},
- {"expect": "opus", "effort": "xhigh", "effort_ok": ["high", "max"], "domain": "code", "task": "Перепиши слияние версий CSV по ключам: сейчас при совпадении числовых и текстовых ключей часть строк теряется. Разберись в причине и поменяй алгоритм merge без потери обратной совместимости."},
- {"expect": "opus", "effort": "xhigh", "effort_ok": ["high", "max"], "domain": "ops", "task": "Спроектируй миграцию базы с одной схемы на другую без простоя: план шагов, откат, проверки данных и тесты совместимости."},
- {"expect": "opus", "effort": "high", "effort_ok": ["high", "xhigh"], "domain": "analysis", "task": "Проанализируй три коммерческих предложения поставщиков CRM, сравни их по стоимости владения за три года, рискам внедрения и интеграции с нашими системами и дай обоснованную рекомендацию руководству."},
- {"expect": "opus", "effort": "high", "effort_ok": ["high", "xhigh"], "domain": "planning", "task": "Разработай стратегию выхода продукта на новый рынок: целевые сегменты, ценообразование, каналы продаж, риски и план действий на 12 месяцев."},
- {"expect": "opus", "effort": "high", "effort_ok": ["high", "xhigh"], "domain": "analysis", "task": "Разберись, почему в сентябре упала конверсия в оплату: данные в трёх выгрузках, сформулируй гипотезы, проверь их на данных и сделай выводы с цифрами."},
- {"expect": "opus", "effort": "high", "effort_ok": ["high", "xhigh"], "domain": "legal", "task": "Проверь договор аренды офиса на юридические риски для арендатора и предложи правки формулировок по каждому рискованному пункту."},
- {"expect": "opus", "effort": "xhigh", "effort_ok": ["high", "max"], "domain": "finance", "task": "Перестрой финансовую модель: пересчитай прогноз выручки и денежного потока на три года с новыми допущениями по цене и оттоку; формулы связаны между листами, на цифры будет опираться совет директоров."},
- {"expect": "opus", "tier_ok": ["opus", "fable"], "effort": "xhigh", "effort_ok": ["xhigh", "max"], "domain": "ops", "lang": "en", "task": "Rotate all production database credentials and API keys across 12 services without downtime: plan the order, verify each service after its switch and keep a rollback path for every step."},
- {"expect": "opus", "tier_ok": ["opus", "fable"], "effort": "xhigh", "effort_ok": ["xhigh", "max"], "domain": "finance", "task": "Перенеси бухгалтерию компании из старой системы в новую: остатки, проводки за три года, сверка оборотов по каждому счёту и план отката; ошибка в остатках ударит по налоговой отчётности."},
- {"expect": "opus", "effort": "xhigh", "effort_ok": ["high", "max"], "domain": "code", "lang": "en", "task": "Review our authentication flow for security vulnerabilities (session handling, password reset, OAuth callbacks) and propose fixes with tests for each finding."},
- {"expect": "opus", "effort": "xhigh", "effort_ok": ["high", "max"], "domain": "medical", "task": "Составь график приёма лекарств для пожилого родственника по назначениям трёх разных врачей и проверь, нет ли опасных взаимодействий и дублирования препаратов."},
- {"expect": "opus", "effort": "xhigh", "effort_ok": ["high", "max"], "domain": "math", "lang": "en", "task": "Prove that the merge operation of our distributed counter CRDT is commutative, associative and idempotent, and point out any case where it is not."},
- {"expect": "opus", "effort": "xhigh", "effort_ok": ["high", "max"], "domain": "finance", "lang": "en", "task": "Build a five-year DCF valuation model for the acquisition with sensitivity tables for growth and discount rate; the board will decide on the deal based on it."},
- {"expect": "opus", "tier_ok": ["opus", "fable"], "effort": "xhigh", "effort_ok": ["xhigh", "max"], "domain": "ops", "lang": "en", "task": "Upgrade the production Kubernetes cluster from 1.27 to 1.30 with zero downtime, including migrating deprecated APIs in all manifests and a tested rollback plan."},
-
- {"expect": "fable", "effort": "max", "effort_ok": ["max"], "domain": "ops", "task": "Спроектируй и проведи миграцию боевой базы платежей (PostgreSQL, 2 ТБ, работает 24/7) на новую схему шардирования без простоя и без потери транзакций: двойная запись, сверка данных, переключение трафика, откат. Ошибка означает потерю денег клиентов, а после переключения откатиться уже нельзя."},
- {"expect": "fable", "tier_ok": ["opus", "fable"], "effort": "max", "effort_ok": ["xhigh", "max"], "domain": "finance", "lang": "en", "task": "Run tonight's irreversible production cutover of the payments clearing system to the new ledger: freeze, final reconciliation of every account, switch traffic; there is no way back after the switch and any mismatch means lost customer money."},
- {"expect": "fable", "tier_ok": ["opus", "fable"], "effort": "max", "effort_ok": ["xhigh", "max"], "domain": "legal", "task": "Удали навсегда персональные данные клиентов по требованию регулятора из боевой базы, всех реплик и бэкапов, не задев данные остальных; восстановить будет нельзя, а ошибка — это штраф и суд."},
-
- {"expect": "haiku", "effort": "low", "effort_ok": ["low"], "explicit": true, "domain": "household", "task": "Ответь быстро и кратко: сколько дней в високосном году и почему он так называется?"},
- {"expect": "opus", "tier_ok": ["opus"], "effort": "max", "effort_ok": ["max"], "explicit": true, "domain": "finance", "task": "Сделай на opus с effort max: проверь расчёт налога на имущество организации за год по приложенной таблице."},
- {"expect": "haiku", "tier_ok": ["haiku"], "effort": "low", "effort_ok": ["low", "medium"], "explicit": true, "domain": "data", "lang": "en", "task": "Use haiku for this: convert the list to a markdown table — apples 3, pears 5, plums 2, cherries 9."},
- {"expect": "opus", "tier_ok": ["opus", "fable"], "effort": "max", "effort_ok": ["max"], "explicit": true, "domain": "code", "lang": "en", "task": "ultrathink: design the sharding strategy for our multi-tenant event store and explain the trade-offs."},
- {"expect": "sonnet", "tier_ok": ["sonnet", "opus"], "effort": "high", "effort_ok": ["high", "xhigh"], "explicit": true, "domain": "finance", "task": "Подумай как следует и тщательно сравни два варианта ипотеки: ставка 16 % на 20 лет или 14 % на 25 лет с разовой комиссией 2 %."},
- {"expect": "haiku", "tier_ok": ["haiku", "sonnet"], "effort": "low", "effort_ok": ["low"], "explicit": true, "domain": "code", "lang": "en", "task": "Quick answer, no need to think hard: is Python's list.sort stable?"},
- {"expect": "haiku", "tier_ok": ["haiku", "sonnet"], "effort": "low", "effort_ok": ["low", "medium"], "explicit": true, "domain": "code", "task": "Не нужно глубоко разбираться, просто поправь отступы в файле config.yaml, чтобы он снова читался."},
- {"expect": "sonnet", "tier_ok": ["sonnet"], "effort": "medium", "effort_ok": ["medium", "high"], "explicit": true, "domain": "documents", "lang": "en", "task": "Don't use opus for this, sonnet is enough: rewrite the README introduction to sound friendlier."},
- {"expect": "sonnet", "tier_ok": ["sonnet", "opus"], "effort": "high", "effort_ok": ["high", "xhigh"], "explicit": true, "domain": "finance", "task": "Не торопись, проверь формулы в квартальном отчёте перед отправкой инвесторам: суммы, проценты, ссылки между листами."},
-
- {"expect": "opus", "tier_ok": ["opus"], "effort": "xhigh", "effort_ok": ["xhigh"], "domain": "code", "history": ["Почини импорт CSV: он падает на файлах с BOM в начале", "Опять не работает импорт CSV, та же ошибка на файлах с BOM"], "task": "Всё ещё не работает, ошибка та же — разберись наконец с импортом CSV и проверь на файлах с BOM."},
- {"expect": "sonnet", "tier_ok": ["sonnet", "opus"], "effort": "high", "effort_ok": ["high", "xhigh"], "domain": "code", "lang": "en", "history": ["Fix the date parsing bug in the invoice importer, dates from the CSV are wrong"], "task": "Still broken: invoice dates are still off by one day after your fix. Look again."},
- {"expect": "sonnet", "tier_ok": ["sonnet", "opus"], "effort": "high", "effort_ok": ["high", "xhigh"], "domain": "code", "history": ["Сделай так, чтобы письма-уведомления о заказе не уходили клиентам дважды"], "task": "Сделай так, чтобы письма-уведомления о заказе не уходили клиентам дважды"},
-
- {"expect": "skip", "task": "Спасибо, отлично получилось! Давай дальше по плану, как договорились."},
- {"expect": "skip", "task": "ок, продолжай"},
- {"expect": "skip", "task": "/commit с сообщением про исправление валидации формы входа"},
- {"expect": "skip", "task": "<task-notification>фоновая задача завершена, результат записан в файл отчёта</task-notification>"},
- {"expect": "skip", "task": "Thanks, looks good! Go ahead with the next item."}
+ {
+  "expect": "haiku",
+  "effort": "low",
+  "effort_ok": [
+   "low",
+   "medium"
+  ],
+  "domain": "code",
+  "task": "Где в проекте лежит код, который строит полосу сроков турниров? Просто покажи файл и функцию."
+ },
+ {
+  "expect": "haiku",
+  "effort": "low",
+  "effort_ok": [
+   "low",
+   "medium"
+  ],
+  "domain": "code",
+  "task": "Переименуй подпись кнопки «Загрузить» на «Открыть пакет» во всех экранах веб-редактора, больше ничего не меняй."
+ },
+ {
+  "expect": "haiku",
+  "effort": "low",
+  "effort_ok": [
+   "low",
+   "medium"
+  ],
+  "domain": "code",
+  "task": "Объясни, что делает функция mapRewardTree в game_fill_map.js, без изменений кода."
+ },
+ {
+  "expect": "haiku",
+  "effort": "low",
+  "effort_ok": [
+   "low",
+   "medium"
+  ],
+  "domain": "documents",
+  "task": "Посчитай сколько в ROADMAP веб-части пунктов со статусом [w] и перечисли номера."
+ },
+ {
+  "expect": "haiku",
+  "effort": "low",
+  "effort_ok": [
+   "low",
+   "medium"
+  ],
+  "domain": "code",
+  "task": "Найди в проекте, где настраивается порт сервера, и покажи файл и строку."
+ },
+ {
+  "expect": "haiku",
+  "effort": "low",
+  "effort_ok": [
+   "low",
+   "medium"
+  ],
+  "domain": "data",
+  "task": "Отсортируй по алфавиту этот список городов: Тверь, Абакан, Москва, Омск, Казань, Владимир."
+ },
+ {
+  "expect": "haiku",
+  "effort": "low",
+  "effort_ok": [
+   "low",
+   "medium"
+  ],
+  "domain": "legal",
+  "task": "Что означает аббревиатура SLA в договорах на поддержку? Ответь одной-двумя фразами."
+ },
+ {
+  "expect": "haiku",
+  "effort": "low",
+  "effort_ok": [
+   "low",
+   "medium"
+  ],
+  "domain": "learning",
+  "task": "Расскажи коротко, чем отличается стоицизм от эпикуреизма, для общего развития."
+ },
+ {
+  "expect": "haiku",
+  "effort": "low",
+  "effort_ok": [
+   "low",
+   "medium"
+  ],
+  "domain": "household",
+  "task": "Какая сегодня погода в Москве и стоит ли брать зонт на завтра?"
+ },
+ {
+  "expect": "haiku",
+  "effort": "low",
+  "effort_ok": [
+   "low",
+   "medium"
+  ],
+  "domain": "legal",
+  "lang": "en",
+  "task": "What does the acronym GDPR stand for? One sentence is enough."
+ },
+ {
+  "expect": "haiku",
+  "effort": "low",
+  "effort_ok": [
+   "low",
+   "medium"
+  ],
+  "domain": "data",
+  "lang": "en",
+  "task": "Sort these numbers in ascending order: 42, 7, 19, 3, 88, 21, 64, 15."
+ },
+ {
+  "expect": "haiku",
+  "effort": "low",
+  "effort_ok": [
+   "low",
+   "medium"
+  ],
+  "domain": "household",
+  "task": "Сколько граммов сахара в одной столовой ложке? Ответь навскидку, точность не важна."
+ },
+ {
+  "expect": "haiku",
+  "effort": "low",
+  "effort_ok": [
+   "low",
+   "medium"
+  ],
+  "domain": "household",
+  "task": "Напомни, сколько минут варить яйцо всмятку после закипания воды?"
+ },
+ {
+  "expect": "haiku",
+  "tier_ok": [
+   "haiku",
+   "sonnet"
+  ],
+  "effort": "low",
+  "effort_ok": [
+   "low",
+   "medium"
+  ],
+  "domain": "learning",
+  "task": "Объясни разницу между средним и медианой на примере зарплат в отделе из пяти человек."
+ },
+ {
+  "expect": "sonnet",
+  "effort": "medium",
+  "effort_ok": [
+   "medium",
+   "high"
+  ],
+  "domain": "code",
+  "task": "Добавь в карточку конкурса поле «Стенд» со всплывающей подсказкой, по аналогии с полем «Сезон», и покрой тестом."
+ },
+ {
+  "expect": "sonnet",
+  "effort": "medium",
+  "effort_ok": [
+   "medium",
+   "high"
+  ],
+  "domain": "code",
+  "task": "Сделай, чтобы фильтр «Конкурсы» запоминал выбранный бизнес-блок между перезагрузками страницы, как это сделано в «Турнирах»."
+ },
+ {
+  "expect": "sonnet",
+  "effort": "medium",
+  "effort_ok": [
+   "medium",
+   "high"
+  ],
+  "domain": "documents",
+  "task": "Обнови документацию Docs/DOCS_INDEX.md: добавь строку про новый документ и поправь ссылки на ROADMAP."
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "sonnet",
+   "opus"
+  ],
+  "effort": "high",
+  "effort_ok": [
+   "high",
+   "xhigh"
+  ],
+  "domain": "code",
+  "task": "Кнопка «Дозагрузить» в плашке пакета иногда не реагирует на клик в Safari. Найди причину и исправь."
+ },
+ {
+  "expect": "sonnet",
+  "effort": "medium",
+  "effort_ok": [
+   "medium",
+   "high"
+  ],
+  "domain": "code",
+  "task": "Добавь проверку формата ТН (табельный номер) в справочник USER_ROLE: ровно 20 цифр, предупреждением, как остальные форматные проверки."
+ },
+ {
+  "expect": "sonnet",
+  "effort": "medium",
+  "effort_ok": [
+   "medium",
+   "high"
+  ],
+  "domain": "letters",
+  "task": "Помоги написать вежливое письмо арендодателю с просьбой снизить плату за квартиру на 10 % из-за ремонта в подъезде."
+ },
+ {
+  "expect": "sonnet",
+  "effort": "medium",
+  "effort_ok": [
+   "medium",
+   "high"
+  ],
+  "domain": "planning",
+  "task": "Составь план тренировок на неделю для новичка, три дня в зале, с упражнениями и количеством подходов."
+ },
+ {
+  "expect": "sonnet",
+  "effort": "medium",
+  "effort_ok": [
+   "medium",
+   "high"
+  ],
+  "domain": "documents",
+  "task": "Сделай краткое резюме статьи о трендах электронной коммерции на полстраницы для коллег из отдела продаж."
+ },
+ {
+  "expect": "sonnet",
+  "effort": "medium",
+  "effort_ok": [
+   "medium",
+   "high"
+  ],
+  "domain": "documents",
+  "task": "Отредактируй раздел «Установка» в README: сделай шаги нумерованными и добавь пример для Windows."
+ },
+ {
+  "expect": "sonnet",
+  "effort": "medium",
+  "effort_ok": [
+   "medium",
+   "high"
+  ],
+  "domain": "letters",
+  "task": "Подготовь пост для блога компании о выходе новой версии приложения: что нового, кому полезно, ссылка на скачивание."
+ },
+ {
+  "expect": "sonnet",
+  "effort": "medium",
+  "effort_ok": [
+   "medium",
+   "high"
+  ],
+  "domain": "documents",
+  "task": "Сведи заметки с трёх созвонов в один протокол встречи: решения, ответственные, сроки."
+ },
+ {
+  "expect": "sonnet",
+  "effort": "medium",
+  "effort_ok": [
+   "medium",
+   "high"
+  ],
+  "domain": "letters",
+  "lang": "en",
+  "task": "Write a friendly reminder email to the team about Friday's deadline for submitting expense reports."
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "haiku",
+   "sonnet"
+  ],
+  "effort": "medium",
+  "effort_ok": [
+   "low",
+   "high"
+  ],
+  "domain": "learning",
+  "lang": "en",
+  "task": "Explain recursion to a 12-year-old with two simple everyday examples."
+ },
+ {
+  "expect": "sonnet",
+  "effort": "medium",
+  "effort_ok": [
+   "medium",
+   "high"
+  ],
+  "domain": "data",
+  "task": "Сделай в таблице формулу, которая считает сумму продаж по каждому менеджеру из листа «Сделки» и выводит её на лист «Итоги»."
+ },
+ {
+  "expect": "sonnet",
+  "effort": "medium",
+  "effort_ok": [
+   "medium",
+   "high"
+  ],
+  "domain": "household",
+  "task": "Составь список покупок на неделю для семьи из трёх человек с бюджетом 7000 рублей и простыми рецептами."
+ },
+ {
+  "expect": "sonnet",
+  "effort": "medium",
+  "effort_ok": [
+   "medium",
+   "high"
+  ],
+  "domain": "ops",
+  "lang": "en",
+  "task": "Add a cron job that runs the backup script every night at 2 am and appends its output to a log file."
+ },
+ {
+  "expect": "sonnet",
+  "effort": "medium",
+  "effort_ok": [
+   "medium",
+   "high"
+  ],
+  "domain": "learning",
+  "task": "Составь 10 вопросов для проверочной работы по теме «Дроби» для 5 класса, с ответами."
+ },
+ {
+  "expect": "sonnet",
+  "effort": "medium",
+  "effort_ok": [
+   "medium",
+   "high"
+  ],
+  "domain": "design",
+  "lang": "en",
+  "task": "Suggest three colour palettes for a calm meditation app landing page, with hex codes and where to use each colour."
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "sonnet",
+   "opus"
+  ],
+  "effort": "high",
+  "effort_ok": [
+   "high",
+   "xhigh"
+  ],
+  "domain": "finance",
+  "task": "Посчитай, сколько я переплачу по кредиту 500 000 рублей на 3 года под 18 % годовых при аннуитетных платежах, покажи формулу и помесячный график."
+ },
+ {
+  "expect": "sonnet",
+  "effort": "medium",
+  "effort_ok": [
+   "medium",
+   "high"
+  ],
+  "domain": "code",
+  "lang": "en",
+  "task": "Add a --verbose flag to the CLI that prints each processed file name, following the style of the existing flags."
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "sonnet",
+   "opus"
+  ],
+  "effort": "medium",
+  "effort_ok": [
+   "medium",
+   "high"
+  ],
+  "domain": "planning",
+  "lang": "en",
+  "task": "Plan a two-day team offsite for 25 people: venue options, agenda, budget and logistics."
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "sonnet",
+   "opus"
+  ],
+  "effort": "medium",
+  "effort_ok": [
+   "medium",
+   "high"
+  ],
+  "domain": "household",
+  "lang": "en",
+  "task": "Help me choose between two used cars: a 2017 sedan with 90k miles for $12k or a 2019 hatchback with 60k miles for $14k."
+ },
+ {
+  "expect": "sonnet",
+  "effort": "medium",
+  "effort_ok": [
+   "medium",
+   "high"
+  ],
+  "domain": "design",
+  "task": "Опиши структуру экранов мобильного приложения для записи к врачу: какие экраны, переходы между ними и основные элементы."
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "sonnet",
+   "opus"
+  ],
+  "effort": "medium",
+  "effort_ok": [
+   "medium",
+   "high"
+  ],
+  "domain": "legal",
+  "lang": "en",
+  "task": "Draft a simple NDA for a freelance designer based on our standard confidentiality terms."
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "sonnet",
+   "opus"
+  ],
+  "effort": "high",
+  "effort_ok": [
+   "high",
+   "xhigh"
+  ],
+  "domain": "code",
+  "lang": "en",
+  "task": "The nightly build sometimes fails with a timeout in the integration tests, but I can't reproduce it locally. Figure out why and fix it."
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "sonnet",
+   "opus"
+  ],
+  "effort": "high",
+  "effort_ok": [
+   "high",
+   "xhigh"
+  ],
+  "domain": "data",
+  "task": "В отчёте за август сумма по регионам не сходится с общим итогом примерно на 3 %. Найди, откуда расхождение."
+ },
+ {
+  "expect": "opus",
+  "tier_ok": [
+   "sonnet",
+   "opus"
+  ],
+  "effort": "high",
+  "effort_ok": [
+   "high",
+   "xhigh"
+  ],
+  "domain": "ops",
+  "task": "Сайт периодически отдаёт 502, в логах nginx upstream timed out, нагрузка вроде обычная. Разберись, в чём дело."
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "sonnet",
+   "opus"
+  ],
+  "effort": "high",
+  "effort_ok": [
+   "high",
+   "xhigh"
+  ],
+  "domain": "design",
+  "lang": "en",
+  "task": "Our onboarding feels clunky and I'm not sure whether it's the copy or the flow. Look at it and suggest what to change."
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "sonnet",
+   "opus"
+  ],
+  "effort": "high",
+  "effort_ok": [
+   "medium",
+   "xhigh"
+  ],
+  "domain": "legal",
+  "task": "Можно ли вернуть товар надлежащего качества через 10 дней после покупки в интернет-магазине? Объясни, что говорит закон и какие есть исключения."
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "sonnet",
+   "opus"
+  ],
+  "effort": "high",
+  "effort_ok": [
+   "medium",
+   "xhigh"
+  ],
+  "domain": "research",
+  "lang": "en",
+  "task": "Find out which open-source licenses allow commercial use without publishing modifications, and summarize the differences and caveats."
+ },
+ {
+  "expect": "opus",
+  "tier_ok": [
+   "sonnet",
+   "opus"
+  ],
+  "effort": "high",
+  "effort_ok": [
+   "high",
+   "xhigh"
+  ],
+  "domain": "research",
+  "lang": "en",
+  "task": "Survey recent approaches to evaluating retrieval-augmented generation and propose an evaluation plan for our support chatbot."
+ },
+ {
+  "expect": "opus",
+  "effort": "high",
+  "effort_ok": [
+   "high",
+   "xhigh"
+  ],
+  "domain": "analysis",
+  "lang": "en",
+  "task": "Analyse churn in the customer dataset (50k rows, 40 columns): find the main drivers, quantify their effect and check the conclusions for confounders."
+ },
+ {
+  "expect": "opus",
+  "effort": "xhigh",
+  "effort_ok": [
+   "high",
+   "max"
+  ],
+  "domain": "code",
+  "task": "Переделай правила проверки пересечения периодов CONTEST_PERIOD так, чтобы учитывались наборы разных турниров и общие награды; сейчас часть наложений проходит молча. Нужно продумать модель правил и не сломать боевые данные."
+ },
+ {
+  "expect": "opus",
+  "effort": "high",
+  "effort_ok": [
+   "high",
+   "xhigh"
+  ],
+  "domain": "code",
+  "task": "Спроектируй и реализуй массовую правку полей выделенных строк в таблице записей редактора конкурса (этап 2): выбор строк, задание поля, зависимости от типа конкурса, откат, проверки, тесты и e2e."
+ },
+ {
+  "expect": "opus",
+  "effort": "xhigh",
+  "effort_ok": [
+   "high",
+   "max"
+  ],
+  "domain": "code",
+  "task": "Перепиши слияние версий CSV по ключам: сейчас при совпадении числовых и текстовых ключей часть строк теряется. Разберись в причине и поменяй алгоритм merge без потери обратной совместимости."
+ },
+ {
+  "expect": "opus",
+  "effort": "xhigh",
+  "effort_ok": [
+   "high",
+   "max"
+  ],
+  "domain": "ops",
+  "task": "Спроектируй миграцию базы с одной схемы на другую без простоя: план шагов, откат, проверки данных и тесты совместимости."
+ },
+ {
+  "expect": "opus",
+  "effort": "high",
+  "effort_ok": [
+   "high",
+   "xhigh"
+  ],
+  "domain": "analysis",
+  "task": "Проанализируй три коммерческих предложения поставщиков CRM, сравни их по стоимости владения за три года, рискам внедрения и интеграции с нашими системами и дай обоснованную рекомендацию руководству."
+ },
+ {
+  "expect": "opus",
+  "effort": "high",
+  "effort_ok": [
+   "high",
+   "xhigh"
+  ],
+  "domain": "planning",
+  "task": "Разработай стратегию выхода продукта на новый рынок: целевые сегменты, ценообразование, каналы продаж, риски и план действий на 12 месяцев."
+ },
+ {
+  "expect": "opus",
+  "effort": "high",
+  "effort_ok": [
+   "high",
+   "xhigh"
+  ],
+  "domain": "analysis",
+  "task": "Разберись, почему в сентябре упала конверсия в оплату: данные в трёх выгрузках, сформулируй гипотезы, проверь их на данных и сделай выводы с цифрами."
+ },
+ {
+  "expect": "opus",
+  "effort": "high",
+  "effort_ok": [
+   "high",
+   "xhigh"
+  ],
+  "domain": "legal",
+  "task": "Проверь договор аренды офиса на юридические риски для арендатора и предложи правки формулировок по каждому рискованному пункту."
+ },
+ {
+  "expect": "opus",
+  "effort": "xhigh",
+  "effort_ok": [
+   "high",
+   "max"
+  ],
+  "domain": "finance",
+  "task": "Перестрой финансовую модель: пересчитай прогноз выручки и денежного потока на три года с новыми допущениями по цене и оттоку; формулы связаны между листами, на цифры будет опираться совет директоров."
+ },
+ {
+  "expect": "opus",
+  "tier_ok": [
+   "opus",
+   "fable"
+  ],
+  "effort": "xhigh",
+  "effort_ok": [
+   "xhigh",
+   "max"
+  ],
+  "domain": "ops",
+  "lang": "en",
+  "task": "Rotate all production database credentials and API keys across 12 services without downtime: plan the order, verify each service after its switch and keep a rollback path for every step."
+ },
+ {
+  "expect": "opus",
+  "tier_ok": [
+   "opus",
+   "fable"
+  ],
+  "effort": "xhigh",
+  "effort_ok": [
+   "xhigh",
+   "max"
+  ],
+  "domain": "finance",
+  "task": "Перенеси бухгалтерию компании из старой системы в новую: остатки, проводки за три года, сверка оборотов по каждому счёту и план отката; ошибка в остатках ударит по налоговой отчётности."
+ },
+ {
+  "expect": "opus",
+  "effort": "xhigh",
+  "effort_ok": [
+   "high",
+   "max"
+  ],
+  "domain": "code",
+  "lang": "en",
+  "task": "Review our authentication flow for security vulnerabilities (session handling, password reset, OAuth callbacks) and propose fixes with tests for each finding."
+ },
+ {
+  "expect": "opus",
+  "effort": "xhigh",
+  "effort_ok": [
+   "high",
+   "max"
+  ],
+  "domain": "medical",
+  "task": "Составь график приёма лекарств для пожилого родственника по назначениям трёх разных врачей и проверь, нет ли опасных взаимодействий и дублирования препаратов."
+ },
+ {
+  "expect": "opus",
+  "effort": "xhigh",
+  "effort_ok": [
+   "high",
+   "max"
+  ],
+  "domain": "math",
+  "lang": "en",
+  "task": "Prove that the merge operation of our distributed counter CRDT is commutative, associative and idempotent, and point out any case where it is not."
+ },
+ {
+  "expect": "opus",
+  "effort": "xhigh",
+  "effort_ok": [
+   "high",
+   "max"
+  ],
+  "domain": "finance",
+  "lang": "en",
+  "task": "Build a five-year DCF valuation model for the acquisition with sensitivity tables for growth and discount rate; the board will decide on the deal based on it."
+ },
+ {
+  "expect": "opus",
+  "tier_ok": [
+   "opus",
+   "fable"
+  ],
+  "effort": "xhigh",
+  "effort_ok": [
+   "xhigh",
+   "max"
+  ],
+  "domain": "ops",
+  "lang": "en",
+  "task": "Upgrade the production Kubernetes cluster from 1.27 to 1.30 with zero downtime, including migrating deprecated APIs in all manifests and a tested rollback plan."
+ },
+ {
+  "expect": "fable",
+  "effort": "max",
+  "effort_ok": [
+   "max"
+  ],
+  "domain": "ops",
+  "task": "Спроектируй и проведи миграцию боевой базы платежей (PostgreSQL, 2 ТБ, работает 24/7) на новую схему шардирования без простоя и без потери транзакций: двойная запись, сверка данных, переключение трафика, откат. Ошибка означает потерю денег клиентов, а после переключения откатиться уже нельзя."
+ },
+ {
+  "expect": "fable",
+  "tier_ok": [
+   "opus",
+   "fable"
+  ],
+  "effort": "max",
+  "effort_ok": [
+   "xhigh",
+   "max"
+  ],
+  "domain": "finance",
+  "lang": "en",
+  "task": "Run tonight's irreversible production cutover of the payments clearing system to the new ledger: freeze, final reconciliation of every account, switch traffic; there is no way back after the switch and any mismatch means lost customer money."
+ },
+ {
+  "expect": "fable",
+  "tier_ok": [
+   "opus",
+   "fable"
+  ],
+  "effort": "max",
+  "effort_ok": [
+   "xhigh",
+   "max"
+  ],
+  "domain": "legal",
+  "task": "Удали навсегда персональные данные клиентов по требованию регулятора из боевой базы, всех реплик и бэкапов, не задев данные остальных; восстановить будет нельзя, а ошибка — это штраф и суд."
+ },
+ {
+  "expect": "haiku",
+  "effort": "low",
+  "effort_ok": [
+   "low"
+  ],
+  "explicit": true,
+  "domain": "household",
+  "task": "Ответь быстро и кратко: сколько дней в високосном году и почему он так называется?"
+ },
+ {
+  "expect": "opus",
+  "tier_ok": [
+   "opus"
+  ],
+  "effort": "max",
+  "effort_ok": [
+   "max"
+  ],
+  "explicit": true,
+  "domain": "finance",
+  "task": "Сделай на opus с effort max: проверь расчёт налога на имущество организации за год по приложенной таблице."
+ },
+ {
+  "expect": "haiku",
+  "tier_ok": [
+   "haiku"
+  ],
+  "effort": "low",
+  "effort_ok": [
+   "low",
+   "medium"
+  ],
+  "explicit": true,
+  "domain": "data",
+  "lang": "en",
+  "task": "Use haiku for this: convert the list to a markdown table — apples 3, pears 5, plums 2, cherries 9."
+ },
+ {
+  "expect": "opus",
+  "tier_ok": [
+   "opus",
+   "fable"
+  ],
+  "effort": "max",
+  "effort_ok": [
+   "max"
+  ],
+  "explicit": true,
+  "domain": "code",
+  "lang": "en",
+  "task": "ultrathink: design the sharding strategy for our multi-tenant event store and explain the trade-offs."
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "sonnet",
+   "opus"
+  ],
+  "effort": "high",
+  "effort_ok": [
+   "high",
+   "xhigh"
+  ],
+  "explicit": true,
+  "domain": "finance",
+  "task": "Подумай как следует и тщательно сравни два варианта ипотеки: ставка 16 % на 20 лет или 14 % на 25 лет с разовой комиссией 2 %."
+ },
+ {
+  "expect": "haiku",
+  "tier_ok": [
+   "haiku",
+   "sonnet"
+  ],
+  "effort": "low",
+  "effort_ok": [
+   "low"
+  ],
+  "explicit": true,
+  "domain": "code",
+  "lang": "en",
+  "task": "Quick answer, no need to think hard: is Python's list.sort stable?"
+ },
+ {
+  "expect": "haiku",
+  "tier_ok": [
+   "haiku",
+   "sonnet"
+  ],
+  "effort": "low",
+  "effort_ok": [
+   "low",
+   "medium"
+  ],
+  "explicit": true,
+  "domain": "code",
+  "task": "Не нужно глубоко разбираться, просто поправь отступы в файле config.yaml, чтобы он снова читался."
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "sonnet"
+  ],
+  "effort": "medium",
+  "effort_ok": [
+   "medium",
+   "high"
+  ],
+  "explicit": true,
+  "domain": "documents",
+  "lang": "en",
+  "task": "Don't use opus for this, sonnet is enough: rewrite the README introduction to sound friendlier."
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "sonnet",
+   "opus"
+  ],
+  "effort": "high",
+  "effort_ok": [
+   "high",
+   "xhigh"
+  ],
+  "explicit": true,
+  "domain": "finance",
+  "task": "Не торопись, проверь формулы в квартальном отчёте перед отправкой инвесторам: суммы, проценты, ссылки между листами."
+ },
+ {
+  "expect": "opus",
+  "tier_ok": [
+   "opus"
+  ],
+  "effort": "xhigh",
+  "effort_ok": [
+   "xhigh"
+  ],
+  "domain": "code",
+  "history": [
+   "Почини импорт CSV: он падает на файлах с BOM в начале",
+   "Опять не работает импорт CSV, та же ошибка на файлах с BOM"
+  ],
+  "task": "Всё ещё не работает, ошибка та же — разберись наконец с импортом CSV и проверь на файлах с BOM."
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "sonnet",
+   "opus"
+  ],
+  "effort": "high",
+  "effort_ok": [
+   "high",
+   "xhigh"
+  ],
+  "domain": "code",
+  "lang": "en",
+  "history": [
+   "Fix the date parsing bug in the invoice importer, dates from the CSV are wrong"
+  ],
+  "task": "Still broken: invoice dates are still off by one day after your fix. Look again."
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "sonnet",
+   "opus"
+  ],
+  "effort": "high",
+  "effort_ok": [
+   "high",
+   "xhigh"
+  ],
+  "domain": "code",
+  "history": [
+   "Сделай так, чтобы письма-уведомления о заказе не уходили клиентам дважды"
+  ],
+  "task": "Сделай так, чтобы письма-уведомления о заказе не уходили клиентам дважды"
+ },
+ {
+  "expect": "skip",
+  "task": "Спасибо, отлично получилось! Давай дальше по плану, как договорились."
+ },
+ {
+  "expect": "skip",
+  "task": "ок, продолжай"
+ },
+ {
+  "expect": "skip",
+  "task": "/commit с сообщением про исправление валидации формы входа"
+ },
+ {
+  "expect": "skip",
+  "task": "<task-notification>фоновая задача завершена, результат записан в файл отчёта</task-notification>"
+ },
+ {
+  "expect": "skip",
+  "task": "Thanks, looks good! Go ahead with the next item."
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "haiku",
+   "sonnet"
+  ],
+  "effort": "medium",
+  "effort_ok": [
+   "low",
+   "medium"
+  ],
+  "domain": "code",
+  "task": "Замени getUser на fetchUser в файле src/api/users.ts, строка 42, больше ничего не трогай.",
+  "source": "sources-2.7"
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "haiku",
+   "sonnet"
+  ],
+  "effort": "low",
+  "effort_ok": [
+   "low",
+   "medium"
+  ],
+  "domain": "code",
+  "task": "Поправь опечатку «recieve» на «receive» в README.md, в одном месте.",
+  "source": "sources-2.7"
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "haiku",
+   "sonnet"
+  ],
+  "effort": "medium",
+  "effort_ok": [
+   "low",
+   "medium"
+  ],
+  "domain": "code",
+  "task": "Переименуй переменную cfg в config в файле app/settings.py и поправь её использования в этом же файле.",
+  "source": "sources-2.7"
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "haiku",
+   "sonnet"
+  ],
+  "effort": "low",
+  "effort_ok": [
+   "low",
+   "medium"
+  ],
+  "domain": "code",
+  "task": "Что делает функция parse_date в utils/dates.py? Объясни кратко, без правок.",
+  "source": "sources-2.7"
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "haiku",
+   "sonnet"
+  ],
+  "effort": "low",
+  "effort_ok": [
+   "low",
+   "medium"
+  ],
+  "domain": "code",
+  "task": "Где используется константа MAX_RETRIES в проекте? Покажи список файлов и строки.",
+  "source": "sources-2.7"
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "haiku",
+   "sonnet"
+  ],
+  "effort": "medium",
+  "effort_ok": [
+   "low",
+   "medium",
+   "high"
+  ],
+  "domain": "code",
+  "task": "Во всех 40 файлах папки src замени импорт from old_lib import helpers на from new_lib import helpers, логику не меняй.",
+  "source": "sources-2.7"
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "haiku",
+   "sonnet"
+  ],
+  "effort": "medium",
+  "effort_ok": [
+   "low",
+   "medium",
+   "high"
+  ],
+  "domain": "writing",
+  "task": "Переведи строки из locales/en.json на немецкий язык, ключи не менять, механический перевод.",
+  "source": "sources-2.7"
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "sonnet"
+  ],
+  "effort": "medium",
+  "effort_ok": [
+   "medium",
+   "high"
+  ],
+  "domain": "code",
+  "task": "Добавь в CLI флаг --verbose, который печатает имя каждого обработанного файла; существующие тесты не должны сломаться.",
+  "source": "sources-2.7"
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "sonnet"
+  ],
+  "effort": "medium",
+  "effort_ok": [
+   "medium",
+   "high"
+  ],
+  "domain": "code",
+  "task": "Добавь поле phone в форму регистрации и в модель пользователя, по аналогии с полем email, и поправь валидацию.",
+  "source": "sources-2.7"
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "sonnet",
+   "opus"
+  ],
+  "effort": "high",
+  "effort_ok": [
+   "high",
+   "xhigh"
+  ],
+  "domain": "code",
+  "task": "Исправь баг: при пустом списке заказов отчёт падает с IndexError. Найди причину, исправь и добавь тест.",
+  "source": "sources-2.7"
+ },
+ {
+  "expect": "opus",
+  "tier_ok": [
+   "sonnet",
+   "opus"
+  ],
+  "effort": "high",
+  "effort_ok": [
+   "high",
+   "xhigh"
+  ],
+  "domain": "code",
+  "task": "Тесты в CI падают раз в несколько запусков в интеграционном модуле, локально воспроизвести не удаётся. Найди причину и устрани.",
+  "source": "sources-2.7"
+ },
+ {
+  "expect": "opus",
+  "tier_ok": [
+   "opus"
+  ],
+  "effort": "xhigh",
+  "effort_ok": [
+   "high",
+   "xhigh"
+  ],
+  "domain": "code",
+  "task": "Перенеси модуль авторизации с серверных сессий на JWT во всём проекте: около 30 файлов, обратная совместимость для старых клиентов, миграция данных, обновить тесты.",
+  "source": "sources-2.7"
+ },
+ {
+  "expect": "opus",
+  "tier_ok": [
+   "opus"
+  ],
+  "effort": "high",
+  "effort_ok": [
+   "high",
+   "xhigh"
+  ],
+  "domain": "code",
+  "task": "Выдели слой доступа к данным из бизнес-логики во всём репозитории, сохрани поведение и обнови тесты; план и по шагам проверка.",
+  "source": "sources-2.7",
+  "live_only": true
+ },
+ {
+  "expect": "opus",
+  "tier_ok": [
+   "opus"
+  ],
+  "effort": "xhigh",
+  "effort_ok": [
+   "high",
+   "xhigh",
+   "max"
+  ],
+  "domain": "security",
+  "task": "Проведи аудит безопасности сервиса оплаты: найди уязвимости в обработке платежей и сессий, опиши как проверить каждую.",
+  "source": "sources-2.7"
+ },
+ {
+  "expect": "opus",
+  "tier_ok": [
+   "opus"
+  ],
+  "effort": "xhigh",
+  "effort_ok": [
+   "xhigh",
+   "max"
+  ],
+  "domain": "security",
+  "task": "Найди и опиши уязвимости в нашем веб-приложении, которое работает на боевой платёжной базе; ошибка необратима, критично.",
+  "source": "sources-2.7",
+  "live_only": true
+ },
+ {
+  "expect": "opus",
+  "tier_ok": [
+   "sonnet",
+   "opus"
+  ],
+  "effort": "high",
+  "effort_ok": [
+   "high",
+   "xhigh"
+  ],
+  "domain": "research",
+  "task": "Проведи глубокое исследование: сравни три подхода к шардированию мультитенантной базы на 40 тысяч клиентов, оцени риски и дай рекомендацию с обоснованием.",
+  "source": "sources-2.7"
+ },
+ {
+  "expect": "opus",
+  "tier_ok": [
+   "opus",
+   "fable"
+  ],
+  "effort": "xhigh",
+  "effort_ok": [
+   "high",
+   "xhigh",
+   "max"
+  ],
+  "domain": "code",
+  "task": "Многочасовая автономная миграция по всей кодовой базе с Python 2 на 3: 800 файлов, зависимости, тесты, CI. Работай самостоятельно, отчитайся в конце.",
+  "source": "sources-2.7"
+ },
+ {
+  "expect": "opus",
+  "tier_ok": [
+   "opus",
+   "fable"
+  ],
+  "effort": "xhigh",
+  "effort_ok": [
+   "xhigh",
+   "max"
+  ],
+  "domain": "operations",
+  "task": "Проведи многочасовую автономную миграцию боевой базы платежей по всей кодовой базе без простоя: двойная запись, сверка, откат, аудит регулятора; ошибка необратима.",
+  "source": "sources-2.7"
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "haiku",
+   "sonnet"
+  ],
+  "effort": "low",
+  "effort_ok": [
+   "low",
+   "medium"
+  ],
+  "domain": "writing",
+  "task": "Напиши короткое поздравление коллеге с днём рождения, два-три предложения.",
+  "source": "sources-2.7"
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "sonnet",
+   "opus"
+  ],
+  "effort": "medium",
+  "effort_ok": [
+   "medium",
+   "high"
+  ],
+  "domain": "writing",
+  "task": "Напиши подробную техническую спецификацию API сервиса уведомлений: эндпоинты, схемы запросов и ответов, коды ошибок, версионирование.",
+  "source": "sources-2.7"
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "sonnet",
+   "opus"
+  ],
+  "effort": "high",
+  "effort_ok": [
+   "medium",
+   "high",
+   "xhigh"
+  ],
+  "domain": "data",
+  "task": "Проанализируй выгрузку продаж за три года (около 50 тысяч строк): найди сезонность и аномалии и предложи объяснения.",
+  "source": "sources-2.7"
+ },
+ {
+  "expect": "opus",
+  "tier_ok": [
+   "opus"
+  ],
+  "effort": "high",
+  "effort_ok": [
+   "high",
+   "xhigh"
+  ],
+  "domain": "code",
+  "history": [
+   "Добавь экспорт отчёта в CSV"
+  ],
+  "task": "Ты выдумал несуществующий метод export_csv() и не понял, как устроен слой отчётов. Переделай экспорт.",
+  "source": "sources-2.7"
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "sonnet"
+  ],
+  "effort": "high",
+  "effort_ok": [
+   "high",
+   "xhigh"
+  ],
+  "domain": "code",
+  "history": [
+   "Добавь экспорт отчёта в CSV"
+  ],
+  "task": "Ты пропустил два файла и не запустил тесты. Доделай экспорт и прогони все тесты.",
+  "source": "sources-2.7"
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "haiku",
+   "sonnet"
+  ],
+  "effort": "medium",
+  "effort_ok": [
+   "low",
+   "medium",
+   "high"
+  ],
+  "domain": "writing",
+  "task": "Опиши в таблице на одну страницу, чем отличаются модели haiku, sonnet и opus по цене, скорости и задачам.",
+  "source": "sources-2.7"
+ },
+ {
+  "expect": "sonnet",
+  "tier_ok": [
+   "sonnet",
+   "opus"
+  ],
+  "effort": "medium",
+  "effort_ok": [
+   "medium",
+   "high",
+   "xhigh"
+  ],
+  "domain": "code",
+  "task": "Убери в скрипте триажа подтверждение для модели Haiku, то есть на модели Haiku либо Fable запросы пользователю больше не задаются, но критерии выбора сделай строже.",
+  "source": "sources-2.7"
+ }
 ]

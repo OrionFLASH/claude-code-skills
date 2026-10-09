@@ -19,7 +19,8 @@
   g) калибровка — typesafe_triage.py --calibrate (triage_cases.json + журнал).
 Явные указания пользователя (directives в triage_heuristics) — согласие и приоритет над автооценкой.
 
-Полоса без вопросов: medium..xhigh. low и max — только с подтверждения (CONFIRM_EFFORTS); без него low→medium, max→xhigh.
+2.7.0: подтверждений больше нет — low и max ставятся без вопросов, но только при строгих условиях (см. LOW_*/MAX_*, правила ниже);
+вернуть вопросы: TYPESAFE_TRIAGE_CONFIRM=on (или список low,max). Опорные значения — references/sources.md (дефолты и роли уровней).
 Только стандартная библиотека, без сети.
 """
 import hashlib
@@ -31,8 +32,22 @@ from pathlib import Path
 
 EFFORTS = ["low", "medium", "high", "xhigh", "max"]
 DEFAULT_EFFORT = "high"            # если оценки нет совсем
-# Крайние уровни — только с подтверждения пользователя (AskUserQuestion); значение — ближайший безопасный.
-CONFIRM_EFFORTS = {"low": "medium", "max": "xhigh"}
+CONFIRM_ENV = "TYPESAFE_TRIAGE_CONFIRM"
+
+
+def confirm_names(environ=None):
+    """2.7.0: какие крайние значения требуют подтверждения пользователя. По умолчанию — никакие (строгие критерии вместо вопроса).
+    TYPESAFE_TRIAGE_CONFIRM=on|all — как раньше (haiku, fable, low, max); список «haiku,fable» — выборочно."""
+    v = ((environ if environ is not None else os.environ).get(CONFIRM_ENV) or "").strip().lower()
+    if v in ("on", "all", "1", "true", "yes"):
+        return {"haiku", "fable", "low", "max"}
+    if v in ("", "off", "0", "false", "no", "none"):
+        return set()
+    return {x for x in re.split(r"[,\s;]+", v) if x in ("haiku", "fable", "low", "max")}
+
+
+# Крайние уровни — по умолчанию без вопросов (2.7.0); при включённом подтверждении (AskUserQuestion) значение — ближайший безопасный.
+CONFIRM_EFFORTS = {k: v for k, v in {"low": "medium", "max": "xhigh"}.items() if k in confirm_names()}
 # xhigh по умолчанию без вопроса (только предупреждение о расходе). Чтобы спрашивать и его — добавьте эту пару в
 # CONFIRM_EFFORTS (safe_effort пройдёт цепочку max → xhigh → high).
 OPTIONAL_CONFIRM_EFFORTS = {"xhigh": "high"}
@@ -50,12 +65,16 @@ EFFORT_WEIGHTS = {
     "novel_design": 0.04,
 }
 # Пороги «глубина → уровень» (нижняя граница уровня). Подобраны --calibrate на обучающей части кейсов.
-EFFORT_CUTS = {"medium": 0.22, "high": 0.45, "xhigh": 0.70, "max": 0.84}
+EFFORT_CUTS = {"medium": 0.22, "high": 0.45, "xhigh": 0.70, "max": 0.85}   # 2.7.0: max строже (0,84 → 0,85; предел глубины TypeSafe ≈ 0,87): без вопроса, плюс уверенность ≥ 0,8, критичность, opus/fable
 EFF_HEUR_RAISE = 0.5               # доля превышения «текст над TypeSafe», добавляемая к глубине (вниз текст не тянет)
-LOW_TS_MAX = 0.18                  # low: глубина TypeSafe не выше …
+LOW_TS_MAX = 0.15                  # low: глубина TypeSafe не выше … (2.7.0: 0,18 → 0,15)
 LOW_TEXT_MAX = 0.30                # … и глубина текста не выше, нет диагностики/критичности/«глубоких» слов
-CONF_LOW = 0.6                     # для low уверенность осей не ниже
-MAX_CONF = 0.7                     # для max уверенность не ниже, плюс признак критичности (риск наверху / необратимость)
+CONF_LOW = 0.7                     # для low уверенность осей не ниже (2.7.0: 0,6 → 0,7)
+MAX_CONF = 0.8                     # для max уверенность не ниже (2.7.0: 0,7 → 0,8), плюс признак критичности (риск наверху / необратимость)
+MAX_TIERS = ("opus", "fable")      # 2.7.0: max только на opus/fable (R8: на sonnet xhigh/max — только если замеры показывают выигрыш)
+SONNET_EFFORT_MAX = "xhigh"
+HAIKU_EFFORT_MIN = "medium"        # 2.7.0 (R7): haiku на low пропускает поиск и проверки в агентных задачах → не ниже medium …
+HAIKU_LOW_READ = 0.8               # … кроме чистого чтения/справки (read_only не ниже этого)
 MAX_TEXT_MIN = 0.45                # … и текст согласен (слова критичности или глубина текста не ниже)
 EFF_CONF_ESCALATE = 0.5            # низкая уверенность у границы (≤ EFF_ESC_MARGIN) → +1 ступень (не в max)
 EFF_ESC_MARGIN = 0.06
@@ -330,11 +349,11 @@ def read_history(log_path, session, now=None):
     return out
 
 
-def history_escalation(records, retry_now, prompt_id=None):
+def history_escalation(records, retry_now, prompt_id=None, kind=None):
     """→ (ступени effort, ступени модели, причины). Считаются подряд идущие повторы, заканчивающиеся текущим запросом.
     Потолок HISTORY_MAX_STEPS — сколько бы раз подряд ни было «опять не работает»."""
     same = SAME_PROMPT_IS_RETRY and prompt_id and any(r.get("id") == prompt_id for r in records)
-    if not (retry_now or same):
+    if not (retry_now or same or kind):
         return 0, 0, []
     streak = 1
     for r in reversed(records):
@@ -344,9 +363,14 @@ def history_escalation(records, retry_now, prompt_id=None):
             break
     e_steps = min(streak, HISTORY_MAX_STEPS)
     m_steps = 1 if streak >= HISTORY_MODEL_AFTER else 0
-    why = ["история: %s, повтор №%d подряд → effort +%d%s" % (
+    cause = ""
+    if kind == "effort":       # 2.7.0 (R2): «пропустила, не запустила тесты, бросила» — не старалась → глубже, а не мощнее
+        e_steps, m_steps, cause = min(streak + 1, HISTORY_MAX_STEPS), 0, "не старалась (пропуск/недоработка) → только effort"
+    elif kind in ("knowledge", "both"):   # «выдумала, не поняла, не тот подход» — не знала → мощнее модель (и чуть глубже)
+        e_steps, m_steps, cause = min(max(streak, 1), HISTORY_MAX_STEPS), 1, "не знала (непонимание/выдумка) → модель +1"
+    why = ["история: %s, повтор №%d подряд → effort +%d%s%s" % (
         "тот же запрос" if same and not retry_now else "признаки неудачи/повтора", streak, e_steps,
-        ", модель +1" if m_steps else "")]
+        ", модель +1" if m_steps else "", ("; " + cause) if cause else "")]
     if streak > HISTORY_MAX_STEPS:
         why.append("потолок эскалации за сессию %d ступени" % HISTORY_MAX_STEPS)
     return e_steps, m_steps, why
@@ -428,6 +452,18 @@ def decide_effort(m, h, tier, env=None, hist=(0, 0, []), d=None, min_conf=None):
     if tier == "haiku" and idx(e) > idx(HAIKU_EFFORT_MAX):
         e = HAIKU_EFFORT_MAX
         why.append("e) haiku → не выше %s" % HAIKU_EFFORT_MAX)
+    if tier == "haiku" and e == "low" and v.get("read_only", 0) < HAIKU_LOW_READ:
+        e = HAIKU_EFFORT_MIN
+        why.append("e) haiku + low только для чистого чтения (иначе пропускает проверки) → %s" % HAIKU_EFFORT_MIN)
+    if tier == "haiku" and v.get("read_only", 0) >= HAIKU_LOW_READ and idx(e) > idx("medium"):
+        e = "medium"                       # чистое чтение на haiku глубже medium не нужно
+        why.append("e) haiku + чистое чтение → не выше medium")
+    if tier == "sonnet" and idx(e) > idx(SONNET_EFFORT_MAX):
+        e = SONNET_EFFORT_MAX
+        why.append("e) sonnet → не выше %s" % SONNET_EFFORT_MAX)
+    if e == "max" and tier not in MAX_TIERS and not (d and d.get("effort")):
+        e = "xhigh"
+        why.append("e) max только на opus/fable → xhigh")
     if tier == "fable" and idx(e) < idx(FABLE_EFFORT_MIN):
         e = FABLE_EFFORT_MIN
         why.append("e) fable → не ниже %s" % FABLE_EFFORT_MIN)
