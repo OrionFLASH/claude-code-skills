@@ -5,6 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import json
+import os
 import re
 
 import pytest
@@ -287,7 +288,7 @@ def test_log_skips_chatter_and_is_private(tmp_path):
     assert not t.LOG_PATH.exists()
     t.log("правка кода password=" + "hunter2", {"model": "sonnet", "source": "heuristic", "reason": "r"})
     assert "hunter2" not in t.LOG_PATH.read_text(encoding="utf-8")
-    assert oct(t.LOG_PATH.stat().st_mode & 0o777) == "0o600"
+    assert os.name == "nt" or oct(t.LOG_PATH.stat().st_mode & 0o777) == "0o600"
 
 
 def test_harness_messages_are_not_sent(monkeypatch, capsys):

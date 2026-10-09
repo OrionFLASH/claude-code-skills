@@ -66,7 +66,7 @@ _CARD_PREFIX = re.compile(r"^(?:4\d{12}(?:\d{3}(?:\d{3})?)?|5[1-5]\d{14}|2(?:2[2
                           r"220[0-4]\d{12}|35(?:2[89]|[3-8]\d)\d{12}|62\d{14,17}|30[0-5]\d{11}|3[689]\d{12})$")
 
 # ---------- secret ----------
-_PWD_KW = (r"(?:парол\w*|пасс?ворд\w*|passw(?:or)?d\w*|passwd|pwd|passphrase|парольн\w+\s+фраз\w*|кодов\w+\s+слов\w*|"
+_PWD_KW = (r"(?:(?:[\w]{2,12}[-‑])?парол\w*|(?:[\w]{2,12}[-‑])?passw(?:or)?d\w*|пасс?ворд\w*|passw(?:or)?d\w*|passwd|pwd|passphrase|парольн\w+\s+фраз\w*|кодов\w+\s+слов\w*|"
            r"пин[- ]?код\w*|pin(?:[- ]?code)?|pass(?=[\"']?\s*[:=]))")
 _OF_ITEM = r"(?:\s+(?:от|для|к|на|в|of|for|to|on)\s+[\w.@/-]{1,60})"
 _OF = _OF_ITEM + "{0,2}"
@@ -74,7 +74,13 @@ _GAP = r"(?:\s+[\w.@/-]{1,40}){0,3}"                  # «пароль адми�
 PWD_STRONG_RE = re.compile(r"(?<![\w-])" + _PWD_KW + _GAP + _SEP + _VALUE, _I)
 PIN_RE = re.compile(r"(?<![\w-])(?:пин(?:[- ]?код\w*)?|pin(?:[- ]?code)?)\s+(?:карты\s+|от\s+\S+\s+)?(?P<v>\d{4,6})(?!\d)", _I)
 PWD_DASH_RE = re.compile(r"(?<![\w-])(?:парол\w*|passw(?:or)?d\w*|pwd|пин[- ]?код\w*)" + _OF + r"\s+[—–-]\s+" + _VALUE, _I)
-PWD_WEAK_RE = re.compile(r"(?<![\w-])(?P<kw>парол[ьяю]|password|passwd)(?P<of>" + _OF + r")\s+(?P<is>(?:это|is|будет|теперь|такой|now)\s+)?(?P<v>[^\s\"'`,;:.!?()]{4,120})", _I)
+PWD_WEAK_RE = re.compile(r"(?<![\w-])(?P<pre>[\w]{2,12}[-‑])?(?P<kw>парол[ьяю]|password|passwd)(?P<of>" + _OF + r")\s+(?P<is>(?:это|is|будет|теперь|такой|now)\s+)?(?P<v>[^\s\"'`,;:.!?()]{1,120})", _I)
+FUNCTION_WORDS = frozenset("в на и не для от это к с по из за что как или то но а же ли бы у о об при до без под над the a an to of in on for is are was be not "
+                           "and or it this that with from by at as".split())
+# токен без известного префикса рядом со словом «ключ»/«key»/«token»: смесь регистров и цифр, от 16 знаков
+KEY_NEAR_RE = re.compile(r"(?<![\w-])(?:ключ\w*|key|token|токен\w*|secret|секрет\w*)(?![\w-])[^\n]{0,40}?(?<![\w-])(?P<v>(?=[A-Za-z0-9_\-]*\d)(?=[A-Za-z0-9_\-]*[a-z])"
+                         r"(?=[A-Za-z0-9_\-]*[A-Z])[A-Za-z0-9_\-]{16,})(?![\w-])", _I)
+PREFIXED_KEY_RE = re.compile(r"\b[a-z]{2,8}_(?:live|test|prod|secret)_[A-Za-z0-9]{8,}\b")
 WEAK_COMMON = frozenset("admin root qwerty password secret letmein welcome default guest test master dragon monkey changeme".split())
 WEAK_PROSE = frozenset("reset validation field input manager policy strength hashing hashed hash storage form page change length check rules complexity "
                        "expiry expiration required optional encryption encrypted generator recovery should must cannot does doesn must".split())
@@ -214,10 +220,18 @@ def find(text):
         add("password", m, "v")
     for m in PWD_WEAK_RE.finditer(text):
         v = m.group("v")
-        if v.lower().rstrip(".") in WEAK_PROSE:
+        low = v.lower().rstrip(".")
+        if low in WEAK_PROSE or low in FUNCTION_WORDS:
             continue
-        if _looks_secret_value(v) or (m.group("is") and len(v) >= 4 and v.isascii() and v.isalnum()):
+        if v.isdigit():                                    # «пароль 1» — число никогда не слово из фразы
             add("password", m, "v")
+        elif m.group("pre") and not re.fullmatch(r"[а-яё]{3,}", v):   # «sudo-пароль x», «wifi-password x»: значение; русское слово — проза
+            add("password", m, "v")
+        elif len(v) >= 4 and (_looks_secret_value(v) or (m.group("is") and v.isascii() and v.isalnum())):
+            add("password", m, "v")
+    for rx in (KEY_NEAR_RE, PREFIXED_KEY_RE):
+        for m in rx.finditer(text):
+            add("token", m, "v" if rx is KEY_NEAR_RE else None)
     for rx in (ENV_RE, KEYVAL_RE):
         for m in rx.finditer(text):
             if _plausible_value(m.group("v")):

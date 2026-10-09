@@ -105,13 +105,13 @@ def test_where_understands_guarded_manual_hook_from_install_md(tmp_path):
            'else echo \'{"systemMessage":"TypeSafe-триаж пропущен: скрипт хука не найден, проверьте установку (--where)"}\'; fi')
     (home / ".claude" / "settings.json").write_text(json.dumps({"hooks": {"UserPromptSubmit": [{"hooks": [{"command": cmd}]}]}}))
     entries = t.hook_entries([home / ".claude" / "settings.json"], str(home))
-    assert entries and entries[0][2] == str(home / ".claude/skills/typesafe-triage/scripts/typesafe_triage.py")
+    assert entries and Path(entries[0][2]) == home / ".claude" / "skills" / "typesafe-triage" / "scripts" / "typesafe_triage.py"
     assert entries[0][3] is False
 
 
 def test_guard_hints_use_real_path_not_fixed_skills_dir():
     p = t.guard.SCRIPT.strip('"').replace("$HOME", os.path.expanduser("~"))
-    assert os.path.isfile(p) and ".claude/skills/typesafe-triage" not in t.guard.SCRIPT.replace(str(SKILL), "")
+    assert os.path.isfile(p) and Path(p).resolve() == (SKILL / "scripts" / "typesafe_triage.py").resolve()
 
 
 # ---------- T-1: активная задача и наследование ----------

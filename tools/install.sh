@@ -24,7 +24,9 @@ for name in "$@"; do
     [[ "$(readlink "$dst")" == "$src" ]] && { echo "OK    $name (уже установлен)"; continue; }
     rm "$dst"
   elif [[ -e "$dst" ]]; then
-    echo "SKIP  $name: $dst существует и не является симлинком — удалите вручную"; continue
+    echo "SKIP  $name: $dst существует и не является симлинком — удалите вручную"
+    [[ -e "$dst/$name" ]] && echo "WARN  $name: внутри $dst есть вложенная папка '$name' (копия легла внутрь старой). Удалите её и обновите поверх: cp -r <новая>/. $dst/"
+    continue
   fi
   ln -s "$src" "$dst"; echo "LINKED $dst -> $src"
 done

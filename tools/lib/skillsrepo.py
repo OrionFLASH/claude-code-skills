@@ -133,6 +133,23 @@ def vendor_shared(skill):
 
 # ---------- sync ----------
 
+def _sums():
+    sys.path.insert(0, str(SHARED_SCRIPTS))
+    try:
+        import skill_sums
+    finally:
+        sys.path.pop(0)
+    return skill_sums
+
+
+def refresh_sums(skill):
+    """Скилы с файлом SHA256SUMS (2.6.0, #48: проверяемость обновлений) — пересчитать суммы после vendor_shared."""
+    if (skill / "SHA256SUMS").exists():
+        ss = _sums()
+        (skill / "SHA256SUMS").write_text(ss.generate(skill), encoding="utf-8", newline="\n")
+        print(f"sums: {(skill / 'SHA256SUMS').relative_to(ROOT)}")
+
+
 def sync(names=None):
     """Привести таблицу README и marketplace.json в соответствие plugin.json скилов."""
     market = load_json(MARKETPLACE)
@@ -140,6 +157,7 @@ def sync(names=None):
     for skill in skill_dirs(names):
         vendor_shared(skill)
         info = plugin_info(skill)
+        refresh_sums(skill)
         entry = plugins.get(info["name"], {})
         entry.update({
             "name": info["name"],
@@ -273,6 +291,8 @@ def validate(names=None):
                 e(f"{label} не существует (.shared)")
             elif not dst.exists() or dst.read_bytes() != src.read_bytes():
                 e(f"{dst.relative_to(skill).as_posix()} устарел или отсутствует — запустите tools/validate.sh --fix")
+        if (skill / "SHA256SUMS").exists() and _sums().generate(skill) != (skill / "SHA256SUMS").read_text(encoding="utf-8"):
+            e("SHA256SUMS устарел — запустите tools/validate.sh --fix (и закоммитьте файл вместе с изменениями)")
         for p in scan_secrets(skill):
             e(p)
     for w in warnings:

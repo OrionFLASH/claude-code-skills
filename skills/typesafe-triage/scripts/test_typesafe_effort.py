@@ -416,7 +416,7 @@ def test_second_hook_call_for_same_prompt_is_silent(monkeypatch, capsys):
     assert hook_raw(monkeypatch, capsys, dict(p, session_id="sess-2"))    # другая сессия — говорит
     d = t.guard.HOME / t.DEDUP_NAME
     files = list(d.iterdir())
-    assert files and all(oct(f.stat().st_mode & 0o777) == "0o600" for f in files)
+    assert files and (os.name == "nt" or all(oct(f.stat().st_mode & 0o777) == "0o600" for f in files))
     assert all(set(json.loads(f.read_text())) == {"state", "pid", "ts"} for f in files)   # 2.2: состояние без текста
     assert all("квартал" not in f.name and len(f.name) == 32 for f in files)   # только хеш, без текста
     old = time.time() - t.DEDUP_S - 1

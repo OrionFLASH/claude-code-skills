@@ -56,7 +56,8 @@ def test_paths_env_and_flag(tmp_path):
     assert plog.log_path(str(sub), environ={plog.ENV: "on"}) == root / plog.FILE_NAME       # корень git-репозитория
     assert plog.log_path(str(sub), environ={plog.ENV: "logs/triage.jsonl"}) == root / "logs" / "triage.jsonl"
     assert plog.log_path(str(sub), value=True, environ={}) == root / plog.FILE_NAME
-    assert plog.log_path(str(sub), value="/x/y.jsonl", environ={}) == Path("/x/y.jsonl")
+    explicit = plog.log_path(str(sub), value="/x/y.jsonl", environ={})
+    assert explicit.name == "y.jsonl" and explicit.is_absolute()          # на Windows добавляется буква диска
     assert plog.log_path(str(sub), environ={plog.ENV: "off"}) is None
 
 

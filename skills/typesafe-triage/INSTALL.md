@@ -220,16 +220,20 @@ macOS / Linux:
 
 ```bash
 git clone https://github.com/OrionFLASH/claude-code-skills.git ~/dev/claude-code-skills
-cd ~/dev/claude-code-skills && tools/install.sh typesafe-triage
+cd ~/dev/claude-code-skills && git checkout typesafe-triage/v2.6.0   # релиз по тегу, а не main (версии — в CHANGELOG.md)
+tools/install.sh typesafe-triage
 ```
+
+Хук скилла выполняет его код на каждом запросе, поэтому ставьте **по тегу** и читайте [CHANGELOG.md](CHANGELOG.md) перед обновлением; релизы с исправлениями безопасности помечены «🔒» — их стоит ставить сразу, остальные можно копить. Проверка установленной копии: `typesafe_triage.py --verify` (сверка с `SHA256SUMS`), `--verify --remote` (ещё и с файлом сумм тега на GitHub).
 
 Windows (PowerShell) — junction на клон (как симлинк: `git pull` подхватывается сразу, права администратора не нужны) или копия:
 
 ```powershell
 git clone https://github.com/OrionFLASH/claude-code-skills.git $HOME\dev\claude-code-skills
 cd $HOME\dev\claude-code-skills
+git checkout typesafe-triage/v2.6.0
 powershell -ExecutionPolicy Bypass -File tools\install.ps1 typesafe-triage
-# или копией:
+# или копией (только если папки $HOME\.claude\skills\typesafe-triage ещё нет — иначе новая ляжет ВНУТРЬ старой, см. «Обновление на Windows»):
 # New-Item -ItemType Directory -Force $HOME\.claude\skills | Out-Null
 # Copy-Item -Recurse $HOME\dev\claude-code-skills\skills\typesafe-triage $HOME\.claude\skills\typesafe-triage
 ```
@@ -363,6 +367,7 @@ python3 "$S/typesafe_triage.py" --check
 - Effort по заметке: если у Agent есть параметр effort — Agent(model=<уровень>, effort=<effort>), это моё явное требование (параметр ставится только по явной просьбе пользователя, CLAUDE.md или скилла). Если параметра нет — не ссылайся на него (это не ошибка): глубину задай фразой в промпте агента из заметки, а когда заметка предлагает `--run` и работа изолируемая — запусти её так.
 - Уровни haiku и fable, effort low и max — только после подтверждения через AskUserQuestion (один вопрос на обе оси); нет «да» → sonnet/opus, medium/xhigh. Явное указание в моём запросе («на opus», «effort max», «тщательно», «используй субагента», «сделай сам») — уже согласие.
 - Нет заметки на короткое продолжение («продолжай», «и ещё…») — решение прежнее. Нет ни заметки, ни строки «TypeSafe-триаж пропущен» на новую задачу — хук не работает: один раз запусти --check и скажи мне одной строкой, что починить.
+- При любом вызове Agent указывай model явно (из заметки или по уровню подзадачи), а не наследуй модель сессии. Однотипные подзадачи (переводы, проверки по списку, поиск) оценивай отдельно: механические — sonnet.
 - Субагентам скилл typesafe-triage не применять; строка Co-Authored-By у исполнителя — его собственная (его фактическая модель).
 ```
 
@@ -386,9 +391,18 @@ Select-String '"version"' "$S\..\.claude-plugin\plugin.json"
 | Установка | Команды |
 |---|---|
 | Клон + симлинк (macOS / Linux) или junction (Windows) | `git pull` в папке клона (например, `~/dev/claude-code-skills`) |
-| Клон + копирование | `git pull` в клоне, затем перенести старую папку скилла в `~/.claude/backups/typesafe-triage.bak-ГГГГММДД` (**не** внутрь `~/.claude/skills`) и скопировать новую из `skills/typesafe-triage` |
+| Клон + копирование | `git fetch --tags` в клоне, `git checkout typesafe-triage/v<версия>`, затем перенести старую папку скилла в `~/.claude/backups/typesafe-triage.bak-ГГГГММДД` (**не** внутрь `~/.claude/skills`) и скопировать новую из `skills/typesafe-triage`; на Windows — см. «Обновление на Windows» ниже |
 | Маркетплейс | `/plugin marketplace update claude-code-skills`, затем `/plugin update typesafe-triage@claude-code-skills` (или `claude plugin marketplace update claude-code-skills` и `claude plugin update typesafe-triage@claude-code-skills`), перезапуск Claude Code |
-| ZIP | скачать репозиторий заново, заменить папку `skills/typesafe-triage` в `~/.claude/skills/` (старую — в `~/.claude/backups/typesafe-triage.bak-ГГГГММДД`) |
+| ZIP | скачать репозиторий заново (лучше архив тега `typesafe-triage/v<версия>`), заменить папку `skills/typesafe-triage` в `~/.claude/skills/` (старую — в `~/.claude/backups/typesafe-triage.bak-ГГГГММДД`); на Windows — см. «Обновление на Windows» ниже |
+
+**Обновление на Windows (копия или ZIP).** Переименование старой папки падает с `Permission denied`, если её держит другой процесс: другая сессия Claude Code или оболочка, рабочий каталог которой внутри `scripts`. Порядок:
+
+1. Закройте остальные сессии Claude Code и окна PowerShell, у которых текущая папка внутри `%USERPROFILE%\.claude\skills\typesafe-triage`.
+2. Полная копия старой: `Copy-Item -Recurse $HOME\.claude\skills\typesafe-triage $HOME\.claude\backups\typesafe-triage.bak-ГГГГММДД`.
+3. Не получилось переименовать — **не копируйте новую папку командой `Copy-Item -Recurse новая старая` / `cp -r новая старая`**: если `старая` существует, новая ляжет подпапкой внутрь старой и появится второй скилл с тем же именем. Обновите поверх: `Copy-Item -Recurse -Force $HOME\dev\claude-code-skills\skills\typesafe-triage\* $HOME\.claude\skills\typesafe-triage\` (bash: `cp -r новая/. старая/`). Файлы, удалённые в новой версии, останутся — после обновления выполните `--verify` и уберите «лишние» файлы, которые он покажет.
+4. Проверьте, что вложенной папки нет: `Test-Path $HOME\.claude\skills\typesafe-triage\typesafe-triage` должно вернуть `False`.
+
+`tools\install.ps1` и `tools/install.sh` при таком состоянии (папка существует и не ссылка) пропускают скилл, а если находят вложенную папку `<имя>/<имя>`, прямо об этом пишут.
 
 **2. Хук** в `settings.json` (`~/.claude/settings.json`, Windows: `%USERPROFILE%\.claude\settings.json`): один хук `UserPromptSubmit` на `typesafe_triage.py --hook`, путь актуальный (не в старую версионную папку плагина), `timeout` не меньше 10. Готовые блоки — в [шаге 3](#шаг-3-хук-без-него-заметки-typesafe-триаж-не-появятся). При установке плагином хук приносит сам плагин, ручной тогда не нужен (иначе их будет два).
 
@@ -418,6 +432,11 @@ Select-String '"version"' "$S\..\.claude-plugin\plugin.json"
 ### Откат
 Верните папку `typesafe-triage.bak-ГГГГММДД` из `~/.claude/backups/` на место (под именем `typesafe-triage`), а из `settings.json` и `CLAUDE.md` — резервные копии `.bak-ГГГГММДД`. При установке из клона нужную версию можно взять по тегу `typesafe-triage/v<версия>`. Ключ и журнал откат не затрагивает.
 
+## Опции (2.6, выключены по умолчанию)
+- `TYPESAFE_TRIAGE_DELEGATE_DOWN=on` — рутинную изолируемую работу отдавать субагенту на рекомендованном уровне ниже модели сессии («sonnet достаточно — субагент дешевле»).
+- `TYPESAFE_TRIAGE_ECONOMY=on` — на сессии opus/fable не обращаться к TypeSafe за запросами без риска и объёма (экономит ≈ 1 с на запрос).
+- Задать можно переменной окружения (`env` в `settings.json`) или ключом в `~/.claude/typesafe-triage/config.json` (`"delegate_down": true`, `"economy": true`). Нужны ли они, покажет `typesafe_triage.py --report`.
+
 ## Приватность и выключатели
 - Секреты и персональные данные (пароли на русском и английском, seed-фразы, ключи, токены, номера карт, e-mail, телефоны) маскируются до отправки в TypeSafe и до записи в журнал; запрос с приватным ключом, seed-фразой или номером карты в TypeSafe не уходит вовсе (с 2.5). Политика — `TYPESAFE_TRIAGE_SECRETS=block` (по умолчанию) | `strict` (любая находка → не отправлять) | `mask` (только маскировать); проверить, что найдёт проверка: `typesafe_triage.py --scan "текст"` (значения не печатаются). Подробно — `references/privacy.md`.
 - В TypeSafe уходит дайджест каждого запроса длиннее 40 символов (до 4500 знаков; ключи, токены и пароли заменяются на «[скрыто]»). Для короткого продолжения («продолжай …») к нему добавляется одна строка «активная задача» — первый открытый пункт `TASKS.md` проекта (до 200 знаков, с маскировкой); выключить — `TYPESAFE_TRIAGE_CONTEXT=off`. Другие файлы проекта не отправляются.
@@ -427,6 +446,9 @@ Select-String '"version"' "$S\..\.claude-plugin\plugin.json"
 ## Если не работает
 | Симптом | Что проверить |
 |---|---|
+| `ПАУЗА: region … HTTP 451` / «TypeSafe недоступен из текущей сети» | с 2.6: TypeSafe не работает в регионе вашей сети; повторов нет, раз в час проверка; смените сеть и выполните `--resume`, либо оставьте локальную эвристику (до 2.6 такой ответ считался временным сбоем с растущими паузами) |
+| Запрос, начатый с пути (`/Users/…/файл.md …`), пропущен как «команда /…» | версия до 2.6: любое слово с `/` в начале считалось командой; обновите скилл |
+| `--verify` показывает «ИЗМЕНЁН»/«ОТСУТСТВУЕТ» | копия не совпадает с релизом (порча, правка, неполное обновление): обновите скилл по тегу; `--verify --remote` сверит и файл сумм с тегом на GitHub |
 | Слэш-вызов `/typesafe-triage:typesafe-triage …` не дал заметки: «пропущен: команда /…» | версия до 2.4.2: хук пропускал любые команды `/…`. Обновите скилл и перезапустите Claude Code. Принудительный запуск есть и без слэша: `triage: …`, `!triage opus/high …`, «сделай триаж» (раздел в `SKILL.md`) |
 | Слэш-вызов `/typesafe-triage:typesafe-triage …` не дал заметки: «пропущен: команда /…» | версия до 2.4.2: хук пропускал любые команды `/…`. Обновите скилл и перезапустите Claude Code. Принудительный запуск есть и без слэша: `triage: …`, `!triage opus/high …`, «сделай триаж» (раздел в `SKILL.md`) |
 | «пропущен: служебное сообщение среды» на обычную задачу | версия до 2.4.1: запрос с `<system-reminder>`, `<ide_selection>` или вставленным HTML/XML в начале считался служебным. Обновите скилл и перезапустите Claude Code; с 2.4.1 служебные блоки среды вырезаются, остальное оценивается |
