@@ -1,0 +1,23 @@
+#!/bin/sh
+# qa <serial|-> <command> [args…] — short call of adb_helpers.py for zsh and bash (instead of A="python3 …"; $A …,
+# which zsh does not split into words). Adds --serial <serial> and, if QA_RUN_DIR (or ANDROID_QA_RUN_DIR) is set,
+# --run-dir "$QA_RUN_DIR". «-» instead of a serial: ANDROID_SERIAL or the only device.
+#   export QA_RUN_DIR=/abs/path/qa-runs/2026-10-09-com.example.app
+#   <SKILL_DIR>/scripts/qa emulator-5554 dump-ui --texts
+#   <SKILL_DIR>/scripts/qa emulator-5554 tap --text "Далее" --expect-change
+#   <SKILL_DIR>/scripts/qa emulator-5556 job start --name rec30 -- soak --minutes 30 --every 60
+# Windows: scripts/qa.ps1 with the same arguments.
+HERE="$(cd "$(dirname "$0")" && pwd)"
+PY="${PYTHON:-$(command -v python3 || command -v python)}"
+if [ $# -lt 2 ]; then
+  echo "usage: qa <serial|-> <adb_helpers.py command> [args…]   (QA_RUN_DIR — папка прогона)" >&2
+  exit 2
+fi
+SERIAL="$1"; CMD="$2"; shift 2
+RD="${QA_RUN_DIR:-${ANDROID_QA_RUN_DIR:-}}"
+if [ "$SERIAL" = "-" ]; then
+  if [ -n "$RD" ]; then exec "$PY" "$HERE/adb_helpers.py" "$CMD" --run-dir "$RD" "$@"; fi
+  exec "$PY" "$HERE/adb_helpers.py" "$CMD" "$@"
+fi
+if [ -n "$RD" ]; then exec "$PY" "$HERE/adb_helpers.py" "$CMD" --serial "$SERIAL" --run-dir "$RD" "$@"; fi
+exec "$PY" "$HERE/adb_helpers.py" "$CMD" --serial "$SERIAL" "$@"

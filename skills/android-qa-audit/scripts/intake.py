@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Parse a free-form request into a draft run-config.yaml for android-qa-audit (to be confirmed by the user).
 
-  intake.py from-text [--text "…" | --file request.txt | -] [--output-dir DIR] [--out run-config.yaml] [--json]
+  intake.py from-text [--text "…" | --file request.txt | -] [--output-dir DIR] [--out run-config.yaml] [--json] [--lite]
       Extracts: APK/AAB/APKS paths, package name of an installed app, Android versions (API levels or
       «Android 13»), hardware (RAM, cores, storage, low-end phone, tablet, foldable, small screen), runtime
       variants (dark theme, font scale, landscape, RTL/locale, network, battery, Doze, time zone), test kinds,
@@ -10,8 +10,13 @@
       notifications, Bluetooth, contacts — get typical RU+EN texts, camera packages and an "Allow" rule for the
       permission dialog, marked «проверить на разведке»), GitHub repositories, mode, parallel threads
       (parallel.max_workers 1..4), explicit permission to commit results / APK (git.allow_commit_results / _apk).
-      Everything not recognised is listed under "needs confirmation". The draft is NOT final: show it to the
-      user and wait for «старт» (references/intake.md).
+      Publication disclosure (publish.disclosure: tool by default; none only when the user asks for no mention of
+      the tool), hints: Cyrillic input (text --clipboard / ADBKeyBoard), voice/audio apps (mic-inject, audio-voice
+      checklist, soak). Everything not recognised is listed under "needs confirmation". The draft is NOT final:
+      show it to the user and wait for «старт» (references/intake.md).
+      --lite — exploratory run (intake.md → «Лёгкий режим»): one stand, no matrix; the output adds `lite.questions`
+      (only what is unclear — ONE AskUserQuestion) and `lite.plan` (what will be done, in order); after the answer
+      the run starts without a separate «старт».
 
 Exit codes: 0 ok, 2 empty input.
 """
@@ -356,8 +361,17 @@ def parse(text, output_dir=None):
                 if not FILE_EXT.search(cand) and not re.search(r"\.(com|ru|org|net|io)\b", cand) and \
                         not re.fullmatch(r"\d+/\d+", cand) and not cand.startswith(("~", ".")):
                     repos.setdefault(cand, None)
+    disclosure = "none" if re.search(r"без (упоминани|пометк|подпис|следов)\w*\s*(скил|инструмент|claude|ии\b|ai\b|"
+                                     r"автоматиз|бот)|не (упоминай|указывай|пиши)\w*,?\s*(что\s*)?(это\s*)?(скил|"
+                                     r"инструмент|claude|ии\b|ai\b|автоматиз|бот)|disclosure:?\s*none|без следов "
+                                     r"(скил|инструмент)|no mention of (the )?(tool|claude|ai|automation)", low) else "tool"
+    cfg["publish"] = {"disclosure": disclosure, "steps": "human" if re.search(r"человеческ\w* шаг|шаги для человек|"
+                                                                             r"без (команд )?adb в шагах|human steps", low) else "auto"}
+    if disclosure == "none":
+        notes.append("publish.disclosure: none — без подписи и служебных меток скила; для чужих трекеров предупреждение: "
+                     "публикация без пометки об автоматизации может ввести мейнтейнеров в заблуждение (repo-sync.md)")
     cfg["repos"] = [{"url": f"https://github.com/{r}", "roles": ["check"], "style": "detailed", "labels": "existing",
-                     "confirm_before_publish": True, "attachments": "none", "disclosure": "full"} for r in repos]
+                     "confirm_before_publish": True, "attachments": "none", "disclosure": disclosure} for r in repos]
     if repos:
         notes.append("репозитории найдены — уточнить роли (check / write-new / copies / comment), шаблон, метки, вложения")
     if re.search(r"боев\w* режим|публикуй|опубликуй|заводи issues|создавай issues|\blive\b", low) and \
@@ -387,15 +401,49 @@ def parse(text, output_dir=None):
             notes.append(f"явное разрешение коммитить {label}: «{perm['evidence'][key]}» — проверить; без него "
                          "gitignore_helper.py ensure добавит их в .gitignore")
     cfg["plugins"] = {"policy": "all-installed", "selected": []}
+    negated = " ".join(negated_parts(text)).lower()
+    if re.search(r"кириллиц|по-русски|на русском|русск\w+ (текст|букв|назван|запрос)|unicode|emoji|эмодзи", low):
+        notes.append("ввод не-ASCII (кириллица, emoji): adb input его не вводит — text --clipboard (эмулятор, запущенный с "
+                     "--mic-inject) или ADBKeyBoard (ime install-adbkeyboard --apk …, с согласия); иначе --translit")
+    voice = r"диктофон|запис\w* (голос|речи|звук|аудио)|распознаван\w* речи|расшифровк|транскри|голосов\w+ (приложени|заметк|ассистент)|" \
+            r"voice|audio record|speech|микрофон"
+    if re.search(voice, low) and not re.search(voice, negated):
+        notes.append("голосовое / аудиоприложение: подача звука в микрофон — mic-inject (audio-input.md: gRPC, loopback, "
+                     "файл), чек-лист checklists/audio-voice.md, долгие записи — soak / job (long-runs.md)")
     if not output_dir:
         missing.append("output_dir — OUTPUT_ROOT (путь из запроса / ANDROID_QA_OUTPUT_DIR / <cwd>)")
     return cfg, notes, missing
+
+
+def lite_block(cfg, notes, missing):
+    """Exploratory run: only what is unclear (one question) and the plan that starts right after the answer."""
+    q = [m for m in missing if not m.startswith("output_dir")]  # OUTPUT_ROOT has a default (<cwd>/qa-runs)
+    if any("реальное устройство" in n for n in notes):
+        q.append("реальное устройство: serial и что можно делать (read-only / app-only / full)")
+    if cfg.get("repos"):
+        q.append("репозитории: только сверка или публикация (черновики / после «да»)")
+    if cfg.get("android", {}).get("apis") == "auto":
+        q.append("версия Android: target из манифеста (Recommended) или указать")
+    app = cfg.get("app") or {}
+    pkg = app.get("package") or "<package>"
+    src = (app.get("paths") or ["<apk>"])[0]
+    plan = ["check_env.py --fast --json <RUN_DIR>/env.json",
+            f"apk_info.py analyze {src} --summary → gitignore_helper.py ensure <OUTPUT_ROOT> → apk_info.py analyze … --copy-to <RUN_DIR>/apk",
+            "один стенд: свой AVD qa-* (avd_manager.py create/start, --mic-inject для голосовых приложений) или подключённое устройство",
+            f"adb_helpers.py install / launch --cold {pkg} / logcat start",
+            "карта экранов: dump-ui --texts + screenshot (--mark) на каждом экране",
+            "исследование по запросу; находки — finding.py add (со скриншотом и отметками)",
+            "долгие сценарии — adb_helpers.py job start -- soak … (фоном)",
+            "build_report.py report / summary; черновики issues — render_draft.py (dry-run)"]
+    return {"questions": q or ["нет — можно начинать"], "plan": plan,
+            "note": "лёгкий режим: один вопрос «только неясное», затем сразу работа; matrix.py не нужен (одна ячейка)"}
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     f = sub.add_parser("from-text")
+    f.add_argument("--lite", action="store_true", help="лёгкий (исследовательский) режим: только неясное + план")
     f.add_argument("source", nargs="?", help="'-' — читать stdin")
     f.add_argument("--text")
     f.add_argument("--file")
@@ -415,11 +463,19 @@ def main():
         sys.stderr.write("intake: пустой запрос — нечего разбирать\n")
         sys.exit(2)
     cfg, notes, missing = parse(text, a.output_dir)
+    lite = None
+    if a.lite:
+        cfg["lite"] = True
+        lite = lite_block(cfg, notes, missing)
     if a.json:
-        print(json.dumps({"config": cfg, "notes": notes, "missing": missing}, ensure_ascii=False, indent=1))
+        print(json.dumps({"config": cfg, "notes": notes, "missing": missing, **({"lite": lite} if lite else {})},
+                         ensure_ascii=False, indent=1))
         return
     head = ["# run-config.yaml — ЧЕРНОВИК из intake.py from-text. Показать пользователю и подтвердить перед «старт».",
             "# Секреты сюда не пишутся — только имена переменных окружения."]
+    if lite:
+        head = ["# run-config.yaml — лёгкий режим (intake.py from-text --lite): один вопрос «только неясное», затем сразу работа."]
+        head += [f"# Спросить: {q}" for q in lite["questions"]] + [f"# План: {s}" for s in lite["plan"]]
     head += [f"# Нужно уточнить: {m}" for m in missing] + [f"# Проверить: {x}" for x in notes]
     out = "\n".join(head) + "\n\n" + miniyaml.dump(cfg) + "\n"
     if a.out:

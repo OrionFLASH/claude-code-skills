@@ -8,7 +8,13 @@
   matrix.py variants                          runtime variants and the adb_helpers.py commands behind them
 
 Hardware: devices.hardware null — by depth (+ devices.custom); a list — these + custom; [] with custom — only custom;
-both empty — by depth. The first profile is primary (phone by default).
+both empty — by depth. The first profile is primary (phone by default). A list item may be the name of an existing
+own AVD qa-* (its RAM, cores, profile and API are taken from its config.ini; the cell runs only on its API).
+Existing own AVDs qa-* with the same API, RAM, cores and device profile are reused instead of creating new ones
+(stand.existing: true); own AVDs with other RAM for the same API are suggested in notes.
+matrix.cells — user cells: {id, api, hardware, variants, directions, scenario, manual_minutes, background_minutes}
+(a long recording, a soak): kind custom. Time: est_minutes = manual work of the agent; est_background_minutes —
+background jobs (adb_helpers.py job), they run while the agent works with another stand.
 Rules: the primary hardware profile runs on every selected API; other profiles run on the target API
 (low-end also on the lowest API); runtime variants (dark theme, font, landscape, RTL, network, battery) run as
 settings on an already started stand — no extra AVD. matrix.mode: full in run-config gives the full cartesian
@@ -29,6 +35,7 @@ import sdkutil as su  # noqa: E402
 MAX_WORKERS = 4
 HARDWARE = {  # id -> AVD parameters (avd_manager.py profiles)
     "phone": {"profile": "phone", "ram_mb": 4096, "cores": 4, "data": "6G", "label": "телефон 1080×2400, 4 ГБ, 4 ядра"},
+    "phone-8gb": {"profile": "phone", "ram_mb": 8192, "cores": 4, "data": "6G", "label": "телефон 1080×2400, 8 ГБ, 4 ядра"},
     "low-end": {"profile": "small", "ram_mb": 2048, "cores": 2, "data": "4G", "label": "слабый телефон 720×1280, 2 ГБ, 2 ядра"},
     "low-1gb": {"profile": "small", "ram_mb": 1024, "cores": 1, "data": "2G", "label": "очень слабый: 1 ГБ, 1 ядро (API ≤ 29)"},
     "small": {"profile": "small", "ram_mb": 3072, "cores": 2, "data": "4G", "label": "малый экран 720×1280"},
@@ -114,12 +121,52 @@ def avd_name(api, hw, tag):
     return avd_manager.avd_name(api, short, p["ram_mb"], p["cores"], tag)
 
 
-def pick_hardware(devices, depth_default, notes):
+def avd_profile(avd):
+    """Profile alias of an AVD by its hw.device.name (pixel_7 → phone)."""
+    import avd_manager  # noqa: E402 — same folder
+    dev = avd.get("device") or ""
+    return next((k for k, v in avd_manager.PROFILES.items() if dev in v[0]), "phone")
+
+
+def hardware_from_avd(name, env, notes):
+    """devices.hardware: [qa-…] — an existing own AVD as a hardware profile pinned to its API."""
+    avd = next((x for x in env.get("avds") or [] if x.get("name") == name), None)
+    if not avd:
+        notes.append(f"AVD {name} не найден (avd_manager.py list) — профиль пропущен")
+        return None
+    if avd.get("owner") != "skill":
+        notes.append(f"AVD {name} не создан скилом — только stands.use_avds (с разрешения, -read-only); пропущен")
+        return None
+    data = f"{avd['data_mb'] // 1024}G" if avd.get("data_mb") else "6G"
+    HARDWARE[name] = {"profile": avd_profile(avd), "ram_mb": avd.get("ram_mb") or 2048, "cores": avd.get("cores") or 2,
+                      "data": data, "label": f"свой AVD {name} ({(avd.get('ram_mb') or 0) // 1024} ГБ, {avd.get('cores') or '?'} ядра)",
+                      "avd": name, "fixed_api": avd.get("api"), "tag": avd.get("tag")}
+    return name
+
+
+def existing_avd(env, api, hw, tag):
+    """An own AVD qa-* that already has the parameters of this cell (API, RAM, cores, device profile, tag)."""
+    p = HARDWARE[hw]
+    if p.get("avd"):
+        return p["avd"]
+    for a in env.get("avds") or []:
+        if a.get("owner") != "skill" or a.get("api") != api:
+            continue
+        if a.get("ram_mb") == p["ram_mb"] and a.get("cores") == p["cores"] and avd_profile(a) == p["profile"] and \
+                (a.get("tag") in (None, tag)):
+            return a["name"]
+    return None
+
+
+def pick_hardware(devices, depth_default, notes, env=None):
     """Hardware profiles of the matrix (the first one is primary).
 
     devices.hardware: null/absent — by depth (+ custom profiles); a list — exactly these (+ custom); an empty list
-    with custom profiles — ONLY the custom ones; both empty — by depth."""
+    with custom profiles — ONLY the custom ones; both empty — by depth. An item qa-… — an existing own AVD."""
     custom_ids = []
+    for name in devices.get("hardware") or [] if isinstance(devices.get("hardware"), list) else []:
+        if isinstance(name, str) and name.startswith("qa-") and name not in HARDWARE:
+            hardware_from_avd(name, env or {}, notes)
     for h in devices.get("custom") or []:
         if isinstance(h, dict) and h.get("id"):
             HARDWARE[h["id"]] = {"profile": h.get("profile", "phone"), "ram_mb": int(h.get("ram_mb", 2048)),
@@ -158,7 +205,7 @@ def build(cfg, env, apk, max_workers=None):
         apis.append(mn)
     apis = sorted(apis)
     notes = []
-    hardware, custom_ids = pick_hardware(devices, d["hardware"], notes)
+    hardware, custom_ids = pick_hardware(devices, d["hardware"], notes, env)
     variants = [v for v in (devices.get("variants") or d["variants"]) if v in VARIANTS]
     directions = cfg.get("directions") or []
     full = (cfg.get("matrix") or {}).get("mode") == "full"
@@ -170,23 +217,33 @@ def build(cfg, env, apk, max_workers=None):
     low_api = min(apis)
     cells = []
 
-    def add_cell(api, hw, kind, cell_variants, dirs):
+    def add_cell(api, hw, kind, cell_variants, dirs, extra=None):
         if hw == "fold" and api < 32:
             notes.append(f"складной профиль пропущен на API {api} (нужен API ≥ 32)")
             return
         if hw == "low-1gb" and api > 29:
             notes.append(f"1 ГБ ОЗУ на API {api} не поддерживается образами — пропуск")
             return
-        tag, pkg = tag_for(api, images, host_abi, (cfg.get("android") or {}).get("image_tag"))
         p = HARDWARE[hw]
-        cells.append({"id": f"c{len(cells) + 1:02d}", "kind": kind, "api": api, "label": su.api_label(api), "hardware": hw,
-                      "hardware_label": p["label"], "ram_mb": p["ram_mb"], "cores": p["cores"], "data": p["data"],
-                      "profile": p["profile"], "variants": cell_variants, "directions": dirs,
-                      "stand": {"type": "avd", "name": avd_name(api, hw, tag), "tag": tag,
-                                "image": pkg or f"system-images;android-{api};{tag};{host_abi}", "image_installed": bool(pkg)},
-                      "est_minutes": (d["minutes"] if kind == "primary" else d["secondary_minutes"]) + 4 * max(0, len(cell_variants) - 1)})
+        if p.get("fixed_api") and p["fixed_api"] != api:
+            return
+        tag, pkg = tag_for(api, images, host_abi, p.get("tag") or (cfg.get("android") or {}).get("image_tag"))
+        have = existing_avd(env, api, hw, tag)
+        name = have or avd_name(api, hw, tag)
+        cell = {"id": f"c{len(cells) + 1:02d}", "kind": kind, "api": api, "label": su.api_label(api), "hardware": hw,
+                "hardware_label": p["label"], "ram_mb": p["ram_mb"], "cores": p["cores"], "data": p["data"],
+                "profile": p["profile"], "variants": cell_variants, "directions": dirs,
+                "stand": {"type": "avd", "name": name, "tag": tag, "existing": bool(have),
+                          "image": pkg or f"system-images;android-{api};{tag};{host_abi}", "image_installed": bool(pkg) or bool(have)},
+                "est_minutes": (d["minutes"] if kind == "primary" else d["secondary_minutes"]) + 4 * max(0, len(cell_variants) - 1),
+                "est_background_minutes": 0}
+        cell.update(extra or {})
+        cells.append(cell)
 
     compat_dirs = [x for x in directions if x in COMPAT_DIRECTIONS] or directions
+    apis = sorted(set(apis) | {HARDWARE[h]["fixed_api"] for h in hardware if HARDWARE[h].get("fixed_api")})
+    target_api = tg if tg in apis else max(apis)
+    low_api = min(apis)
     for api in apis:
         for hw in hardware:
             is_primary = api == target_api and hw == primary
@@ -200,6 +257,30 @@ def build(cfg, env, apk, max_workers=None):
             add_cell(api, hw, "primary" if is_primary else "secondary",
                      variants if is_primary else (["base"] if not full else variants),
                      directions if is_primary else compat_dirs)
+    for i, uc in enumerate((cfg.get("matrix") or {}).get("cells") or [], 1):
+        if not isinstance(uc, dict):
+            continue
+        hw = uc.get("hardware") or primary
+        if isinstance(hw, str) and hw.startswith("qa-") and hw not in HARDWARE:
+            hardware_from_avd(hw, env, notes)
+        if hw not in HARDWARE:
+            notes.append(f"matrix.cells[{i}]: профиль «{hw}» неизвестен — ячейка пропущена")
+            continue
+        api = int(uc.get("api") or HARDWARE[hw].get("fixed_api") or target_api)
+        before = len(cells)
+        add_cell(api, hw, "custom", uc.get("variants") or ["base"], uc.get("directions") or directions,
+                 {"scenario": uc.get("scenario") or uc.get("id") or f"сценарий {i}", "user_id": uc.get("id"),
+                  "est_minutes": int(uc.get("manual_minutes") or 15),
+                  "est_background_minutes": int(uc.get("background_minutes") or 0)})
+        if len(cells) == before:
+            notes.append(f"matrix.cells[{i}]: API {api} не подходит профилю {hw} — пропущено")
+    own = [a for a in env.get("avds") or [] if a.get("owner") == "skill"]
+    used = {c["stand"].get("name") for c in cells}
+    for c in [c for c in cells if c["stand"].get("type") == "avd" and not c["stand"].get("existing")]:
+        alt = [a["name"] for a in own if a.get("api") == c["api"] and a["name"] not in used]
+        if alt:
+            notes.append(f"{c['id']}: создаётся {c['stand']['name']}, а есть свои AVD API {c['api']}: {', '.join(alt)} — "
+                         f"взять вместо: devices.hardware: [{alt[0]}]")
     stands = cfg.get("stands") or {}
     for dev in env.get("devices") or []:
         if dev.get("state") != "device" or dev.get("serial") not in (stands.get("use_devices") or []):
@@ -223,9 +304,13 @@ def build(cfg, env, apk, max_workers=None):
             "hardware": {h: HARDWARE[h] for h in hardware}, "variants": {v: {"desc": VARIANTS[v][0], "commands": VARIANTS[v][1],
                                                                             "reset": VARIANTS[v][2]} for v in variants},
             "cells": cells, "threads": threads,
+            "time": {"manual_minutes": sum(c.get("est_minutes") or 0 for c in cells),
+                     "background_minutes": sum(c.get("est_background_minutes") or 0 for c in cells)},
             "resources": {"emulators_parallel": len(threads), "images_to_install": to_install,
                           "download_estimate_gb": f"≈ {len(to_install)}–{2 * len(to_install)}" if to_install else "0",
-                          "avds_to_create": sorted({c["stand"]["name"] for c in cells if c["stand"].get("type") == "avd"}),
+                          "avds_to_create": sorted({c["stand"]["name"] for c in cells if c["stand"].get("type") == "avd"
+                                                    and not c["stand"].get("existing")}),
+                          "avds_existing": sorted({c["stand"]["name"] for c in cells if c["stand"].get("existing")}),
                           "host_ram_mb": mem.get("total_mb"), "host_available_mb": mem.get("available_mb")},
             "notes": notes}
 
@@ -257,14 +342,21 @@ def plan_threads(cells, cfg, env, max_workers=None):
 def show(m):
     L = [f"Матрица ({m['depth']}): API {', '.join(map(str, m['apis']))}; потоков {len(m['threads'])}; "
          f"ABI образов {m['host_abi']}", "",
-         "| Ячейка | API | Железо | Вариации | Стенд | Образ | Направления | ≈ мин |", "|---|---|---|---|---|---|---|---|"]
+         "| Ячейка | API | Железо | Вариации | Стенд | Образ | Направления | ≈ мин (ручное + фон) |",
+         "|---|---|---|---|---|---|---|---|"]
     for c in m["cells"]:
         st = c["stand"]
-        stand = st.get("name") or st.get("serial")
+        stand = (st.get("name") or st.get("serial") or "") + (" (есть)" if st.get("existing") else "")
         img = ("есть" if st.get("image_installed") else "скачать") if st.get("type") == "avd" else "—"
-        L.append(f"| {c['id']} ({c['kind']}) | {c['label']} | {c['hardware_label']} | {', '.join(c['variants'])} | "
-                 f"`{stand}` | {img} | {len(c['directions'])} | {c['est_minutes']} |")
+        bg = c.get("est_background_minutes") or 0
+        what = c["kind"] + (f": {c['scenario']}" if c.get("scenario") else "")
+        L.append(f"| {c['id']} ({what}) | {c['label']} | {c['hardware_label']} | {', '.join(c['variants'])} | "
+                 f"`{stand}` | {img} | {len(c['directions'])} | {c['est_minutes']}{f' + {bg} фон' if bg else ''} |")
     L += ["", "Потоки: " + "; ".join(f"{t['id']}: {', '.join(t['cells'])} (≈ {t['est_minutes']} мин)" for t in m["threads"])]
+    tm = m.get("time") or {}
+    if tm.get("background_minutes"):
+        L.append(f"Время: ручная работа ≈ {tm['manual_minutes']} мин + фоновые задачи ≈ {tm['background_minutes']} мин "
+                 "(adb_helpers.py job: идут, пока агент работает с другим стендом; long-runs.md)")
     r = m["resources"]
     if r["images_to_install"]:
         L.append(f"Нужно скачать образы ({r['download_estimate_gb']} ГБ, только после согласия): " + ", ".join(r["images_to_install"]))
