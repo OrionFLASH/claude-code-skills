@@ -41,6 +41,7 @@
 сессии — triage_session, локально из стенограммы); короткое продолжение с прежним решением — без заметки (журнал: quiet);
 --check проверяет регистрацию хука и имя скилла для Skill (triage_install); --batch (triage_batch); журнал решений и
 фактов в корне проекта и --fact (triage_projectlog, опция).
+2.8.0: политика по прямо прочитанным источникам — Opus дефолт, Fable только долгий горизонт/провал opus на high+, max только opus, --run на Fable с --confirmed (references/sources.md, benchmarks.md).
 2.7.0: haiku/fable/low/max без подтверждений по строгим критериям (TYPESAFE_TRIAGE_CONFIRM=on возвращает вопросы), причина повтора, рутина, источники (references/sources.md).
 2.6.0: делегирование вниз и экономный режим (опции), --report, --verify (SHA256SUMS), HTTP 451 = region, путь в начале запроса не команда, шире маскировка.
 2.5.0: маскировка секретов и персональных данных (triage_secrets): пароли RU/EN, seed-фразы, ключи, токены, карты, e-mail; critical не отправляется; TYPESAFE_TRIAGE_SECRETS=block|strict|mask, --scan.
@@ -591,28 +592,29 @@ def decide(m, h=None):
             tier += 1
             why.append("низкая уверенность %.2f у границы уровня → шаг вверх" % min_conf)
 
-    # 2.7.0: fable без вопроса пользователю — только безусловный случай. Нужны ВСЕ условия: предельная нагрузка и уверенность,
-    # два независимых признака критичности у TypeSafe ЛИБО предельная сложность+рассуждение ЛИБО долгий горизонт при такой же
-    # сложности, согласие текста (слова критичности/горизонта И нагрузка текста), нет кибер/био-тем (там fable перенаправляется
-    # на менее мощные модели), нет повтора. Любое сомнение → opus.
-    crit_n = sum(1 for x in (v["risk"] >= RISK_TOP, v["irreversible"] >= FABLE_FLAG_MIN, v["silent_errors"] >= FABLE_FLAG_MIN) if x)
-    heavy = v["complexity"] >= FABLE_HEAVY and v["reasoning"] >= FABLE_HEAVY
+    # 2.8.0: Fable только по способности, а не по риску. Источники: Opus 5.5 на дефолте равен Fable 5.1 на дефолте за пятую часть
+    # цены (F8), Opus 5.5 на high выше Fable 5.1 и на high, и на max по индексу и в Agent Arena (F12, F13); Fable нужна для долгих
+    # (часы) агентных задач, глубокого исследования и когда Opus на high+ не справился (F1, F2, F18, R16). Критичность и риск
+    # сами по себе — это Opus на high/xhigh с проверкой. С первой попытки Fable — только долгий горизонт при предельной сложности
+    # и рассуждении, высокой уверенности, согласии текста, без кибер/био-тем и повторов. Второй путь — повтор «не знала» после
+    # Opus на high+ (add_effort). Любое сомнение → opus.
     horizon_ok = bool(h and h.get("horizon")) and v["complexity"] >= FABLE_HORIZON_MIN and v["reasoning"] >= FABLE_HORIZON_MIN
-    critical = crit_n >= 2 or heavy or horizon_ok
-    text_agrees = h is None or bool(h["critical"] or h.get("horizon")) or load_h >= FABLE_HEUR_STRONG
-    if tier == 2 and (load >= LOAD_FABLE or (horizon_ok and load >= LOAD_FABLE_HORIZON)) and critical:
+    text_agrees = h is None or bool(h.get("horizon")) or load_h >= FABLE_HEUR_STRONG
+    if tier == 2 and horizon_ok and load >= LOAD_FABLE_HORIZON:
         if min_conf < CONF_FABLE:
             why.append("для fable нужна уверенность ≥ %.1f (есть %.2f) → opus" % (CONF_FABLE, min_conf))
         elif not text_agrees:
-            why.append("текст не подтверждает предельную нагрузку → opus")
+            why.append("текст не подтверждает долгий горизонт → opus")
         elif h and h.get("fable_avoid"):
-            why.append("кибер/био-тема (%s): такие запросы fable перенаправляет на менее мощные модели → opus" % ", ".join(h["fable_avoid"]))
+            why.append("кибер/био-тема (%s): такие запросы fable перенаправляет на другие модели → opus" % ", ".join(h["fable_avoid"]))
         elif h and h["effort"]["retry"]:
-            why.append("повтор после неудачи: сначала opus с большим effort → opus")
+            why.append("повтор после неудачи: сначала opus на high+ → opus")
         else:
             tier = 3
-            why.append("безусловно предельно сложно/критично при уверенности %.2f → fable%s" % (
+            why.append("долгий горизонт и предельная сложность при уверенности %.2f → fable%s" % (
                 min_conf, " (только с подтверждением)" if "fable" in CONFIRM_TIERS else ""))
+    elif tier == 2 and load >= LOAD_FABLE and (v["risk"] >= RISK_TOP or v["irreversible"] >= FABLE_FLAG_MIN):
+        why.append("критично, но без долгого горизонта: opus на high/xhigh справляется не хуже и дешевле (F8, F12) → opus")
     return TIERS[tier], why
 
 
@@ -774,9 +776,18 @@ def add_effort(r, m, h, task, env="auto", history=None, session=None, cwd=None, 
     if r["retry"] and tier == "haiku":                 # 2.7.0: после неудачи haiku не берём — без вопроса пользователю это слишком рискованно
         tier = "sonnet"
         why.append("повтор после неудачи → не haiku")
+    bumped = False
     if hist[1] and tier in ("haiku", "sonnet"):
         tier = TIERS[TIERS.index(tier) + 1]
+        bumped = kind in ("knowledge", "both")      # effort с дефолта новой модели — только когда причина названа («не знала»)
         why.append("история: %s → модель %s" % ("причина «не знала»" if kind in ("knowledge", "both") else "повторы подряд", tier))
+    # 2.8 (F18, R9): «не знала» после Opus на high и выше — тогда Fable (документация: «если на Opus на более высоком effort не хватает»)
+    last = records[-1] if records else {}
+    if (kind in ("knowledge", "both") and tier == "opus" and last.get("model") == "opus"
+            and eff.idx(last.get("effort") or "medium") >= eff.idx("high") and not h.get("fable_avoid")):
+        tier = "fable"
+        bumped = True
+        why.append("опус на %s не справился (причина «не знала») → fable" % last.get("effort"))
     tier, user_tier, note = eff.apply_tier_directive(tier, d)
     if note:
         why.append(note)
@@ -784,7 +795,7 @@ def add_effort(r, m, h, task, env="auto", history=None, session=None, cwd=None, 
     if prev and not user_tier and TIERS.index(tier) < TIERS.index(prev[0]):
         tier = prev[0]
         why.append("продолжение предыдущей задачи → модель не ниже %s" % tier)
-    e = eff.decide_effort(m, h, tier, env=env, hist=hist, d=d, min_conf=min_conf)
+    e = eff.decide_effort(m, h, tier, env=env, hist=hist, d=d, min_conf=min_conf, model_bumped=bumped)
     if prev:
         r["inherited"] = {"model": prev[0], "effort": prev[1]}
         if e["effort_source"] != "user" and eff.idx(e["effort"]) < eff.idx(prev[1]):
@@ -1139,12 +1150,24 @@ def hook_context(result, cur_effort=None):
     if (a.get("big") or a.get("parallel", 0) >= 2 or sig.get("items", 0) >= 3 or sig.get("paths", 0) >= 3) and kind != "ask":
         lines.append("• Однотипные подзадачи (языки, файлы, пункты списка): оценивай уровень каждой отдельно (--batch) и указывай model у Agent "
                      "явно по уровню подзадачи — механические переводы, проверки и поиск обычно sonnet; без model агент наследует модель сессии.")
+    tier_now = (a.get("agent") or {}).get("model") if kind in ("agent", "ask") else result.get("model")
+    if tier_now == "opus" and (a.get("big") or sig.get("items", 0) >= 6) and kind != "ask":   # R22: план на opus, исполнение рутины на sonnet
+        lines.append("• Большая задача: планируй на opus (plan mode), рутинное исполнение отдай sonnet (/model opusplan); между несвязанными "
+                     "задачами — /clear: прежние сообщения пересылаются каждый ход.")
+    if sig.get("has_logs") and kind != "ask":   # C7: шумные операции — в отдельный контекст
+        lines.append("• Логи и вывод тестов: шумную обработку отдай субагенту на haiku или sonnet — у него отдельный контекст, вернётся краткий итог.")
     if "parallel" in hints and delegating:
         lines.append("• Части независимы: можно несколько Agent параллельно — только с непересекающимися путями "
                      "(порядок и одно подтверждение на всё — --batch).")
     efb = result.get("effort_fallback") if result.get("effort_confirm") else result.get("effort") or eff.DEFAULT_EFFORT
     if kind == "self" and cur_effort and cur_effort in eff.EFFORTS and abs(eff.idx(cur_effort) - eff.idx(efb)) >= SESSION_EFFORT_GAP:
-        lines.append("• Делаешь сам (effort сессии %s): одной строкой предложи пользователю «/effort %s»." % (cur_effort, efb))
+        sm = ((result.get("session_model") or {}).get("model") or "")
+        keeps_cache = bool(re.search(r"(opus-5-5|sonnet-5-5|haiku-5-5|fable-5-1)", sm))   # C2: на этих моделях смена effort кэш не сбрасывает
+        lines.append("• Делаешь сам (effort сессии %s): одной строкой предложи пользователю «/effort %s»%s." % (
+            cur_effort, efb, "" if keeps_cache or not sm else " (на этой модели смена effort сбросит кэш — лучше между задачами)"))
+    if (tier_now == "fable") and kind in ("agent", "self", "ask"):   # F3, F5, F15: как получить максимум и чего ждать от Fable
+        lines.append("• Fable (только долгий горизонт или провал Opus на high+): опиши результат, а не шаги; не добавляй напоминаний о проверке; "
+                     "для долгого — /goal. Её использование может списываться с usage credits; кибер- и био-запросы она перенаправит на другие модели.")
     if delegating and (a.get("agent") or {}).get("model") == "haiku":   # 2.7.0: haiku — без вопроса, но с ответственностью за качество
         lines.append("• Haiku (без вопроса — только для точной простой задачи): дай точное ТЗ и способ проверки, ограничь объём; результат "
                      "проверь сам (выборочно, тест или сверка) до отчёта пользователю; не вышло или сомнение — повтори на sonnet.")
@@ -1767,14 +1790,30 @@ def run_selftest(heuristic_only=False, split="all", calibrate=False):
     return 1 if under else 0
 
 
+FABLE_RUN_ENV = "TYPESAFE_TRIAGE_FABLE_RUN"
+
+
+def run_needs_confirm(tier):
+    """--run запускает `claude -p`: в неинтерактивном режиме использование Fable может списывать usage credits БЕЗ запроса
+    (документация Claude Code, «Fable and usage credits», F5) — поэтому для fable в --run нужен явный --confirmed, даже когда
+    подтверждения haiku/fable отключены (TYPESAFE_TRIAGE_FABLE_RUN=on снимает и это)."""
+    if tier in CONFIRM_TIERS:
+        return True
+    return tier == "fable" and os.environ.get(FABLE_RUN_ENV, "").strip().lower() not in ("on", "1", "true", "yes")
+
+
+def run_safe_tier(tier):
+    return CONFIRM_TIERS.get(tier) or ("opus" if tier == "fable" else tier)
+
+
 def build_agent_cmd(tier, readonly=False, budget=None, edit=False, allow=(), confirmed=False, effort=None, confirmed_effort=False):
     """Команда запуска отдельного агента Claude Code на заданном уровне. haiku/fable — только с confirmed=True;
     effort low/max — только с confirmed_effort=True (неизвестный уровень CLI молча игнорирует, поэтому проверяем здесь)."""
     if tier not in TIERS:
         raise ValueError("недопустимый уровень модели %r: разрешены %s" % (tier, ", ".join(TIERS)))
-    if tier in CONFIRM_TIERS and not confirmed:
-        raise ValueError("уровень %s запускается только с явным подтверждением пользователя (--confirmed); без него — %s"
-                         % (tier, CONFIRM_TIERS[tier]))
+    if run_needs_confirm(tier) and not confirmed:
+        raise ValueError("уровень %s запускается только с явным подтверждением пользователя (--confirmed)%s; без него — %s"
+                         % (tier, ": в `claude -p` Fable может списывать usage credits без запроса" if tier == "fable" else "", run_safe_tier(tier)))
     if effort is not None and effort not in eff.EFFORTS:
         raise ValueError("недопустимый effort %r: разрешены %s" % (effort, ", ".join(eff.EFFORTS)))
     if effort in eff.CONFIRM_EFFORTS and not confirmed_effort:
@@ -1829,9 +1868,9 @@ def run_agent(argv):
         return 2
     confirmed, confirmed_effort = "--confirmed" in argv, "--confirmed-effort" in argv
     forced, forced_effort = opt(argv, "--tier"), opt(argv, "--effort")
-    if forced and forced in CONFIRM_TIERS and not confirmed:
-        print("Уровень %s запускается только после явного подтверждения пользователя: добавьте --confirmed или выберите %s."
-              % (forced, CONFIRM_TIERS[forced]))
+    if forced and run_needs_confirm(forced) and not confirmed:
+        print("Уровень %s запускается только после явного подтверждения пользователя%s: добавьте --confirmed или выберите %s."
+              % (forced, " (в `claude -p` Fable может списывать usage credits без запроса)" if forced == "fable" else "", run_safe_tier(forced)))
         return 2
     if forced_effort is not None:
         if forced_effort not in eff.EFFORTS:
@@ -1857,9 +1896,9 @@ def run_agent(argv):
         if result.get("source") == "heuristic":
             why[-1] += " (уверенность низкая)"
         # явный выбор модели в тексте задачи — согласие пользователя
-        if tier in CONFIRM_TIERS and not confirmed and result.get("model_source") != "user":
-            why.append("рекомендован %s, но без --confirmed запускаю %s" % (tier, CONFIRM_TIERS[tier]))
-            tier = CONFIRM_TIERS[tier]
+        if run_needs_confirm(tier) and not confirmed and result.get("model_source") != "user":
+            why.append("рекомендован %s, но без --confirmed запускаю %s" % (tier, run_safe_tier(tier)))
+            tier = run_safe_tier(tier)
         confirmed = confirmed or result.get("model_source") == "user"
     if forced_effort:
         effort = forced_effort

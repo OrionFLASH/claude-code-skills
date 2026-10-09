@@ -208,8 +208,8 @@ def test_universal_task_and_fable_needs_confirmation(server, tmp_path):
     rc, out, _ = hook(server, tmp_path, prompt={"prompt": "Напиши письмо партнёрам о переносе сроков поставки на две недели", "cwd": "/tmp"})
     assert ts_note(out) and "AskUserQuestion" not in ctx(out)
     Fake.mode = ("extreme",)
-    big = ("Спроектируй и проведи миграцию боевой базы платежей без простоя: двойная запись, сверка, переключение, откат; "
-           "ошибка означает потерю денег клиентов, откатиться после переключения нельзя.")
+    big = ("Проведи многочасовую автономную миграцию боевой базы платежей по всей кодовой базе без простоя: двойная запись, сверка, "
+           "переключение, откат; ошибка означает потерю денег клиентов, откатиться после переключения нельзя.")   # 2.8: fable — долгий горизонт
     rc, out, _ = hook(server, tmp_path, prompt={"prompt": big, "cwd": "/tmp"})
     c = ctx(out)
     assert c.startswith("ДЕЙСТВИЕ: спросить — fable") and "[TypeSafe-триаж: fable/" in c

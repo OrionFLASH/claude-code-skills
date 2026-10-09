@@ -424,6 +424,8 @@ def directives(text):
 DISCUSS_BEFORE_RE = re.compile(
     r"подтвержд\w*|разрешени\w*|выбор\w*|распредел\w*|\bубер\w*|\bубра\w*|отключ\w*|\bто есть\b|\bт\.\s?е\.|например|\bописан\w*|"
     r"переключ\w*|\bпро\s+модел\w*|\bдля\s+модел\w*|тип\w*\s+модел\w*|(?:выше|ниже|высок\w*|низк\w*|дорог\w*|дёшев\w*)\s+модел\w*|"
+    r"примен\w+|использовани\w+|эффективност\w+|возможност\w+|особенност\w+|сравн\w+|оцен\w+|\bразбор\w*|\bизуч\w+|\bисследу\w+|"
+    r"\bрасскаж\w+|\bопиши\w*|\bобъясн\w+|проанализируй|анализ\w*|"
     r"which model|choice of|\bconfirm\w*|\be\.g\.|\bi\.e\.|such as|\bselect\w* (?:a )?model", FLAGS_RE)
 ENUM_AFTER_RE = re.compile(
     r"^[^.!?\n]{0,12}?(?:,|\bлибо\b|\bили\b|\bи\b|/|\bor\b|\band\b)\s*(?:модел\w+\s+|model\s+)?(?:" + "|".join(TIER_ALIASES.values()) + r")\b", FLAGS_RE)
@@ -431,6 +433,16 @@ ENUM_AFTER_RE = re.compile(
 
 def _is_discussion(text, mt):
     return bool(DISCUSS_BEFORE_RE.search(text[max(0, mt.start() - 70):mt.start()]) or ENUM_AFTER_RE.match(text[mt.end():mt.end() + 40]))
+
+
+EFFORT_DISCUSS_RE = re.compile(
+    r"сравн\w+|эффективност\w+|примен\w+|использовани\w+|особенност\w+|что такое|что значит|разниц\w+ между|чем отлича\w+|"
+    r"compare|difference between|what is", FLAGS_RE)
+EFFORT_ENUM_RE = re.compile(r"^\s*(?:,|/|\bи\b|\bили\b|\bvs\b|\band\b|\bor\b)\s*(?:effort\s+)?(?:low|medium|high|xhigh|max)\b", FLAGS_RE)
+
+
+def _effort_discussed(text, mt):
+    return bool(EFFORT_DISCUSS_RE.search(text[max(0, mt.start() - 40):mt.start()]) or EFFORT_ENUM_RE.match(text[mt.end():mt.end() + 20]))
 
 
 def _directives(text, report=False):
@@ -452,6 +464,9 @@ def _directives(text, report=False):
     hard = []
     for mt in EFFORT_DIRECTIVE_RE.finditer(text):
         lvl = _norm(mt.group("a") or mt.group("b"))
+        if lvl and not _negated(text, mt.start()) and _effort_discussed(text, mt):
+            out["discussed"] = True      # 2.8 (#65): «сравни эффективность effort max и xhigh» — вопрос про уровень, а не просьба
+            continue
         if lvl:
             hard.append((lvl, mt.start(), mt.group(0).strip()))
     for rx, lvl in _HARD:
@@ -706,8 +721,9 @@ HORIZON_RE = re.compile(
     r"multi-?hour|long[- ]running|codebase-wide|across\s+(?:the\s+)?(?:whole\s+|entire\s+)?(?:codebase|repo)|deep\s+research|root[- ]cause", FLAGS_RE)
 # R10: запросы по кибербезопасности и биологии на Fable автоматически перенаправляются на менее мощные модели — платить за неё незачем.
 FABLE_AVOID_RE = re.compile(
-    r"эксплойт|\bexploit|вредонос|\bmalware|\bransomware|шифровальщик|уязвимост|\bvulnerab|пентест|\bpentest|взлом|\bхакер|"
-    r"reverse[- ]engineer|обратн\w+\s+инженери|кибер\w*|\bcyber|патоген|\bpathogen|биооруж|bioweapon|токсин|\btoxin|нейротоксин", FLAGS_RE)
+    r"эксплойт|\bexploit|вредонос|\bmalware|\bransomware|шифровальщик|пентест|\bpentest|\bctf\b|capture the flag|взлом|\bхакер|"
+    r"патоген|\bpathogen|биооруж|bioweapon|токсин|\btoxin|нейротоксин|геном\w*|\bgenom\w*|\bcrispr\b|дизайн\w*\s+белк\w+|protein design|"
+    r"синтез\w*\s+(?:вируса|патоген)|химическ\w+\s+оруж|chemical weapon|нервно-паралитическ|nerve agent", FLAGS_RE)
 # R3: точно описанные правки и вопросы по коду в контексте — рутина для меньшей модели.
 PRECISE_EDIT_RE = re.compile(
     r"\bзамени\w*\s+[`\"'«]?\S+[`\"'»]?\s+на\s+[`\"'«]?\S+|\bпереименуй\w*\s+\S+|\b(?:поправь|исправь)\s+опечатк\w+|\bопечатк\w+|"
