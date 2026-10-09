@@ -131,7 +131,11 @@ python3 <SKILL_DIR>/scripts/build_report.py publish-table <RUN_DIR>
 | `raw/messages/index.json` | `ingest_findings.py` | хэши принятых сообщений: повторное уведомление ничего не меняет |
 | `raw/messages/<время>-<поток>.md` | `ingest_findings.py` | последнее сообщение исполнителя с блоком ```` ```qa-findings ```` (след для проверки) |
 | `questions.json` | `ingest_findings.py` | вопросы исполнителей («баг или задумано», confirm-действия) — оркестратор задаёт их пользователю |
-| `tabs.json` | `tabs.py` | реестр вкладок прогона: кто открыл, профиль устройства, инструмент, сессия, закрыта ли |
+| `tabs.json` | `tabs.py`, node-скрипты (`lib.js` → `tabs()`) | реестр вкладок прогона: кто открыл, профиль устройства, инструмент (`cli`, `mcp`, `cdp`, `node` — свой браузер скрипта с `pid`), сессия, закрыта ли |
+| `playwright-mcp.json`, `mcp-guard.js` | `browser_mode.py mcp` | отдельный Playwright MCP прогона: окно, `file://` только для `local_roots`, guard в каждой вкладке; `raw/mcp/` — его файлы, `logs/blocked-mcp.jsonl` — решения guard |
+| `drafts/e2e/<id>.spec.ts` | `e2e_stub.py` | заготовка регрессионного теста; прогон — `node/e2e_run.js` (`raw/e2e-<id>.json` при `--out`) |
+| `shots-published.json` | `publish_shots.py push` | локальный файл скриншота → URL в репозитории (и при частичной загрузке — то, что успело) |
+| `results/screenshots/`, `results/screenshots.zip` | `publish_shots.py local` | скриншоты находок при отчёте, когда в репозиторий загрузить нельзя (`index.md`: находка → файл); ссылка — в «Скриншоты находок» |
 | `logs/read-only.jsonl` | `url_guard.py nav --read-only --log`, `guard.js` (`readOnly`) | страницы, открытые только для чтения («прочитано без действий») |
 | `published.json` | `direct_publish.py record` | что опубликовано в режиме прямой публикации (защита от двойной публикации после сбоя) |
 | `published/<owner>__<repo>/F-NNN.md` | `render_draft.py --body-only` | тело опубликованного issue (режим прямой публикации — вместо `drafts/`) |

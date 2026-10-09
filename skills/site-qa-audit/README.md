@@ -26,6 +26,8 @@
 
 **Главные гарантии.** Защита не открывается при сбое (код 4 «guard недоступен» = стоп), скил на весь прогон — копия в папке прогона (`<RUN_DIR>/skill`: обновление плагина посреди прогона не ломает исполнителей), состояние входа — только cookie проверяемого сайта, телефон — с настоящей эмуляцией касаний (`pointer: coarse`), каждая находка перепроверяется независимо до публикации (`repro` + `recheck.py`), исполнители возвращают находки текстом (блок `qa-findings`, массив с `dup_check`) и не плодят вкладки.
 
+**Что нового в 1.5.0.** Node-скрипты сами пишут свои вкладки в реестр прогона `tabs.json` (свой браузер — по `pid`, вкладка в браузере пользователя по CDP — по target id) и при завершении закрывают только свои; `tabs.py cleanup` убирает вкладки упавшего скрипта. Достижимость на телефоне решает жест касания (а не колесо), мобильный WebKit проверяется ещё и в настоящем WebKit моделью касания (`touch-action`, `overscroll-behavior`). Заготовки e2e запускаются настоящим Playwright Test скила под guard прогона (`node/e2e_run.js --expect fail|pass`, без установки `@playwright/test`), видимое окно проверено вживую. Отдельный Playwright MCP для `file://` с guard в каждой вкладке (`browser_mode.py mcp --check`). `publish_shots.py` заранее проверяет gh, вход, доступ и право push и даёт запасной путь `local` (скриншоты при отчёте, `results/`); вход в GitHub скил не автоматизирует.
+
 **Что нового в 1.4.0.** Локальные приложения: `file://` и каталоги на диске (`site.local_roots`; `..`, симлинки и соседние папки — запрет), все детекторы принимают `--url file:///…`, копия приложения в прогоне (`local_app.py`). Окно браузера — одна настройка на прогон (`browser.headed`, `browser_mode.py set` посреди прогона). Задание исполнителю целиком одной командой (`brief.py`: правила, срез реестра issues, формат результата, лимит времени), одно место правды для результатов потоков (`findings/<поток>.json`, `coverage/<поток>.md`), метрики потоков автоматически и вторая волна по «не проверено» (`thread_coverage.py again`). Варианты данных и стенды в охвате, автопилот. Один issue на первопричину (`render_draft.py group --map`), блок «Как проверить», заготовка регрессионного теста (`e2e_stub.py`), скриншоты в приватный репозиторий без браузера (`publish_shots.py`), независимое ревью диффа после доработок (`references/fix-cycle.md`).
 
 ## Входные параметры (опрос)
@@ -141,10 +143,16 @@ python3 <SKILL_DIR>/scripts/render_draft.py group <RUN_DIR>/findings.json --map 
 python3 <SKILL_DIR>/scripts/render_draft.py group <RUN_DIR>/findings.json --ids F-003,F-007,F-009 --out <RUN_DIR>/drafts/owner__repo/group.md
 python3 <SKILL_DIR>/scripts/e2e_stub.py <RUN_DIR>/findings.json --id F-001 --out <RUN_DIR>/drafts/e2e/F-001.spec.ts
 python3 <SKILL_DIR>/scripts/publish_shots.py plan <RUN_DIR> --repo owner/repo     # push … --confirm-push — после «да»
+python3 <SKILL_DIR>/scripts/publish_shots.py local <RUN_DIR>                      # нельзя в репозиторий — скриншоты при отчёте (results/)
+# заготовка e2e под Playwright Test скила с guard: до правки падает на дефекте, после — проходит три раза (fix-cycle.md)
+node <SKILL_DIR>/scripts/node/e2e_run.js <RUN_DIR>/drafts/e2e/F-001.spec.ts --rules <RUN_DIR>/rules.json --app-url file:///…/app/ --expect fail
+# локальное приложение через отдельный Playwright MCP с guard в каждой вкладке (local-files.md); добавляет сервер пользователь
+python3 <SKILL_DIR>/scripts/browser_mode.py mcp <RUN_DIR> --check
 python3 <SKILL_DIR>/scripts/direct_publish.py check <RUN_DIR> --id F-001 --repo owner/repo
 python3 <SKILL_DIR>/scripts/direct_publish.py record <RUN_DIR> --id F-001 --repo owner/repo --number 12 --url https://github.com/owner/repo/issues/12
-# вкладки прогона: одна на профиль устройства, уборка только своих (parallelism.md)
+# вкладки прогона: одна на профиль устройства, уборка только своих (parallelism.md); node-скрипты пишут в реестр сами
 python3 <SKILL_DIR>/scripts/tabs.py open <RUN_DIR> --owner qa-ux --profile pixel7 --tool cli
+node <SKILL_DIR>/scripts/node/occlusion.js --url https://example.com/ --rules <RUN_DIR>/rules.json --owner qa-ux   # вкладка -> tabs.json
 python3 <SKILL_DIR>/scripts/tabs.py cleanup <RUN_DIR> --owner qa-ux
 # страница покупки/входа только для чтения (safety-rules.md §3.13)
 python3 <SKILL_DIR>/scripts/url_guard.py nav https://example.com/donate --config <RUN_DIR>/run-config.yaml --read-only --log <RUN_DIR>/logs/read-only.jsonl
@@ -185,13 +193,13 @@ node <SKILL_DIR>/scripts/node/device_context.js state-rm --out <RUN_DIR>/logs/au
 - Playwright MCP нельзя делить между параллельными субагентами; параллельный браузер — только через `playwright-cli`, не больше 4 потоков (на опыте проверено 2).
 - `--allowed-origins`/`--blocked-origins` Playwright MCP — не граница безопасности; основная защита — проверка `url_guard` перед каждым действием. Она не заменяет здравый смысл исполнителя.
 - Капча, 2FA, вход через внешние аккаунты — только ручной вход пользователя.
-- gh не прикладывает картинки к issue: скриншоты загружаются в репозиторий с правом push через API в отдельную ветку (`publish_shots.py`, без браузера; в публичном репозитории они станут публичными), через веб-форму GitHub в браузере пользователя (`web-upload`, нужен вход пользователя и Chrome с CDP-портом; интерфейс GitHub может измениться — тогда скрипт останавливается) или остаются локально (контактный лист в сводке).
-- `file://`: Playwright MCP и playwright-cli по умолчанию блокируют локальные файлы — скил даёт playwright-cli разрешение файлом `<RUN_DIR>/playwright-cli.json` (граница — `url_guard.py` перед каждым переходом), MCP-поток для локального приложения заменяется node-скриптами; `headers.js` и `lighthouse.js` для `file://` не применимы.
+- gh не прикладывает картинки к issue: скриншоты загружаются в репозиторий с правом push через API в отдельную ветку (`publish_shots.py`, без браузера; в публичном репозитории они станут публичными), через веб-форму GitHub в браузере пользователя (`web-upload`, нужен вход пользователя и Chrome с CDP-портом; интерфейс GitHub может измениться — тогда скрипт останавливается) или остаются при отчёте (`publish_shots.py local`: `results/screenshots/` и архив, контактный лист в сводке). `plan` заранее проверяет gh, вход, доступ и право push. **Вход в GitHub (gh или браузер, 2FA, SSO) скил не автоматизирует** — его выполняет только пользователь.
+- `file://`: Playwright MCP и playwright-cli по умолчанию блокируют локальные файлы — скил даёт playwright-cli разрешение файлом `<RUN_DIR>/playwright-cli.json` (граница — `url_guard.py` перед каждым переходом), MCP-поток для локального приложения заменяется node-скриптами или отдельным MCP прогона с guard в каждой вкладке (`browser_mode.py mcp`, добавляет пользователь); `headers.js` и `lighthouse.js` для `file://` не применимы.
 - Метрики потоков считаются по журналу проверок guard (`--trace`): действия, сделанные без проверки guard, в них не попадут.
 - `guard.js` применяет правила проверяемого сайта; к браузеру GitHub при `web-upload` он не применяется — там защита: замок хоста, только кнопка «Comment», никогда Close/Reopen, явное `--confirm-publish`.
 - `manual-cdp`: работа идёт в браузере пользователя — параллельные потоки запрещены, cookies не очищаются, файл `logs/auth-state.json` — секрет и удаляется в конце.
-- Детекторы перекрытий и достижимости находят кандидатов; итоговую находку подтверждает исполнитель по скриншоту. В мобильном WebKit жесты недоступны — достижимость проверяется эмуляцией того же устройства в Chromium.
-- Новые возможности 1.1.0–1.4.0 проверены на локальных фикстурах (`tests/`, в том числе приложение на `file://`), не на реальных сайтах и не на github.com (`publish_shots.py` — на поддельном gh).
+- Детекторы перекрытий и достижимости находят кандидатов; итоговую находку подтверждает исполнитель по скриншоту. В мобильном WebKit Playwright не даёт ни колеса, ни жеста — достижимость проверяется эмуляцией того же устройства в Chromium и моделью касания в настоящем WebKit (это модель прокрутки и стилей, не сенсорный ввод Safari).
+- Новые возможности 1.1.0–1.5.0 проверены на локальных фикстурах (`tests/`, в том числе приложение на `file://`, браузер-заглушка «пользователя» по CDP, Playwright MCP по stdio), не на реальных сайтах и не на github.com (`publish_shots.py` — на поддельном gh).
 - `legal-ui` фиксирует факты, а не даёт юридическое заключение: нормы права — «возможно применимо», вторая проверка другим исполнителем и юристом обязательна.
 - `recheck.py` запускает только скрипты скила; многошаговые сценарии перепроверяет отдельный исполнитель (`recheck.py set`).
 - `rtl.js` и `legal_guest.js` дают кандидатов и факты для ручной проверки по скриншоту.
@@ -214,7 +222,9 @@ scripts/                check_env, skill_dir, skill_snapshot, local_app, browser
                         ingest_findings, recheck, direct_publish, tabs, runcfg, nav_lock, snap_mcp,
                         snap_cdp, node/ (a11y, lighthouse, headers, links, probe, annotate, shot, guard,
                         invariants, occlusion, reachability, targets, legal_guest, rtl, repro, device_context,
-                        frames, publish_web, comment_web), shared/ (вендоренные модули)
+                        frames, publish_web, comment_web, e2e_run + e2e/ (конфиг и обёртка Playwright Test),
+                        mcp_guard, mcp_check), shared/ (вендоренные модули)
 tests/                  unit.sh (офлайн + наборы test_stream_a, test_v12, test_v121, test_v130, test_v140,
-                        test_stream_b/c, test_v130_browser, test_v140_browser — file://), фикстуры, сценарий dry-run
+                        test_v150, test_stream_b/c, test_v130_browser, test_v140_browser — file://, test_v150_browser),
+                        фикстуры, сценарий dry-run
 ```

@@ -161,6 +161,7 @@ bash tests/unit.sh, если есть bash.
 | Playwright MCP | да | `/plugin install playwright@claude-plugins-official` | то же | `claude plugin list` |
 | Браузеры Playwright | Chromium — да; WebKit, Firefox — желательно | `npx playwright install …` в `scripts/node` | то же | `check_env` (реальный запуск) |
 | `@playwright/cli` | нет — нужен для параллельных потоков (до 4) | `npm install -g @playwright/cli@latest` | то же | `playwright-cli --version` |
+| `@playwright/test` | **не нужен**: заготовки e2e запускает `node/e2e_run.js` тем же пакетом `playwright` из `scripts/node` (Playwright Test входит в него) | — | — | `tests/test_v150_browser.sh e2e_run` |
 | Claude in Chrome | нет — режим «текущий экран» | расширение «Claude» в Chrome + `claude --chrome` | то же | `check_env` |
 
 Плагины-усилители (ux-audit, qa-skills и др.) необязательны — список в [README.md](README.md) и `references/plugins-map.md`.
@@ -332,6 +333,7 @@ Windows — `%USERPROFILE%\.claude\settings.json`; в JSON обратный сл
 | `SITE_QA_HEADLESS` | `1` — браузерные скрипты скила без окна (фоновый режим). Значение по умолчанию для прогонов: **`run-config.yaml → browser.headed`** конкретного прогона главнее (`browser_mode.py set <RUN_DIR> --headed\|--headless` — переключить посреди прогона), флаг команды `--headed`/`--headless` — ещё главнее | окно **видно** (вы видите, что делает тест) |
 | `SITE_QA_SLOWMO` | замедление действий в видимом окне, мс (`browser.slowmo` прогона главнее) | `250` |
 | `SITE_QA_PYTHON` | команда Python для node-скриптов (мост к `url_guard.py`), если `python3` не подходит (Windows: `python` или `py`) | `python3` (Windows — `python`) |
+| `SITE_QA_RUN_DIR`, `SITE_QA_OWNER` | папка прогона и имя потока для реестра вкладок `tabs.json`, если node-скрипт запускается без `--rules <RUN_DIR>/rules.json` / `--owner`; `SITE_QA_TABS=0` — не регистрировать | папка `--rules` (рядом `run-config.yaml`), владелец `node` |
 
 Пример (macOS / Linux):
 
@@ -339,7 +341,7 @@ Windows — `%USERPROFILE%\.claude\settings.json`; в JSON обратный сл
 {
   "env": {
     "SITE_QA_OUTPUT_DIR": "/Users/<имя>/qa-results",
-    "SITE_QA_AUDIT_DIR": "/Users/<имя>/.claude/plugins/cache/claude-code-skills/site-qa-audit/1.4.0",
+    "SITE_QA_AUDIT_DIR": "/Users/<имя>/.claude/plugins/cache/claude-code-skills/site-qa-audit/1.5.0",
     "SITE_QA_HEADLESS": "0",
     "SITE_QA_SLOWMO": "250"
   }
@@ -368,6 +370,8 @@ Windows — `%USERPROFILE%\.claude\settings.json`; в JSON обратный сл
 | В заданиях исполнителей путь скила «пропал» (`No such file`) | путь плагина меняется при обновлении; взять актуальный из `check_env` (строка `SKILL_DIR`) или `skill_dir.py`, при необходимости задать `SITE_QA_AUDIT_DIR` |
 | Окно браузера мешает / не видно, что делает тест | для текущего прогона: `python3 <SKILL_DIR>/scripts/browser_mode.py set <RUN_DIR> --headless` (или `--headed --slowmo 500`) — действует на следующие запуски скриптов и сессии `playwright-cli`; для всех прогонов: `SITE_QA_HEADLESS=1` / `SITE_QA_SLOWMO=500` |
 | `playwright-cli`: «Access to "file:" protocol is blocked» | локальное приложение: открывать сессию с `--config <RUN_DIR>/playwright-cli.json` (его пишут `local_app.py copy --update-config` и `browser_mode.py show`) — `references/local-files.md` |
+| Локальное приложение нужно открыть через Playwright MCP («Access to "file:" protocol is blocked») | отдельный MCP прогона: `python3 <SKILL_DIR>/scripts/browser_mode.py mcp <RUN_DIR> --check` → напечатанная команда `claude mcp add …` (решение пользователя) → перезапуск сессии — `references/local-files.md` |
+| `publish_shots.py plan`: режим `local` («gh не авторизован», «репозиторий не виден») | войти самому: `gh auth login` (для приватных — `gh auth refresh -s repo`); скил вход не выполняет; без входа — скриншоты при отчёте (`publish_shots.py local`) |
 | `skill_snapshot.py`: «в копии нет node_modules» | `npm install` в установленной папке скила (`<installPath>/scripts/node`), затем `skill_snapshot.py <RUN_DIR> --force` |
 
 Подробности — [README.md](README.md) (параметры, примеры, ограничения) и [SKILL.md](SKILL.md) (порядок работы).
