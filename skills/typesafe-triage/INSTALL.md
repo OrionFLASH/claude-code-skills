@@ -220,7 +220,7 @@ macOS / Linux:
 
 ```bash
 git clone https://github.com/OrionFLASH/claude-code-skills.git ~/dev/claude-code-skills
-cd ~/dev/claude-code-skills && git checkout typesafe-triage/v2.7.0   # релиз по тегу, а не main (версии — в CHANGELOG.md)
+cd ~/dev/claude-code-skills && git checkout typesafe-triage/v2.8.0   # релиз по тегу, а не main (версии — в CHANGELOG.md)
 tools/install.sh typesafe-triage
 ```
 
@@ -231,7 +231,7 @@ Windows (PowerShell) — junction на клон (как симлинк: `git pul
 ```powershell
 git clone https://github.com/OrionFLASH/claude-code-skills.git $HOME\dev\claude-code-skills
 cd $HOME\dev\claude-code-skills
-git checkout typesafe-triage/v2.7.0
+git checkout typesafe-triage/v2.8.0
 powershell -ExecutionPolicy Bypass -File tools\install.ps1 typesafe-triage
 # или копией (только если папки $HOME\.claude\skills\typesafe-triage ещё нет — иначе новая ляжет ВНУТРЬ старой, см. «Обновление на Windows»):
 # New-Item -ItemType Directory -Force $HOME\.claude\skills | Out-Null
@@ -432,8 +432,10 @@ Select-String '"version"' "$S\..\.claude-plugin\plugin.json"
 ### Откат
 Верните папку `typesafe-triage.bak-ГГГГММДД` из `~/.claude/backups/` на место (под именем `typesafe-triage`), а из `settings.json` и `CLAUDE.md` — резервные копии `.bak-ГГГГММДД`. При установке из клона нужную версию можно взять по тегу `typesafe-triage/v<версия>`. Ключ и журнал откат не затрагивает.
 
-## Подтверждения haiku / fable / low / max (с 2.7)
+## Подтверждения haiku / fable / low / max (с 2.7) и `--run` на Fable (с 2.8)
 По умолчанию выключены: уровни выбираются без вопроса пользователю, по строгим критериям (`SKILL.md`, «Гарантии качества»). Вернуть вопрос: `TYPESAFE_TRIAGE_CONFIRM=on` (все четыре) или список (`haiku,fable`) в `env` файла `settings.json`; при этом в шаблон CLAUDE.md (шаг 5) верните строку: «Уровни haiku и fable, effort low и max — только после подтверждения через AskUserQuestion (один вопрос на обе оси); нет «да» → sonnet/opus, medium/xhigh.»
+
+С 2.8 `--run --tier fable` по умолчанию требует `--confirmed`: агент `claude -p` на Fable может списываться с usage credits без запроса. Отключить требование — `TYPESAFE_TRIAGE_FABLE_RUN=on` в `env` `settings.json`. После обновления с 2.7 других действий не нужно: `claude plugin marketplace update claude-code-skills` → `claude plugin update typesafe-triage@claude-code-skills` → `/reload-plugins` → `python3 …/typesafe_triage.py --verify --remote`.
 
 ## Опции (2.6, выключены по умолчанию)
 - `TYPESAFE_TRIAGE_DELEGATE_DOWN=on` — рутинную изолируемую работу отдавать субагенту на рекомендованном уровне ниже модели сессии («sonnet достаточно — субагент дешевле»).

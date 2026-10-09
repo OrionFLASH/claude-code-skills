@@ -102,8 +102,11 @@ def test_metrics_tolerate_missing_effort_answers():
 # ---------- крайние уровни: только с подтверждения ----------
 def test_max_needs_confirmation_and_falls_back_to_xhigh():
     crit = m(1.0, irreversible=0.95, verification=0.95, coordination=0.9, constraints=0.9)
-    r = eff.decide_effort(crit, H("Мигрируй боевую базу платежей без простоя, откатить нельзя"), "fable", env={}, min_conf=0.9)
+    far = H("Проведи многочасовую автономную миграцию боевой базы платежей по всей кодовой базе, откатить нельзя")
+    r = eff.decide_effort(crit, far, "opus", env={}, min_conf=0.9)               # 2.8: max автоматически — только opus при долгом горизонте
     assert r["effort"] == "max" and r["effort_confirm"] and r["effort_fallback"] == "xhigh"
+    assert eff.decide_effort(crit, far, "fable", env={}, min_conf=0.9)["effort"] == eff.FABLE_EFFORT_AUTO_MAX   # fable max сама не получает
+    assert eff.decide_effort(crit, H("Мигрируй боевую базу платежей без простоя, откатить нельзя"), "opus", env={}, min_conf=0.9)["effort"] == "xhigh"   # горизонта нет
     # без признака критичности max не выдаётся
     r = eff.decide_effort(m(1.0, risk=0.67, verification=0.95, coordination=0.9, constraints=0.9), H("Мигрируй боевую базу платежей"),
                           "opus", env={}, min_conf=0.9)
@@ -244,7 +247,7 @@ def test_fallback_order_routine_medium_doubt_high_risk_xhigh():
 def test_consistency_rules():
     deep = m(1.0)
     assert eff.decide_effort(deep, H(), "haiku", env={}, min_conf=0.9)["effort"] == eff.HAIKU_EFFORT_MAX
-    assert eff.decide_effort(m(0.2), H("Составь письмо"), "fable", env={}, min_conf=0.9)["effort"] == "high"
+    assert eff.decide_effort(m(0.2), H("Составь письмо"), "fable", env={}, min_conf=0.9)["effort"] == eff.FABLE_EFFORT_MIN   # 2.8: medium
     assert eff.idx(eff.decide_effort(m(0.1, risk=0.9), H(), "sonnet", env={}, min_conf=0.9)["effort"]) >= eff.idx("high")
     mech = m(0.9, mechanical=0.95, risk=0.1)
     assert eff.decide_effort(mech, H("Переименуй переменные"), "opus", env={}, min_conf=0.9)["effort"] == "medium"

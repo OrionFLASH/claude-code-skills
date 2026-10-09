@@ -84,13 +84,15 @@ def test_heavy_task_gets_opus():
 
 def test_fable_only_for_extreme_confident_critical_tasks():
     heavy = dict(complexity=1.0, reasoning=1.0, ambiguity=0.5, risk=1.0, breadth=1.0, irreversible=0.95)
-    assert t.decide(m(**heavy))[0] == "fable"
+    hz = heur.signals("Проведи многочасовую автономную миграцию боевой базы платежей по всей кодовой базе, откатить нельзя")
+    assert t.decide(m(**heavy), hz)[0] == "fable"
+    assert t.decide(m(**heavy))[0] == "opus"                                  # без текста горизонт не подтверждён
     assert t.decide(m(conf=0.6, **heavy))[0] == "opus"                       # уверенность ниже CONF_FABLE
     assert t.decide(m(**dict(heavy, risk=0.67, irreversible=0.1, reasoning=0.8)))[0] == "opus"   # нет признака критичности
     calm = heur.signals("Сделай это")                                         # текст не подтверждает предельную нагрузку
     assert t.decide(m(**heavy), calm)[0] == "opus"
     loud = heur.signals("Мигрируй боевую базу платежей без простоя, откатить нельзя")
-    assert t.decide(m(**heavy), loud)[0] == "fable"
+    assert t.decide(m(**heavy), loud)[0] == "opus"                            # риск без долгого горизонта — opus (F1)
 
 
 def test_low_confidence_never_escalates_to_fable():

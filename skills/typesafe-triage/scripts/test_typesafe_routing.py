@@ -48,9 +48,17 @@ HEAVY = dict(complexity=1.0, reasoning=1.0, ambiguity=0.5, risk=1.0, breadth=1.0
 LOUD = "Мигрируй боевую базу платежей без простоя, откатить нельзя"
 
 
-def test_fable_without_question_for_unconditional_case(no_confirm):
-    r = t.finish(*(lambda tier, why: (tier, why))(*t.decide(tm(**HEAVY), heur.signals(LOUD))), "typesafe", heur.signals(LOUD))
+HORIZON = "Проведи многочасовую автономную миграцию боевой базы платежей по всей кодовой базе, откатить нельзя"
+
+
+def test_fable_without_question_only_for_long_horizon(no_confirm):
+    sig = heur.signals(HORIZON)
+    assert sig["horizon"]
+    r = t.finish(*(lambda tier, why: (tier, why))(*t.decide(tm(**HEAVY), sig)), "typesafe", sig)
     assert r["model"] == "fable" and r["confirm"] is False and "только с подтверждением" not in r["reason"]
+    # критично, но без долгого горизонта (F1, F2): opus на высоком effort, Fable не нужна
+    tier, why = t.decide(tm(**HEAVY), heur.signals(LOUD))
+    assert tier == "opus" and any("без долгого горизонта" in w for w in why)
 
 
 @pytest.mark.parametrize("name,metrics,text", [
@@ -115,9 +123,12 @@ def test_note_asks_to_verify_haiku_result(no_confirm):
 def test_max_without_question_only_for_opus_fable_with_evidence(no_confirm):
     crit = em(1.0, irreversible=0.95, verification=0.95, coordination=0.9, constraints=0.9)
     text = H("Мигрируй боевую базу платежей без простоя, откатить нельзя")
-    for tier in ("opus", "fable"):
-        r = eff.decide_effort(crit, text, tier, env={}, min_conf=0.9)
-        assert r["effort"] == "max" and r["effort_confirm"] is False, tier
+    horizon = H(HORIZON)
+    r = eff.decide_effort(crit, horizon, "opus", env={}, min_conf=0.9)           # E: max — только opus с долгим горизонтом
+    assert r["effort"] == "max" and r["effort_confirm"] is False
+    assert eff.decide_effort(crit, text, "opus", env={}, min_conf=0.9)["effort"] == "xhigh"        # без горизонта — xhigh
+    assert eff.decide_effort(crit, horizon, "fable", env={}, min_conf=0.9)["effort"] == eff.FABLE_EFFORT_AUTO_MAX   # Fable: потолок high
+    assert eff.decide_effort(crit, horizon, "opus", env={}, min_conf=0.8)["effort"] == "xhigh"      # уверенность ниже MAX_FRONTIER_CONF
     for tier in ("sonnet", "haiku"):
         assert eff.decide_effort(crit, text, tier, env={}, min_conf=0.9)["effort"] in ("xhigh", "high"), tier
     assert eff.decide_effort(crit, text, "opus", env={}, min_conf=0.75)["effort"] == "xhigh"             # уверенность ниже 0,8
@@ -162,7 +173,7 @@ def test_history_escalation_by_cause():
     e1, m1, w1 = eff.history_escalation(recs, True, "x", "effort")         # не старалась: глубже, модель не меняем
     assert e1 == 2 and m1 == 0 and "только effort" in w1[0]
     e2, m2, w2 = eff.history_escalation(recs, True, "x", "knowledge")      # не знала: мощнее модель уже с первого повтора
-    assert m2 == 1 and e2 >= 1 and "модель +1" in w2[0]
+    assert m2 == 1 and e2 == 0 and "модель +1" in w2[0]                      # effort не растёт: после смены модели он сбрасывается
     assert eff.history_escalation([], False, "x", None) == (0, 0, [])
     assert eff.history_escalation([], False, "x", "knowledge")[1] == 1     # причина названа и без «опять не работает»
 

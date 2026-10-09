@@ -80,7 +80,12 @@ EFF_CONF_ESCALATE = 0.5            # низкая уверенность у гр
 EFF_ESC_MARGIN = 0.06
 # ---------- e) согласованность модель × effort ----------
 HAIKU_EFFORT_MAX = "high"          # haiku не получает xhigh/max (кроме явного указания пользователя)
-FABLE_EFFORT_MIN = "high"          # fable по умолчанию не ниже high
+FABLE_EFFORT_MIN = "medium"        # 2.8 (F6, F7, F10): fable не ниже medium (оправдывает цену на low/medium; high — документированный дефолт, но +$ без выигрыша) …
+FABLE_EFFORT_AUTO_MAX = "high"     # … и сама выше high не поднимается: max = xhigh по индексу (53), а цена выше (F12); выше — только пользователь
+MODEL_DEFAULT_EFFORT = {"haiku": "medium", "sonnet": "medium", "opus": "medium", "fable": "medium"}   # 2.8 (R11): после смены модели effort — с дефолта новой
+XHIGH_BASIS_PATHS = 5              # 2.8 (E4, E6): xhigh — для долгой агентной работы, высокого риска или повтора; иначе потолок high
+XHIGH_BASIS_ITEMS = 6
+MAX_FRONTIER_CONF = 0.85           # 2.8 (E5): max автоматически — только opus при долгом горизонте, критичности, глубине и уверенности ≥ …
 RISK_EFFORT_MIN = "high"           # при риске ≥ RISK_EFFORT_AT (или необратимости ≥ FLAG_ON) — не ниже high при любой модели
 RISK_EFFORT_AT = 0.67
 MECHANICAL_EFFORT_MAX = "medium"   # чисто механическая работа — не выше medium даже на opus (если риск невысок)
@@ -111,7 +116,7 @@ LOCK_MARKS = ("package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock",
 HISTORY_WINDOW_S = 2 * 3600        # учитываем записи сессии за это время
 HISTORY_TAIL_BYTES = 256 * 1024    # читаем только хвост журнала
 HISTORY_MAX_STEPS = 2              # потолок эскалации effort за счёт истории (ступеней) — защита от бесконечного роста
-HISTORY_AUTO_CEIL = "xhigh"        # история сама не поднимает до max (max — только с подтверждения)
+HISTORY_AUTO_CEIL = "xhigh"        # история поднимает до xhigh; до max — только с opus и только после xhigh (E5, R13)
 HISTORY_MODEL_AFTER = 2            # модель +1 ступень только со второго подряд повтора, не выше opus
 SAME_PROMPT_IS_RETRY = True        # тот же запрос (тот же хеш) в сессии — повтор
 
@@ -366,8 +371,8 @@ def history_escalation(records, retry_now, prompt_id=None, kind=None):
     cause = ""
     if kind == "effort":       # 2.7.0 (R2): «пропустила, не запустила тесты, бросила» — не старалась → глубже, а не мощнее
         e_steps, m_steps, cause = min(streak + 1, HISTORY_MAX_STEPS), 0, "не старалась (пропуск/недоработка) → только effort"
-    elif kind in ("knowledge", "both"):   # «выдумала, не поняла, не тот подход» — не знала → мощнее модель (и чуть глубже)
-        e_steps, m_steps, cause = min(max(streak, 1), HISTORY_MAX_STEPS), 1, "не знала (непонимание/выдумка) → модель +1"
+    elif kind in ("knowledge", "both"):   # «выдумала, не поняла, не тот подход» — не знала → мощнее модель, effort с дефолта новой (R9–R11)
+        e_steps, m_steps, cause = 0, 1, "не знала (непонимание/выдумка) → модель +1, effort с дефолта новой модели"
     why = ["история: %s, повтор №%d подряд → effort +%d%s%s" % (
         "тот же запрос" if same and not retry_now else "признаки неудачи/повтора", streak, e_steps,
         ", модель +1" if m_steps else "", ("; " + cause) if cause else "")]
@@ -381,7 +386,7 @@ def _conf_label(c):
     return "высокая" if c >= 0.7 else "средняя" if c >= 0.5 else "низкая"
 
 
-def decide_effort(m, h, tier, env=None, hist=(0, 0, []), d=None, min_conf=None):
+def decide_effort(m, h, tier, env=None, hist=(0, 0, []), d=None, min_conf=None, model_bumped=False):
     """Чистая политика effort. m — метрики TypeSafe (или None = запасной вариант), h — сигналы текста, tier — уже выбранная
     модель (только для правил согласованности), env — env_context, hist — history_escalation, d — directives.
     → dict: effort, effort_confidence, effort_confirm, effort_fallback, effort_source, effort_reasons, effort_depth, layers."""
@@ -418,9 +423,11 @@ def decide_effort(m, h, tier, env=None, hist=(0, 0, []), d=None, min_conf=None):
             e = "medium"
             why.append("low только для уверенно лёгкого → medium")
         crit = v.get("risk", 0) >= 0.9 or v.get("irreversible", 0) >= 0.8
-        if e == "max" and not (crit and conf >= MAX_CONF and (h["critical"] or depth_h >= MAX_TEXT_MIN)):
+        frontier = (tier == "opus" and crit and bool(h.get("horizon")) and conf >= MAX_FRONTIER_CONF
+                    and (h["critical"] or depth_h >= MAX_TEXT_MIN))
+        if e == "max" and not frontier:
             e = "xhigh"
-            why.append("max только при критичности, уверенности ≥ %.1f и согласии текста → xhigh" % MAX_CONF)
+            why.append("max автоматически только на opus при долгом горизонте, критичности, уверенности ≥ %.2f (отдача убывает, E5) → xhigh" % MAX_FRONTIER_CONF)
         nxt = next((c for n, c in sorted(EFFORT_CUTS.items(), key=lambda kv: kv[1]) if c > depth), None)
         if conf < EFF_CONF_ESCALATE and nxt is not None and nxt - depth <= EFF_ESC_MARGIN and e not in ("xhigh", "max"):
             e = step(e, 1)
@@ -467,16 +474,31 @@ def decide_effort(m, h, tier, env=None, hist=(0, 0, []), d=None, min_conf=None):
     if tier == "fable" and idx(e) < idx(FABLE_EFFORT_MIN):
         e = FABLE_EFFORT_MIN
         why.append("e) fable → не ниже %s" % FABLE_EFFORT_MIN)
+    if tier == "fable" and idx(e) > idx(FABLE_EFFORT_AUTO_MAX):
+        e = FABLE_EFFORT_AUTO_MAX
+        why.append("e) fable → автоматически не выше %s (xhigh/max дают мало при росте цены; выше — по просьбе)" % FABLE_EFFORT_AUTO_MAX)
+    if e == "xhigh" and not (risky or h.get("horizon") or he["scope"] or h["paths"] >= XHIGH_BASIS_PATHS or h["items"] >= XHIGH_BASIS_ITEMS
+                              or (hist and hist[0]) or (not m and h["critical"])):
+        e = "high"
+        why.append("e) xhigh без оснований (нет долгого горизонта, объёма, высокого риска, повтора) → high")
     if tier in ("opus", "fable") and e == "low" and not (mech and v.get("breadth", 0) >= HEAVY_LOW_BREADTH):
         e = "medium"
         why.append("e) %s + low только для объёмной механики → medium" % tier)
     # d) история
     e_steps, _, hwhy = hist
-    if e_steps:
+    if model_bumped:                     # R11: сильнее модель — effort с дефолта новой, а не по инерции
+        before = e
+        e = MODEL_DEFAULT_EFFORT.get(tier, "medium")
+        if risky:
+            e = at_least(e, RISK_EFFORT_MIN)
+        why.append("d) модель стала сильнее (%s) → effort с её дефолта: %s → %s" % (tier, before, e))
+        layers["history"] = 0
+    elif e_steps:
         before = e
         e = step(e, e_steps)
-        if idx(e) > idx(HISTORY_AUTO_CEIL) and idx(before) <= idx(HISTORY_AUTO_CEIL):
-            e = HISTORY_AUTO_CEIL
+        ceil = "max" if (tier == "opus" and idx(before) >= idx("xhigh")) else HISTORY_AUTO_CEIL   # после неудачи на xhigh — max на opus
+        if idx(e) > idx(ceil):
+            e = ceil if idx(before) <= idx(ceil) else before
         why.append("d) " + "; ".join(hwhy) + " (%s → %s)" % (before, e))
         layers["history"] = e_steps
     # явные указания: проект (маркер) и пользователь — согласие, приоритет над автооценкой

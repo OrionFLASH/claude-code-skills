@@ -708,13 +708,15 @@
   "task": "Upgrade the production Kubernetes cluster from 1.27 to 1.30 with zero downtime, including migrating deprecated APIs in all manifests and a tested rollback plan."
  },
  {
-  "expect": "fable",
-  "effort": "max",
+  "expect": "opus",
+  "effort": "xhigh",
   "effort_ok": [
+   "xhigh",
    "max"
   ],
   "domain": "ops",
-  "task": "Спроектируй и проведи миграцию боевой базы платежей (PostgreSQL, 2 ТБ, работает 24/7) на новую схему шардирования без простоя и без потери транзакций: двойная запись, сверка данных, переключение трафика, откат. Ошибка означает потерю денег клиентов, а после переключения откатиться уже нельзя."
+  "task": "Спроектируй и проведи миграцию боевой базы платежей (PostgreSQL, 2 ТБ, работает 24/7) на новую схему шардирования без простоя и без потери транзакций: двойная запись, сверка данных, переключение трафика, откат. Ошибка означает потерю денег клиентов, а после переключения откатиться уже нельзя.",
+  "note": "2.8 (F1, E5): критично без долгого горизонта — opus на xhigh; fable и автоматический max не нужны"
  },
  {
   "expect": "fable",
@@ -1205,14 +1207,15 @@
    "opus",
    "fable"
   ],
-  "effort": "xhigh",
+  "effort": "high",
   "effort_ok": [
-   "xhigh",
-   "max"
+   "high",
+   "xhigh"
   ],
   "domain": "operations",
   "task": "Проведи многочасовую автономную миграцию боевой базы платежей по всей кодовой базе без простоя: двойная запись, сверка, откат, аудит регулятора; ошибка необратима.",
-  "source": "sources-2.7"
+  "source": "sources-2.7",
+  "note": "2.8 (F9): effort Fable — medium..high, потолок high"
  },
  {
   "expect": "sonnet",
@@ -1265,10 +1268,10 @@
   "tier_ok": [
    "opus"
   ],
-  "effort": "high",
+  "effort": "medium",
   "effort_ok": [
-   "high",
-   "xhigh"
+   "medium",
+   "high"
   ],
   "domain": "code",
   "history": [

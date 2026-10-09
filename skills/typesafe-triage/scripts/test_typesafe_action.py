@@ -235,7 +235,7 @@ def test_agent_effort_known_yes_or_no_changes_effort_line(monkeypatch):
     assert "параметром Agent: он есть" in txt and "--run" not in txt and "если он есть в схеме" not in txt
     no = t.triage(task, key="k", env={}, history=[], session_info={"tier": "sonnet", "agent_effort": False})
     txt = t.hook_context(no)
-    assert "У Agent нет параметра effort (не ошибка)" in txt and "в промпт агента «" in txt
+    assert "У Agent нет параметра effort (не ошибка)" in txt and "Agent(model=opus; в промпт: «" in txt   # 2.6: фраза внутри строки вызова
 
 
 def test_set_agent_effort_command_and_config(tmp_path, monkeypatch, capsys):
