@@ -163,3 +163,16 @@
 - Не проверено вживую: реальные сайты, github.com (`--attach-to`, direct publish), `legal_guest.js --cdp`, эмуляторы, хук typesafe-triage 2.2.0 в настоящей сессии.
 - Открыто: issues #9 (tabs.py в node-скрипты), #10 (источники дайджеста T-1, нужно решение по приватности), #11 (github-issue-structuring вне репозитория — нужно решение владельца), #12 (общий doc_commands.py).
 - Следующий шаг: в новой сессии проверить хук (`--where`, заметка на запрос), `npm install` в папке новой версии site-qa-audit, затем #9.
+
+## 2026-10-09 (2) доработки по отзывам реальных прогонов (android 1.2.0, site 1.4.0, triage 2.3.0)
+Источники: slyshno-android-qa-audit/SKILL-FEEDBACK.md, SKILLS-FEEDBACK.md; SPOD_PROM/Docs/FEEDBACK_SKILLS_QA_TRIAGE.md. Issues #13–#30. Решения владельца: mic-inject — все три пути; заметка triage — новый формат и реже; disclosure — опция, по умолчанию выкл; объём — P0 и P1, P2 по мере сил.
+- [x] Прочитать отзывы, завести issues #13–#30
+- [ ] Агент C: android-qa-audit 1.2.0 (#13–#21)
+- [ ] Агент D: site-qa-audit 1.4.0 (#22–#26)
+- [ ] Агент E: typesafe-triage 2.3.0 (#27–#30)
+- [ ] Проверка мной: validate, unit.sh ×2, pytest; живые проверки по возможности
+- [ ] Слияние в main, sync, корневой CHANGELOG, INSTALL, push, теги
+- [ ] Удаление влитых веток и worktree
+- [ ] Обновление плагинов через маркетплейс, npm install, claude plugin list
+- [ ] Закрытие issues #13–#30 с комментариями (невыполненные остаются открытыми)
+- [ ] «Где остановился»
