@@ -6,7 +6,8 @@
   build_report.py publish-table RUN_DIR [--out FILE]
 
 Sources in RUN_DIR (missing optional files are skipped): findings.json (required), run-config.yaml, apk-info.json,
-device-matrix.json, stands.json, raw/metrics.jsonl, raw/crashes-*.json, logs/blocked.jsonl.
+device-matrix.json, stands.json, raw/metrics.jsonl, raw/crashes-*.json, raw/soak-*.json (long scenarios: status,
+duration, PSS, events, host load), logs/blocked.jsonl. Metrics taken while other emulators were running are marked.
 Exit codes: 0 ok, 2 no findings.json.
 """
 import argparse
@@ -24,7 +25,9 @@ import qa_recheck  # noqa: E402 — publication gate: independent re-check, lega
 
 SEVERITIES = ["critical", "high", "medium", "low", "info"]
 STATUSES = ["NEW", "DUPLICATE-OPEN", "FIXED-INSUFFICIENT", "REGRESSION", "ALREADY-COPIED", "UNSURE-MATCH", "FIXED-OK",
-            "NOT-CHECKED"]
+            "NOT-CHECKED", "KNOWN"]
+SOAK_STATUS = {"ok": "прошёл", "interrupted": "прервался (находка)", "result-mismatch": "итог не совпал (находка)",
+               "invalid": "НЕДЕЙСТВИТЕЛЕН — предусловие не выполнено", "stopped": "остановлен", "failed": "ошибка скрипта"}
 
 
 def load_json(path, default=None):
@@ -81,6 +84,8 @@ class Run:
                         x["serial"] = p.stem.replace("crashes-", "")
                         target.append(x)
         self.blocked = jsonl(d / "logs" / "blocked.jsonl")
+        self.soaks = [x for x in (load_json(p, None) for p in sorted((d / "raw").glob("soak-*.json"))) if isinstance(x, dict)] \
+            if (d / "raw").is_dir() else []
 
     def repos(self):
         return [r for r in self.config.get("repos") or [] if isinstance(r, dict)]
@@ -155,6 +160,7 @@ def metrics_block(run):
     if not run.metrics:
         return []
     L = ["", "## Метрики", "", "| Метрика | Устройство | Значение |", "|---|---|---|"]
+    busy = 0
     for m in run.metrics:
         name, serial = m.get("metric"), m.get("serial", "")
         if name and name.startswith("start-"):
@@ -168,12 +174,58 @@ def metrics_block(run):
             val = f"APK на устройстве {round((m.get('apk_bytes_on_device') or 0) / 2 ** 20, 1)} МБ" + \
                   (f", данные {round(m['data_bytes'] / 2 ** 20, 1)} МБ" if m.get("data_bytes") else "")
         else:
-            val = cell(json.dumps({k: v for k, v in m.items() if k not in ("metric", "serial", "time")}, ensure_ascii=False), 120)
+            val = cell(json.dumps({k: v for k, v in m.items() if k not in ("metric", "serial", "time", "host")},
+                                  ensure_ascii=False), 120)
+        emus = (m.get("host") or {}).get("emulators_running")
+        if emus and emus > 1:
+            val += f" ⚠ рядом работало эмуляторов: {emus}"
+            busy += 1
         L.append(f"| {name} | {serial} | {val} |")
     starts = [m["median_ms"] for m in run.metrics if m.get("metric") == "start-cold" and m.get("median_ms")]
     if starts:
         L.append(f"\nХолодный запуск, медиана по стендам: {int(statistics.median(starts))} мс "
                  "(ориентир Android vitals: > 5 с — чрезмерно).")
+    if busy:
+        L.append(f"\n⚠ {busy} замер(ов) сделано при нескольких работающих эмуляторах: время и плавность искажены "
+                 "нагрузкой хоста — для выводов о скорости повторить на свободном хосте (parallelism.md).")
+    return L
+
+
+def long_runs_block(run):
+    """«Длинные сценарии»: soak runs (adb_helpers.py soak) — status, duration, result, PSS, events, host load."""
+    if not run.soaks:
+        return []
+    L = ["", "## Длинные сценарии", "", "| Сценарий | Стенд | Статус | Длительность | Итог | PSS, МБ (мин–макс, рост/ч) | "
+         "События | Хост |", "|---|---|---|---|---|---|---|---|"]
+    invalid = 0
+    for s in run.soaks:
+        res = s.get("result") or {}
+        sd, fd = res.get("screen_duration") or {}, res.get("file") or {}
+        itog = "; ".join(x for x in [
+            f"на экране {sd['text']}" + (" ✓" if sd.get("ok") else " ✗") if sd.get("text") else "",
+            f"файл {fd['seconds']} с" + (" ✓" if fd.get("ok") else " ✗") if fd.get("seconds") is not None else "",
+            fd.get("reason") or "", sd.get("reason") or ""] if x) or "—"
+        pss = (f"{s.get('pss_min_mb', '—')}–{s.get('pss_max_mb', '—')}"
+               + (f", {s['pss_growth_mb_per_hour']:+}" if s.get("pss_growth_mb_per_hour") is not None else "")) \
+            if s.get("pss_max_mb") is not None else "—"
+        ev = ", ".join(f"{e['event']} {round(e['t_s'] / 60, 1)} мин" for e in s.get("events") or []
+                       if e.get("event") not in ("screen-off", "screen-on")) or "—"
+        scr = [e for e in s.get("events") or [] if e.get("event") in ("screen-off", "screen-on")]
+        if scr:
+            ev += " (экран: " + ", ".join(f"{e['event'].split('-')[1]} {round(e['t_s'] / 60, 1)}" for e in scr) + ")"
+        host = s.get("host") or {}
+        hst = f"эмуляторов {host.get('emulators_max') or '?'}, load {host.get('load1_max') or '?'}/{host.get('cpus') or '?'}"
+        st = SOAK_STATUS.get(s.get("status"), s.get("status"))
+        if s.get("status") == "invalid":
+            invalid += 1
+        L.append(f"| {cell(s.get('tag'), 30)} | {s.get('serial')} | {st} | {s.get('minutes_actual')} из {s.get('minutes_planned')} мин | "
+                 f"{cell(itog, 80)} | {pss} | {cell(ev, 90)} | {hst} |")
+    if invalid:
+        L.append(f"\nНедействительных прогонов: {invalid} — о приложении ничего не говорят (не выполнено предусловие после "
+                 "старта), в выводы не входят; причина — raw/soak-*.json → reason.")
+    if any((s.get("host") or {}).get("emulators_max") and s["host"]["emulators_max"] > 1 for s in run.soaks):
+        L.append("\nПри нескольких эмуляторах на хосте время обработки (расшифровка, экспорт) искажено; память и "
+                 "стабильность — достоверны.")
     return L
 
 
@@ -213,7 +265,8 @@ def apk_block(run):
 
 def build_report(run):
     fs = run.findings
-    L = header(run) + [""] + summary_block(run) + matrix_block(run) + crashes_block(run) + metrics_block(run)
+    L = header(run) + [""] + summary_block(run) + matrix_block(run) + crashes_block(run) + metrics_block(run) + \
+        long_runs_block(run)
     L += ["", "## Находки", "", "| ID | Severity | Статус | Заголовок | Экран | Окружение | Куда опубликовано |", "|---|---|---|---|---|---|---|"]
     for f in fs:
         env = f.get("environment") or {}
@@ -228,6 +281,11 @@ def build_report(run):
     nc = (run.data.get("not_checked") or []) if isinstance(run.data, dict) else []
     L += ["", "## Что не проверено и почему", "", "| Что | Причина |", "|---|---|"]
     L += [f"| {cell(x.get('what'))} | {cell(x.get('reason'))}{' (' + x['rule'] + ')' if x.get('rule') else ''} |" for x in nc] or ["| — | — |"]
+    known = [f for f in fs if f.get("status") == "KNOWN"]
+    if known:
+        L += ["", "## Уже известно (документы проекта)", "", "| ID | Заголовок | Документ | Цитата |", "|---|---|---|---|"]
+        L += [f"| {f['id']} | {cell(f.get('title'), 80)} | {cell(Path((f.get('known') or {}).get('doc', '')).name, 40)} | "
+              f"{cell((f.get('known') or {}).get('quote'), 120)} |" for f in known]
     if run.blocked:
         L += ["", "## Сработавшие запреты", "", "| Правило | Сколько раз | Пример |", "|---|---|---|"]
         g = defaultdict(list)
@@ -264,6 +322,8 @@ def plan_actions(run):
                 action = f"комментарий в #{refs[0].get('number')}" if "comment" in roles else f"нет роли comment (#{refs[0].get('number')})"
             elif st in ("FIXED-OK", "NOT-CHECKED"):
                 action = "только отчёт"
+            elif st == "KNOWN":
+                action = "только отчёт: описано в документах проекта как известное"
             elif st == "UNSURE-MATCH":
                 action = "вопрос пользователю"
             elif st == "DUPLICATE-OPEN" and refs:

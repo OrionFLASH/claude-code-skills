@@ -6,12 +6,20 @@
                   [--min-severity low]   → R/drafts/<owner__repo|local>/NN-STATUS-fp.md (+ .body.md) and index.md
   render_draft.py summary --run-dir R [--repo owner/repo]   → drafts/<repo>/summary.md (summary.md without local paths)
 
-Publication settings (flags override run-config repos[] entry chosen by --repo):
-  --disclosure full|none   none: no «Создано android-qa-audit» footer, no sources/run id, no skill marker
+Publication settings (flags override run-config repos[] entry chosen by --repo, then publish.* of run-config):
+  --disclosure tool|none   tool (default; «full» is the same): the skill's footer and hidden marker are kept;
+                           none: no footer, no sources / run id, no hidden marker, no tool labels — for a foreign
+                           tracker a warning is printed and written to index.md (repos[].ours: true silences it)
   --no-links               no links to issues of other repositories
-  --marker skill|neutral|none   skill: <!-- android-qa-audit:fp=… -->, neutral: <!-- qa-fp:… -->
-  --attachments-base URL   screenshots/recordings as links under this URL (files committed by the agent);
+  --marker skill|neutral|none   skill: <!-- android-qa-audit:fp=… -->, neutral: <!-- qa-fp:… --> (disclosure tool only)
+  --attachments-base URL   screenshots/recordings as links under this URL (attachments.py push to a branch);
+                           repos[].attachments: branch with attachments_repo/branch/dir builds it automatically;
                            without it they are referenced as local files of the run folder
+  --human-steps            steps written as user actions instead of adb / adb_helpers commands (repos[].steps: human)
+  --form PATH|auto         body by the repository's GitHub issue form (issue_forms.py fetch): fields «### label»,
+                           `_No response_`, exact dropdown options; auto — a bug or feature form from --forms-dir
+                           (default <RUN_DIR>/raw/forms/<owner__repo>); --form-map map.json — values for fields
+Screenshots: the annotated copy (shots[].annotated or <name>-annotated.png next to the original) replaces the original.
 Draft file: first line "TITLE: <title>", then the body; *.body.md — body only (for gh issue create --body-file).
 index.md lists title, labels and the gh command that WOULD publish the draft (run only after the user's «да»).
 """
@@ -28,6 +36,10 @@ import miniyaml  # noqa: E402
 from masking import mask  # noqa: E402
 
 TPL = HERE.parent / "templates"
+FOREIGN_WARNING = ("ВНИМАНИЕ: disclosure: none — в тексте нет пометки, что находки собраны инструментом. В чужом трекере "
+                   "это может ввести мейнтейнеров в заблуждение (они сочтут текст ручным отчётом); предпочтительно "
+                   "disclosure: tool. Свой репозиторий — repos[].ours: true.")
+TOOL_LABEL = re.compile(r"android-qa-audit|qa-audit|claude", re.I)
 SKILL_MARKER = re.compile(r"<!--\s*android-qa-audit:fp=([0-9a-f]*)\s*-->\n?")
 ISSUE_REF = re.compile(r"(?<![\w/])([\w.-]+/[\w.-]+)#(\d+)")
 FREQ = {"always": "всегда", "sometimes": "иногда", "once": "один раз"}
@@ -51,19 +63,40 @@ def repo_settings(config, repo):
     return {}
 
 
+def publish_settings(config):
+    if not config or not Path(config).exists():
+        return {}
+    cfg = miniyaml.load_file(config) or {}
+    return cfg.get("publish") or {}
+
+
 class Opts:
     def __init__(self, a):
         rs = repo_settings(getattr(a, "config", None), getattr(a, "repo", None))
+        ps = publish_settings(getattr(a, "config", None))
         self.repo = norm_repo(a.repo) if getattr(a, "repo", None) else None
-        self.disclosure = getattr(a, "disclosure", None) or rs.get("disclosure") or "full"
+        disc = getattr(a, "disclosure", None) or rs.get("disclosure") or ps.get("disclosure") or "tool"
+        self.disclosure = "none" if disc == "none" else "tool"
         self.cross_links = not getattr(a, "no_links", False) and rs.get("cross_links", True) is not False
-        self.marker = getattr(a, "marker", None) or rs.get("marker") or ("skill" if self.disclosure == "full" else "none")
-        if self.disclosure == "none" and self.marker == "skill":
-            self.marker = "neutral"
+        self.marker = "none" if self.disclosure == "none" else (getattr(a, "marker", None) or rs.get("marker") or "skill")
         self.severity_map = rs.get("severity_map") or {}
         self.labels_policy = rs.get("labels") or "existing"
-        self.extra_labels = rs.get("extra_labels") or []
+        self.extra_labels = [x for x in (rs.get("extra_labels") or [])
+                             if not (self.disclosure == "none" and TOOL_LABEL.search(str(x)))]
         self.base = getattr(a, "attachments_base", None) or rs.get("attachments_base")
+        if not self.base and rs.get("attachments") == "branch" and rs.get("attachments_branch"):
+            repo = norm_repo(rs.get("attachments_repo") or rs.get("url") or rs.get("repo"))
+            self.base = f"https://github.com/{repo}/blob/{rs['attachments_branch']}/{(rs.get('attachments_dir') or 'qa-screenshots').strip('/')}"
+        self.human = bool(getattr(a, "human_steps", False) or rs.get("steps") == "human" or ps.get("steps") == "human")
+        self.ours = rs.get("ours")
+        self.warning = FOREIGN_WARNING if (self.disclosure == "none" and self.repo and self.ours is not True) else None
+        self.run_dir = Path(a.run_dir) if getattr(a, "run_dir", None) else None
+        self.form = getattr(a, "form", None) or rs.get("form")
+        self.forms_dir = getattr(a, "forms_dir", None)
+        if self.form == "auto" and not self.forms_dir and self.run_dir and self.repo:
+            self.forms_dir = str(self.run_dir / "raw" / "forms" / self.repo.replace("/", "__"))
+        fm = getattr(a, "form_map", None)
+        self.form_map = json.loads(Path(fm).read_text(encoding="utf-8")) if fm else {}
 
     def finish(self, body):
         if self.marker == "neutral":
@@ -72,6 +105,7 @@ class Opts:
             body = SKILL_MARKER.sub("", body)
         if self.disclosure == "none":
             body = re.sub(r"\n---\n_Создано android-qa-audit[^\n]*\n?", "\n", body)
+            body = re.sub(r"^\|\s*\*\*(Источник|Прогон)\*\*\s*\|[^\n]*\n?", "", body, flags=re.M)
         if not self.cross_links:
             body = ISSUE_REF.sub(lambda m: m.group(0) if self.repo and m.group(1) == self.repo else "", body)
         body = re.sub(r"\n{3,}", "\n\n", body).strip() + "\n"
@@ -111,6 +145,79 @@ def drop_empty(text):
 
 def fill(template, values):
     return re.sub(r"\{\{(\w+)\}\}", lambda m: str(values.get(m.group(1), "") or ""), template)
+
+
+def shots_of(f, run_dir=None):
+    """Screenshots to show: shots[].annotated (or original) first, then screenshots[] with an annotated sibling
+    (<name>-annotated.png) instead of the original; duplicates removed."""
+    refs = [s.get("annotated") or s.get("original") for s in f.get("shots") or [] if isinstance(s, dict)]
+    originals = {s.get("original") for s in f.get("shots") or [] if isinstance(s, dict) and s.get("annotated")}
+    for x in f.get("screenshots") or []:
+        if not isinstance(x, str) or x in originals:
+            continue
+        stem = Path(x).stem
+        if not stem.endswith("-annotated"):
+            sib = str(Path(x).with_name(stem + "-annotated" + Path(x).suffix))
+            if sib in refs or sib in (f.get("screenshots") or []) or (run_dir and (Path(run_dir) / sib).exists()):
+                x = sib
+        refs.append(x)
+    return list(dict.fromkeys(r for r in refs if r))
+
+
+HUMAN_STEPS = [
+    (r"font-scale\s+([\d.]+)", lambda m: f"Настройки Android → Экран → Размер шрифта: {'максимальный' if float(m.group(1)) >= 2 else 'крупный'} (×{m.group(1)})"),
+    (r"dark-mode\s+on", lambda m: "Настройки Android → Экран → Тёмная тема: включить"),
+    (r"dark-mode\s+off", lambda m: "Настройки Android → Экран → Тёмная тема: выключить"),
+    (r"rotate\s+(landscape|reverse-landscape)", lambda m: "Повернуть телефон горизонтально (автоповорот включён)"),
+    (r"rotate\s+portrait", lambda m: "Вернуть телефон в вертикальное положение"),
+    (r"kill-bg", lambda m: "Свернуть приложение кнопкой «Домой» и дождаться, пока система выгрузит его из памяти "
+                           "(или «Параметры разработчика → Лимит фоновых процессов: без фоновых процессов»), затем открыть из «Недавних»"),
+    (r"launch\s+--cold|am force-stop", lambda m: "Полностью закрыть приложение (смахнуть из «Недавних») и открыть заново"),
+    (r"\blaunch\b", lambda m: "Открыть приложение"),
+    (r"network\s+offline", lambda m: "Включить режим полёта (без сети)"),
+    (r"network\s+online", lambda m: "Выключить режим полёта"),
+    (r"network\s+(3g|edge|gprs|4g)", lambda m: f"Медленный мобильный интернет ({m.group(1).upper()})"),
+    (r"network\s+switch", lambda m: "Выключить Wi-Fi на несколько секунд и включить снова"),
+    (r"battery\s+saver-on", lambda m: "Включить режим энергосбережения"),
+    (r"battery\s+level\s+(\d+)", lambda m: f"Заряд батареи {m.group(1)} % (без зарядки)"),
+    (r"doze\s+enter", lambda m: "Оставить телефон без зарядки с выключенным экраном (режим сна Doze)"),
+    (r"locale\s+([\w-]+)", lambda m: f"Язык приложения: {m.group(1)} (Настройки → Система → Языки → Языки приложений)"),
+    (r"shade\s+open", lambda m: "Открыть шторку уведомлений (смахнуть сверху вниз)"),
+    (r"key\s+BACK", lambda m: "Нажать «Назад»"),
+    (r"key\s+HOME", lambda m: "Нажать «Домой»"),
+    (r"key\s+APP_SWITCH", lambda m: "Открыть «Недавние»"),
+    (r"(grant|revoke)\s+([\w.]+)", lambda m: f"Настройки → Приложения → (приложение) → Разрешения → {m.group(2).split('.')[-1]}: "
+                                               f"{'разрешить' if m.group(1) == 'grant' else 'запретить'}"),
+    (r"tap\s+--(?:text|desc)\s+[\"«]?([^\"»]+)[\"»]?", lambda m: f"Нажать «{m.group(1).strip()}»"),
+    (r"long-press\s+--(?:text|desc)\s+[\"«]?([^\"»]+)[\"»]?", lambda m: f"Нажать и удерживать «{m.group(1).strip()}»"),
+    (r"text\s+[\"«]([^\"»]*)[\"»]", lambda m: f"Ввести «{m.group(1)}»"),
+    (r"scroll\s+(down|up)", lambda m: "Прокрутить вниз" if m.group(1) == "down" else "Прокрутить вверх"),
+    (r"(?:input\s+tap|tap)\s+(\d+)\s+(\d+)", lambda m: f"Нажать на экран в точке ({m.group(1)}, {m.group(2)})"),
+    (r"monkey\b.*?-s(?:eed)?\s+(\d+)", lambda m: f"Случайные нажатия (monkey, seed {m.group(1)}) — воспроизводится командой из раздела логов"),
+]
+TECH = re.compile(r"\badb\b|adb_helpers|\.py\b|settings put|dumpsys|am start|pm (grant|clear)|--serial", re.I)
+
+
+def humanize(step):
+    """One step as a user action. Returns (text, converted?) — unknown technical steps are kept and reported."""
+    if not TECH.search(step) and not re.match(r"^\s*(adb_helpers|font-scale|dark-mode|rotate|kill-bg|launch|network|"
+                                              r"battery|doze|locale|shade|key|grant|revoke|tap|long-press|scroll)\b", step):
+        return step, False
+    for rx, fn in HUMAN_STEPS:
+        m = re.search(rx, step, re.I)
+        if m:
+            return fn(m), True
+    return step, None
+
+
+def human_steps(steps):
+    out, left = [], []
+    for s in steps or []:
+        text, conv = humanize(s)
+        out.append(text)
+        if conv is None:
+            left.append(s)
+    return out, left
 
 
 def media_md(paths, opts, rel_prefix, video=False):
@@ -155,7 +262,8 @@ def values(f, run, opts, rel_prefix=""):
         "sources": "" if opts.disclosure == "none" else ", ".join(f.get("sources") or []),
         "run_id": "" if opts.disclosure == "none" else run.get("id", ""),
         "depth": "" if opts.disclosure == "none" else run.get("depth", ""),
-        "steps_numbered": "\n".join(f"{i}. {s}" for i, s in enumerate(f.get("steps") or [], 1)),
+        "steps_numbered": "\n".join(f"{i}. {s}" for i, s in enumerate(
+            human_steps(f.get("steps"))[0] if opts.human else (f.get("steps") or []), 1)),
         "expected": f.get("expected"), "actual": f.get("actual"),
         "actual_one_line": (f.get("actual") or f.get("suggestion") or f.get("title") or "").split("\n")[0][:300],
         "android": (f"API {env['api']}" + (f" (Android {env['android_version']})" if env.get("android_version") else "")) if env.get("api") else "",
@@ -164,7 +272,7 @@ def values(f, run, opts, rel_prefix=""):
         "date": env.get("date") or (run.get("started_at") or "")[:10],
         "environment_list": ", ".join(f.get("environment_list") or []),
         "crash_md": (f"**{crash.get('type', '').upper()}** {crash.get('summary', '')}" + (f" (процесс `{crash['process']}`)" if crash.get("process") else "")) if crash else "",
-        "screenshots_md": media_md(f.get("screenshots"), opts, rel_prefix),
+        "screenshots_md": media_md(shots_of(f, opts.run_dir), opts, rel_prefix),
         "recordings_md": media_md(f.get("recordings"), opts, rel_prefix, video=True),
         "logcat_excerpt": "\n".join((f.get("logcat_excerpt") or "").splitlines()[:40]),
         "metrics_json": json.dumps(f.get("metrics"), ensure_ascii=False, indent=2) if f.get("metrics") else "",
@@ -189,11 +297,73 @@ def legal_md(f):
     return "\n".join(lines)
 
 
-def render(f, run, opts, rel_prefix=""):
+PROPOSAL_TYPES = ("proposal", "suggestion", "user-story")
+
+
+def form_for(f, opts):
+    """Path of the repository's form for this finding (--form PATH | auto by kind) or None."""
+    if not opts.form:
+        return None
+    if opts.form != "auto":
+        return opts.form
+    d = Path(opts.forms_dir) if opts.forms_dir else None
+    if not d or not d.is_dir():
+        return None
+    import qa_issueforms
+    forms = []
+    for p in sorted(d.iterdir()):
+        if p.suffix.lower() in (".yml", ".yaml", ".md") and p.name.lower() not in ("config.yml", "config.yaml"):
+            try:
+                forms.append(dict(qa_issueforms.load_form(p), path=str(p)))
+            except qa_issueforms.FormError:
+                continue
+    hit = qa_issueforms.choose_form(forms, "proposal" if f.get("type") in PROPOSAL_TYPES else "bug")
+    return hit["path"] if hit else None
+
+
+def form_values(f, run, opts, rel_prefix):
     v = values(f, run, opts, rel_prefix)
+    env = f.get("environment") or {}
+    lines = [f"- Android: {v['android']}" if v["android"] else "", f"- Устройство: {v['device']}" if v["device"] else "",
+             f"- Экран: {v['screen_cfg']}" if v["screen_cfg"] else "", f"- Настройки: {v['settings']}" if v["settings"] else "",
+             f"- Стенд: {v['stand']}" if v["stand"] else "", f"- Дата: {v['date']}" if v["date"] else "",
+             f"- Воспроизводится также: {v['environment_list']}" if v["environment_list"] else ""]
+    extra = [x for x in [v["hypothesis"] and f"Гипотеза: {v['hypothesis']}", v["legal_md"], v["crash_md"],
+                         v["recordings_md"]] if x]
+    if opts.disclosure != "none":
+        extra.append(f"Направление: {v['direction']} (`{v['check_id']}`), источник: {v['sources']}")
+    return {"title": v["title"], "summary": v["actual_one_line"], "steps": v["steps_numbered"], "expected": v["expected"],
+            "actual": v["actual"], "environment": "\n".join(x for x in lines if x), "android": v["android"],
+            "device": v["device"], "app_version": f.get("app_version") or run.get("app_version") or "",
+            "severity": f.get("severity"), "screenshots": v["screenshots_md"], "logs": v["logcat_excerpt"],
+            "screen": " · ".join(x for x in [(f.get("screen") or "").split(".")[-1], f.get("element") or ""] if x),
+            "suggestion": v["suggestion"], "frequency": f.get("frequency") or "", "platform": "Android",
+            "extra": "\n\n".join(extra) or None, "api": env.get("api")}
+
+
+def render(f, run, opts, rel_prefix=""):
+    """(title, body, problems). problems — what the user must decide (issue form: dropdown, required fields)."""
+    v = values(f, run, opts, rel_prefix)
+    problems = []
+    if opts.human:
+        problems += [f"шаг с командой — переписать для человека: «{s}»" for s in human_steps(f.get("steps"))[1]]
+    form = form_for(f, opts)
+    if form:
+        import qa_issueforms
+        title, body, _labels, probs = qa_issueforms.render(form, form_values(f, run, opts, rel_prefix), opts.form_map,
+                                                           v["title"])
+        problems += probs
+        if body is not None:
+            if opts.disclosure != "none":
+                body += "\n---\n_Создано android-qa-audit. Проверка через интерфейс приложения и adb без доступа к исходному коду._\n"
+                if opts.marker == "skill" and f.get("fingerprint"):
+                    body += f"<!-- android-qa-audit:fp={f['fingerprint']} -->\n"
+                elif opts.marker == "neutral" and f.get("fingerprint"):
+                    body += f"<!-- qa-fp:{f['fingerprint']} -->\n"
+            return title, mask(opts.finish(body)), problems
     body = drop_empty(fill(strip_comments((TPL / "issue-detailed.md").read_text(encoding="utf-8")), v))
     body = re.sub(r"^\|\s*\*\*Прогон\*\*\s*\|\s*\(\)\s*\|\n?", "", body, flags=re.M)
-    return f"[{v['severity_upper']}] {v['title']}", mask(opts.finish(body))
+    return f"[{v['severity_upper']}] {v['title']}", mask(opts.finish(body)), problems
 
 
 def labels_for(f, opts):
@@ -233,18 +403,34 @@ def cmd_all(a, opts):
             rows.append(f"| — | {f['id']} | не черновик: чувствительная находка (evidence.sensitive) — решение пользователя | — | — |")
             continue
         n += 1
-        title, body = render(f, run, opts, rel_prefix="../../")
+        title, body, problems = render(f, run, opts, rel_prefix="../../")
         name = f"{n:02d}-{st}-{f.get('fingerprint') or f['id']}"
         write(folder / f"{name}.md", title, body)
         write(folder / f"{name}.body.md", None, body)
         labels = labels_for(f, opts)
+        form = form_for(f, opts)
+        if form:
+            import qa_issueforms
+            try:
+                labels = list(dict.fromkeys(qa_issueforms.load_form(form)["labels"] + labels))
+            except qa_issueforms.FormError:
+                pass
         cmd = (f"gh issue create -R {opts.repo} --title \"{title.replace(chr(34), chr(39))}\" --body-file \"{folder / (name + '.body.md')}\""
                + "".join(f" --label \"{x}\"" for x in labels)) if opts.repo else "—"
-        rows.append(f"| {n} | {f['id']} | {title} | {', '.join(labels) or '—'} | `{cmd}` |")
-    index = [f"# Черновики issues — {opts.repo or 'без репозитория'}", "",
-             "Ничего не опубликовано. Команды ниже выполняются только после явного «да» пользователя "
-             "(сводная таблица build_report.py publish-table). Скриншоты gh не прикладывает — см. repo-sync.md.", "",
-             "| № | Находка | Заголовок | Метки | Команда |", "|---|---|---|---|---|"] + (rows or ["| — | — | нет находок по фильтру | — | — |"])
+        check = "; ".join(problems) if problems else "—"
+        rows.append(f"| {n} | {f['id']} | {title} | {', '.join(labels) or '—'} | {Path(form).name if form else 'шаблон скила'} | "
+                    f"{check} | `{cmd}` |")
+        if problems:
+            sys.stderr.write(f"render_draft: {f['id']}: решить до публикации — {check}\n")
+    head = [f"# Черновики issues — {opts.repo or 'без репозитория'}", "",
+            "Ничего не опубликовано. Команды ниже выполняются только после явного «да» пользователя "
+            "(сводная таблица build_report.py publish-table). Скриншоты gh не прикладывает — вложения веткой "
+            "(attachments.py push) до создания issues, см. repo-sync.md.", ""]
+    if opts.warning:
+        head += [f"> {opts.warning}", ""]
+        sys.stderr.write("render_draft: " + opts.warning + "\n")
+    index = head + ["| № | Находка | Заголовок | Метки | Форма | Проверить | Команда |", "|---|---|---|---|---|---|---|"] + \
+        (rows or ["| — | — | нет находок по фильтру | — | — | — | — |"])
     (folder).mkdir(parents=True, exist_ok=True)
     (folder / "index.md").write_text("\n".join(index) + "\n", encoding="utf-8")
     print(f"render_draft: черновиков {n} -> {folder}")
@@ -279,7 +465,11 @@ def main():
     ap.add_argument("--run-dir")
     ap.add_argument("--repo")
     ap.add_argument("--config")
-    ap.add_argument("--disclosure", choices=["full", "none"])
+    ap.add_argument("--disclosure", choices=["tool", "full", "none"])
+    ap.add_argument("--human-steps", action="store_true", help="шаги действиями пользователя, а не командами adb")
+    ap.add_argument("--form", help="форма issue репозитория (.yml) или auto")
+    ap.add_argument("--forms-dir", help="папка с формами (issue_forms.py fetch); по умолчанию <RUN_DIR>/raw/forms/<owner__repo>")
+    ap.add_argument("--form-map", help="map.json: значения полей формы {id или label: значение / точный вариант}")
     ap.add_argument("--no-links", action="store_true")
     ap.add_argument("--marker", choices=["skill", "neutral", "none"])
     ap.add_argument("--attachments-base")
@@ -308,7 +498,11 @@ def main():
     f = next((x for x in findings if x.get("id") == a.id), None)
     if f is None:
         sys.exit(f"render_draft: находка {a.id} не найдена")
-    title, body = render(f, run, opts)
+    title, body, problems = render(f, run, opts)
+    if opts.warning:
+        sys.stderr.write("render_draft: " + opts.warning + "\n")
+    for pr in problems:
+        sys.stderr.write(f"render_draft: решить до публикации — {pr}\n")
     if a.out and getattr(a, "body_only", False):
         # body only for gh issue create --body-file (direct publication); the title is printed
         Path(a.out).parent.mkdir(parents=True, exist_ok=True)

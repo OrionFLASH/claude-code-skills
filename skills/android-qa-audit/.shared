@@ -7,3 +7,6 @@ qa_export.py
 qa_ingest.py
 qa_recheck.py
 qa_direct.py
+qa_issueforms.py
+qa_known.py
+qa_attachments.py
