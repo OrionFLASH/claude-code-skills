@@ -184,3 +184,12 @@
 - Не проверено вживую: gRPC mic-inject на эмуляторе, настоящий GitHub (формы, вложения), видимое окно браузера, хук 2.3.0 в настоящей сессии.
 - Вне репозитория, ждёт решения владельца: `--set-agent-effort yes` (запись в ~/.claude/typesafe-triage/config.json), обновление раздела про триаж в ~/.claude/CLAUDE.md по шаблону INSTALL typesafe-triage (шаг 5), сломанный github-issue-structuring (#11).
 - Следующий шаг: новая сессия → проверить заметку «ДЕЙСТВИЕ:» и `--check`; `npm install` в папках новых версий; #31.
+
+## 2026-10-09 (3) остатки round 2
+- [x] #9, #12, #26, #32, #33, #34 закрыты; релизы site-qa-audit 1.5.0, android-qa-audit 1.3.0, typesafe-triage 2.4.0 (3c19fd1), плагины обновлены через маркетплейс
+### Где остановился
+2026-10-09, всё запланированное влито в main и запушено, теги поставлены, старые влитые ветки удалены (локально и в origin), в origin только main.
+- Проверки: validate 0 ошибок; site unit.sh 77; android unit.sh 233; pytest typesafe-triage 352; живо: file:// guard, targets.js, реестр вкладок.
+- Открыто: #31 (живая проверка android на эмуляторе — нужен эмулятор и решение о запуске), #35 (общий node-модуль листа, doc_zsh в site), #10 (решение по приватности: источники дайджеста), #11 (github-issue-structuring вне репозитория).
+- Вне репозитория, ждёт решения владельца: `--set-agent-effort yes`, раздел про триаж в ~/.claude/CLAUDE.md (шаблон в INSTALL typesafe-triage, шаг 5), `claude mcp add` для Playwright MCP с file:// (`browser_mode.py mcp`).
+- Следующий шаг: новая сессия → проверить заметку «ДЕЙСТВИЕ:» и `--check`.
