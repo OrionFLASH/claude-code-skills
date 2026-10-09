@@ -1,5 +1,5 @@
 {
-  "description": "TypeSafe-триаж: заметка «модель + effort» к каждому запросу (python3, при его отсутствии — python)",
+  "description": "TypeSafe-триаж: заметка «ДЕЙСТВИЕ: сам | Agent(model, effort) | спросить» к запросу; короткие продолжения с прежним решением — без заметки (python3, при его отсутствии — python)",
   "hooks": {
     "UserPromptSubmit": [
       {

@@ -5,6 +5,7 @@
 с TypeSafe после исправления; что реплики и команды не уходят на сервер; что fable требует подтверждения. pytest test_typesafe_e2e.py"""
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -37,12 +38,15 @@ def ctx(out):
 
 
 def ts_note(out):
-    return ctx(out).startswith("TypeSafe-триаж: уровень") and "(TypeSafe, уверенность" in ctx(out)
+    """2.3: заметка — строка «ДЕЙСТВИЕ: …» с хвостом [TypeSafe-триаж: модель/effort; TypeSafe…]."""
+    first = ctx(out).split("\n")[0]
+    return first.startswith("ДЕЙСТВИЕ: ") and bool(re.search(r"\[TypeSafe-триаж: \w+/\w+; TypeSafe[;\]]", first))
 
 
 def heuristic_only(out):
     """Во время паузы: без предупреждения пользователю, но с уровнем по эвристике."""
-    return "systemMessage" not in out and "ВАЖНО" not in ctx(out) and "только эвристика, уверенность низкая" in ctx(out)
+    c = ctx(out)
+    return "systemMessage" not in out and "ВАЖНО" not in c and "только эвристика" in c and "Уверенность: низкая" in c
 
 
 class Fake(BaseHTTPRequestHandler):
@@ -207,7 +211,9 @@ def test_universal_task_and_fable_needs_confirmation(server, tmp_path):
     big = ("Спроектируй и проведи миграцию боевой базы платежей без простоя: двойная запись, сверка, переключение, откат; "
            "ошибка означает потерю денег клиентов, откатиться после переключения нельзя.")
     rc, out, _ = hook(server, tmp_path, prompt={"prompt": big, "cwd": "/tmp"})
-    assert ctx(out).startswith("TypeSafe-триаж: уровень fable") and "AskUserQuestion" in ctx(out) and "«Нет, opus»" in ctx(out)
+    c = ctx(out)
+    assert c.startswith("ДЕЙСТВИЕ: спросить — fable") and "[TypeSafe-триаж: fable/" in c
+    assert "AskUserQuestion" in c and "«Нет, opus»" in c
 
 
 def test_duplicate_hook_calls_for_same_prompt_speak_once(server, tmp_path):
@@ -228,4 +234,6 @@ def test_duplicate_hook_calls_for_same_prompt_speak_once(server, tmp_path):
 def test_note_has_model_and_effort_pair(server, tmp_path):
     rc, out, _ = hook(server, tmp_path)
     c = ctx(out)
-    assert rc == 0 and ", effort " in c.split("\n")[0] and "Agent(model=" in c and "effort=" in c
+    first = c.split("\n")[0]       # 2.3: пара «модель/effort» — в хвосте первой строки, действие — в её начале
+    assert rc == 0 and re.search(r"\[TypeSafe-триаж: (haiku|sonnet|opus|fable)/(low|medium|high|xhigh|max);", first)
+    assert re.match(r"ДЕЙСТВИЕ: (сам|спросить|Agent\(model=\w+, effort=\w+\)) — ", first)

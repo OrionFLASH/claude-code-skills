@@ -371,11 +371,18 @@ def test_note_single_dialog_for_both_confirmations():
     assert txt.count("AskUserQuestion") == 1 and "«Да, low»" in txt and "«Нет, medium»" in txt and "Запустить агента" not in txt
 
 
+def self_result(tier="opus", effort="high", **kw):
+    """2.3: результат с действием «сам» (модель сессии известна и не ниже нужной) — строка «/effort» только для «сам»."""
+    r = base_result(tier, effort, **kw)
+    r["action"] = t.act.decide(r, {}, {"tier": "opus", "model_source": "стенограмма"})
+    return r
+
+
 def test_note_session_effort_hint_and_clarify():
-    txt = t.hook_context(base_result("opus", "xhigh"), cur_effort="low")
-    assert "/effort xhigh" in txt
-    assert "/effort" not in t.hook_context(base_result("opus", "high"), cur_effort="medium")   # отличие в 1 ступень — молчим
-    assert "/effort" not in t.hook_context(base_result("opus", "xhigh"), cur_effort=None)
+    txt = t.hook_context(self_result("opus", "xhigh"), cur_effort="low")
+    assert txt.startswith("ДЕЙСТВИЕ: сам") and "/effort xhigh" in txt
+    assert "/effort" not in t.hook_context(self_result("opus", "high"), cur_effort="medium")   # отличие в 1 ступень — молчим
+    assert "/effort" not in t.hook_context(self_result("opus", "xhigh"), cur_effort=None)
     txt = t.hook_context(base_result("opus", "high", clarify=True))
     assert "ОДИН короткий уточняющий вопрос" in txt
 
@@ -404,7 +411,7 @@ def hook_raw(monkeypatch, capsys, payload):
 def test_second_hook_call_for_same_prompt_is_silent(monkeypatch, capsys):
     p = {"prompt": "Составь план подготовки к квартальной встрече с руководством: темы, слайды, сроки", "session_id": "sess-1"}
     first = hook_raw(monkeypatch, capsys, p)
-    assert first["hookSpecificOutput"]["additionalContext"].startswith("TypeSafe-триаж: уровень ")
+    assert first["hookSpecificOutput"]["additionalContext"].startswith("ДЕЙСТВИЕ: ")
     assert hook_raw(monkeypatch, capsys, p) == {}                         # второй хук на тот же запрос — молчит
     assert hook_raw(monkeypatch, capsys, dict(p, session_id="sess-2"))    # другая сессия — говорит
     d = t.guard.HOME / t.DEDUP_NAME
@@ -527,12 +534,15 @@ def risky_result(tier="opus", effort="high", **kw):
 
 
 def test_note_effort_is_conditional_never_unconditional():
+    # 2.3: строка про effort — только когда делегируешь; без сведений о параметре — условная
     for r in (base_result("opus", "medium"), base_result("opus", "high"), base_result("opus", "xhigh"), risky_result("opus", "high"),
-              base_result("opus", "max", effort_confirm=True, effort_fallback="xhigh"), base_result("sonnet", "low")):
+              base_result("opus", "max", effort_confirm=True, effort_fallback="xhigh")):
         txt = t.hook_context(r)
         assert "effort указывай явно" not in txt and "этого требует пользователь" not in txt
-        assert "если параметр есть у Agent" in txt and "не пытайся и не ссылайся на него (не ошибка)" in txt
+        assert "если он есть в схеме" in txt and "не ссылайся на него (не ошибка)" in txt
         assert "Agent(model=%s, effort=%s)" % (r["model"], r["effort"]) in txt
+    txt = t.hook_context(base_result("sonnet", "low"))                   # сам: про параметр Agent ни слова
+    assert txt.startswith("ДЕЙСТВИЕ: сам") and "параметром Agent" not in txt
 
 
 def test_note_default_effort_has_no_fallback_extras():
@@ -540,7 +550,7 @@ def test_note_default_effort_has_no_fallback_extras():
         r = base_result("opus", e)
         assert t.effort_delivery(r) == "agent_param"
         txt = t.hook_context(r)
-        assert "глубину задай в промпте" in txt and "в промпт агента «" not in txt and "--run" not in txt
+        assert "в промпт агента «%s»" % t.EFFORT_PROMPT[e][0] in txt and "--run" not in txt
 
 
 def test_note_unusual_effort_gives_prompt_phrase_only():
@@ -548,7 +558,7 @@ def test_note_unusual_effort_gives_prompt_phrase_only():
     assert t.effort_delivery(base_result("opus", "xhigh")) == "prompt"
     assert "в промпт агента «%s»" % t.EFFORT_PROMPT["xhigh"][0] in txt and "--run" not in txt
     low = t.hook_context(base_result("sonnet", "low", effort_confirm=True, effort_fallback="medium"))
-    assert "кратко" in low and "--run" not in low
+    assert low.startswith("ДЕЙСТВИЕ: сам") and "AskUserQuestion" not in low and "--run" not in low   # сам: low не спрашиваем
     en = base_result("opus", "xhigh")
     en["signals"]["effort"]["lang"] = "en"
     assert t.EFFORT_PROMPT["xhigh"][1] in t.hook_context(en)
@@ -566,7 +576,8 @@ def test_note_critical_effort_offers_run_with_full_path(monkeypatch, r, flags, a
     assert t.effort_delivery(r) == "run"
     txt = t.hook_context(r)
     line = next(ln for ln in txt.split("\n") if "--run" in ln)
-    assert line.startswith("• Без параметра effort: в промпт агента «%s»" % t.EFFORT_PROMPT[r["effort"]][0])
+    assert line.startswith("• effort — параметром Agent, если он есть в схеме") and \
+        "в промпт агента «%s»" % t.EFFORT_PROMPT[r["effort"]][0] in line
     assert t.self_command() + " --run " + flags + " [--edit|--readonly]" in line
     assert t.self_command().split()[1].replace("$HOME", os.path.expanduser("~")).endswith("scripts/typesafe_triage.py")
     assert ("после «да»" in line) == after_yes
