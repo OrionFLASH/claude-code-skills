@@ -162,3 +162,32 @@ def test_self_assessed_difficulty_bounds_effort():
     assert heur.directives("This is a simple task, rename it")["effort_max"] == "medium"
     assert heur.directives("Что значит «задача простая»?")["effort_max"] is None      # в кавычках — упоминание
     assert heur.directives("Задача простая, но проверь тщательно")["effort_max"] is None      # противоречие — не применяем
+
+
+# ---------- 2.9.2 (#75): пробелы, найденные нестандартными сценариями ----------
+@pytest.mark.parametrize("text,want_tier,want_not", [
+    ("Только не Fable, дорого", None, ["fable"]), ("Используй Opus, а не Fable", "opus", ["fable"]), ("Используй Opus вместо Fable", "opus", ["fable"]),
+    ("Rather than Fable, use sonnet", "sonnet", ["fable"]), ("Не Fable", None, ["fable"]), ("Хочу не fable, а opus", None, ["fable"]),
+    ("Использовать Fable или нет?", None, []), ("Haiku, rename the files", "haiku", []), ("Напиши хайку про осень", None, []),
+    ("Write a haiku about autumn", None, []), ("Прочти сонет Шекспира", None, []), ("Магнум опус Булгакова", None, []),
+    ("Используй Fable 5.1, пожалуйста", "fable", []), ("Пожалуйста, не используй Fable", None, ["fable"]),
+    ("Мы используем Fable в проде", None, []), ("Я использовал Fable вчера", None, []), ("We switched to Fable last week", None, []),
+])
+def test_battery_tier_forms(text, want_tier, want_not):
+    d = heur.directives(text)
+    assert d["tier"] == want_tier and d["tier_not"] == want_not
+
+
+@pytest.mark.parametrize("text,want", [
+    ("используй суб-агента", "agent"), ("Не нужен субагент", "self"), ("Субагент не нужен, сам справишься", "self"),
+    ("Сделай всё самостоятельно", "self"), ("Создай файл agents.md", None), ("Создай агентство недвижимости", None),
+])
+def test_battery_agent_forms(text, want):
+    assert heur.action_signals(text)["agent_req"] == want
+
+
+def test_markdown_quote_lines_are_not_requests():
+    text = "Вот отчёт:\n> Ассистент ответил: используй Fable.\n> Рекомендует: используй Fable.\n\nПерепиши модуль биллинга"
+    d = heur.directives(text)
+    assert d["tier"] is None and d["mentions"] >= 1
+    assert heur.directives("> цитата\nИспользуй Fable для миграции")["tier"] == "fable"      # просьба вне цитаты работает

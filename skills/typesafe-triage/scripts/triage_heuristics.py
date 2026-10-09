@@ -100,7 +100,7 @@ DEVICE_RE = re.compile(
 # Явная просьба пользователя о субагенте — сильнее любых индексов (триаж подтверждает, а не спорит)
 _AG = r"(?:суб|саб)?-?агент\w*"
 AGENT_REQ_RE = re.compile(
-    r"\bсубагент\w*|\bсаб-?агент\w*|\b(?:используй|задействуй|запусти|позови|отдай|поручи|передай|через|с\s+помощью"
+    r"\bсуб-?агент\w*|\bсаб-?агент\w*|\b(?:используй|задействуй|запусти|позови|отдай|поручи|передай|через|с\s+помощью"
     r"|привлеки|подключи|создай|создайте|вызови|спавни|стартуй|наймите|пусть)\s+(?:\w+\s+){0,2}"
     r"агент\w*\b(?!\s+(?:поддержк|продаж|по\s|недвижимост|страхов|банк))"
     r"|\bпараллельно\s+(?:\w+\s+){0,2}агент\w*|\bспавни\w*"
@@ -111,8 +111,8 @@ _DO = r"(?:сделай|выполни|проверь|разберись|поч�
 SELF_REQ_RE = re.compile(
     r"\bбез\s+(?:помощи\s+)?(?:суб-?|саб-?)?агент\w*|\bне\s+(?:\w+\s+)?(?:делегируй|делегировать|(?:используй|запускай|привлекай|подключай|создавай|вызывай|спавни|отдавай)\s+(?:\w+\s+)?"
     r"(?:суб-?|саб-?)?агент\w*)"
-    r"|\bне\s+(?:нужн\w+|надо|требуется)\s+(?:суб-?|саб-?)?агент\w*|\b(?:суб-?|саб-?)?агент\w*\s+не\s+(?:нужн\w+|надо|требу\w+)"
-    r"|\b" + _DO + r"\s+(?:это\s+)?(?:сам|самостоятельно|своими\s+силами)\b"
+    r"|\bне\s+(?:нуж[её]н|нужн\w+|надо|требуется)\s+(?:суб-?|саб-?)?агент\w*|\b(?:суб-?|саб-?)?агент\w*\s+не\s+(?:нуж[её]н|нужн\w+|надо|требу\w+)"
+    r"|\b" + _DO + r"\s+(?:это\s+|всё\s+|все\s+)?(?:сам|самостоятельно|своими\s+силами)\b"
     r"|\b(?:сам(?:а)?|самостоятельно)\s*,?\s+(?:\w+\s+){0,2}" + _DO + r"\b|\bdo\s+it\s+yourself\b|\byourself,?\s+(?:not|without)\b|\bon\s+your\s+own\b|\bby\s+yourself\b"
     r"|\bwithout\s+(?:a\s+|any\s+)?(?:help\s+from\s+)?sub-?agents?\b|\bdon'?t\s+(?:(?:use|spawn|launch|start|create|call|involve)\s+(?:an?\s+|any\s+|the\s+)?(?:sub-?)?agents?|delegate)\b"
     r"|\bno\s+(?:need\s+for\s+)?(?:an?\s+)?sub-?agents?\b|\bno\s+need\s+(?:for|to)\s+(?:delegate|agents?)\b", FLAGS_RE)
@@ -211,7 +211,7 @@ _STRONG_MARK = (r"\bиспользу(?:й|йте)|\bиспользовать|\b�
 STRONG_MARK_RE = re.compile(r"^(?:%s)\b" % _STRONG_MARK, FLAGS_RE)
 TIER_DIRECTIVE_RE = re.compile(
     r"(?:\bна|\bмодел\w*|\bmodel|\buse|\busing|\bon|\bwith|\bчерез|\bвозьми|\bзапусти\w*(?:\s+агента)?(?:\s+на)?|\brun(?:\s+it)?\s+on"
-    r"|" + _STRONG_MARK + r"|\bбез|\bкроме|\bwithout|\bexcept)\s+"
+    r"|" + _STRONG_MARK + r"|\bбез|\bкроме|\bwithout|\bexcept|\bтолько\s+не|\bа\s+не|\bвместо|\binstead\s+of|\brather\s+than|\bне|\bnot)\s+"
     r"(?:модел\w+\s+|model\s+)?(?P<t>" + _TIER_ANY + r")\b", FLAGS_RE)
 # 2.9.1 (#69): творительный падеж после глагола («делай фейблом», «реши опусом»)
 INSTR_TIER_RE = re.compile(
@@ -220,9 +220,9 @@ INSTR_TIER_RE = re.compile(
 # 2.9.1 (#69): обращение в начале запроса «Fable, перепиши …» — указание, только если дальше повелительный глагол
 ADDRESS_TIER_RE = re.compile(r"^\W*(?P<t>" + _TIER_ANY + r")\s*[,:—-]\s+(?=(?:%s))" % (
     r"(?:с?дела|напиш|перепиш|исправ|провер|разбер|реш|ответ|выполн|проанализиру|оцен|почин|спроектиру|разработа|подготов|составь?|найд|объясн"
-    r"|реализу|рефактор|перенес|собер|создай?)(?:й|йте|и|ите|ь|ьте)?\b"
+    r"|реализу|рефактор|перенес|собер|создай?|переимену|добав|удал|обнов|сконвертир|сгенерир|покаж|перевед|сократ|упрост|отформатир|задокументир)(?:й|йте|и|ите|ь|ьте)?\b"
     r"|(?:please|write|rewrite|fix|do|check|review|analy[sz]e|implement|refactor|migrate|build|create|make|run|find|explain"
-    r"|summari[sz]e|translate|design|solve|answer)\b"), FLAGS_RE)
+    r"|summari[sz]e|translate|design|solve|answer|rename|add|update|remove|delete|move|convert|generate|list|show|test|read|search|format|document|simplify)\b"), FLAGS_RE)
 # 2.9.1 (#70): «Fable не нужен», «Fable не надо», «Fable is overkill» — отрицание после уровня (маркер не нужен)
 TIER_NEG_AFTER_RE = re.compile(
     r"(?P<t>" + _TIER_ANY + r")\s+(?:тут\s+|здесь\s+|для\s+этого\s+)?(?:не\s+(?:нужен|нужна|нужно|надо|над[оа]|подходит|годится|используй\w*)"
@@ -302,6 +302,7 @@ IMPERATIVE_RE = re.compile(  # повелительное наклонение �
     r"|\b(?:пожалуйста|давай(?:те)?|please|let'?s)\b"
     r"|^\W*(?:use|run|do|make|think|answer|check|fix|write|review|set|switch|go|try|analy[sz]e|design|prove|compare|explain)\b",
     FLAGS_RE)
+QUOTE_LINE_RE = re.compile(r"^[ \t]*>[^\n]*", re.M)
 SENT_END_RE = re.compile(r"[.!?;\n]")
 REPORT_DUP_MIN = 40                # повтор предложения не короче (знаков) — признак вставленного текста
 REPORT_QUOTED_MARKERS = 3          # столько маркеров в кавычках — это перечисление примеров, а не указания
@@ -398,6 +399,8 @@ def mentions(text):
         use = not (code or report or same > 1 or a in labelled) and bool(IMPERATIVE_RE.search(rest.strip()))
         if not use:
             _blank(chars, a, b)
+    for m in QUOTE_LINE_RE.finditer(text):    # 2.9.1: строки markdown-цитаты («> …») — вставка чужого текста, а не просьба
+        _blank(chars, m.start(), m.end())
     masked = "".join(chars)
     return masked, _count_markers(text) - _count_markers(masked), report
 
@@ -482,7 +485,7 @@ DISCUSS_BEFORE_RE = re.compile(
     r"\bрасскаж\w+|\bопиши\w*|\bобъясн\w+|проанализируй|анализ\w*|"
     r"which model|choice of|\bconfirm\w*|\be\.g\.|\bi\.e\.|such as|\bselect\w* (?:a )?model", FLAGS_RE)
 ENUM_AFTER_RE = re.compile(
-    r"^[^.!?\n]{0,12}?(?:,|\bлибо\b|\bили\b|\bи\b|/|\bor\b|\band\b)\s*(?:модел\w+\s+|model\s+)?(?:" + "|".join(TIER_ALIASES.values()) + r")\b", FLAGS_RE)
+    r"^\s*(?:или\s+нет|or\s+not)\b|^[^.!?\n]{0,12}?(?:,|\bлибо\b|\bили\b|\bи\b|/|\bor\b|\band\b)\s*(?:модел\w+\s+|model\s+)?(?:" + "|".join(TIER_ALIASES.values()) + r")\b", FLAGS_RE)
 
 
 # 2.9.1 (#71): вопрос или сомнение перед глаголом выбора — обсуждение, а не просьба
@@ -529,7 +532,7 @@ def _directives(text, report=False):
             first = mt.group(0).strip().lower()
             word = mt.group("t").lower()
             tier = next(k for k, trx in TIER_ALIASES.items() if re.fullmatch(trx, word, FLAGS_RE))
-            neg_marker = kind == "neg_after" or bool(re.match(r"(?:без|кроме|without|except)\b", first))
+            neg_marker = kind == "neg_after" or bool(re.match(r"(?:без|кроме|without|except|только\s+не|а\s+не|вместо|instead\s+of|rather\s+than|не|not)\s", first + " "))
             strong = kind in ("instr", "address", "pos_after", "need") or bool(STRONG_MARK_RE.match(first))
             negated = neg_marker or _negated(text, mt.start())
             if not negated and _is_discussion(text, mt, strong):
