@@ -119,7 +119,7 @@ def write_thread_files(run_dir, thread, payloads):
     cov = _load(cpath, {})
     if not isinstance(cov, dict):
         cov = {}
-    # the file may already exist with only progress metrics (coverage.py build before the result came)
+    # the file may already exist with only progress metrics (thread_coverage.py build before the result came)
     for key, empty in (("thread", thread), ("checked", []), ("not_checked", []), ("questions", []), ("metrics", {}),
                        ("messages", 0)):
         cov.setdefault(key, empty)

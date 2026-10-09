@@ -123,11 +123,11 @@ python3 <SKILL_DIR>/scripts/build_report.py publish-table <RUN_DIR>
 | `playwright-cli.json` | `browser_mode.py`, `local_app.py` | `playwright-cli open --config`: окно прогона, доступ к `file://` для локального приложения |
 | `briefs/<поток>.md` | `brief.py` | задание исполнителю целиком (блок правил §4, срез реестра, формат результата) |
 | `threads.json` | `brief.py` | потоки: направления, страницы, лимит, время начала (для метрик) |
-| `logs/guard-<поток>.jsonl` | `url_guard.py --trace` | решения guard потока (без значений query и контекста) — метрики `coverage.py` |
+| `logs/guard-<поток>.jsonl` | `url_guard.py --trace` | решения guard потока (без значений query и контекста) — метрики `thread_coverage.py` |
 | `findings/<поток>.json` | `ingest_findings.py` | массив находок потока — место правды вместо пересказа в сообщении |
-| `coverage/<поток>.json`, `.md`, `summary.md` | `ingest_findings.py`, `coverage.py` | проверено / не проверено / вопросы и метрики потока |
+| `coverage/<поток>.json`, `.md`, `summary.md` | `ingest_findings.py`, `thread_coverage.py` | проверено / не проверено / вопросы и метрики потока |
 | `run.json` | `ingest_findings.py` | сведения о прогоне (схема `run`) |
-| `waves/<n>/plan.md`, `plan.json`, `<поток>.json` | `coverage.py again` | вторая (и следующие) волна по «не проверено» |
+| `waves/<n>/plan.md`, `plan.json`, `<поток>.json` | `thread_coverage.py again` | вторая (и следующие) волна по «не проверено» |
 | `raw/messages/index.json` | `ingest_findings.py` | хэши принятых сообщений: повторное уведомление ничего не меняет |
 | `raw/messages/<время>-<поток>.md` | `ingest_findings.py` | последнее сообщение исполнителя с блоком ```` ```qa-findings ```` (след для проверки) |
 | `questions.json` | `ingest_findings.py` | вопросы исполнителей («баг или задумано», confirm-действия) — оркестратор задаёт их пользователю |

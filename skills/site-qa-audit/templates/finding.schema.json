@@ -74,7 +74,7 @@
           },
           "category": {
             "enum": ["time", "forbidden", "auth", "environment", "data", "other", null],
-            "description": "Почему не проверено: не хватило времени / запрет / нужен вход или другой аккаунт / окружение (браузер, устройство) / нет данных или варианта стенда / другое — для второй волны (coverage.py again)"
+            "description": "Почему не проверено: не хватило времени / запрет / нужен вход или другой аккаунт / окружение (браузер, устройство) / нет данных или варианта стенда / другое — для второй волны (thread_coverage.py again)"
           },
           "thread": {"type": "string", "description": "Поток исполнителя (ingest_findings.py)"},
           "variant": {"type": ["string", "null"], "description": "Вариант данных или стенд (run-config variants[].id)"},

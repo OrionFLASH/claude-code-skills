@@ -9,7 +9,7 @@ Executors (subagents) do not write findings.json or reports: they return the blo
 orchestrator saves the message and runs this script. ONE PLACE OF TRUTH after that (the message is not retold):
   findings.json                — merged findings of the run (ids F-NNN, `not_checked`), the working file
   findings/<thread>.json       — ARRAY of the thread's findings;  coverage/<thread>.json + .md — checked / not checked,
-                                 questions, metrics (coverage.py);  run.json — the run;  raw/messages/ — the messages
+                                 questions, metrics (thread_coverage.py);  run.json — the run;  raw/messages/ — the messages
 A repeated notification with the same message changes nothing («уже принято», exit 0; --force — ingest again).
 Validation — templates/finding.schema.json (id and fingerprint are assigned here and by fingerprint.py compute); a
 finding without dup_check gets "skipped" (with a warning: the orchestrator checks it with fingerprint.py match).
@@ -48,7 +48,7 @@ EXAMPLE = """```qa-findings
  "questions": ["…"]}
 ```
 findings — МАССИВ (может быть пустым). dup_check: done — сверено со срезом реестра из задания, skipped — не сверялось.
-category у not_checked: time | forbidden | auth | environment | data | other (вторая волна — coverage.py again).
+category у not_checked: time | forbidden | auth | environment | data | other (вторая волна — thread_coverage.py again).
 Проверить блок до отправки: python3 <SKILL_DIR>/scripts/validate_findings.py --array - (JSON блока на stdin)."""
 
 
@@ -111,7 +111,7 @@ def main(argv):
         for p in payloads:
             by_thread.setdefault(a.thread or p.get("thread") or "agent", []).append(p)
         rep["threads"] = {}
-        import coverage  # noqa: E402 — coverage/<thread>.md with the automatic metrics
+        import thread_coverage as coverage  # noqa: E402 — coverage/<thread>.md with the automatic metrics
         for th, ps in by_thread.items():
             files = qa_threads.write_thread_files(run_dir, th, ps)
             md, m = coverage.build(run_dir, th)

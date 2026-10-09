@@ -23,8 +23,8 @@
 ### #24 autopilot, варианты данных/стендов, вторая волна, метрики, ревью диффа (P1/P2)
 - [x] `autopilot` в run-config и `intake.py from-text --autopilot [--journal]`, `journal.py decide`; безопасность не ослабляется
 - [x] вопрос 2a «варианты данных и стенды» → `variants`, поле `variant`, правило охвата, раздел отчёта
-- [x] `coverage.py again <RUN_DIR>` (вторая волна по «не проверено»)
-- [x] метрики потока автоматически (`url_guard.py --trace` + `threads.json` + время приёма → `coverage.py build|summary`), подсказка «потоки по 20–30 минут», ход потока до результата
+- [x] `thread_coverage.py again <RUN_DIR>` (вторая волна по «не проверено»)
+- [x] метрики потока автоматически (`url_guard.py --trace` + `threads.json` + время приёма → `thread_coverage.py build|summary`), подсказка «потоки по 20–30 минут», ход потока до результата
 - [x] `references/fix-cycle.md`: независимое ревью диффа (шаблон задания ревьюеру), три прогона новых e2e, варианты данных
 - [x] тесты
 
@@ -59,12 +59,14 @@
 ## Найдено по дороге
 - **Исправлено:** `lib.js navAllowed` (route-обработчики `guard.js`) разрешал переход на любой хост при пустом `allowed_domains` — в `url_guard.py` это закрыли в 6909c2e, а зеркало в JS осталось открытым; теперь `base:no-allowlist`. Покрыто тестом паритета `lib.js` и `url_guard.py`.
 - **Исправлено:** `a11y.js` открывал страницы без проверки `url_guard` (только route-перехват) и всегда без окна (`launch()` без `launchOptions`) — теперь через `guardedPage.goto` и общее окно.
-- **Исправлено по ходу:** `coverage.py build` до результата потока создавал `coverage/<поток>.json` без полей, и последующий `ingest_findings.py` падал бы на нём — `qa_threads.py` дополняет поля; есть тест.
+- **Исправлено по ходу:** `thread_coverage.py build` до результата потока создавал `coverage/<поток>.json` без полей, и последующий `ingest_findings.py` падал бы на нём — `qa_threads.py` дополняет поля; есть тест.
+- **Исправлено по ходу:** черновик `intake.py from-text` в папку прогона после `skill_snapshot.py` / `local_app.py` возвращал в run-config установленную папку скила и оригинал приложения — теперь берёт копии; есть тест.
+- **Переименовано:** `coverage.py` → `thread_coverage.py`, чтобы скрипт скила не подменял пакет `coverage` (coverage.py) при импорте и не путался с ним в документации.
 - **Обнаружено:** `playwright-cli` 0.1.22 по умолчанию запрещает `file://` («Access to "file:" protocol is blocked»), Playwright MCP — тоже (флаг `--allow-unrestricted-file-access`). Решение — `<RUN_DIR>/playwright-cli.json` с `allowUnrestrictedFileAccess` только для прогонов с `local_roots`; граница — `url_guard.py nav`.
 - **Обнаружено:** Chromium и WebKit в Playwright 1.63 перехватывают `file://` через `context.route` (навигации, кадры, ресурсы) — поэтому guard каталога работает и для переходов скриптом страницы.
 - Папка scratchpad сессии общая для параллельных агентов (мои временные файлы перезаписывались чужими) — свои временные файлы держать в подпапке.
 
 ## Где остановился
-2026-10-09, всё по №22–№26 сделано в ветке `feature/site-qa-1-4-0` (6 коммитов), в main не вливалось.
+2026-10-09, всё по №22–№26 сделано в ветке `feature/site-qa-1-4-0` (8 коммитов), в main не вливалось.
 - Проверки: `tools/validate.sh` на копии после `skillsrepo.py sync` — 0 ошибок; `tests/unit.sh` — FAIL 0 на Python 3.14 и /usr/bin/python3 (3.9.6); живая проверка `file://` — детекторы на копии фикстуры (вывод в отчёте исполнителя).
 - Следующий шаг (оркестратор): слить ветку, `python3 tools/lib/skillsrepo.py sync` (marketplace.json и README корня — версия 1.4.0 и описание), корневой CHANGELOG, тег `site-qa-audit/v1.4.0`, `npm install` в папке новой версии плагина после обновления.

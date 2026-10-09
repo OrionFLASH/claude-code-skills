@@ -4,7 +4,7 @@
 Команды (все печатают JSON, код выхода 0 = allow, 2 = confirm, 3 = deny, 4 = guard недоступен):
   url_guard.py nav URL --config run-config.yaml [--read-only] [--log <RUN_DIR>/logs/read-only.jsonl]
                [--trace <RUN_DIR>/logs/guard-<qa-id>.jsonl]  (у nav / resource / action: каждое решение — строка
-               журнала потока; по нему coverage.py считает время, переходы, проверенные действия и элементы)
+               журнала потока; по нему thread_coverage.py считает время, переходы, проверенные действия и элементы)
                                                        переход на страницу; --read-only — только чтение страницы
                                                        (без кликов и отправок): снимает запрет путей покупки/доната
                                                        и rules.read_only_urls, но не OAuth, выход, удаление аккаунта,
@@ -646,7 +646,7 @@ def main():
     ap.add_argument("--read-only", action="store_true",
                     help="nav: страница только для чтения, без кликов и отправок (safety-rules.md §3.13)")
     ap.add_argument("--log", help="nav --read-only: дописать «прочитано без действий» в этот JSONL")
-    ap.add_argument("--trace", help="журнал решений потока (JSONL, logs/guard-<qa-id>.jsonl) — метрики coverage.py")
+    ap.add_argument("--trace", help="журнал решений потока (JSONL, logs/guard-<qa-id>.jsonl) — метрики thread_coverage.py")
     ap.add_argument("--out")
     a = ap.parse_args()
     if a.command == "selftest":
@@ -693,7 +693,7 @@ def main():
 
 
 def trace(path, command, res, a):
-    """One line per decision for the thread metrics (coverage.py). No context text, no query values (may be secret).
+    """One line per decision for the thread metrics (thread_coverage.py). No context text, no query values (may be secret).
     A failed write never changes the decision."""
     def clean(u):
         if not u:

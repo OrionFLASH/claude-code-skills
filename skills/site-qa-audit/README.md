@@ -26,7 +26,7 @@
 
 **Главные гарантии.** Защита не открывается при сбое (код 4 «guard недоступен» = стоп), скил на весь прогон — копия в папке прогона (`<RUN_DIR>/skill`: обновление плагина посреди прогона не ломает исполнителей), состояние входа — только cookie проверяемого сайта, телефон — с настоящей эмуляцией касаний (`pointer: coarse`), каждая находка перепроверяется независимо до публикации (`repro` + `recheck.py`), исполнители возвращают находки текстом (блок `qa-findings`, массив с `dup_check`) и не плодят вкладки.
 
-**Что нового в 1.4.0.** Локальные приложения: `file://` и каталоги на диске (`site.local_roots`; `..`, симлинки и соседние папки — запрет), все детекторы принимают `--url file:///…`, копия приложения в прогоне (`local_app.py`). Окно браузера — одна настройка на прогон (`browser.headed`, `browser_mode.py set` посреди прогона). Задание исполнителю целиком одной командой (`brief.py`: правила, срез реестра issues, формат результата, лимит времени), одно место правды для результатов потоков (`findings/<поток>.json`, `coverage/<поток>.md`), метрики потоков автоматически и вторая волна по «не проверено» (`coverage.py again`). Варианты данных и стенды в охвате, автопилот. Один issue на первопричину (`render_draft.py group --map`), блок «Как проверить», заготовка регрессионного теста (`e2e_stub.py`), скриншоты в приватный репозиторий без браузера (`publish_shots.py`), независимое ревью диффа после доработок (`references/fix-cycle.md`).
+**Что нового в 1.4.0.** Локальные приложения: `file://` и каталоги на диске (`site.local_roots`; `..`, симлинки и соседние папки — запрет), все детекторы принимают `--url file:///…`, копия приложения в прогоне (`local_app.py`). Окно браузера — одна настройка на прогон (`browser.headed`, `browser_mode.py set` посреди прогона). Задание исполнителю целиком одной командой (`brief.py`: правила, срез реестра issues, формат результата, лимит времени), одно место правды для результатов потоков (`findings/<поток>.json`, `coverage/<поток>.md`), метрики потоков автоматически и вторая волна по «не проверено» (`thread_coverage.py again`). Варианты данных и стенды в охвате, автопилот. Один issue на первопричину (`render_draft.py group --map`), блок «Как проверить», заготовка регрессионного теста (`e2e_stub.py`), скриншоты в приватный репозиторий без браузера (`publish_shots.py`), независимое ревью диффа после доработок (`references/fix-cycle.md`).
 
 ## Входные параметры (опрос)
 Если параметр не передан в запросе, скил спросит его с вариантами ответа (подробно — `references/intake.md`).
@@ -128,8 +128,8 @@ node <SKILL_DIR>/scripts/node/publish_web.mjs --attach-to 12 --repo owner/repo -
 python3 <SKILL_DIR>/scripts/brief.py <RUN_DIR> --thread qa-ux --directions ux,product --minutes 25
 python3 <SKILL_DIR>/scripts/ingest_findings.py <RUN_DIR> --from <RUN_DIR>/raw/qa-ux-message.md --thread qa-ux
 python3 <SKILL_DIR>/scripts/validate_findings.py --array <RUN_DIR>/findings/qa-ux.json --run <RUN_DIR>/run.json
-python3 <SKILL_DIR>/scripts/coverage.py summary <RUN_DIR>
-python3 <SKILL_DIR>/scripts/coverage.py again <RUN_DIR> --minutes 25
+python3 <SKILL_DIR>/scripts/thread_coverage.py summary <RUN_DIR>
+python3 <SKILL_DIR>/scripts/thread_coverage.py again <RUN_DIR> --minutes 25
 # независимая перепроверка и допуск к публикации; правовые нормы — вторая проверка (parallelism.md, legal-ui.md)
 python3 <SKILL_DIR>/scripts/recheck.py run <RUN_DIR>
 python3 <SKILL_DIR>/scripts/recheck.py set <RUN_DIR> --id F-004 --status confirmed --by "qa-verify: Chrome 1440×900, шаги 1–3"

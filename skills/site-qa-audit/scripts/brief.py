@@ -10,8 +10,8 @@ Fills the template of parallelism.md with the values of <RUN_DIR>/run-config.yam
 the copy of the skill in the run, skill_snapshot.py), the rules block of safety-rules.md §4 VERBATIM with the rules
 table of this run, the browser window (browser_mode.py; refreshes <RUN_DIR>/playwright-cli.json), the registry slice
 (fetch_issues.py brief; none -> «реестра нет, dup_check: skipped»), the result format (ingest_findings.py example),
-the time limit and, for the second wave, the items of coverage.py again. The thread is registered in
-<RUN_DIR>/threads.json (directions, pages, minutes, started_at): coverage.py counts the thread time from here.
+the time limit and, for the second wave, the items of thread_coverage.py again. The thread is registered in
+<RUN_DIR>/threads.json (directions, pages, minutes, started_at): thread_coverage.py counts the thread time from here.
 Default output: <RUN_DIR>/briefs/<thread>.md (--print — also to stdout). Exit codes: 0 ok, 2 bad input.
 """
 import argparse
@@ -181,7 +181,7 @@ def main():
     ap.add_argument("--pages-file", help="файл со списком страниц")
     ap.add_argument("--devices", help="устройства и браузеры (pixel7,desktop,webkit)")
     ap.add_argument("--minutes", type=int, help="лимит времени потока, мин (подсказка: 20–30)")
-    ap.add_argument("--items", help="вторая волна: waves/<n>/<thread>.json из coverage.py again")
+    ap.add_argument("--items", help="вторая волна: waves/<n>/<thread>.json из thread_coverage.py again")
     ap.add_argument("--variants", help="варианты данных/стенды для потока (по умолчанию — run-config variants)")
     ap.add_argument("--registry", help="registry.json (по умолчанию <RUN_DIR>/registry.json)")
     ap.add_argument("--registry-limit", type=int, default=150)

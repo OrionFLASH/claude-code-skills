@@ -237,7 +237,7 @@ def build_report(run):
                  ", ".join(f"{k} {v}" for k, v in sorted(rs.items())) + ").")
     nc = (run.data.get("not_checked") or []) if isinstance(run.data, dict) else []
     L.append(f"- Не проверено пунктов: {len(nc)}." + (" Есть побочные эффекты — см. раздел ниже." if run.side_effects else "")
-             + (f" Вторая волна: `coverage.py again {run.dir}`." if nc else ""))
+             + (f" Вторая волна: `thread_coverage.py again {run.dir}`." if nc else ""))
     skipped = [f["id"] for f in fs if f.get("dup_check") == "skipped"]
     if skipped:
         L.append(f"- Сверку с известными issues исполнитель не делал у {len(skipped)} находок ({', '.join(skipped[:8])}"
@@ -259,7 +259,7 @@ def build_report(run):
         L.append(f"| {d} | {len(items)} | {cell(top.get('title'), 100)} |")
     cov = coverage_lines(run)
     if cov:
-        L += ["", "## Охват по потокам", "", "Метрики — автоматически (coverage.py): время от задания до результата, переходы и "
+        L += ["", "## Охват по потокам", "", "Метрики — автоматически (thread_coverage.py): время от задания до результата, переходы и "
               "действия, проверенные url_guard (--trace). Подробно — `coverage/<поток>.md`.", ""] + cov
     variants = [v for v in run.config.get("variants") or [] if v]
     if variants:
@@ -311,7 +311,7 @@ def build_report(run):
 def coverage_lines(run):
     try:
         sys.path.insert(0, str(HERE))
-        import coverage  # noqa: E402
+        import thread_coverage as coverage  # noqa: E402
         return coverage.summary_lines(run.dir)
     except Exception as ex:  # noqa: BLE001 — the report is built anyway
         sys.stderr.write(f"build_report: охват по потокам не собран ({ex})\n")

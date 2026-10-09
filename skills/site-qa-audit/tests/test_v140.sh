@@ -202,7 +202,7 @@ check "intake from-text: «с открытым окном, замедли до 4
   '$PY' '$S/intake.py' from-text --text 'Проверь https://example.com/' --json | '$PY' -c \"import json,sys; b=json.load(sys.stdin)['config']['browser']; assert b=={'headed': None, 'slowmo': None}, b\""
 
 # ---------- #25: one format of executor results, dup_check, registry slice, one place of truth ----------
-VF="$S/validate_findings.py"; IN="$S/ingest_findings.py"; CV="$S/coverage.py"; BR="$S/brief.py"
+VF="$S/validate_findings.py"; IN="$S/ingest_findings.py"; CV="$S/thread_coverage.py"; BR="$S/brief.py"
 cat > "$TMP/arr.json" <<'EOF'
 [{"direction": "ux", "check_id": "ux.feedback", "type": "bug", "severity": "medium", "title": "Поиск без ответа",
   "url": "https://example.com/", "actual": "ничего", "repro": {"url": "https://example.com/", "js": "true"},

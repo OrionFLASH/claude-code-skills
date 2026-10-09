@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """Coverage of executor threads: metrics, «not checked», the second wave.
 
-  coverage.py build <RUN_DIR> [--thread qa-ux]
+  thread_coverage.py build <RUN_DIR> [--thread qa-ux]
       coverage/<thread>.md from coverage/<thread>.json (ingest_findings.py: checked / not checked / questions),
       findings/<thread>.json and the thread metrics computed AUTOMATICALLY:
         time      — from the brief (threads.json, brief.py) to the ingested result (or first..last guard decision);
         pages     — navigations checked by url_guard (allowed / unique), from logs/guard-<thread>.jsonl (--trace);
         actions   — clicks/inputs checked by url_guard before doing them (allowed / unique controls), denied, confirm.
       Without --thread — every thread known from threads.json, coverage/*.json, findings/*.json or logs/guard-*.jsonl.
-  coverage.py summary <RUN_DIR> [--out FILE]
+  thread_coverage.py summary <RUN_DIR> [--out FILE]
       table of all threads -> coverage/summary.md (also a section of report.md)
-  coverage.py again <RUN_DIR> [--minutes 25] [--per-item 5] [--threads N] [--include-forbidden] [--json]
+  thread_coverage.py again <RUN_DIR> [--minutes 25] [--per-item 5] [--threads N] [--include-forbidden] [--json]
       SECOND WAVE by the list «not checked» (findings.json not_checked + coverage/*.json): items are classified
       (time, environment, auth, data, other; forbidden — only with --include-forbidden, it needs the user's decision),
       packed into threads (≤ parallel.max_workers, at most 4) so that each fits into --minutes, and written to
