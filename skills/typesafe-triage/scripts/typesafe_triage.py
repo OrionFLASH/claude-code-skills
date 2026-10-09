@@ -41,6 +41,7 @@
 сессии — triage_session, локально из стенограммы); короткое продолжение с прежним решением — без заметки (журнал: quiet);
 --check проверяет регистрацию хука и имя скилла для Skill (triage_install); --batch (triage_batch); журнал решений и
 фактов в корне проекта и --fact (triage_projectlog, опция).
+2.5.0: маскировка секретов и персональных данных (triage_secrets): пароли RU/EN, seed-фразы, ключи, токены, карты, e-mail; critical не отправляется; TYPESAFE_TRIAGE_SECRETS=block|strict|mask, --scan.
 2.4.2: принудительный запуск триажа из запроса — /typesafe-triage <задача>, метка «triage:» / «!триаж opus/high», фраза «сделай триаж» (снимает пропуски хука; выбор модели не меняет).
 2.4.1: запрос со служебными тегами среды (<system-reminder>, <ide_selection>) в начале больше не пропускается как служебный; «Don't use opus» — не «без субагента».
 2.4.0: автозапись факта после субагента хуком плагина PostToolUse/SubagentStop (triage_autofact, опция, выкл.);
@@ -104,6 +105,7 @@ import triage_action as act       # 2.3: строка «ДЕЙСТВИЕ: сам
 import triage_batch as batch      # 2.3: --batch tasks.json (таблица, порядок по paths, одно подтверждение, Agent(...))
 import triage_install as inst     # 2.3: --check — зарегистрирован ли хук, имя скилла для Skill, «призраки»
 import triage_projectlog as plog  # 2.3: журнал решений и фактов в корне проекта (опция) и --fact
+import triage_secrets as sec    # 2.5: поиск, маскировка и политика «что не отправлять» для секретов и персональных данных
 import triage_autofact as autofact  # 2.4: автозапись факта хуком плагина PostToolUse/SubagentStop (опция)
 
 API_URL = os.environ.get("TYPESAFE_API_URL") or "https://api.typesafe.ai/v1/systemone"  # переопределение — только для тестов
@@ -318,8 +320,29 @@ SECRET_RE = re.compile(
 
 
 def redact(text):
-    """Строки, похожие на ключи и пароли, не уходят в TypeSafe и не попадают в журнал."""
-    return SECRET_RE.sub("[скрыто]", text)
+    """Секреты и персональные данные (triage_secrets: пароли на русском и английском, seed-фразы, ключи, карты, токены, e-mail …)
+    не уходят в TypeSafe и не попадают в журнал; прежний шаблон остаётся вторым слоем защиты."""
+    return SECRET_RE.sub("[скрыто]", sec.scrub(text))
+
+
+def pretrim(text):
+    """Сверхдлинный ввод режется до обработки: то, что отброшено, не отправляется и не проверяется."""
+    if len(text) > PRETRIM_CHARS:
+        return text[:PRETRIM_CHARS * 6 // 10] + "\n[… середина очень длинного ввода пропущена …]\n" + text[-PRETRIM_CHARS * 4 // 10:]
+    return text
+
+
+def secrets_info(scan):
+    """Результат sec.inspect → сведения для результата и журнала: виды и числа, без значений. None — находок нет."""
+    if not scan["count"]:
+        return None
+    return {"kinds": scan["kinds"], "level": scan["level"], "count": scan["count"]}
+
+
+def secrets_notice(scan):
+    return ("в запросе найдены секреты (%s): в TypeSafe он не отправлен, уровень и effort — по локальной эвристике. "
+            "Не повторяй их в ответах и не записывай в файлы, журналы, коммиты и issues; если это настоящие данные, посоветуй их сменить. "
+            "Политика — TYPESAFE_TRIAGE_SECRETS (block | strict | mask)." % sec.describe(scan["kinds"]))
 
 
 def build_questions():
@@ -384,9 +407,7 @@ def make_digest(text, hard=HARD_CHARS):
     """Текст для отправки в TypeSafe: секреты скрыты, большие вставки сжаты, размер ≤ hard.
     Сначала сжимаем вставки (код в ```, длинные серии строк, длинные строки) — просьба пользователя остаётся целиком;
     если всё ещё длинно — начало и конец (просьба обычно в начале или в конце), середина заменяется пометкой."""
-    if len(text) > PRETRIM_CHARS:
-        text = text[:PRETRIM_CHARS * 6 // 10] + "\n[… середина очень длинного ввода пропущена …]\n" + text[-PRETRIM_CHARS * 4 // 10:]
-    text = redact(text)
+    text = redact(pretrim(text))
     if len(text) <= min(SOFT_CHARS, hard):
         return text
     text = FENCE_RE.sub(lambda m: squeeze_lines(m.group(0), 4, 2, "код"), text)
@@ -727,6 +748,24 @@ def fallback(task, h, reason, ctx=None, **extra):
 
 
 def triage(task, key=None, timeout=TIMEOUT_S, **ctx):
+    """Оценка задачи с проверкой на секреты (2.5): критичные находки (приватные ключи, seed-фразы, номера карт) по политике
+    TYPESAFE_TRIAGE_SECRETS=block (по умолчанию) в TypeSafe не отправляются вовсе — уровень по эвристике; остальные находки
+    маскируются в дайджесте (_triage_net → make_digest). Виды и числа находок — в result["secrets"], значения — нигде."""
+    scan = sec.inspect(pretrim(task))
+    if sec.withhold(scan):
+        if ctx.get("session"):
+            ctx["session"] = eff.session_tag(ctx["session"])
+        r = fallback(task, heur.signals(task), "запрос с секретами (%s) не отправлен в TypeSafe" % sec.describe(scan["kinds"]), ctx,
+                     notice=secrets_notice(scan))
+    else:
+        r = _triage_net(task, key, timeout, **ctx)
+    info = secrets_info(scan)
+    if info:
+        r["secrets"] = dict(info, withheld=sec.withhold(scan))
+    return r
+
+
+def _triage_net(task, key=None, timeout=TIMEOUT_S, **ctx):
     """Оценка задачи. TypeSafe недоступен (оплата, ключ, сеть, лимиты, пауза) → уровень по эвристике + notice при необходимости;
     при жёсткой паузе (нет средств, ключ, доступ, потолок расходов) сеть не используется вовсе.
     ctx (необязательно): session — session_id хука (история), cwd — каталог (окружение), env — готовый env_context
@@ -787,19 +826,29 @@ def _append_log(rec):
         pass
 
 
+def log_text(task):
+    """Начало запроса для журнала: секреты скрыты; запрос с критичными находками (ключ, seed-фраза, карта) не пишется вовсе."""
+    found = sec.inspect(pretrim(task))
+    if found["level"] == sec.CRITICAL:
+        return "[скрыто: запрос содержит критичные секреты — текст не записан]"
+    return redact(task)[:200]
+
+
 def log(task, result, **extra):
     """Журнал решений (первые 200 символов, секреты скрыты, права 0600). Пропущенные реплики сюда не пишутся (см. log_skip).
     extra — дополнительные поля хука (takeover, late …); пустые не пишутся."""
     if not result or result.get("skip") or not result.get("model"):
         return
     rec = {"ts": int(time.time()), "id": prompt_id(task),
-           "task": redact(task)[:200], "model": result.get("model"), "source": result.get("source"),
+           "task": log_text(task), "model": result.get("model"), "source": result.get("source"),
            "reason": result.get("reason"), "metrics": result.get("metrics"), "signals": result.get("signals"),
            "domain": result.get("domain"), "input": result.get("input"), "tokens": result.get("tokens"),
            # 2.1: вторая ось и история (session — хеш session_id, не сам идентификатор)
            "effort": result.get("effort"), "effort_source": result.get("effort_source"),
            "effort_depth": result.get("effort_depth"), "model_source": result.get("model_source"),
            "session": result.get("session"), "retry": result.get("retry")}
+    if result.get("secrets"):   # 2.5: только виды и числа находок, без значений
+        rec["secrets"] = result["secrets"]
     for k in ("inherited", "shared_state", "active_task"):   # 2.2: контекст задачи и общее состояние (без текста)
         if result.get(k):
             rec[k] = result[k] if k != "active_task" else True
@@ -1308,6 +1357,12 @@ def hook_output(result, cwd, late=None):
     if result.get("notice"):  # проблема с TypeSafe: показать пользователю прямо (systemMessage) и поручить сообщить в ответе
         msgs.append(result["notice"])
         parts.append("ВАЖНО (TypeSafe): в начале ответа одной-двумя строками сообщи пользователю: " + result["notice"])
+    found = result.get("secrets") or {}
+    if found.get("level") in (sec.CRITICAL, sec.SECRET) and not result.get("notice"):   # замаскировано и отправлено: сказать об этом
+        names = sec.describe(found.get("kinds") or {})
+        msgs.append("TypeSafe-триаж: в запросе замаскированы перед отправкой: %s." % names)
+        parts.append("Безопасность: в запросе пользователя есть секреты (%s). Не повторяй их в ответах и не записывай в файлы, журналы, "
+                     "коммиты и issues; если это настоящие данные, посоветуй пользователю их сменить." % names)
     if msgs:
         out["systemMessage"] = "\n".join(msgs)
     if parts:
@@ -1941,9 +1996,19 @@ def main(argv):
     if "--digest" in argv:  # показать, что именно уйдёт в TypeSafe
         text = " ".join(a for a in argv[1:] if not a.startswith("--")) or sys.stdin.read()
         d, with_ctx = request_digest(text, os.getcwd())
-        print("знаков: было %d, уйдёт %d%s\n---\n%s" % (len(text), len(d), " (с строкой «активная задача» из TASKS.md)"
-                                                       if with_ctx else "", d))
+        scan = sec.inspect(pretrim(text))
+        print("знаков: было %d, уйдёт %d%s" % (len(text), len(d), " (с строкой «активная задача» из TASKS.md)" if with_ctx else ""))
+        if scan["count"]:
+            print("секреты: %s (уровень %s, политика %s)%s" % (sec.describe(scan["kinds"]), scan["level"], sec.policy(),
+                                                              " — в TypeSafe НЕ отправляется" if sec.withhold(scan) else " — маскируются"))
+        print("---\n" + d)
         return 0
+    if "--scan" in argv:  # что найдёт проверка секретов (только виды и числа, значения не печатаются); код 3 — отправка заблокирована
+        text = " ".join(a for a in argv[1:] if not a.startswith("--")) or sys.stdin.read()
+        scan = sec.inspect(pretrim(text))
+        print(json.dumps({"level": scan["level"], "kinds": scan["kinds"], "count": scan["count"], "policy": sec.policy(),
+                          "withheld": sec.withhold(scan)}, ensure_ascii=False))
+        return 3 if sec.withhold(scan) else 0
     if "--signals" in argv:  # локальные сигналы, без сети
         text = " ".join(a for a in argv[1:] if not a.startswith("--")) or sys.stdin.read()
         h = heur.signals(text)
