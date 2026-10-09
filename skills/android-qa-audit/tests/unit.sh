@@ -693,4 +693,6 @@ assert len(d)<=1024, len(d); assert t.count('\n')<=300, t.count('\n')
 assert '/android-qa-audit' in d and 'site-qa-audit' in d
 " "$SK/SKILL.md"
 
+check "qa_force: принудительный запуск (метки, фразы, хук)" "$PY" "$HERE/helpers/shared/qa_force_check.py" "$SK/scripts/shared"
+
 echo "unit: PASS $pass, FAIL $fail"; [ $fail -eq 0 ]

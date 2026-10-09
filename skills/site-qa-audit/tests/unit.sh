@@ -142,4 +142,6 @@ else
   echo "SKIP stream B/C: нет node, playwright (cd scripts/node && npm install) или Chromium (npx playwright install chromium)"
 fi
 
+"$PY" "$HERE/helpers/shared/qa_force_check.py" "$S/shared" >/dev/null && ok "qa_force: принудительный запуск (метки, фразы, хук)" || bad "qa_force"
+
 echo "unit: PASS $pass, FAIL $fail"; [ $fail -eq 0 ]

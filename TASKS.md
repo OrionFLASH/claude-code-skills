@@ -216,3 +216,11 @@
 - [ ] Обновить плагин и перезапустить сессию; проверить живьём слэш-вызов
 ### Где остановился
 2.4.2 влита в main, запушена, тег typesafe-triage/v2.4.2; плагин обновлён. Следующий шаг: перезапуск Claude Code и проверка `/typesafe-triage:typesafe-triage <задача>` — должна прийти заметка «ДЕЙСТВИЕ:».
+
+## 2026-10-09 (6) принудительный запуск в site-qa-audit 1.6.0 и android-qa-audit 1.4.0
+- [x] Общий модуль shared/scripts/qa_force.py + хук UserPromptSubmit в обоих плагинах (hooks/hooks.json)
+- [x] Метки !qa / qa: / !site-qa / !android-qa, опции autopilot и smoke|standard|deep, фраза «запусти скилл …»; публикация не включается
+- [x] SKILL.md, README, INSTALL, CHANGELOG, версии; тесты qa_force_check (26), unit.sh site 78 / android 234, validate, plugin validate
+- [ ] Перезапуск Claude Code и живая проверка хуков (`!qa deep https://example.com`)
+### Где остановился
+Влито в main, запушено, теги site-qa-audit/v1.6.0, android-qa-audit/v1.4.0; плагины обновлены. Следующий шаг: перезапуск и проверка меток в живой сессии.

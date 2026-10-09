@@ -274,6 +274,10 @@ python <SKILL_DIR>\scripts\check_env.py --fast    # то же без обёрт�
 ```
 Затем в **новой** сессии Claude Code: `/android-qa-audit` есть в списке команд, а просьба «протестируй ~/Downloads/app.apk» приводит к вопросу «Похоже, вы хотите протестировать Android-приложение … Запустить?».
 
+## Принудительный запуск (хук плагина, с 1.4.0)
+
+Плагин приносит хук `UserPromptSubmit` (`hooks/hooks.json` → `scripts/shared/qa_force.py`, без сети, только Python): запрос с меткой `!qa …`, `qa: …`, `!android-qa …` или фразой «запусти скилл android-qa-audit» получает строку «ЯВНЫЙ ВЫЗОВ (qa-force)», и скил стартует без вопроса о намерении (опции метки: `autopilot`, `smoke|standard|deep`). Хук не блокирует запрос и ничего не печатает при ошибке. Проверка: `echo '{"prompt":"!qa deep https://example.com"}' | python3 <SKILL_DIR>/scripts/shared/qa_force.py --hook --skill android-qa-audit` печатает JSON с `additionalContext`. При установке без плагина (симлинк или копия) хука нет: метки распознаёт только сама модель по `SKILL.md`; слэш `/android-qa-audit` работает всегда. Хук подхватывается после перезапуска Claude Code или `/reload-plugins`.
+
 ## Обновление
 Текущая версия — `"version"` в `<SKILL_DIR>/.claude-plugin/plugin.json` (плагин — также `claude plugin list`); что изменилось — `CHANGELOG.md` скила; теги — `android-qa-audit/vX.Y.Z`.
 
