@@ -77,6 +77,8 @@ SKILL_DIR: <SKILL_DIR> (путь из run-config.yaml → skill_dir). ДО ПЕ�
   ошибка, «No such file» или код ≠ 0 — СТОП, ничего не открывать, вернуть «SKILL_DIR недоступен: <вывод>».
 Браузер: ТОЛЬКО `playwright-cli -s=<qa-id> …` (Bash). Playwright MCP НЕ использовать. Вкладки — по реестру tabs.py
 (одна на профиль устройства); close-all / kill-all и чужие сессии — НИКОГДА.
+Сессию открывать: playwright-cli -s=<qa-id> open <URL> --config <RUN_DIR>/playwright-cli.json (окно: <видно|скрыто>;
+режим меняет только оркестратор — browser_mode.py; попросит — закрыть свою сессию и открыть заново).
 Конфиг: <RUN_DIR>/run-config.yaml. Страницы: <list or file>. Ширины/браузеры: <…>.
 Контекст сайта (роли, сценарии, термины, «задумано так»): <OUTPUT_ROOT>/qa-runs/.site-context/<host>/context.md — прочитать до начала.
 Чек-листы: <SKILL_DIR>/references/checklists/<direction>.md — раздел(ы) <Smoke|Standard|Deep>.

@@ -452,8 +452,23 @@ def blocked_origins(cfg):
     return ";".join(dict.fromkeys(origins))
 
 
+def browser_of(cfg):
+    """run-config browser.headed / browser.slowmo -> rules.json → browser (node scripts: lib.js browserMode).
+    headed: true | false | null (null — SITE_QA_HEADLESS or the visible default); slowmo: ms or null."""
+    b = cfg.get("browser") or {}
+    if not isinstance(b, dict):
+        b = {}
+    headed = b.get("headed") if isinstance(b.get("headed"), bool) else None
+    try:
+        slowmo = int(b.get("slowmo")) if b.get("slowmo") is not None and int(b.get("slowmo")) >= 0 else None
+    except (TypeError, ValueError):
+        slowmo = None
+    return {"headed": headed, "slowmo": slowmo}
+
+
 def export(cfg):
     return {
+        "browser": browser_of(cfg),
         "rules": rules_of(cfg),
         "base": {
             "deny_nav_hosts": BASE_DENY_NAV_HOSTS,

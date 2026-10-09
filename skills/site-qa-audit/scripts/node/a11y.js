@@ -6,7 +6,7 @@
 //      [--frames all|main]  all (default): axe enters iframes; the result lists innerText length per frame so that
 //                           an app inside an iframe (page text ~250 chars) is visible. main: iframes excluded.
 //      [--locales ru-RU,de-DE,ar-SA]  every URL in every locale (context locale + Accept-Language); lang/dir in results
-const { parseArgs, loadRules, guardContext, sleep, writeOut, urlsFromArgs } = require('./lib');
+const { parseArgs, loadRules, guardContext, sleep, writeOut, urlsFromArgs, launchOptions } = require('./lib');
 const pw = require('playwright');
 const { AxeBuilder } = require('@axe-core/playwright');
 const { pageText } = require('./frames');
@@ -18,7 +18,7 @@ const { guardedPage } = require('./guard');
   const urls = urlsFromArgs(args);
   const rules = loadRules(args.rules);
   const locales = args.locales && args.locales !== true ? String(args.locales).split(',').map(s => s.trim()).filter(Boolean) : [null];
-  const browser = await pw[args.browser].launch();
+  const browser = await pw[args.browser].launch(launchOptions({}, rules));
   const blocked = [];
   const results = [];
   try {

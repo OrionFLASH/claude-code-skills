@@ -118,7 +118,7 @@ if (require.main === module) {
     const allowed = rules ? rules.rules.allowed_domains || [] : [];
     const locales = a.locales && a.locales !== true ? String(a.locales).split(',').map(s => s.trim()).filter(Boolean) : [null];
     const pw = require('playwright');
-    const browser = a.cdp ? await pw.chromium.connectOverCDP(String(a.cdp)) : await pw.chromium.launch(launchOptions());
+    const browser = a.cdp ? await pw.chromium.connectOverCDP(String(a.cdp)) : await pw.chromium.launch(launchOptions({}, rules));
     const runs = [];
     try {
       for (const url of urls) for (const locale of locales) {

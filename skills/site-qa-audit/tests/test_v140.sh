@@ -104,5 +104,95 @@ EOF
 check "render_draft: путь каталога приложения -> <app>, домашние папки -> ~ (ничего из локальных путей в issue)" sh -c "
   grep -q '<app>/index.html' '$TMP/d.md' && ! grep -q '$TMP' '$TMP/d.md' && ! grep -q '/Users/someone' '$TMP/d.md' && ! grep -q '/home/someone' '$TMP/d.md'"
 
+# ---------- #23: copy of the skill in RUN_DIR, browser window in run-config ----------
+SKILL="$(cd "$HERE/.." && pwd)"
+SN="$S/skill_snapshot.py"
+"$PY" "$SN" "$TMP/inst" --from "$SKILL" --mode copy --no-node-modules >/dev/null 2>&1  # «installed» skill elsewhere
+mv "$TMP/inst/skill" "$TMP/installed"
+mkdir -p "$TMP/installed/scripts/node/node_modules/pkg" && echo "module.exports=1" > "$TMP/installed/scripts/node/node_modules/pkg/index.js"
+RUN="$TMP/run-snap"; mkdir -p "$RUN"
+printf '# черновик: комментарий сохраняется\nversion: 1\nskill_dir: %s  # старый путь\nmode: dry-run\nsite:\n  allowed_domains:\n    - example.com\n' "$TMP/installed" > "$RUN/run-config.yaml"
+check "skill_snapshot: копия в <RUN_DIR>/skill — полный SKILL_DIR без tests/, .snapshot.json с версией" sh -c "
+  '$PY' '$SN' '$RUN' --from '$TMP/installed' --update-config > '$TMP/sn.out' 2>&1 &&
+  test -f '$RUN/skill/SKILL.md' && test -f '$RUN/skill/scripts/url_guard.py' && test -f '$RUN/skill/templates/finding.schema.json' &&
+  test -f '$RUN/skill/references/safety-rules.md' && test ! -e '$RUN/skill/tests' && test -f '$RUN/skill/.snapshot.json' &&
+  '$PY' '$S/skill_dir.py' --check '$RUN/skill' | grep -q '^ok '"
+check "skill_snapshot: node_modules — жёсткие ссылки (тот же inode), остальное — копии" sh -c "
+  '$PY' -c \"import os,sys; a=os.stat(sys.argv[1]); b=os.stat(sys.argv[2]); c=os.stat(sys.argv[3]); d=os.stat(sys.argv[4]); assert a.st_ino==b.st_ino and c.st_ino!=d.st_ino\" '$TMP/installed/scripts/node/node_modules/pkg/index.js' '$RUN/skill/scripts/node/node_modules/pkg/index.js' '$TMP/installed/scripts/url_guard.py' '$RUN/skill/scripts/url_guard.py'"
+check "skill_snapshot --update-config: skill_dir -> копия, skill_source -> источник, комментарии и остальное на месте" sh -c "
+  grep -q '^# черновик: комментарий сохраняется' '$RUN/run-config.yaml' && grep -q '^mode: dry-run' '$RUN/run-config.yaml' &&
+  '$PY' -c \"import sys; sys.path.insert(0, sys.argv[1]); import miniyaml; d=miniyaml.load_file(sys.argv[2]); assert d['skill_dir']==sys.argv[3] and d['skill_source']==sys.argv[4] and d['site']['allowed_domains']==['example.com'], d\" '$S/shared' '$RUN/run-config.yaml' '$RUN/skill' '$TMP/installed'"
+rm -rf "$TMP/installed"
+check "skill_snapshot: исходная папка удалена посреди прогона — копия работает (url_guard selftest, ingest example)" sh -c "
+  '$PY' '$RUN/skill/scripts/url_guard.py' selftest >/dev/null && '$PY' '$RUN/skill/scripts/ingest_findings.py' example | grep -q qa-findings &&
+  '$PY' '$RUN/skill/scripts/skill_dir.py' | grep -qx '$RUN/skill'"
+check "skill_snapshot: повтор той же версии — уже есть (0); другая версия — 3 без --force" sh -c "
+  '$PY' '$SN' '$RUN' --from '$RUN/skill' --json >/dev/null 2>&1; test \$? = 0 || true
+  '$PY' -c \"import json,sys; p=sys.argv[1]; d=json.load(open(p)); d['version']='0.0.1'; json.dump(d, open(p,'w'))\" '$RUN/skill/.snapshot.json' &&
+  mkdir -p '$TMP/src2' && cp -R '$RUN/skill/.' '$TMP/src2/' && rm -f '$TMP/src2/.snapshot.json' &&
+  test \$('$PY' '$SN' '$RUN' --from '$TMP/src2' >/dev/null 2>&1; echo \$?) = 3 &&
+  test \$('$PY' '$SN' '$RUN' --from '$TMP/src2' --force >/dev/null 2>&1; echo \$?) = 0"
+check "skill_snapshot: источник без SKILL.md -> 1" test "$(rc "$PY" "$SN" "$TMP/run-x" --from "$TMP/nothing")" = 1
+
+# local_app.py copy: an independent copy of the app, run-config -> the copy, the original is no longer allowed
+LA="$S/local_app.py"; RUNA="$TMP/run-app"; mkdir -p "$RUNA"
+cp -R "$F/local-app" "$TMP/origapp"; ln -s "$OUT" "$TMP/origapp/link-out" 2>/dev/null || true
+printf 'version: 1\nsite:\n  start_urls:\n    - %s/sub/page.html\n  allowed_domains:\n    - file\nrules:\n  forbidden_domains: []\n' "$(uri "$TMP/origapp")" > "$RUNA/run-config.yaml"
+"$PY" "$UG" export --config "$RUNA/run-config.yaml" --out "$RUNA/rules.json" >/dev/null
+check "local_app copy --update-config: копия в <RUN_DIR>/app, start_urls и local_roots на копию, rules.json пересобран" sh -c "
+  '$PY' '$LA' copy '$TMP/origapp' '$RUNA' --update-config --json > '$TMP/la.json' &&
+  test -f '$RUNA/app/index.html' && test -f '$RUNA/app/sub/page.html' && test ! -e '$RUNA/app/link-out' &&
+  '$PY' -c \"import json,sys,os; d=json.load(open(sys.argv[1])); assert d['start_url'].endswith('/app/index.html'), d
+import pathlib; sys.path.insert(0, sys.argv[2]); import miniyaml; c=miniyaml.load_file(sys.argv[3])['site']
+assert c['local_roots']==[sys.argv[4]] and c['allowed_domains']==[] and c['start_urls'][0].endswith('/app/sub/page.html'), c
+r=json.load(open(sys.argv[5]))['rules']; assert r['local_roots'][0]['path']==sys.argv[4], r
+c=json.load(open(sys.argv[6])); assert c.get('allowUnrestrictedFileAccess') is True, c\" '$TMP/la.json' '$S/shared' '$RUNA/run-config.yaml' '$RUNA/app' '$RUNA/rules.json' '$RUNA/playwright-cli.json' &&
+  test \$('$PY' '$UG' nav '$(uri "$RUNA/app")/index.html' --config '$RUNA/run-config.yaml' >/dev/null; echo \$?) = 0 &&
+  test \$('$PY' '$UG' nav '$(uri "$TMP/origapp")/index.html' --config '$RUNA/run-config.yaml' >/dev/null; echo \$?) = 3"
+check "local_app copy: копия независима (правка копии не меняет оригинал); повтор без --force — 3" sh -c "
+  echo changed >> '$RUNA/app/index.html' && ! grep -q changed '$TMP/origapp/index.html' &&
+  test \$('$PY' '$LA' copy '$TMP/origapp' '$RUNA' >/dev/null 2>&1; echo \$?) = 3"
+check "local_app copy: папка прогона внутри приложения — без рекурсии (qa-runs/ не копируется в себя)" sh -c "
+  mkdir -p '$TMP/proj/qa-runs/r1' && cp '$F/local-app/index.html' '$TMP/proj/' &&
+  '$PY' '$LA' copy '$TMP/proj' '$TMP/proj/qa-runs/r1' >/dev/null && test -f '$TMP/proj/qa-runs/r1/app/index.html' && test ! -e '$TMP/proj/qa-runs/r1/app/qa-runs'"
+
+# browser window: run-config browser.* -> rules.json -> node scripts; browser_mode.py show/set
+BM="$S/browser_mode.py"; RUNB="$TMP/run-browser"; mkdir -p "$RUNB"
+printf '# комментарий\nversion: 1\nsite:\n  allowed_domains: [example.com]\nparallel:\n  max_workers: 2\n' > "$RUNB/run-config.yaml"
+"$PY" "$UG" export --config "$RUNB/run-config.yaml" --out "$RUNB/rules.json" >/dev/null
+check "browser_mode show: без настройки — окно видно (по умолчанию); SITE_QA_HEADLESS=1 — скрыто (env)" sh -c "
+  env -u SITE_QA_HEADLESS '$PY' '$BM' show '$RUNB' --json | '$PY' -c \"import json,sys; d=json.load(sys.stdin); assert d['headed'] and d['source']=='по умолчанию' and d['playwright_cli'].endswith('playwright-cli.json --headed'), d\" &&
+  SITE_QA_HEADLESS=1 '$PY' '$BM' show '$RUNB' --json | '$PY' -c \"import json,sys; d=json.load(sys.stdin); assert not d['headed'] and '--headed' not in d['playwright_cli'] and '--config' in d['playwright_cli'], d\""
+check "browser_mode set --headed --slowmo 400: run-config и rules.json, главнее SITE_QA_HEADLESS=1; --cli -> --headed" sh -c "
+  '$PY' '$BM' set '$RUNB' --headed --slowmo 400 >/dev/null &&
+  '$PY' -c \"import json,sys; b=json.load(open(sys.argv[1]))['browser']; assert b=={'headed': True, 'slowmo': 400}, b\" '$RUNB/rules.json' &&
+  SITE_QA_HEADLESS=1 '$PY' '$BM' show '$RUNB' --cli | grep -q -- '--headed\$' &&
+  '$PY' -c \"import json,sys; d=json.load(open(sys.argv[1])); assert d=={'browser': {'launchOptions': {'headless': False, 'slowMo': 400}}}, d\" '$RUNB/playwright-cli.json' &&
+  grep -q '^# комментарий' '$RUNB/run-config.yaml' && grep -q 'max_workers: 2' '$RUNB/run-config.yaml'"
+check "browser_mode set --headless / --default" sh -c "
+  '$PY' '$BM' set '$RUNB' --headless >/dev/null && ! '$PY' '$BM' show '$RUNB' --cli | grep -q -- '--headed' &&
+  '$PY' -c \"import json,sys; d=json.load(open(sys.argv[1])); assert d['browser']['launchOptions']=={'headless': True}, d\" '$RUNB/playwright-cli.json' &&
+  '$PY' '$BM' set '$RUNB' --default >/dev/null &&
+  '$PY' -c \"import json,sys; b=json.load(open(sys.argv[1]))['browser']; assert b['headed'] is None and b['slowmo']==400, b\" '$RUNB/rules.json'"
+if command -v node >/dev/null 2>&1; then
+  check "lib.js browserMode: команда > run-config > env > видимое окно; --headed не съедает URL" sh -c "
+    cd '$S/node' && SITE_QA_HEADLESS=1 node -e \"
+const { browserMode, parseArgs } = require('./lib');
+const eq = (a, b, m) => { if (JSON.stringify(a) !== JSON.stringify(b)) { console.error(m, JSON.stringify(a)); process.exit(1); } };
+eq(browserMode({ browser: { headed: true, slowmo: 100 } }, {}, []), { headless: false, slowMo: 100, source: 'run-config' }, 'run-config > env');
+eq(browserMode({ browser: { headed: true } }, {}, ['--headless']), { headless: true, slowMo: 0, source: 'cli' }, 'cli > run-config');
+eq(browserMode(null, {}, []), { headless: true, slowMo: 0, source: 'env' }, 'env');
+eq(browserMode({ browser: { headed: false } }, { headless: false }, []).source, 'script', 'script > all');
+delete process.env.SITE_QA_HEADLESS; delete process.env.SITE_QA_SLOWMO;
+eq(browserMode({ browser: { headed: null } }, {}, []), { headless: false, slowMo: 250, source: 'default' }, 'default');
+eq(browserMode(null, {}, ['--headed', '--slowmo', '50']), { headless: false, slowMo: 50, source: 'cli' }, 'cli slowmo');
+eq(parseArgs(['--headed', 'file:///a/index.html'])._, ['file:///a/index.html'], 'parseArgs --headed URL');
+\""
+fi
+check "intake from-text: «с открытым окном, замедли до 400» -> browser.headed true, slowmo 400; «в фоне» -> false; иначе null" sh -c "
+  '$PY' '$S/intake.py' from-text --text 'Проверь https://example.com/ с открытым окном, замедли до 400 мс' --json | '$PY' -c \"import json,sys; b=json.load(sys.stdin)['config']['browser']; assert b=={'headed': True, 'slowmo': 400}, b\" &&
+  '$PY' '$S/intake.py' from-text --text 'Проверь https://example.com/ в фоне' --json | '$PY' -c \"import json,sys; b=json.load(sys.stdin)['config']['browser']; assert b['headed'] is False, b\" &&
+  '$PY' '$S/intake.py' from-text --text 'Проверь https://example.com/' --json | '$PY' -c \"import json,sys; b=json.load(sys.stdin)['config']['browser']; assert b=={'headed': None, 'slowmo': None}, b\""
+
 echo "stream v1.4.0: PASS $pass, FAIL $fail"
 [ $fail -eq 0 ]

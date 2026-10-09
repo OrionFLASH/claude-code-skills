@@ -239,7 +239,7 @@ async function openDevice({ device, browser: engineOverride, cdp, storageState, 
   let state = storageState;
   if (cdp) state = await captureState(cdp, rules ? rules.rules.allowed_domains : null);  // in memory only
   const { storageState: st, sessionStorage } = storageForContext(state);
-  const browser = await pw[d.engine].launch(launchOptions(headless === undefined ? {} : { headless }));
+  const browser = await pw[d.engine].launch(launchOptions(headless === undefined ? {} : { headless }, rules));
   const ctxOpts = { ...d.options, ...(st ? { storageState: st } : {}),
     ...(locale ? { locale, extraHTTPHeaders: { 'Accept-Language': locale } } : {}) };
   const context = await browser.newContext(ctxOpts);

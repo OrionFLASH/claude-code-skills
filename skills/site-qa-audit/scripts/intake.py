@@ -204,6 +204,15 @@ def parse(text, output_dir=None):
         cfg["mode"] = "live"
     if re.search(r"english|на английском", low):
         cfg["language"] = "en"
+    # browser window (browser_mode.py): only an explicit wish is written; null = SITE_QA_HEADLESS or visible
+    headed = None
+    if re.search(r"(с |в )?(открыт\w*|видим\w*) окн|окн\w* (браузера )?(открыт|видн)|\bheaded\b|покажи браузер|"
+                 r"хочу видеть (браузер|что делает)|show (the )?browser", low):
+        headed = True
+    elif re.search(r"без окна|в фоне|фонов\w* режим|скрыт\w* (окн|браузер)|\bheadless\b|не показывай браузер", low):
+        headed = False
+    slow = re.search(r"(замедл\w*|slow-?mo)\D{0,12}(\d{2,5})?", low)
+    cfg["browser"] = {"headed": headed, "slowmo": int(slow.group(2)) if slow and slow.group(2) else (500 if slow else None)}
 
     # repositories with roles and publication settings
     repo_list = []

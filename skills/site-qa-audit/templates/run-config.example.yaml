@@ -7,7 +7,10 @@
 version: 1
 output_dir: /abs/path/to/results   # OUTPUT_ROOT: путь из запроса / SITE_QA_OUTPUT_DIR / <cwd>; результаты в <OUTPUT_ROOT>/qa-runs/
 skill_dir: /abs/path/to/site-qa-audit  # SKILL_DIR прогона: python3 <скил>/scripts/skill_dir.py (SITE_QA_AUDIT_DIR / плагин);
-                              # подставляется в блок §4 и задания исполнителей, исполнитель проверяет его до работы
+                              # подставляется в блок §4 и задания исполнителей, исполнитель проверяет его до работы.
+                              # Рекомендуется копия скила в прогоне: skill_snapshot.py <RUN_DIR> --update-config
+                              # → <RUN_DIR>/skill (не пропадёт при обновлении плагина посреди прогона)
+skill_source: null            # откуда скопирован скил (заполняет skill_snapshot.py --update-config)
 mode: dry-run                 # live | dry-run (dry-run: всё, кроме публикации; черновики в drafts/)
 publish_mode: batch           # batch — черновики и сводная таблица в конце; direct — по запросу пользователя: каждая
                               # находка «воспроизвести дважды → дубли → issue → скриншоты» сразу (repo-sync.md §4a)
@@ -149,6 +152,10 @@ rules:
   read_only_urls: []
   # Регэкспы URL, которые можно ОТКРЫТЬ ТОЛЬКО ДЛЯ ЧТЕНИЯ (url_guard.py nav --read-only), даже если они под
   # forbidden_url_patterns: например "/auth/sign(in|up)" — прочитать тексты согласий, ничего не нажимая.
+
+browser:                      # окно браузера на весь прогон (browser_mode.py set <RUN_DIR> --headed|--headless|--default)
+  headed: null                # true — окно видно, false — без окна, null — SITE_QA_HEADLESS или видно по умолчанию
+  slowmo: null                # замедление действий в видимом окне, мс (null — SITE_QA_SLOWMO или 250)
 
 frames: main                  # main | all — all: детекторы заходят во iframe (вложенные приложения), references/layout-detectors.md
 

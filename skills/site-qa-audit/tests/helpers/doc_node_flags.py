@@ -31,7 +31,15 @@ def snippets(path):
     return out
 
 
+LIB_FLAGS = [  # flags read by shared helpers of scripts/node/lib.js, not by the script itself
+    (re.compile(r"\burlsFromArgs\b"), {"--url", "--urls-file"}),                       # positional + --url + --urls-file
+    (re.compile(r"\b(launchOptions|openDevice)\b"), {"--headed", "--headless", "--slowmo"}),  # lib.browserMode
+]
+
+
 def accepted(src, flag):
+    if any(rx.search(src) and flag in flags for rx, flags in LIB_FLAGS):
+        return True
     name = flag[2:]
     ident = name.replace("-", "_")
     pats = [rf"\ba(rgs)?\.{re.escape(name)}\b" if "-" not in name else None,

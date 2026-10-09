@@ -3,6 +3,9 @@
 const fs = require('fs');
 const path = require('path');
 
+// Flags of every browser script that never take a value (browserMode): `--headed URL` keeps URL positional.
+const BOOL_FLAGS = new Set(['headed', 'headless']);
+
 function parseArgs(argv, defaults = {}) {
   const out = { _: [], ...defaults };
   for (let i = 0; i < argv.length; i++) {
@@ -10,7 +13,7 @@ function parseArgs(argv, defaults = {}) {
     if (!a.startsWith('--')) { out._.push(a); continue; }
     const key = a.slice(2);
     const next = argv[i + 1];
-    if (next === undefined || next.startsWith('--')) out[key] = true;
+    if (next === undefined || next.startsWith('--') || BOOL_FLAGS.has(key)) out[key] = true;
     else { out[key] = next; i++; }
   }
   return out;
@@ -215,13 +218,35 @@ function appendJsonl(file, obj) {
   fs.appendFileSync(file, JSON.stringify({ ts: new Date().toISOString(), ...obj }) + '\n');
 }
 
-// Browser launch options shared by all scripts: a VISIBLE window by default (user requirement);
-// SITE_QA_HEADLESS=1 hides it, SITE_QA_SLOWMO=<ms> slows visible actions down (default 250).
-function launchOptions(extra = {}) {
-  const headless = extra.headless !== undefined ? !!extra.headless : process.env.SITE_QA_HEADLESS === '1';
-  const { headless: _h, ...rest } = extra;
-  return { headless, ...(headless ? {} : { slowMo: Number(process.env.SITE_QA_SLOWMO || 250) }), ...rest };
+// Browser window of the scripts (references/devices-auth.md → «Окно браузера»). First that is set wins:
+//   1. the script itself (extra.headless, e.g. guard.js check, device_context media — always hidden);
+//   2. command line of any browser script: --headless / --headed, --slowmo <ms>;
+//   3. run-config.yaml → browser.headed / browser.slowmo (exported to rules.json → browser): the ONE place to switch
+//      the window for the whole run, also in the middle of it (browser_mode.py set <RUN_DIR> --headed);
+//   4. environment: SITE_QA_HEADLESS=1 hides, SITE_QA_SLOWMO=<ms>;
+//   5. default: a VISIBLE window, slow-mo 250 ms.
+function browserMode(rules, extra = {}, argv = process.argv.slice(2)) {
+  const b = (rules && rules.browser) || {};
+  const env = process.env;
+  let headless, source;
+  if (extra.headless !== undefined) { headless = !!extra.headless; source = 'script'; }
+  else if (argv.includes('--headless')) { headless = true; source = 'cli'; }
+  else if (argv.includes('--headed')) { headless = false; source = 'cli'; }
+  else if (typeof b.headed === 'boolean') { headless = !b.headed; source = 'run-config'; }
+  else if (env.SITE_QA_HEADLESS !== undefined && env.SITE_QA_HEADLESS !== '') { headless = env.SITE_QA_HEADLESS === '1'; source = 'env'; }
+  else { headless = false; source = 'default'; }
+  const i = argv.indexOf('--slowmo');
+  const raw = i >= 0 && argv[i + 1] !== undefined ? argv[i + 1]
+    : (b.slowmo !== undefined && b.slowmo !== null ? b.slowmo : (env.SITE_QA_SLOWMO || 250));
+  const slowMo = headless ? 0 : Math.max(0, Number(raw) || 0);
+  return { headless, slowMo, source };
 }
 
-module.exports = { GuardUnavailableError, launchOptions, parseArgs, loadRules, navAllowed, resourceBlocked, guardContext, hostMatches, hostpathMatches, sleep, writeOut,
+function launchOptions(extra = {}, rules = null) {
+  const m = browserMode(rules, extra);
+  const { headless: _h, ...rest } = extra;
+  return { headless: m.headless, ...(m.headless ? {} : { slowMo: m.slowMo }), ...rest };
+}
+
+module.exports = { GuardUnavailableError, launchOptions, browserMode, parseArgs, loadRules, navAllowed, resourceBlocked, guardContext, hostMatches, hostpathMatches, sleep, writeOut,
   urlsFromArgs, toUrl, fileCheck, realpathLoose, loadRunConfig, multiArg, appendJsonl };
