@@ -1,7 +1,7 @@
 {
   "name": "typesafe-triage",
-  "version": "2.2.0",
-  "description": "Универсальный триаж любых задач через TypeSafe (Jev) и локальные сигналы: выбор уровня модели haiku/sonnet/opus/fable и reasoning effort low…max (haiku, fable, low и max — только с подтверждения пользователя), заметка хука и запуск отдельного агента",
+  "version": "2.3.0",
+  "description": "Универсальный триаж любых задач через TypeSafe (Jev) и локальные сигналы: уровень модели haiku/sonnet/opus/fable, reasoning effort low…max и одно действие — сам, Agent или спросить (haiku, fable, low и max — только с подтверждения пользователя); проверка хука, пакетный режим, журнал фактов",
   "author": {
     "name": "OrionFLASH"
   },
