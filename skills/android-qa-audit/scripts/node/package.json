@@ -1,0 +1,16 @@
+{
+  "name": "android-qa-audit-node",
+  "private": true,
+  "version": "1.2.0",
+  "description": "Аннотации скриншотов android-qa-audit: annotate.js и lib.js — вендорные копии из site-qa-audit/scripts/node (не править здесь; обновлять копированием). Ставится локально: npm install && npx playwright install chromium",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "annotate": "node annotate.js"
+  },
+  "dependencies": {
+    "playwright": "1.63.0"
+  }
+}

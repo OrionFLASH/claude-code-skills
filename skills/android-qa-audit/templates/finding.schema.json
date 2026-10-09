@@ -103,7 +103,19 @@
         },
         "logcat_excerpt": {"type": "string", "description": "Относящиеся к находке строки logcat, замаскированные, до ~40 строк"},
         "logcat_file": {"type": "string", "description": "Путь относительно папки прогона: logs/logcat-….txt"},
-        "screenshots": {"type": "array", "items": {"type": "string"}, "description": "Пути относительно папки прогона"},
+        "screenshots": {"type": "array", "items": {"type": "string"}, "description": "Пути относительно папки прогона; аннотированный (-annotated.png) — первым, затем оригинал"},
+        "shots": {
+          "type": "array",
+          "description": "Снимки с разметкой (finding.py, annotate_android.py): черновики issues показывают annotated",
+          "items": {
+            "type": "object",
+            "properties": {
+              "original": {"type": "string"}, "annotated": {"type": ["string", "null"]}, "spec": {"type": "string"},
+              "marks": {"type": "array"}, "viewed": {"type": "boolean", "description": "аннотированный снимок просмотрен (Read) до публикации"},
+              "check": {"type": "object"}
+            }
+          }
+        },
         "recordings": {"type": "array", "items": {"type": "string"}},
         "ui_dump": {"type": "string", "description": "raw/ui-….xml"},
         "metrics": {"type": "object", "description": "Числа: TotalTime, janky_percent, total_pss_kb…"},
@@ -115,7 +127,7 @@
         "merged_ids": {"type": "array", "items": {"type": "string"}},
         "status": {
           "enum": ["NEW", "DUPLICATE-OPEN", "FIXED-OK", "FIXED-INSUFFICIENT", "REGRESSION", "ALREADY-COPIED", "UNSURE-MATCH",
-                   "NOT-CHECKED", null]
+                   "NOT-CHECKED", "KNOWN", null]
         },
         "status_reason": {"type": "string"},
         "not_checked_reason": {"enum": ["forbidden", "no-stand", "no-image", "adb-limitation", "needs-login", "steps-unclear", "other", null]},
@@ -175,6 +187,9 @@
           }
         },
         "ingested": {"type": "object", "description": "Откуда пришла находка (ingest_findings.py): поток и время"},
+        "known": {"type": "object", "description": "status KNOWN: документ проекта, где это описано как известное/задуманное (known_docs.py set)",
+                  "properties": {"doc": {"type": "string"}, "quote": {"type": "string"}, "by": {"type": "string"}, "at": {"type": "string"}}},
+        "known_candidates": {"type": "array", "description": "Кандидаты «уже известно» (known_docs.py check) — прочитать цитату"},
         "source_id": {"type": "string", "description": "id находки у исполнителя (до присвоения F-NNN)"}
       },
       "if": {"properties": {"type": {"enum": ["proposal", "user-story", "suggestion"]}}},
