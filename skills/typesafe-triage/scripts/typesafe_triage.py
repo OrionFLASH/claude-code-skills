@@ -41,6 +41,7 @@
 сессии — triage_session, локально из стенограммы); короткое продолжение с прежним решением — без заметки (журнал: quiet);
 --check проверяет регистрацию хука и имя скилла для Skill (triage_install); --batch (triage_batch); журнал решений и
 фактов в корне проекта и --fact (triage_projectlog, опция).
+2.6.0: делегирование вниз и экономный режим (опции), --report, --verify (SHA256SUMS), HTTP 451 = region, путь в начале запроса не команда, шире маскировка.
 2.5.0: маскировка секретов и персональных данных (triage_secrets): пароли RU/EN, seed-фразы, ключи, токены, карты, e-mail; critical не отправляется; TYPESAFE_TRIAGE_SECRETS=block|strict|mask, --scan.
 2.4.2: принудительный запуск триажа из запроса — /typesafe-triage <задача>, метка «triage:» / «!триаж opus/high», фраза «сделай триаж» (снимает пропуски хука; выбор модели не меняет).
 2.4.1: запрос со служебными тегами среды (<system-reminder>, <ide_selection>) в начале больше не пропускается как служебный; «Don't use opus» — не «без субагента».
@@ -105,6 +106,7 @@ import triage_action as act       # 2.3: строка «ДЕЙСТВИЕ: сам
 import triage_batch as batch      # 2.3: --batch tasks.json (таблица, порядок по paths, одно подтверждение, Agent(...))
 import triage_install as inst     # 2.3: --check — зарегистрирован ли хук, имя скилла для Skill, «призраки»
 import triage_projectlog as plog  # 2.3: журнал решений и фактов в корне проекта (опция) и --fact
+import triage_report as report   # 2.6: --report — меняет ли триаж что-то на практике (локально, без сети)
 import triage_secrets as sec    # 2.5: поиск, маскировка и политика «что не отправлять» для секретов и персональных данных
 import triage_autofact as autofact  # 2.4: автозапись факта хуком плагина PostToolUse/SubagentStop (опция)
 
@@ -647,6 +649,61 @@ def skill_config():
         return {}
 
 
+REMOTE_SUMS_URL = "https://raw.githubusercontent.com/OrionFLASH/claude-code-skills/typesafe-triage/v%s/skills/typesafe-triage/SHA256SUMS"
+
+
+def run_verify(remote=False):
+    """--verify: файлы скилла против SHA256SUMS из этой же папки (порча, случайная правка, неполное обновление); --remote — ещё и
+    против SHA256SUMS релиза-тега на GitHub (подмена вместе с файлом сумм). Код 0 — всё совпало, 1 — расхождения, 2 — нет данных."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent / "shared"))
+    try:
+        import skill_sums
+    except ImportError:
+        print("Модуль shared/skill_sums.py не найден: версия скилла без проверки сумм (до 2.6.0) — обновите скилл.")
+        return 2
+    finally:
+        sys.path.pop(0)
+    root = Path(__file__).resolve().parent.parent
+    try:
+        ver = json.loads((root / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8")).get("version", "?")
+    except (OSError, ValueError):
+        ver = "?"
+    rc = skill_sums.main(["verify", str(root)])
+    print("Версия скилла: %s. Сверить с тегом: curl -fsSL %s | diff - \"%s\"   (или --verify --remote)" % (ver, REMOTE_SUMS_URL % ver, root / "SHA256SUMS"))
+    if remote and rc in (0, 1) and ver != "?":
+        try:
+            with urllib.request.urlopen(urllib.request.Request(REMOTE_SUMS_URL % ver), timeout=10, context=ssl_context()) as r:
+                theirs = r.read().decode("utf-8").replace("\r\n", "\n")
+            mine = (root / "SHA256SUMS").read_text(encoding="utf-8").replace("\r\n", "\n")
+            if theirs == mine:
+                print("SHA256SUMS совпадает с тегом typesafe-triage/v%s на GitHub." % ver)
+            else:
+                print("ВНИМАНИЕ: SHA256SUMS отличается от файла в теге typesafe-triage/v%s на GitHub — копия изменена или это не релиз." % ver)
+                rc = 1
+        except Exception as e:   # сеть, 404 (тега нет), сертификаты
+            print("Сверка с GitHub не удалась (%s): проверьте тег и сеть." % type(e).__name__)
+            rc = rc or 2
+    return rc
+
+
+def option_on(env_name, cfg_key):
+    """Опция скилла: переменная окружения (on/off) главнее ключа в config.json; по умолчанию выключена (2.6.0)."""
+    v = os.environ.get(env_name, "").strip().lower()
+    if v in ("on", "1", "true", "yes"):
+        return True
+    if v in ("off", "0", "false", "no"):
+        return False
+    return skill_config().get(cfg_key) is True
+
+
+def delegate_down_on():
+    return option_on("TYPESAFE_TRIAGE_DELEGATE_DOWN", "delegate_down")
+
+
+def economy_on():
+    return option_on("TYPESAFE_TRIAGE_ECONOMY", "economy")
+
+
 def set_agent_effort(value):
     """2.3: записать, есть ли у инструмента Agent параметр effort (True/False; None — снова определять автоматически)."""
     c = skill_config()
@@ -728,7 +785,7 @@ def add_effort(r, m, h, task, env="auto", history=None, session=None, cwd=None, 
         if session_info.get("work"):   # 2.4.0 (#33): счётчики и профиль сессии — без текста стенограммы
             r["session_work"] = session_info["work"]
     r["continuation"] = heur.is_continuation(task)
-    r["action"] = act.decide(r, heur.action_signals(task), session_info, r["continuation"])
+    r["action"] = act.decide(r, heur.action_signals(task), session_info, r["continuation"], opts={"delegate_down": delegate_down_on()})
     return r
 
 
@@ -863,14 +920,16 @@ def log(task, result, **extra):
                 rec["session_" + k] = a[k]
     if (result.get("session_model") or {}).get("tier"):
         rec["session_tier"] = result["session_model"]["tier"]
-    rec.update({k: v for k, v in extra.items() if v})
+    rec.update({k: v for k, v in extra.items() if v or (k == "ms" and v == 0)})
     _append_log(rec)
 
 
-def log_skip(task, session_id, reason):
+def log_skip(task, session_id, reason, ms=None):
     """2.2.0: пропуск или отказ хука — тоже в журнал, но без текста запроса: время, хеш, длина, хеш сессии, причина.
     Такие записи (поле skipped, без model) не участвуют в истории сессии и в сводке моделей."""
     rec = {"ts": int(time.time()), "skipped": reason}
+    if ms is not None:
+        rec["ms"] = ms          # 2.6.0 (#40): время работы хука, мс
     if isinstance(task, str):
         rec.update(id=prompt_id(task), chars=len(task))
     if session_id:
@@ -943,7 +1002,12 @@ def overall_confidence(result):
     return min(ranked, key=CONF_RANK.get)
 
 
-def agent_call(model, effort):
+def agent_call(model, effort, result=None):
+    """Строка вызова для заметки. Если у Agent нет параметра effort (agent_effort=false), глубина стоит внутри строки:
+    Agent(model=opus; в промпт: «Думай тщательно…») — а не отдельным пунктом, который легко пропустить (2.6.0, #39)."""
+    if result is not None and result.get("agent_effort") is False:
+        lang = ((result.get("signals") or {}).get("effort") or {}).get("lang")
+        return "Agent(model=%s; в промпт: «%s»)" % (model, effort_phrase(effort, lang))
     return "Agent(model=%s, effort=%s)" % (model, effort)
 
 
@@ -998,6 +1062,8 @@ def _effort_line(result, a):
     if has is True:
         return "• effort=%s — параметром Agent: он есть, а правило CLAUDE.md/скилла — явное требование его передать." % e
     if has is False:
+        if a.get("kind") == "agent":   # фраза глубины уже в строке вызова (agent_call)
+            return "• У Agent нет параметра effort (не ошибка): фраза глубины — в строке вызова выше, вставь её в промпт агента%s." % tail
         return "• У Agent нет параметра effort (не ошибка): в промпт агента «%s»%s." % (phrase, tail)
     return ("• effort — параметром Agent, если он есть в схеме (правило CLAUDE.md/скилла — явное требование); нет — не ссылайся "
             "на него (не ошибка), в промпт агента «%s»%s. Есть ли параметр — запиши один раз: --set-agent-effort yes|no."
@@ -1010,7 +1076,7 @@ def hook_context(result, cur_effort=None):
     Числа осей и причины слоёв — в JSON и журнале, не в заметке."""
     a = result.get("action") or act.decide(result)
     kind = a.get("kind")
-    head_act = agent_call(a["agent"]["model"], a["agent"]["effort"]) if kind == "agent" else "спросить" if kind == "ask" else "сам"
+    head_act = agent_call(a["agent"]["model"], a["agent"]["effort"], result) if kind == "agent" else "спросить" if kind == "ask" else "сам"
     lines = ["ДЕЙСТВИЕ: %s — %s. Уверенность: %s. %s" % (head_act, a.get("reason", ""), overall_confidence(result),
                                                          note_tag(result))]
     hints = a.get("hints") or []
@@ -1027,6 +1093,10 @@ def hook_context(result, cur_effort=None):
     if "wait" in hints:
         lines.append("• Долгое ожидание («%s»): запусти фоновый скрипт (Bash в фоне, Monitor) и проверяй его состояние, "
                      "а не держи субагента." % (a.get("wait") or "минуты и часы"))
+    sig = result.get("signals") or {}
+    if (a.get("big") or a.get("parallel", 0) >= 2 or sig.get("items", 0) >= 3 or sig.get("paths", 0) >= 3) and kind != "ask":
+        lines.append("• Однотипные подзадачи (языки, файлы, пункты списка): оценивай уровень каждой отдельно (--batch) и указывай model у Agent "
+                     "явно по уровню подзадачи — механические переводы, проверки и поиск обычно sonnet; без model агент наследует модель сессии.")
     if "parallel" in hints and delegating:
         lines.append("• Части независимы: можно несколько Agent параллельно — только с непересекающимися путями "
                      "(порядок и одно подтверждение на всё — --batch).")
@@ -1078,6 +1148,16 @@ def is_harness_message(prompt):
             or bool(UNCLOSED_SERVICE_RE.match(head)))     # служебный тег без закрывающего (обрезанное сообщение)
 
 
+SLASH_WORD_RE = re.compile(r"/[\w][\w:.\-]*")
+
+
+def is_slash_command(prompt):
+    """Слэш-команда: первое слово — «/имя» или «/плагин:имя» (одно слово без дальнейших «/»). Запрос, начатый с пути
+    («/Users/…/файл.md проверь …»), командой не считается (2.6.0, #49)."""
+    words = prompt.lstrip().split(None, 1)
+    return bool(words) and bool(SLASH_WORD_RE.fullmatch(words[0]))
+
+
 def skip_reason(prompt):
     """Почему запрос не оцениваем (и не отправляем в TypeSafe); None — оцениваем."""
     if not isinstance(prompt, str):
@@ -1085,7 +1165,7 @@ def skip_reason(prompt):
     if is_harness_message(prompt):
         return "служебное сообщение среды"
     prompt = strip_service_blocks(prompt)
-    if prompt.lstrip().startswith("/"):
+    if is_slash_command(prompt):
         return "команда /…"
     if len(prompt.strip()) < MIN_HOOK_CHARS:
         return "короткая реплика (< %d знаков)" % MIN_HOOK_CHARS
@@ -1318,13 +1398,15 @@ def quiet_reason(prompt, result, late=None):
     return QUIET_REASON
 
 
-def log_quiet(task, session_id, reason, result):
+def log_quiet(task, session_id, reason, result, ms=None):
     """Намеренное молчание (2.3): запись в журнал без текста запроса — время, хеш, длина, хеш сессии, причина и само
     решение (оно продолжает историю сессии: наследование, повторы)."""
     a = result.get("action") or {}
     rec = {"ts": int(time.time()), "id": prompt_id(task), "chars": len(task), "quiet": reason,
            "model": result.get("model"), "effort": result.get("effort"), "action": a.get("kind"), "action_why": a.get("why"),
            "source": result.get("source"), "retry": result.get("retry")}
+    if ms is not None:
+        rec["ms"] = ms
     if a.get("hints"):
         rec["action_hints"] = a["hints"]
     if result.get("inherited"):
@@ -1370,6 +1452,32 @@ def hook_output(result, cwd, late=None):
     return out
 
 
+ECON_REASON = "экономный режим: сессия на %s, запрос без признаков риска и объёма — TypeSafe не вызван"
+
+
+def economy_reason(prompt, cwd, transcript):
+    """2.6.0 (#41, опция TYPESAFE_TRIAGE_ECONOMY=on): модель сессии opus/fable, делегирование вниз выключено, а локальная
+    эвристика не видит ни риска, ни объёма, ни явных указаний — заметка почти наверняка будет «сам», и обращаться к TypeSafe
+    (≈ 1 с, доли цента) незачем. → причина пропуска или None (оценивать как обычно)."""
+    if not economy_on() or delegate_down_on():
+        return None
+    try:
+        st = sess_mod.session_info(transcript, cwd, config=skill_config(), discover=transcript is None).get("tier")
+        if st not in ("opus", "fable"):
+            return None
+        h, d, a = heur.signals(prompt), heur.directives(prompt), heur.action_signals(prompt)
+        if (d["phrases"] or a.get("agent_req") or a.get("wait") or a.get("parallel") or a.get("device") or h["critical"]
+                or heur.is_retry(prompt) or heur.is_continuation(prompt) or heur.shared_state_text(prompt)):
+            return None
+        tier, _why = decide_heuristic(h)
+        e = eff.decide_effort(None, h, tier, env={}, d=d)["effort"]
+        if tier in ("haiku", "sonnet") and eff.idx(e) <= eff.idx("high"):
+            return ECON_REASON % st
+    except Exception:
+        return None
+    return None
+
+
 def run_hook():
     """Хук не ломает и не тормозит работу (код всегда 0, укладывается в HOOK_BUDGET_S) и не молчит без причины:
     вместо заметки — строка «TypeSafe-триаж пропущен: <причина>» и запись в журнал. Молчит только при выключателе,
@@ -1379,6 +1487,9 @@ def run_hook():
     if os.environ.get(CHILD_ENV):
         return 0  # мы внутри агента, запущенного --run: уровень модели уже выбран, советов и второго обращения в TypeSafe не нужно
     prompt, sid, f, sent = None, None, None, []
+
+    def ms():
+        return int((time.monotonic() - started) * 1000)
 
     def emit(out):
         if out and not sent:
@@ -1407,13 +1518,15 @@ def run_hook():
         if force:
             why = forced_skip_reason(raw_prompt, forced_text)
             prompt = forced_text
+        if not why and not force:
+            why = economy_reason(prompt, cwd, transcript)
         if why:
             emit(skip_output(why))
-            log_skip(raw_prompt, sid, why)
+            log_skip(raw_prompt, sid, why, ms=ms())
             return 0
         claim = dedup_claim(sid, prompt, started)
         if claim[0] == "dup":
-            log_skip(prompt, sid, "дубль: заметку дал другой вызов хука")
+            log_skip(prompt, sid, "дубль: заметку дал другой вызов хука", ms=ms())
             return 0
         f = claim[1]
         takeover = claim[2] if claim[0] == "takeover" else None
@@ -1422,15 +1535,15 @@ def run_hook():
         if result.get("skip"):
             why = "реплика (по оценке TypeSafe)"
             emit(skip_output(why))
-            log_skip(prompt, sid, why)
+            log_skip(prompt, sid, why, ms=ms())
         else:
             quiet = None if force else quiet_reason(prompt, result, late)   # просили триаж — заметка всегда
             if quiet:
-                log_quiet(prompt, sid, quiet, result)
+                log_quiet(prompt, sid, quiet, result, ms=ms())
             else:
                 project_decision(prompt, result, cwd, via="hook")
                 emit(hook_output(result, cwd, late))
-                log(prompt, result, takeover=takeover, late=late, forced=force)
+                log(prompt, result, takeover=takeover, late=late, forced=force, ms=ms())
     except Exception as e:
         why = "ошибка %s" % type(e).__name__
         try:
@@ -1747,8 +1860,15 @@ def _expand(path, home):
 def hook_entries(settings_files, home):
     """Хуки UserPromptSubmit с typesafe_triage.py в файлах настроек → [(файл, команда, путь, существует|None)].
     Читается только блок hooks (ключи и прочие настройки не выводятся)."""
-    out = []
+    out, seen = [], set()
     for sf in settings_files:
+        try:   # 2.6.0 (#44): cwd = домашняя папка → один и тот же файл дважды
+            key = str(Path(sf).resolve())
+        except OSError:
+            key = str(sf)
+        if key in seen:
+            continue
+        seen.add(key)
         try:
             data = json.loads(Path(sf).read_text(encoding="utf-8"))
             groups = (data.get("hooks") or {}).get("UserPromptSubmit") or []
@@ -2002,6 +2122,18 @@ def main(argv):
             print("секреты: %s (уровень %s, политика %s)%s" % (sec.describe(scan["kinds"]), scan["level"], sec.policy(),
                                                               " — в TypeSafe НЕ отправляется" if sec.withhold(scan) else " — маскируются"))
         print("---\n" + d)
+        return 0
+    if "--verify" in argv:   # 2.6.0 (#48): сверить установленную копию с SHA256SUMS (и, с --remote, с файлом сумм тега на GitHub)
+        return run_verify("--remote" in argv)
+    if "--report" in argv:   # 2.6.0 (#40): отчёт по журналу и стенограммам, без сети
+        try:
+            days = max(1, int(opt(argv, "--days") or 7))
+        except ValueError:
+            print("--days: нужно целое число дней.")
+            return 2
+        projects = os.environ.get("TYPESAFE_TRIAGE_PROJECTS") or str(Path.home() / ".claude" / "projects")
+        rep = report.build(days, LOG_PATH, projects, phrases=[p for pair in EFFORT_PROMPT.values() for p in pair], session_tag=eff.session_tag)
+        print(json.dumps(rep, ensure_ascii=False, indent=2) if "--json" in argv else report.render(rep))
         return 0
     if "--scan" in argv:  # что найдёт проверка секретов (только виды и числа, значения не печатаются); код 3 — отправка заблокирована
         text = " ".join(a for a in argv[1:] if not a.startswith("--")) or sys.stdin.read()

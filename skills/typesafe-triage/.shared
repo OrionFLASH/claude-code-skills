@@ -1,0 +1,2 @@
+# Общие файлы из shared/scripts, копируемые в scripts/shared/ (tools/validate.sh --fix)
+skill_sums.py

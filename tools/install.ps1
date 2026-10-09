@@ -21,7 +21,11 @@ foreach ($name in $Names) {
     if ($isLink) {
         if (($item.Target | Select-Object -First 1) -eq $src) { Write-Host "OK    $name (уже установлен)"; continue }
         $item.Delete()
-    } elseif ($item) { Write-Host "SKIP  ${name}: $dst существует и не является ссылкой"; continue }
+    } elseif ($item) {
+        Write-Host "SKIP  ${name}: $dst существует и не является ссылкой"
+        if (Test-Path (Join-Path $dst $name)) { Write-Host "WARN  ${name}: внутри $dst есть вложенная папка '$name' (копия легла внутрь старой). Удалите её и обновите поверх: Copy-Item -Recurse -Force <новая>\* $dst\" }
+        continue
+    }
     $type = if ($isWin) { 'Junction' } else { 'SymbolicLink' }
     New-Item -ItemType $type -Path $dst -Target $src | Out-Null
     Write-Host "LINKED $dst -> $src ($type)"

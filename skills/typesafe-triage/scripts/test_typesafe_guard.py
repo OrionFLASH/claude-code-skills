@@ -2,6 +2,7 @@
 """Офлайн-тесты защиты (паузы, нехватка средств, сбои сервиса, потолок расходов): pytest test_typesafe_guard.py"""
 import io
 import json
+import os
 import sys
 import threading
 import urllib.error
@@ -148,7 +149,7 @@ def test_corrupt_state_and_config_do_not_crash():
     (g.HOME / "config.json").write_text("[1,2]", encoding="utf-8")
     assert g.status("k", now=NOW)["allowed"] is True and g.config()["monthly_budget_usd"] == 2.0
     g.record_success(5, now=NOW)
-    assert (g.HOME / "state.json").stat().st_mode & 0o777 == 0o600
+    assert os.name == "nt" or (g.HOME / "state.json").stat().st_mode & 0o777 == 0o600
 
 
 def test_threads_do_not_lose_updates():

@@ -15,6 +15,8 @@
   7. нужный уровень выше модели сессии (модель известна)                → Agent
   8. модель сессии неизвестна, нужен opus или выше                      → Agent, с оговоркой «если ты уже X — сам»
   9. большая изолируемая задача, контекст передаётся недорого           → Agent (несколько — если части независимы)
+ 9б. опция «делегирование вниз» (2.6.0, #36): рекомендован уровень НИЖЕ модели
+     сессии, задача рутинная/изолируемая, контекст дешёвый, риска нет         → Agent на рекомендованном уровне («дешевле»)
  10. продолжение с накопленным контекстом (передавать дорого)           → сам
  11. иначе                                                              → сам
 Для Agent с haiku/fable или effort low/max без согласия пользователя действие — «спросить» (один AskUserQuestion),
@@ -33,6 +35,9 @@ BIG_ITEMS = 6            # … или столько пунктов
 HISTORY_CONTEXT = 3      # столько оценённых запросов сессии — контекст уже накоплен
 FACTS_HIGH = 30          # 2.4.0: столько фактов (успешных результатов инструментов, кроме записи) после сжатия — тоже
 DIALOG_TURNS = 4         # 2.4.0: сессия-диалог (мало работы с файлами) с таким числом реплик — тоже
+DOWN_RISK_MAX = 0.4      # 2.6.0 (#36): делегирование вниз — только при риске и необратимости TypeSafe не выше
+DOWN_ITEMS = 3           # … изолируемая работа: столько пунктов/файлов в тексте, либо рутина (механика/чтение), либо части независимы
+DOWN_PATHS = 2
 KINDS = ("self", "agent", "ask")
 
 
@@ -70,6 +75,19 @@ def is_big(r, a):
     return sig.get("paths", 0) >= BIG_PATHS or sig.get("items", 0) >= BIG_ITEMS or bool((sig.get("effort") or {}).get("scope"))
 
 
+def is_isolated(r, a):
+    """2.6.0 (#36): рутинная изолируемая работа, которую можно отдать субагенту дешевле: механика или чтение по TypeSafe,
+    несколько однотипных пунктов или файлов, либо независимые части (переводы, проверки по списку, правки в нескольких файлах)."""
+    sig = r.get("signals") or {}
+    return ((_val(r, "mechanical") or 0) >= SMALL_FLAG or (_val(r, "read_only") or 0) >= SMALL_FLAG
+            or sig.get("items", 0) >= DOWN_ITEMS or sig.get("paths", 0) >= DOWN_PATHS or a.get("parallel", 0) >= 2)
+
+
+def is_risky(r):
+    sig = r.get("signals") or {}
+    return bool(sig.get("critical")) or (_val(r, "risk") or 0) > DOWN_RISK_MAX or (_val(r, "irreversible") or 0) > DOWN_RISK_MAX
+
+
 def context_cost(r, a, sess, continuation):
     """Стоимость передачи контекста субагенту: high — запрос опирается на накопленное (продолжение, «как обсуждали»)
     в длинной сессии, при многих накопленных фактах или в сессии-диалоге; medium — опирается, накоплено немного;
@@ -105,9 +123,10 @@ def _confirm_what(r):
     return " и ".join(parts)
 
 
-def decide(r, a=None, sess=None, continuation=False):
-    """Результат триажа + признаки текста + сессия → действие (dict). Чистая функция, без побочных эффектов."""
-    a, sess = a or {}, sess or {}
+def decide(r, a=None, sess=None, continuation=False, opts=None):
+    """Результат триажа + признаки текста + сессия → действие (dict). Чистая функция, без побочных эффектов.
+    opts (2.6.0): {"delegate_down": bool} — опция делегирования вниз (по умолчанию выключена)."""
+    a, sess, opts = a or {}, sess or {}, opts or {}
     tier, e = r.get("model") or "sonnet", r.get("effort") or "high"
     m_conf, e_conf = bool(r.get("confirm")), bool(r.get("effort_confirm"))
     mfb = r.get("fallback") if m_conf else tier
@@ -117,6 +136,7 @@ def decide(r, a=None, sess=None, continuation=False):
     small, big = is_small(r, a), is_big(r, a)
     cost = context_cost(r, a, sess, continuation)
     higher = st is not None and tier in TIERS and TIERS.index(tier) > TIERS.index(st)
+    lower = st is not None and tier in TIERS and TIERS.index(tier) < TIERS.index(st)
     src = sess.get("model_source") or ""
     hints = []
     if a.get("wait"):
@@ -139,6 +159,8 @@ def decide(r, a=None, sess=None, continuation=False):
         run = {"model": tier, "effort": e}
         if m_conf or e_conf:
             keep_self = st is not None and mfb in TIERS and TIERS.index(mfb) <= TIERS.index(st) and why not in ("user_agent", "big")
+            if why == "cheaper":   # отказ от haiku → сам; отказ только от effort low/max → агент с безопасным effort
+                keep_self = bool(m_conf)
             fb = {"kind": "self"} if keep_self else {"kind": "agent", "model": mfb, "effort": efb}
             return out("ask", "confirm", "%s: только с согласия пользователя" % _confirm_what(r), agent=run, fallback=fb,
                        then=why, conditional=conditional, extra=extra)
@@ -171,6 +193,8 @@ def decide(r, a=None, sess=None, continuation=False):
                         % (tier, tier), conditional=True)
     if big and cost != "high":
         return delegate("big", "большая изолируемая задача — субагент сбережёт контекст сессии")
+    if opts.get("delegate_down") and lower and cost != "high" and is_isolated(r, a) and not is_risky(r):
+        return delegate("cheaper", "%s достаточно, задача изолируемая — субагент дешевле" % tier)
     if cost == "high":
         return out("self", "context", context_reason(sess))
     if st is not None:

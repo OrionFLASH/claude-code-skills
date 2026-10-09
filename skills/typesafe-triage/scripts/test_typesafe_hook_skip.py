@@ -146,7 +146,7 @@ def test_done_marker_still_silences_true_duplicate(monkeypatch, capsys):
     f = marker("s1", TASK)
     st = json.loads(f.read_text())
     assert st["state"] == "done" and set(st) == {"state", "pid", "ts"}         # в метке нет текста запроса
-    assert oct(f.stat().st_mode & 0o777) == "0o600"
+    assert os.name == "nt" or oct(f.stat().st_mode & 0o777) == "0o600"
 
 
 # ---------- пропуски: короткая причина вместо молчания, запись в журнал ----------
@@ -249,4 +249,4 @@ def test_marker_has_content_as_soon_as_it_exists(tmp_path):
     with pytest.raises(FileExistsError):
         t._marker_write(f, "pending", create=True)
     t._marker_write(f, "done")
-    assert t._marker_read(f)[0] == "done" and oct(f.stat().st_mode & 0o777) == "0o600"
+    assert t._marker_read(f)[0] == "done" and (os.name == "nt" or oct(f.stat().st_mode & 0o777) == "0o600")

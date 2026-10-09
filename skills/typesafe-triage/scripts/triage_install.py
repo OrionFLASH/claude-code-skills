@@ -42,7 +42,16 @@ def settings_files(home, cwd):
     out = [("user", Path(home, ".claude", "settings.json")), ("user-local", Path(home, ".claude", "settings.local.json"))]
     if cwd:
         out += [("project", Path(cwd, ".claude", "settings.json")), ("local", Path(cwd, ".claude", "settings.local.json"))]
-    return out
+    seen, uniq = set(), []   # 2.6.0 (#44): cwd = домашняя папка — те же два файла
+    for level, p in out:
+        try:
+            key = str(p.resolve())
+        except OSError:
+            key = str(p)
+        if key not in seen:
+            seen.add(key)
+            uniq.append((level, p))
+    return uniq
 
 
 def _expand(path, home):

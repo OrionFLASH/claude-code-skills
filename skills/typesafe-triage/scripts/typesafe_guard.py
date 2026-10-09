@@ -38,10 +38,12 @@ def _script_hint():
 
 
 SCRIPT = _script_hint()
+PY = "python" if os.name == "nt" else "python3"   # 2.6.0 (#45): на Windows с python.org команды python3 обычно нет
 HARD_KINDS = ("billing", "auth", "forbidden", "manual")   # без автоповтора: нужно действие пользователя
 DEFAULT_CONFIG = {
     "monthly_budget_usd": 2.0,      # локальный потолок расходов в месяц (оценка); 0 или меньше — без потолка
     "warn_fraction": 0.8,           # предупредить на этой доле потолка
+    "region_pause_s": 3600,         # 2.6.0 (#42): HTTP 451 (недоступно в регионе) — проверка раз в час, без экспоненциальных повторов
     "remind_hours": 6,              # как часто напоминать о жёсткой паузе
     "transient_base_s": 60,         # первая временная пауза (всплески TypeSafe короткие), дальше ×2 до transient_max_s
     "transient_max_s": 3600,
@@ -130,9 +132,11 @@ def retry_after_s(headers, body):
 
 def classify_http(code, body, headers=None):
     """HTTP-ответ с ошибкой → (вид, пояснение, секунды_ожидания|None).
-    Виды: size (слишком большой вход — не авария), billing, auth, forbidden, rate, outage."""
+    Виды: size (слишком большой вход — не авария), region (451: недоступно из этой сети), billing, auth, forbidden, rate, outage."""
     text = (body or "")[:600]
     low = text.lower()
+    if code == 451:
+        return "region", text, None
     if code == 400 and "max_tokens" in low:
         return "size", text, None
     if code == 402 or (400 <= code < 500 and BILLING_RE.search(low)):
@@ -151,19 +155,23 @@ def message(kind, detail="", until=None, failures=0, cost=None, cap=None):
     d = (" Ответ сервиса: %s" % detail.strip()[:200]) if detail and detail.strip() else ""
     if kind == "billing":
         return ("TypeSafe: похоже, закончились средства или лимит.%s Использование ПРИОСТАНОВЛЕНО (уровень модели — только по локальной эвристике), "
-                "чтобы не уйти в минус. Пополните баланс / проверьте лимиты на %s и выполните: python3 %s --resume" % (d, CONSOLE_URL, SCRIPT))
+                "чтобы не уйти в минус. Пополните баланс / проверьте лимиты на %s и выполните: %s %s --resume" % (d, CONSOLE_URL, PY, SCRIPT))
     if kind == "auth":
         return ("TypeSafe: ключ API не принят (401).%s Использование приостановлено. Проверьте TYPESAFE_API_KEY (%s/keys); "
-                "пауза снимется сама, когда ключ изменится, либо: python3 %s --resume" % (d, CONSOLE_URL, SCRIPT))
+                "пауза снимется сама, когда ключ изменится, либо: %s %s --resume" % (d, CONSOLE_URL, PY, SCRIPT))
     if kind == "forbidden":
         return ("TypeSafe: доступ запрещён (403) — аккаунт приостановлен или нет прав.%s Использование приостановлено до исправления "
-                "на %s; затем: python3 %s --resume" % (d, CONSOLE_URL, SCRIPT))
+                "на %s; затем: %s %s --resume" % (d, CONSOLE_URL, PY, SCRIPT))
     if kind == "budget":
         return ("TypeSafe: достигнут локальный потолок расходов $%.2f в месяц (оценка по токенам: $%.4f). Использование приостановлено "
-                "до следующего месяца. Поднять потолок: python3 %s --set-budget <USD> и затем --resume" % (cap or 0, cost or 0, SCRIPT))
+                "до следующего месяца. Поднять потолок: %s %s --set-budget <USD> и затем --resume" % (cap or 0, cost or 0, PY, SCRIPT))
     if kind == "manual":
-        return "TypeSafe: использование отключено вручную%s. Включить: python3 %s --resume" % (d, SCRIPT)
+        return "TypeSafe: использование отключено вручную%s. Включить: %s %s --resume" % (d, PY, SCRIPT)
     when = time.strftime("%H:%M", time.localtime(until)) if until else "позже"
+    if kind == "region":
+        return ("TypeSafe недоступен из текущей сети (HTTP 451: сервис не работает в этом регионе).%s Уровень модели выбирается по локальной "
+                "эвристике, ожидание не поможет. Следующая проверка — после %s или после: %s %s --resume (например, через другую сеть)."
+                % (d, when, PY, SCRIPT))
     if kind == "rate":
         return "TypeSafe: превышен лимит скорости (429). Пауза до %s, дальше проверю сама.%s" % (when, d)
     return ("TypeSafe не отвечает (%d сбоев подряд).%s Временно не использую его до %s, дальше проверю сама; "
@@ -194,12 +202,12 @@ def status(key=None, now=None):
             if kind == "auth" and key and p.get("key_fp") and fingerprint(key) != p["key_fp"]:
                 st.pop("pause"), st.pop("failures", None)           # ключ заменён — пауза снята
                 p, changed = None, True
-            elif kind in ("outage", "rate") and now >= p.get("until", 0):
+            elif kind in ("outage", "rate", "region") and now >= p.get("until", 0):
                 pass                                                  # пауза вышла: следующий запрос — проверка
             elif kind == "budget" and p.get("month") != month_key(now):
                 st.pop("pause")                                       # новый месяц — потолок обнулён
                 p, changed = None, True
-            elif kind in HARD_KINDS + ("budget", "outage", "rate"):
+            elif kind in HARD_KINDS + ("budget", "outage", "rate", "region"):
                 msg = message(kind, p.get("detail", ""), p.get("until"), st.get("failures", 0), p.get("cost"), cfg["monthly_budget_usd"])
                 out.update(allowed=False, kind=kind, message=msg)
                 if kind in HARD_KINDS + ("budget",) and _notice_due(p, now, cfg):
@@ -227,7 +235,7 @@ def record_success(tokens, now=None):
         u["tokens"] += int(tokens or 0)
         u["requests"] += 1
         p = st.get("pause")
-        if p and p.get("kind") in ("outage", "rate"):
+        if p and p.get("kind") in ("outage", "rate", "region"):
             st.pop("pause")
         if st.pop("outage_notified", False):
             notice = "TypeSafe снова отвечает — совет по модели возобновлён."
@@ -253,6 +261,13 @@ def record_failure(kind, detail="", retry_after=None, key=None, now=None):
             msg = message(kind, detail)
             _write(state_path(), st)
             return msg
+        if kind == "region":   # 451: фиксированная пауза, без счётчика сбоев и удвоения; напомнить один раз за паузу
+            until = now + cfg["region_pause_s"]
+            first = (st.get("pause") or {}).get("kind") != "region"
+            _set_pause(st, "region", now, until=until, detail=detail[:300])
+            msg = message("region", detail, until)
+            _write(state_path(), st)
+            return msg if first else None
         n = st.get("failures", 0) + 1
         st["failures"] = n
         delay = min(cfg["transient_max_s"], max(retry_after or 0, cfg["transient_base_s"] * 2 ** (n - 1)))
