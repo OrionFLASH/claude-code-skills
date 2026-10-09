@@ -86,7 +86,9 @@ def test_fable_run_needs_confirmation_by_default(monkeypatch, no_confirm):
 
 # ---------- #65: обсуждение — не директива ----------
 @pytest.mark.parametrize("text", ["применение модели Fable", "Опиши применение модели Fable и effort max",
-                                  "сравни эффективность effort max и xhigh"])
+                                  "сравни эффективность effort max и xhigh",
+                                  "Расскажи про применение модели Fable и когда эффективен effort max",
+                                  "Когда нужен effort max?", "Стоит ли ставить effort max для миграции?"])
 def test_discussing_models_is_not_a_directive(text):
     d = heur.directives(text)
     assert d["tier"] is None and d.get("discussed")
@@ -95,6 +97,12 @@ def test_discussing_models_is_not_a_directive(text):
 @pytest.mark.parametrize("text,tier", [("модель fable, пожалуйста", "fable"), ("сделай на opus", "opus")])
 def test_real_directives_still_work(text, tier):
     assert heur.directives(text)["tier"] == tier
+
+
+@pytest.mark.parametrize("text,level", [("Сделай миграцию, effort max", "max"), ("Проанализируй код, effort max", "max"),
+                                        ("Реши задачу на effort high, пожалуйста", "high"), ("Реши задачу, ultrathink", "max")])
+def test_real_effort_directives_still_work(text, level):
+    assert heur.directives(text)["effort"] == level
 
 
 # ---------- #64: подсказки в заметке ----------

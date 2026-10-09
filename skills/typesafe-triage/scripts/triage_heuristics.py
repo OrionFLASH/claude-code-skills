@@ -436,7 +436,8 @@ def _is_discussion(text, mt):
 
 
 EFFORT_DISCUSS_RE = re.compile(
-    r"сравн\w+|эффективност\w+|примен\w+|использовани\w+|особенност\w+|что такое|что значит|разниц\w+ между|чем отлича\w+|"
+    r"сравн\w+|эффектив\w+|примен\w+|использовани\w+|особенност\w+|что такое|что значит|разниц\w+ между|чем отлича\w+|"
+    r"расскаж\w+|объясн\w+|\bкогда\s+(?:нужен|нужна|нужно|стоит|имеет смысл|лучше)|\b(?:стоит|нужен|нужна|нужно) ли\b|\bзачем\b|\bпочему\b|"
     r"compare|difference between|what is", FLAGS_RE)
 EFFORT_ENUM_RE = re.compile(r"^\s*(?:,|/|\bи\b|\bили\b|\bvs\b|\band\b|\bor\b)\s*(?:effort\s+)?(?:low|medium|high|xhigh|max)\b", FLAGS_RE)
 
@@ -471,6 +472,9 @@ def _directives(text, report=False):
             hard.append((lvl, mt.start(), mt.group(0).strip()))
     for rx, lvl in _HARD:
         for mt in rx.finditer(text):
+            if not _negated(text, mt.start()) and _effort_discussed(text, mt):
+                out["discussed"] = True
+                continue
             hard.append((lvl, mt.start(), mt.group(0).strip()))
     for lvl, start, phrase in hard:
         if _negated(text, start):         # «не нужен effort max» → потолок на ступень ниже; «без low» → пол выше
