@@ -305,7 +305,6 @@ EFFORT_FLAGS = {
     "constraints": "Does the request state strict constraints or acceptance criteria that the result must satisfy all at once, such as must or must not, an exact format, limits, deadlines or tests that must pass?",
     "coordination": "Must several separate parts, such as files, documents, data sources, systems or people, be kept consistent with each other?",
 }
-AXIS_RU = {"complexity": "сложность", "reasoning": "рассуждение", "ambiguity": "неясность", "risk": "риск", "breadth": "объём"}
 
 
 SECRET_RE = re.compile(
@@ -818,19 +817,6 @@ def log_skip(task, session_id, reason):
     if session_id:
         rec["session"] = eff.session_tag(session_id)
     _append_log(rec)
-
-
-def axes_line(result):
-    if result.get("metrics"):
-        vals = {k: result["metrics"][k]["value"] for k in WEIGHTS}
-    else:
-        vals = result["signals"]["axes"]
-    return ", ".join("%s %.1f" % (AXIS_RU[k], vals[k]) for k in WEIGHTS)
-
-
-def effort_question(e, fb):
-    return "«Effort %s%s?» с вариантами «Да, %s» / «Нет, %s»" % (
-        e, " — дольше и дороже" if e in eff.COSTLY_EFFORTS else " — минимум размышлений", e, fb)
 
 
 # У инструмента Agent параметра effort может не быть (зависит от версии и окружения Claude Code), а хук схему инструментов
