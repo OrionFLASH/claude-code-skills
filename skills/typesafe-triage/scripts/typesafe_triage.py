@@ -41,6 +41,7 @@
 сессии — triage_session, локально из стенограммы); короткое продолжение с прежним решением — без заметки (журнал: quiet);
 --check проверяет регистрацию хука и имя скилла для Skill (triage_install); --batch (triage_batch); журнал решений и
 фактов в корне проекта и --fact (triage_projectlog, опция).
+2.4.2: принудительный запуск триажа из запроса — /typesafe-triage <задача>, метка «triage:» / «!триаж opus/high», фраза «сделай триаж» (снимает пропуски хука; выбор модели не меняет).
 2.4.1: запрос со служебными тегами среды (<system-reminder>, <ide_selection>) в начале больше не пропускается как служебный; «Don't use opus» — не «без субагента».
 2.4.0: автозапись факта после субагента хуком плагина PostToolUse/SubagentStop (triage_autofact, опция, выкл.);
 «чем занята сессия» — счётчики инструментов, фактов, реплик и токенов из служебных полей стенограммы (triage_session.work).
@@ -1044,6 +1045,16 @@ def skip_reason(prompt):
     return None
 
 
+def forced_skip_reason(raw, text):
+    """2.4.2: принудительный запуск снимает пропуски (короткая реплика, «болтовня», команда /… этого скилла); остаются
+    только чисто служебное сообщение среды и пустая задача после метки."""
+    if is_harness_message(raw):
+        return "служебное сообщение среды"
+    if not (text or "").strip():
+        return "после метки нет текста задачи"
+    return None
+
+
 def should_skip(prompt):
     """Что вообще не оцениваем (и не отправляем в TypeSafe): короткие реплики, команды, служебные сообщения, болтовня."""
     return skip_reason(prompt) is not None
@@ -1337,6 +1348,10 @@ def run_hook():
         sid = data.get("session_id") if isinstance(data.get("session_id"), str) else None
         why = skip_reason(prompt)
         raw_prompt, prompt = prompt, strip_service_blocks(prompt)   # дальше (дайджест, журнал, дедуп) — только то, что написал пользователь
+        force, forced_text = heur.force_trigger(prompt)             # 2.4.2: пользователь сам просит триаж
+        if force:
+            why = forced_skip_reason(raw_prompt, forced_text)
+            prompt = forced_text
         if why:
             emit(skip_output(why))
             log_skip(raw_prompt, sid, why)
@@ -1354,13 +1369,13 @@ def run_hook():
             emit(skip_output(why))
             log_skip(prompt, sid, why)
         else:
-            quiet = quiet_reason(prompt, result, late)
+            quiet = None if force else quiet_reason(prompt, result, late)   # просили триаж — заметка всегда
             if quiet:
                 log_quiet(prompt, sid, quiet, result)
             else:
                 project_decision(prompt, result, cwd, via="hook")
                 emit(hook_output(result, cwd, late))
-                log(prompt, result, takeover=takeover, late=late)
+                log(prompt, result, takeover=takeover, late=late, forced=force)
     except Exception as e:
         why = "ошибка %s" % type(e).__name__
         try:
