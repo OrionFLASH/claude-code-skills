@@ -10,5 +10,5 @@ import pytest
 def _isolated_session(monkeypatch):
     monkeypatch.setenv("TYPESAFE_TRIAGE_SESSION_MODEL", "unknown")
     for k in ("TYPESAFE_TRIAGE_AGENT_EFFORT", "TYPESAFE_TRIAGE_PROJECT_LOG", "CLAUDE_EFFORT", "ANTHROPIC_MODEL",
-              "CLAUDE_CODE_EFFORT_LEVEL"):
+              "CLAUDE_CODE_EFFORT_LEVEL", "CLAUDE_CODE_SESSION_ID"):
         monkeypatch.delenv(k, raising=False)

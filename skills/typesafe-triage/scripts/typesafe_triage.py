@@ -639,8 +639,9 @@ def add_effort(r, m, h, task, env="auto", history=None, session=None, cwd=None, 
     Старые поля сохраняются (формат аддитивный). session_info — готовые сведения о сессии; без них при env="auto" они
     читаются локально (стенограмма transcript, переменные, настройки), при env={} — не учитываются (офлайн-проверки)."""
     d = heur.directives(task)
-    if session_info is None:
-        session_info = {} if env == {} else sess_mod.session_info(transcript, cwd, config=skill_config())
+    if session_info is None:   # без стенограммы (ручной запуск из Claude Code) — найти её по CLAUDE_CODE_SESSION_ID
+        session_info = {} if env == {} else sess_mod.session_info(transcript, cwd, config=skill_config(),
+                                                                  discover=transcript is None)
     if env == "auto":
         env = eff.env_context(cwd)
     records = eff.read_history(LOG_PATH, session) if history is None else history
@@ -692,7 +693,7 @@ def add_effort(r, m, h, task, env="auto", history=None, session=None, cwd=None, 
     if records:
         last = records[-1]
         r["prev"] = {"model": last.get("model"), "effort": last.get("effort"), "action": last.get("action"),
-                     "hints": last.get("action_hints") or []}
+                     "why": last.get("action_why"), "hints": last.get("action_hints") or []}
     if session_info:
         r["session_model"] = {k: session_info.get(k) for k in ("tier", "model", "model_source") if session_info.get(k)}
         if session_info.get("agent_effort") is not None:
@@ -1247,7 +1248,7 @@ def log_quiet(task, session_id, reason, result):
     решение (оно продолжает историю сессии: наследование, повторы)."""
     a = result.get("action") or {}
     rec = {"ts": int(time.time()), "id": prompt_id(task), "chars": len(task), "quiet": reason,
-           "model": result.get("model"), "effort": result.get("effort"), "action": a.get("kind"),
+           "model": result.get("model"), "effort": result.get("effort"), "action": a.get("kind"), "action_why": a.get("why"),
            "source": result.get("source"), "retry": result.get("retry")}
     if a.get("hints"):
         rec["action_hints"] = a["hints"]
@@ -1810,7 +1811,11 @@ def run_check():
     print(format_status())
     res = inst.check(cwd=os.getcwd(), script=os.path.abspath(__file__))
     print("\n".join(inst.report_lines(res)))
-    s = sess_mod.session_info(None, os.getcwd(), config=skill_config())
+    s = sess_mod.session_info(None, os.getcwd(), config=skill_config(), discover=True)
+    print("Сессия: модель %s, effort %s%s" % (
+        ("%s (%s)" % (s["tier"], s["model_source"])) if s.get("tier") else "неизвестна" + (
+            " (%s)" % s["model_source"] if s.get("model_source") else ""),
+        s.get("effort") or "неизвестен", (", Claude Code %s" % s["version"]) if s.get("version") else ""))
     print("Agent и effort: параметр effort у Agent — %s" % (
         {True: "есть", False: "нет"}.get(s.get("agent_effort"), "неизвестно (запишите после проверки схемы: --set-agent-effort yes|no)")
         + ((" (%s)" % s["agent_effort_source"]) if s.get("agent_effort_source") else "")))

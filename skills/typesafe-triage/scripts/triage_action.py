@@ -134,6 +134,8 @@ def decide(r, a=None, sess=None, continuation=False):
     if a.get("agent_req") == "agent":
         return delegate("user_agent", "пользователь просит субагента — делегируй")
     prev = (r.get("prev") or {}).get("action")
+    if prev == "ask" and (r.get("prev") or {}).get("why") == "confirm":   # спрашивали о согласии на агента — работа у агента
+        prev = "agent"
     if continuation and r.get("inherited") and prev in ("self", "agent"):   # «продолжай …»: кто делал, тот и продолжает
         if prev == "agent" and not shared:
             return delegate("continuation", "продолжение предыдущей задачи — решение прежнее")

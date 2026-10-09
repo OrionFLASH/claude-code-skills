@@ -18,9 +18,11 @@ ANTHROPIC_MODEL → поле model в .claude/settings.local.json, .claude/setti
 """
 import json
 import os
+import re
 from pathlib import Path
 
 TIERS = ("haiku", "sonnet", "opus", "fable")
+SESSION_ID_ENV = "CLAUDE_CODE_SESSION_ID"   # есть у процессов, запущенных из Claude Code (Bash, хуки)
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
 MODEL_ENV = "TYPESAFE_TRIAGE_SESSION_MODEL"
 AGENT_EFFORT_ENV = "TYPESAFE_TRIAGE_AGENT_EFFORT"
@@ -135,13 +137,29 @@ def _settings_model(cwd, home):
     return None, None
 
 
-def session_info(transcript=None, cwd=None, environ=None, home=None, config=None):
-    """→ {tier, model, model_source, effort, effort_source, agent_effort, agent_effort_source, version, bytes, long}.
-    Неизвестное — None. config — словарь config.json скилла (ключ agent_effort: true/false)."""
+def find_transcript(session_id, home):
+    """Стенограмма сессии по её id (CLAUDE_CODE_SESSION_ID в процессах, запущенных из Claude Code):
+    ~/.claude/projects/*/<id>.jsonl. Нет — None."""
+    if not session_id or not re.fullmatch(r"[\w-]{8,80}", str(session_id)):
+        return None
+    try:
+        hits = sorted(Path(home, ".claude", "projects").glob("*/%s.jsonl" % session_id))
+    except OSError:
+        return None
+    return str(hits[0]) if hits else None
+
+
+def session_info(transcript=None, cwd=None, environ=None, home=None, config=None, discover=False):
+    """→ {tier, model, model_source, effort, effort_source, agent_effort, agent_effort_source, version, bytes, long, transcript}.
+    Неизвестное — None. config — словарь config.json скилла (ключ agent_effort: true/false). discover — без пути
+    стенограммы найти её по CLAUDE_CODE_SESSION_ID (ручные команды, запущенные из Claude Code)."""
     env = os.environ if environ is None else environ
     home = home if home is not None else os.path.expanduser("~")
+    if transcript is None and discover:
+        transcript = find_transcript(env.get(SESSION_ID_ENV), home)
     info = {"tier": None, "model": None, "model_source": None, "effort": None, "effort_source": None,
-            "agent_effort": None, "agent_effort_source": None, "version": None, "bytes": None, "long": False}
+            "agent_effort": None, "agent_effort_source": None, "version": None, "bytes": None, "long": False,
+            "transcript": transcript}
     tr = from_transcript(transcript)
     info["bytes"] = tr.get("bytes")
     info["long"] = bool(tr.get("bytes") and tr["bytes"] >= LONG_SESSION_BYTES)

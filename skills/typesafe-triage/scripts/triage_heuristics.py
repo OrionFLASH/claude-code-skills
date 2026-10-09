@@ -74,8 +74,9 @@ CHATTER_RE = re.compile(
     r"|perfect|got it|sounds good)\b", FLAGS_RE)
 WORK_RE = re.compile(  # глаголы-поручения: если они есть, реплика уже не «болтовня»
     r"\b(?:сделай|напиши|исправь|почини|добавь|удали|перепиши|переделай|проверь|найди|создай|настрой|запусти|разбер|объясни|опиши"
-    r"|составь|подготовь|посчитай|сравни|спроектир|реализуй|обнови|write|fix|add|remove|delete|create|check|find|build|implement"
-    r"|update|explain|prepare|compare|design|refactor|review|run)\w*", FLAGS_RE)
+    r"|составь|подготовь|посчитай|сравни|спроектир|реализуй|обнови|распиш|допиш|доделай|дополни|доведи|закончи"   # 2.3: «продолжай, распиши …» — поручение
+    r"|write|fix|add|remove|delete|create|check|find|build|implement|update|explain|prepare|compare|design|refactor|review|run|finish)\w*",
+    FLAGS_RE)
 
 CRITICAL_RES = {k: re.compile(v, FLAGS_RE) for k, v in CRITICAL_GROUPS.items()}
 

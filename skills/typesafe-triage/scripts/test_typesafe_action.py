@@ -289,6 +289,19 @@ def test_session_sources_order_and_switch(tmp_path):
     assert sess.tier_of("opusplan") == "sonnet" and sess.tier_of("default") is None and sess.tier_of("claude-fable-5") == "fable"
 
 
+def test_manual_commands_find_transcript_by_session_id(tmp_path):
+    home = tmp_path / "home"
+    d = home / ".claude" / "projects" / "-Users-x-proj"
+    d.mkdir(parents=True)
+    sid = "a996f529-00e8-491b-a07b-03cd51e31221"
+    transcript(d / ("%s.jsonl" % sid), model="claude-opus-5-5", agent_effort=True)
+    env = {sess.SESSION_ID_ENV: sid}
+    assert sess.session_info(None, None, environ=env, home=str(home))["tier"] is None          # без discover — не ищем
+    i = sess.session_info(None, None, environ=env, home=str(home), discover=True)
+    assert i["tier"] == "opus" and i["agent_effort"] is True and i["transcript"].endswith(sid + ".jsonl")
+    assert sess.find_transcript("../../etc/passwd", str(home)) is None and sess.find_transcript(None, str(home)) is None
+
+
 def test_hook_uses_transcript_model_for_the_action(tmp_path, monkeypatch, capsys):
     monkeypatch.delenv(sess.MODEL_ENV, raising=False)
     monkeypatch.setenv("TYPESAFE_API_KEY", "k")
@@ -331,6 +344,23 @@ def test_new_task_with_same_decision_still_speaks(monkeypatch, capsys):
     hook(monkeypatch, capsys, {"prompt": "Найди причину, почему тест test_login иногда падает по таймауту в CI", "session_id": "N"})
     c = ctx(hook(monkeypatch, capsys, {"prompt": "Найди причину, почему тест test_logout иногда падает на сборке ночью", "session_id": "N"}))
     assert c.startswith("ДЕЙСТВИЕ: ")                                             # не продолжение — это новая задача
+
+
+def test_continuation_after_confirmation_keeps_delegation():
+    """Найдено живым прогоном: после «спросить (effort max)» продолжение получало «сам — небольшая задача»."""
+    r = base("opus", "xhigh", level=0.1, inherited={"model": "opus", "effort": "xhigh"},
+             prev={"model": "opus", "effort": "max", "action": "ask", "why": "confirm"})
+    d = act.decide(r, {}, {"tier": "sonnet"}, continuation=True)
+    assert (d["kind"], d["why"]) == ("agent", "continuation")
+    clarify = dict(r, prev={"model": "opus", "effort": "high", "action": "ask", "why": "clarify"})
+    assert act.decide(clarify, {}, {"tier": "sonnet"}, continuation=True)["why"] != "continuation"
+
+
+def test_continuation_with_work_verb_is_not_chatter():
+    """Найдено живым прогоном: «продолжай, распиши …» считалось репликой без поручения и не доходило до «реже»."""
+    for text in ("продолжай, распиши ещё шаг сверки подробнее", "продолжай, допиши раздел про откат", "дальше — доделай тесты"):
+        assert not heur.is_chatter(text) and heur.is_continuation(text)
+    assert heur.is_chatter("ок, продолжай") and heur.is_chatter("Спасибо, отлично получилось! Давай дальше по плану.")
 
 
 def test_quiet_speaks_when_a_new_hint_appears():
