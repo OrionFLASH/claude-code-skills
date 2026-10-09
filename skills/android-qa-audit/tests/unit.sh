@@ -670,7 +670,7 @@ check "build_report publish-table: колонка «Перепроверка», 
 
 # ---------- documentation: every command example is accepted by argparse (--help only, nothing runs) ----------
 check "примеры команд в SKILL.md, README, INSTALL и references/*.md принимаются скриптами (подкоманды и --опции)" \
-  "$PY" "$HERE/helpers/doc_commands.py" "$HERE/.." --python "$PY"
+  "$PY" "$HERE/helpers/shared/doc_commands.py" "$HERE/.." --python "$PY" --wrapper qa=adb_helpers --nested adb_helpers:job
 
 # ---------- masking, universality, SKILL.md ----------
 check "masking: e-mail, токены, URL-параметры, телефоны; PID и время в logcat не трогаются" pyok "

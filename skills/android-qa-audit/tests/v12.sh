@@ -385,6 +385,6 @@ import json,sys; d=json.load(sys.stdin); l=d['lite']; assert d['config']['lite']
 import json,sys; d=json.load(sys.stdin); assert not any('mic-inject' in n for n in d['notes']), d['notes']\""
 
 # ---------- documentation hygiene ----------
-check "документация: нет примеров A=\"python3 …\" + \$A … и D=\"--serial …\" + \$D (zsh не делит их на слова)" "$PY" "$H/doc_zsh.py" "$HERE/.."
+check "документация: нет примеров A=\"python3 …\" + \$A … и D=\"--serial …\" + \$D (zsh не делит их на слова)" "$PY" "$H/shared/doc_zsh.py" "$HERE/.."
 check "вендорная копия annotate.js: та же, что в site-qa-audit (иначе — только заметка, не ошибка)" sh -c "
   cmp -s '$S/node/annotate.js' '$HERE/../../site-qa-audit/scripts/node/annotate.js' || echo 'NOTE: annotate.js отличается от site-qa-audit — обновить копию'; true"

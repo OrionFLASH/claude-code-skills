@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
 """Check that every command example in the skill's documentation is accepted by the script's argparse.
 
-  doc_commands.py <SKILL_DIR> [--python PY] [--verbose]
+  doc_commands.py <SKILL_DIR> [--python PY] [--wrapper NAME=SCRIPT] [--nested SCRIPT:SUB] [--verbose]
+
+Shared test helper (source of truth: shared/tests/; skills get a byte-for-byte copy in tests/helpers/shared/ via
+`.shared` + `tools/validate.sh --fix` — do not edit the copies).
 
 Scans SKILL.md, README.md, INSTALL.md and references/**/*.md: inline code spans and lines of code blocks with
-`<script>.py <subcommand> … --option …`. For every script in scripts/ that uses argparse it runs
-`<script> [<subcommand>] --help` (parsing only — nothing is executed) and checks that the subcommand exists and
-every --option of the example is known to that (sub)parser. Placeholders (<RUN_DIR>, …, N) are ignored.
+`<script>.py <subcommand> … --option …`. For every script in scripts/ that uses argparse (or a shared module's
+main()/cli()) it runs `<script> [<subcommand>] --help` (parsing only — nothing is executed) and checks that the
+subcommand exists and every --option of the example is known to that (sub)parser. Placeholders (<RUN_DIR>, …, N)
+are ignored.
+  --wrapper qa=adb_helpers   a wrapper `qa <device-id|-> <command> …` is checked as `adb_helpers.py <command> …`
+  --nested adb_helpers:job   in `adb_helpers.py job … -- <command> …` the part after `--` is another command of
+                             the same script (both parts are checked)
 Exit: 0 all examples are valid, 1 errors (printed), 2 usage error.
 """
 import argparse
@@ -35,13 +42,29 @@ def snippets(path):
     return out
 
 
-def commands(text):
-    """[(script, [tokens])] for every `<name>.py …` in a snippet (several commands: ;, &&, |, →)."""
+DEVICE_ARG = r"(emulator-\d+|[A-Z0-9][\w.:-]{5,}|-)"   # the wrapper's first argument: a device ID or «-»
+
+
+def wrapper_rx(name):
+    return re.compile(r"(?:^|[\s/])" + re.escape(name) + r"(?:\.ps1)?\s+" + DEVICE_ARG + r"\s+([a-z][a-z0-9-]*)\b([^\n]*)")
+
+
+def commands(text, wrappers=(), nested=()):
+    """[(script, [tokens])] for every `<name>.py …` in a snippet (several commands: ;, &&, |, →).
+    wrappers: [(compiled wrapper_rx, script)] — `<wrapper> <device> <command> …` is `<script>.py <command> …`;
+    nested: {(script, sub)} — in `<script>.py <sub> … -- <command> …` both parts are checked."""
     res = []
     text = text.replace("\\|", "|")
     for part in re.split(r"\s(?:&&|;|\|\||\||→)\s|;\s*|\s→\s", text):
-        for m in CALL.finditer(part):
-            res.append((m.group(1), m.group(2).split()))
+        found = [(m.group(1), m.group(2).split()) for m in CALL.finditer(part)]
+        for rx, script in wrappers:
+            found += [(script, [m.group(2)] + m.group(3).split()) for m in rx.finditer(part)]
+        for script, toks in found:
+            if toks and (script, toks[0]) in nested and "--" in toks:
+                k = toks.index("--")
+                res += [(script, toks[:k]), (script, toks[k + 1:])]
+            else:
+                res.append((script, toks))
     return res
 
 
@@ -76,13 +99,24 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("skill_dir")
     ap.add_argument("--python", default=sys.executable)
+    ap.add_argument("--wrapper", action="append", default=[], metavar="NAME=SCRIPT",
+                    help="wrapper `NAME <device|-> <command> …` = `SCRIPT.py <command> …` (repeatable)")
+    ap.add_argument("--nested", action="append", default=[], metavar="SCRIPT:SUB",
+                    help="`SCRIPT.py SUB … -- <command> …`: the part after -- is another command of SCRIPT (repeatable)")
     ap.add_argument("--verbose", action="store_true")
     a = ap.parse_args()
+    try:
+        wrappers = [(wrapper_rx(w.split("=", 1)[0]), w.split("=", 1)[1]) for w in a.wrapper]
+        nested = {tuple(n.split(":", 1)) for n in a.nested}
+    except IndexError:
+        ap.error("--wrapper NAME=SCRIPT, --nested SCRIPT:SUB")
+    if any(len(n) != 2 or not all(n) for n in nested) or any(not s for _, s in wrappers):
+        ap.error("--wrapper NAME=SCRIPT, --nested SCRIPT:SUB")
     skill = Path(a.skill_dir).resolve()
     scripts = skill / "scripts"
     known = {p.stem for p in scripts.glob("*.py")
-             if "argparse" in p.read_text(encoding="utf-8") or "qa_gitignore.main" in p.read_text(encoding="utf-8")
-             or "qa_export.main" in p.read_text(encoding="utf-8") or "runjournal.main" in p.read_text(encoding="utf-8")}
+             if "argparse" in p.read_text(encoding="utf-8")
+             or re.search(r"\b(qa_\w+|runjournal)\.(main|cli)\(", p.read_text(encoding="utf-8"))}
     docs = [skill / "SKILL.md", skill / "README.md", skill / "INSTALL.md"] + sorted((skill / "references").rglob("*.md"))
     helps = Help(scripts, a.python)
     errors, checked = [], 0
@@ -90,7 +124,7 @@ def main():
         if not doc.exists():
             continue
         for no, snip in snippets(doc):
-            for script, toks in commands(snip):
+            for script, toks in commands(snip, wrappers, nested):
                 if script not in known:
                     continue
                 where = f"{doc.relative_to(skill)}:{no}"

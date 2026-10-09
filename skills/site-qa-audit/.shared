@@ -8,3 +8,4 @@ qa_recheck.py
 qa_direct.py
 qa_snapshot.py
 qa_threads.py
+tests/doc_commands.py

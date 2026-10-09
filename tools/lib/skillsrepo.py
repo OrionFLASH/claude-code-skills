@@ -98,9 +98,14 @@ def skill_status(skill):
 
 
 # ---------- shared ----------
-# Скил перечисляет нужные общие файлы в <skill>/.shared (по одному пути от shared/scripts).
-# Они копируются в <skill>/scripts/shared/: при установке из маркетплейса копируется
-# только папка плагина, поэтому ссылаться на ../../shared нельзя. Источник правды — shared/.
+# Скил перечисляет нужные общие файлы в <skill>/.shared (по одному пути на строку):
+#   <путь>        — shared/scripts/<путь> копируется в <skill>/scripts/shared/<путь> (код скриптов);
+#   tests/<путь>  — shared/tests/<путь> копируется в <skill>/tests/helpers/shared/<путь> (тестовые помощники).
+# При установке из маркетплейса копируется только папка плагина, поэтому ссылаться на ../../shared нельзя.
+# Источник правды — shared/; validate проверяет побайтовое совпадение копий.
+SHARED_TESTS = ROOT / "shared" / "tests"
+TESTS_PREFIX = "tests/"
+
 
 def shared_list(skill):
     path = skill / ".shared"
@@ -110,9 +115,17 @@ def shared_list(skill):
             if ln.strip() and not ln.startswith("#")]
 
 
+def shared_pair(skill, rel):
+    """(источник в shared/, копия в скиле, имя источника для сообщений) для строки .shared."""
+    if rel.startswith(TESTS_PREFIX):
+        sub = rel[len(TESTS_PREFIX):]
+        return SHARED_TESTS / sub, skill / "tests" / "helpers" / "shared" / sub, f"shared/tests/{sub}"
+    return SHARED_SCRIPTS / rel, skill / "scripts" / "shared" / rel, f"shared/scripts/{rel}"
+
+
 def vendor_shared(skill):
     for rel in shared_list(skill):
-        src, dst = SHARED_SCRIPTS / rel, skill / "scripts" / "shared" / rel
+        src, dst, _ = shared_pair(skill, rel)
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(src, dst)
         print(f"shared: {src.relative_to(ROOT)} -> {dst.relative_to(ROOT)}")
@@ -255,11 +268,11 @@ def validate(names=None):
         if f"](skills/{n}/)" not in readme:
             e("нет в таблице README.md (tools/validate --fix или new-skill)")
         for rel in shared_list(skill):
-            src, dst = SHARED_SCRIPTS / rel, skill / "scripts" / "shared" / rel
+            src, dst, label = shared_pair(skill, rel)
             if not src.exists():
-                e(f"shared/scripts/{rel} не существует (.shared)")
+                e(f"{label} не существует (.shared)")
             elif not dst.exists() or dst.read_bytes() != src.read_bytes():
-                e(f"scripts/shared/{rel} устарел или отсутствует — запустите tools/validate.sh --fix")
+                e(f"{dst.relative_to(skill).as_posix()} устарел или отсутствует — запустите tools/validate.sh --fix")
         for p in scan_secrets(skill):
             e(p)
     for w in warnings:

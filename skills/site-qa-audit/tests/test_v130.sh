@@ -241,7 +241,7 @@ import json,sys; t=json.load(sys.stdin); assert [x['owner'] for x in t]==['qa-a1
 
 # ---------- documentation: command examples are accepted by the scripts ----------
 check "примеры python-команд в SKILL.md, README, INSTALL, references принимаются argparse (--help)" sh -c "
-  '$PY' '$HERE/helpers/doc_commands.py' '$HERE/..' --python '$PY' > '$TMP/doc.out' 2>&1 || { cat '$TMP/doc.out'; exit 1; }"
+  '$PY' '$HERE/helpers/shared/doc_commands.py' '$HERE/..' --python '$PY' > '$TMP/doc.out' 2>&1 || { cat '$TMP/doc.out'; exit 1; }"
 check "примеры node-команд в документации: скрипты существуют, --опции читаются" sh -c "
   '$PY' '$HERE/helpers/doc_node_flags.py' '$HERE/..' > '$TMP/docn.out' 2>&1 || { cat '$TMP/docn.out'; exit 1; }"
 mkdir -p "$TMP/fake-skill/scripts/node"; printf 'const a = parseArgs(); if (a.yes) {}\n' > "$TMP/fake-skill/scripts/node/x.js"
