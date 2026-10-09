@@ -39,7 +39,7 @@
 2.3.0: заметка начинается строкой «ДЕЙСТВИЕ: сам | Agent(model=…, effort=…) | спросить — причина (≤ 15 слов). Уверенность: …»
 (triage_action: явная просьба пользователя, общее устройство, долгое ожидание, накопленный контекст, параллельность, модель
 сессии — triage_session, локально из стенограммы); короткое продолжение с прежним решением — без заметки (журнал: quiet);
---check проверяет регистрацию хука и имя скилла для Skill (triage_install).
+--check проверяет регистрацию хука и имя скилла для Skill (triage_install); --batch (triage_batch).
 
 Запуск (только стандартная библиотека; ключ — переменная окружения TYPESAFE_API_KEY):
     python3 typesafe_triage.py "текст задачи"        # JSON с метриками, сигналами и рекомендацией
@@ -53,6 +53,8 @@
     python3 typesafe_triage.py --check                # диагностика: ключ, сеть, сертификаты; хук зарегистрирован? имя для Skill;
                                                      # команды починки (код 0 — всё в порядке, 1 — нет ответа TypeSafe, 3 — хук)
     python3 typesafe_triage.py --set-agent-effort yes|no|auto   # есть ли у инструмента Agent параметр effort
+    python3 typesafe_triage.py --batch tasks.json [--json] [--prompts]   # пакет подзадач: таблица, порядок по paths,
+                                                     # одно AskUserQuestion, готовые Agent(...) и промпты исполнителей
     python3 typesafe_triage.py --selftest            # эталонные задачи (triage_cases.json) через TypeSafe; нужна сеть
     python3 typesafe_triage.py --selftest --heuristic   # те же задачи только по эвристике (офлайн)
     python3 typesafe_triage.py --calibrate [--heuristic] [--split train|holdout|all] [--cache F]
@@ -90,6 +92,7 @@ import triage_heuristics as heur  # локальные сигналы по те�
 import triage_effort as eff       # вторая ось: reasoning effort (политика, окружение, история)
 import triage_session as sess_mod  # 2.3: модель и effort сессии, параметр effort у Agent (локально, без сети)
 import triage_action as act       # 2.3: строка «ДЕЙСТВИЕ: сам | Agent(…) | спросить» и одна причина
+import triage_batch as batch      # 2.3: --batch tasks.json (таблица, порядок по paths, одно подтверждение, Agent(...))
 import triage_install as inst     # 2.3: --check — зарегистрирован ли хук, имя скилла для Skill, «призраки»
 
 API_URL = os.environ.get("TYPESAFE_API_URL") or "https://api.typesafe.ai/v1/systemone"  # переопределение — только для тестов
@@ -1780,6 +1783,33 @@ def run_check():
     return 0 if res["registered"] else 3
 
 
+def run_batch_cli(argv):
+    """--batch tasks.json [--json] [--prompts] (2.3, #29)."""
+    path = opt(argv, "--batch")
+    if not path or path.startswith("--"):
+        print("Использование: --batch tasks.json [--json] [--prompts] — файл: [{\"id\", \"task\", \"paths\": [...]}, …]")
+        return 2
+    try:
+        tasks = batch.load_tasks(path)
+    except batch.BatchError as e:
+        print("--batch: %s" % e)
+        return 2
+    cwd = os.getcwd()
+
+    def one(task):
+        r = triage(task["task"], cwd=cwd)
+        log(task["task"], r)
+        if r.get("notice"):
+            print(r["notice"], file=sys.stderr)
+        return r
+    rep = batch.run(tasks, one)
+    if "--json" in argv:
+        print(json.dumps(rep, ensure_ascii=False, indent=2))
+    else:
+        print(batch.format_text(rep, prompts="--prompts" in argv))
+    return 0
+
+
 def main(argv):
     if "--where" in argv:
         print(where_report())
@@ -1832,6 +1862,8 @@ def main(argv):
         print("Записано в %s: у Agent параметр effort — %s." % (guard.config_path(), {"yes": "есть", "no": "нет",
                                                                                       "auto": "определять автоматически"}[val]))
         return 0
+    if "--batch" in argv:
+        return run_batch_cli(argv)
     if "--hook" in argv:
         rc = run_hook()
         if _ABANDONED:                     # поток с зависшим запросом брошен по тайм-ауту: выходим, не дожидаясь его
