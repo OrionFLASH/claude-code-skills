@@ -311,6 +311,14 @@ check "build_report: варианты данных/стенды — таблиц
   '$PY' '$S/build_report.py' report '$R5' >/dev/null && grep -q '| test | 1 | 0 |' '$R5/report.md' && grep -q '| prod | 0 | 0 |' '$R5/report.md' &&
   cp '$TMP/rc5.bak' '$R5/run-config.yaml'"
 
+check "coverage build до результата (ход потока по журналу guard), затем ingest того же потока — без ошибок" sh -c "
+  '$PY' '$BR' '$R5' --thread qa-prog --directions functional >/dev/null &&
+  '$PY' '$UG' nav https://example.com/ --config '$R5/run-config.yaml' --trace '$R5/logs/guard-qa-prog.jsonl' >/dev/null &&
+  '$PY' '$CV' build '$R5' --thread qa-prog | grep -q 'переходов 1' &&
+  printf '%s\n' 'Итог' '\`\`\`qa-findings' '{\"thread\": \"qa-prog\", \"findings\": [], \"checked\": [{\"what\": \"главная\"}], \"not_checked\": []}' '\`\`\`' > '$TMP/msg-prog.md' &&
+  '$PY' '$IN' '$R5' --from '$TMP/msg-prog.md' >/dev/null &&
+  '$PY' -c \"import json,sys; c=json.load(open(sys.argv[1])); assert c['checked']==[{'what': 'главная'}] and c['auto_metrics']['nav_checks']==1, c\" '$R5/coverage/qa-prog.json'"
+
 # ---------- #24: second wave by «not checked» ----------
 "$PY" "$S/journal.py" init "$R5" >/dev/null
 check "coverage again: волна 2 — запреты отдельно, категории (time, environment), задачи потоков, todo в журнале" sh -c "

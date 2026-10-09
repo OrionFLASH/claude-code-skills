@@ -116,7 +116,13 @@ def write_thread_files(run_dir, thread, payloads):
     fpath = run_dir / "findings" / f"{name}.json"
     _save(fpath, mine)
     cpath = run_dir / "coverage" / f"{name}.json"
-    cov = _load(cpath, {"thread": thread, "checked": [], "not_checked": [], "questions": [], "metrics": {}, "messages": 0})
+    cov = _load(cpath, {})
+    if not isinstance(cov, dict):
+        cov = {}
+    # the file may already exist with only progress metrics (coverage.py build before the result came)
+    for key, empty in (("thread", thread), ("checked", []), ("not_checked", []), ("questions", []), ("metrics", {}),
+                       ("messages", 0)):
+        cov.setdefault(key, empty)
     for p in payloads:
         checked = [x if isinstance(x, dict) else {"what": str(x)} for x in p.get("checked") or []]
         cov["checked"] = _merge_unique(cov["checked"], checked, lambda x: json.dumps(x, sort_keys=True, ensure_ascii=False))
