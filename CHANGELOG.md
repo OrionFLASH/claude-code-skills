@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+## 2026-10-09 (3)
+### Добавлено
+- `site-qa-audit` 1.5.0 — реестр вкладок во всех node-скриптах (`tabs.json`, `--owner`, `--run-dir`), проверка права push заранее и запасной путь для скриншотов (`publish_shots.py plan/local`), достижимость в мобильном WebKit, запуск e2e-заготовок под guard (`e2e_run.js`), отдельный Playwright MCP для `file://` с guard (`browser_mode.py mcp`), проверка видимого окна.
+- `android-qa-audit` 1.3.0 — график PSS (SVG) и спарклайн в отчёте, контактный лист скриншотов (`annotate_android.py sheet`), корректный `job stop` (в том числе на Windows), честное описание loopback на Windows.
+- `typesafe-triage` 2.4.0 — автозапись факта через хуки плагина (`PostToolUse`/`SubagentStop`, опция `TYPESAFE_TRIAGE_AUTO_FACT=on`), признаки сессии (доля записи, накопленные факты, профиль) из служебных полей стенограммы.
+- Общие тестовые модули `shared/tests` (`doc_commands.py`, `doc_zsh.py`) с вендорингом через `.shared` и проверкой `validate`.
+### Исправлено
+- `site-qa-audit`: `reachability.js` на телефоне решал по колесу мыши (контейнер с `touch-action: none` считался достижимым); `publish_shots.py` падал без gh и терял сведения об уже загруженном.
+- `android-qa-audit`: `annotate_android.py render` с относительными путями; ссылки HTML-листа на macOS; повторный SIGTERM мог оборвать запись сводки soak.
+
 ## 2026-10-09 (2)
 ### Добавлено
 - `android-qa-audit` 1.2.0 — по отзывам реального прогона (диктофон): подача звука в микрофон эмулятора (`mic-inject`: gRPC с токеном, loopback, файл; `avd_manager start --mic-inject`, `--extra-args` с белым списком), нажатия без дерева элементов (`tap X Y --no-ui`), `dump-ui --retry/--texts/--grep`, `find` с границами, неоднозначность `tap`, `soak` и `job` (долгие сценарии с проверкой предусловий), исправленные `notifications`, аннотированные скриншоты (`screenshot --mark`, `finding.py`), публикация по GitHub issue forms, документы «известно», вложения веткой, `disclosure: tool|none` (по умолчанию `tool`), `import-file`/`push-media`/`ime`, обёртка `qa` для zsh, матрица с существующими `qa-*` AVD и профилем 8 ГБ, `intake --lite`, чек-лист `audio-voice`.
