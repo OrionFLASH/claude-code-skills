@@ -41,6 +41,7 @@
 сессии — triage_session, локально из стенограммы); короткое продолжение с прежним решением — без заметки (журнал: quiet);
 --check проверяет регистрацию хука и имя скилла для Skill (triage_install); --batch (triage_batch); журнал решений и
 фактов в корне проекта и --fact (triage_projectlog, опция).
+2.9.0: квоты на АВТОМАТИЧЕСКИЕ fable и effort max (сутки/неделя, по умолчанию 1/3 и 2/6), потолок --run $10 для них, этапы с отчётом в заметке; «уйдут на Fable» — не указание (triage_extremes.py, --extremes).
 2.8.0: политика по прямо прочитанным источникам — Opus дефолт, Fable только долгий горизонт/провал opus на high+, max только opus, --run на Fable с --confirmed (references/sources.md, benchmarks.md).
 2.7.0: haiku/fable/low/max без подтверждений по строгим критериям (TYPESAFE_TRIAGE_CONFIRM=on возвращает вопросы), причина повтора, рутина, источники (references/sources.md).
 2.6.0: делегирование вниз и экономный режим (опции), --report, --verify (SHA256SUMS), HTTP 451 = region, путь в начале запроса не команда, шире маскировка.
@@ -110,6 +111,7 @@ import triage_install as inst     # 2.3: --check — зарегистриров�
 import triage_projectlog as plog  # 2.3: журнал решений и фактов в корне проекта (опция) и --fact
 import triage_report as report   # 2.6: --report — меняет ли триаж что-то на практике (локально, без сети)
 import triage_secrets as sec    # 2.5: поиск, маскировка и политика «что не отправлять» для секретов и персональных данных
+import triage_extremes as xt      # 2.9: квоты на автоматические fable и effort max
 import triage_autofact as autofact  # 2.4: автозапись факта хуком плагина PostToolUse/SubagentStop (опция)
 
 API_URL = os.environ.get("TYPESAFE_API_URL") or "https://api.typesafe.ai/v1/systemone"  # переопределение — только для тестов
@@ -754,8 +756,46 @@ def set_agent_effort(value):
     guard._write(guard.config_path(), c)
 
 
+def apply_extremes(r, task, session, mode):
+    """2.9.0: квота на автоматические fable и max (triage_extremes). mode: None — не применять (calibrate, batch, тесты),
+    "check" — только понизить при исчерпанной квоте (ручной запуск), "commit" — ещё и записать трату (хук). Явная просьба
+    пользователя не блокируется и в квоту не входит. Меняет только model/effort/fallback/reason, действие считается после."""
+    if not mode:
+        return
+    now, pid = time.time(), prompt_id(task)
+    events, cfg = xt.load(guard.HOME), skill_config()
+    notes, spent = [], []
+    for kind, field, src_field, down in (("fable", "model", "model_source", "opus"), ("max", "effort", "effort_source", "xhigh")):
+        if r.get(field) != kind:
+            continue
+        src = "user" if r.get(src_field) == "user" else "auto"
+        if src == "user":
+            spent.append((kind, "user"))
+            continue
+        ok, why, seen = xt.decide(events, kind, now, pid, cfg)
+        if ok:
+            if not seen:
+                spent.append((kind, "auto"))
+            continue
+        r[field] = down
+        if kind == "fable":
+            r["confirm"], r["fallback"] = False, "opus"
+        else:
+            r["effort_confirm"], r["effort_fallback"] = False, "xhigh"
+        r["extremes"] = dict(r.get("extremes") or {}, **{kind: "понижено: " + why})
+        notes.append("%s → %s" % (why, down))
+    if notes:
+        r["reason"] = "; ".join(filter(None, [r.get("reason")] + notes))
+    if spent:
+        r["extremes_used"] = [k for k, _ in spent]
+    if mode == "commit":
+        for kind, src in spent:
+            xt.record(guard.HOME, events, kind, src, pid, r.get("session"), now)
+            events = xt.load(guard.HOME)
+
+
 def add_effort(r, m, h, task, env="auto", history=None, session=None, cwd=None, min_conf=None, transcript=None,
-               session_info=None):
+               session_info=None, extremes=None):
     """Вторая ось + явные указания + история: дописывает в результат поля effort_* и при необходимости меняет модель
     (явный выбор пользователя / эскалация по истории), а с 2.3 — действие (поле action: сам / Agent / спросить).
     Старые поля сохраняются (формат аддитивный). session_info — готовые сведения о сессии; без них при env="auto" они
@@ -806,6 +846,7 @@ def add_effort(r, m, h, task, env="auto", history=None, session=None, cwd=None, 
             r["confidence"] = "унаследована от предыдущего запроса"
     r.update(model=tier, confirm=tier in CONFIRM_TIERS and not user_tier, fallback=tier if user_tier else CONFIRM_TIERS.get(tier, tier),
              model_source="user" if user_tier else "auto", reason="; ".join(why), **e)
+    apply_extremes(r, task, session, extremes)
     if d["phrases"]:
         r["explicit"] = d["phrases"][:4]
     if d.get("mentions"):
@@ -1165,9 +1206,19 @@ def hook_context(result, cur_effort=None):
         keeps_cache = bool(re.search(r"(opus-5-5|sonnet-5-5|haiku-5-5|fable-5-1)", sm))   # C2: на этих моделях смена effort кэш не сбрасывает
         lines.append("• Делаешь сам (effort сессии %s): одной строкой предложи пользователю «/effort %s»%s." % (
             cur_effort, efb, "" if keeps_cache or not sm else " (на этой модели смена effort сбросит кэш — лучше между задачами)"))
+    ex = result.get("extremes") or {}
+    if ex:
+        lines.append("• Квота крайних случаев исчерпана (%s). Работай на выбранном уровне; расширить квоту может только пользователь "
+                     "(--extremes, TYPESAFE_TRIAGE_FABLE_LIMIT / TYPESAFE_TRIAGE_MAX_LIMIT)." % "; ".join(ex.values()))
+    limiter = ("Крайний случай — расход не безграничен: разбей работу на этапы по результату, после каждого дай пользователю короткий "
+               "отчёт (готово, остаток, расход) и продолжай, только если остаток оправдан; параллельных агентов на этом уровне не "
+               "запускай; в --run потолок $%.0f (--budget)." % xt.budget_usd())
+    if result.get("effort") == "max" and tier_now != "fable" and kind in ("agent", "self", "ask"):
+        lines.append("• effort max: " + limiter)
     if (tier_now == "fable") and kind in ("agent", "self", "ask"):   # F3, F5, F15: как получить максимум и чего ждать от Fable
         lines.append("• Fable (только долгий горизонт или провал Opus на high+): опиши результат, а не шаги; не добавляй напоминаний о проверке; "
-                     "для долгого — /goal. Её использование может списываться с usage credits; кибер- и био-запросы она перенаправит на другие модели.")
+                     "для долгого — /goal. Её использование может списываться с usage credits; кибер- и био-запросы она перенаправит на другие модели. "
+                     + limiter)
     if delegating and (a.get("agent") or {}).get("model") == "haiku":   # 2.7.0: haiku — без вопроса, но с ответственностью за качество
         lines.append("• Haiku (без вопроса — только для точной простой задачи): дай точное ТЗ и способ проверки, ограничь объём; результат "
                      "проверь сам (выборочно, тест или сверка) до отчёта пользователю; не вышло или сомнение — повтори на sonnet.")
@@ -1436,14 +1487,14 @@ def hook_triage(prompt, sid, cwd, started, late=None, transcript=None):
     left = HOOK_BUDGET_S - (time.monotonic() - started)
     if late or left < NET_MIN_S + 0.3:
         why = late or "не осталось времени на TypeSafe"
-        return offline_triage(prompt, why, session=sid, cwd=cwd, transcript=transcript), why
+        return offline_triage(prompt, why, session=sid, cwd=cwd, transcript=transcript, extremes="commit"), why
     try:
         r = call_with_deadline(lambda: triage(prompt, timeout=min(HOOK_TIMEOUT_S, left - 1.0), session=sid, cwd=cwd,
-                                              transcript=transcript), left - 0.3)
+                                              transcript=transcript, extremes="commit"), left - 0.3)
         return r, None
     except HookTimeout:
         why = "TypeSafe-оценка не уложилась в %.0f с" % HOOK_BUDGET_S
-        return offline_triage(prompt, why, session=sid, cwd=cwd, transcript=transcript), why
+        return offline_triage(prompt, why, session=sid, cwd=cwd, transcript=transcript, extremes="commit"), why
 
 
 QUIET_REASON = "решение прежнее (продолжение)"
@@ -1830,6 +1881,8 @@ def build_agent_cmd(tier, readonly=False, budget=None, edit=False, allow=(), con
         cmd += ["--permission-mode", "acceptEdits"]
     for rule in allow:
         cmd += ["--allowedTools", rule]
+    if budget is None and (tier == "fable" or effort == "max"):
+        budget = xt.budget_usd()         # 2.9.0: у крайних случаев всегда есть потолок расхода
     if budget is not None:
         cmd += ["--max-budget-usd", str(budget)]
     return cmd
@@ -1882,7 +1935,7 @@ def run_agent(argv):
             return 2
     result = {}
     if not (forced and forced_effort):
-        result = triage(task, cwd=os.getcwd())
+        result = triage(task, cwd=os.getcwd(), extremes="check")
         log(task, result)
         if result.get("notice"):
             print(result["notice"], file=sys.stderr)
@@ -2211,6 +2264,9 @@ def main(argv):
         return 0
     if "--verify" in argv:   # 2.6.0 (#48): сверить установленную копию с SHA256SUMS (и, с --remote, с файлом сумм тега на GitHub)
         return run_verify("--remote" in argv)
+    if "--extremes" in argv:   # 2.9.0: квоты на автоматические fable и max и их расход
+        print("\n".join(xt.summary(guard.HOME, skill_config())))
+        return 0
     if "--report" in argv:   # 2.6.0 (#40): отчёт по журналу и стенограммам, без сети
         try:
             days = max(1, int(opt(argv, "--days") or 7))
@@ -2276,7 +2332,7 @@ def main(argv):
         print(__doc__)
         return 2
     task = " ".join(a for a in argv[1:] if not a.startswith("--"))
-    result = triage(task, cwd=os.getcwd())
+    result = triage(task, cwd=os.getcwd(), extremes="check")
     project_decision(task, result, os.getcwd(), via="cli", flag=flag_value(argv, "--project-log"))
     log(task, result)
     if result.get("notice"):
