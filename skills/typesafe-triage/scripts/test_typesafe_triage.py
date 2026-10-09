@@ -305,6 +305,29 @@ def test_harness_messages_are_not_sent(monkeypatch, capsys):
     assert not t.is_harness_message("Исправь падение теста test_login в сервисе авторизации")
 
 
+def test_service_blocks_are_stripped_not_skipped(monkeypatch, capsys):
+    """2.4.1: служебные теги среды перед текстом задачи не делают запрос служебным; в TypeSafe уходит только текст пользователя."""
+    import io, json
+    task = "Спроектируй миграцию базы с одной схемы на другую без простоя: план шагов и откат"
+    seen = []
+    monkeypatch.setattr(t, "triage", lambda text, *a, **k: seen.append(text) or {"model": "opus", "source": "typesafe", "reason": "x"})
+    for p in ("<system-reminder>секрет-контекст</system-reminder>\n<ide_selection>token=abc</ide_selection> " + task,
+              "<IDE_OPENED_FILE>a.py</IDE_OPENED_FILE>" + task):
+        assert not t.is_harness_message(p) and t.skip_reason(p) is None
+        assert t.strip_service_blocks(p) == task
+    for p in ("<div class='a'>…</div> Перепиши этот блок на семантическую вёрстку и добавь aria-атрибуты", "<task>" + task + "</task>"):
+        assert t.skip_reason(p) is None and t.strip_service_blocks(p) == p      # чужие теги — часть запроса
+    for p in ("<system-reminder>только служебное</system-reminder>", "<task-notification>x</task-notification>",
+              "<system-reminder>обрезано без закрывающего тега " + task):
+        assert t.skip_reason(p) == "служебное сообщение среды"
+    assert t.skip_reason("<system-reminder>x</system-reminder> /commit fix") == "команда /…"
+    assert t.skip_reason("<system-reminder>x</system-reminder> ок") .startswith("короткая реплика")
+    monkeypatch.setattr(t.sys, "stdin", io.StringIO(json.dumps({"prompt": "<system-reminder>секрет-контекст</system-reminder> " + task})))
+    assert t.run_hook() == 0
+    assert "ДЕЙСТВИЕ" in capsys.readouterr().out or seen
+    assert seen and all("секрет-контекст" not in x and "system-reminder" not in x for x in seen)
+
+
 def test_agent_cmd_edit_and_allow():
     cmd = t.build_agent_cmd("sonnet", edit=True, allow=("Bash(git status)", "Bash(python3 -m pytest:*)"))
     assert cmd[cmd.index("--permission-mode") + 1] == "acceptEdits"

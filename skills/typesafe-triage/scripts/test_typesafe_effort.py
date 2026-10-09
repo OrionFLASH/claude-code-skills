@@ -703,3 +703,11 @@ def test_mentions_masking_is_fast_on_long_input():
     heur.directives("Слово «ultrathink» и «effort max» в кавычках. " * 2500)
     heur.directives("Обычный текст без маркеров, просто описание задачи. " * 2000)
     assert time.time() - t0 < 2.0
+
+
+def test_dont_use_model_is_not_a_no_agent_request():
+    """2.4.1: «Don't use opus» — запрет модели, а не «без субагента»; «don't use/spawn a subagent», «don't delegate» — запрет агента."""
+    assert heur.action_signals("Don't use opus for this, sonnet is enough: rewrite the README")["agent_req"] is None
+    for p in ("Don't use a subagent for this", "don't spawn agents", "Don't delegate this", "Don't use any agents here"):
+        assert heur.action_signals(p)["agent_req"] == "self", p
+    assert heur.directives("Don't use opus for this, sonnet is enough")["tier_not"] == ["opus"]

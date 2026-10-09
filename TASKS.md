@@ -199,3 +199,11 @@
 - `typesafe_triage.py --set-agent-effort yes` → `~/.claude/typesafe-triage/config.json`.
 - `~/.claude/skills/github-issue-structuring`: путь к `typesafe_guard` через плагин (копия: `~/.claude/backups/github-issue-structuring.bak-20261009`); issue #11 закрыт.
 - Playwright MCP для file:// не добавлялся (по решению владельца): команду печатает `browser_mode.py mcp <RUN_DIR>`.
+
+## 2026-10-09 (4) typesafe-triage 2.4.1 — по проверке сценариев
+- [x] Дефект 1: хук пропускал запросы, начинавшиеся с «<» (в VSCode — `<system-reminder>`/`<ide_selection>`) → вырезание служебных блоков (вариант B), остаток оценивается
+- [x] Дефект 2: «Don't use opus» читалось как «без субагента» → регулярка сужена до объектов agent/subagent/delegate
+- [x] Тесты (354), селфтест без изменений, validate 0 ошибок, версия 2.4.1, CHANGELOG
+- [ ] Обновить плагин в кэше через маркетплейс и проверить в новой сессии (вне репозитория)
+### Где остановился
+2.4.1 влита в main и запушена, тег typesafe-triage/v2.4.1. Следующий шаг: обновить плагин (`claude plugin update typesafe-triage@claude-code-skills`) и перезапустить сессию; проверить, что запрос с `<system-reminder>` получает заметку «ДЕЙСТВИЕ:».

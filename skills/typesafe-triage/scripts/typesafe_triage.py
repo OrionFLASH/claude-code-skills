@@ -41,6 +41,7 @@
 сессии — triage_session, локально из стенограммы); короткое продолжение с прежним решением — без заметки (журнал: quiet);
 --check проверяет регистрацию хука и имя скилла для Skill (triage_install); --batch (triage_batch); журнал решений и
 фактов в корне проекта и --fact (triage_projectlog, опция).
+2.4.1: запрос со служебными тегами среды (<system-reminder>, <ide_selection>) в начале больше не пропускается как служебный; «Don't use opus» — не «без субагента».
 2.4.0: автозапись факта после субагента хуком плагина PostToolUse/SubagentStop (triage_autofact, опция, выкл.);
 «чем занята сессия» — счётчики инструментов, фактов, реплик и токенов из служебных полей стенограммы (triage_session.work).
 
@@ -1001,23 +1002,41 @@ def switched_off(cwd):
         return False
 
 
-HARNESS_PREFIXES = ("<", "[SYSTEM", "[Subagent", "[Request interrupted", "[Image", "Caveat:")
+HARNESS_PREFIXES = ("[SYSTEM", "[Subagent", "[Request interrupted", "[Image", "Caveat:")
+# Теги, которые добавляет среда (Claude Code, IDE): блок вырезается целиком; любой другой «<…>» — часть запроса (HTML, XML, свои теги)
+SERVICE_TAGS = ("system-reminder", "ide_selection", "ide_opened_file", "task-notification", "agent-message", "user-prompt-submit-hook",
+                "command-name", "command-message", "command-args", "local-command-stdout", "local-command-stderr", "local-command-caveat")
+SERVICE_BLOCK_RE = re.compile(r"<(%s)\b[^>]*>.*?</\1\s*>" % "|".join(SERVICE_TAGS), re.S | re.I)
+
+
+UNCLOSED_SERVICE_RE = re.compile(r"<(?:%s)\b" % "|".join(SERVICE_TAGS), re.I)
+
+
+def strip_service_blocks(prompt):
+    """Запрос без служебных блоков среды (<system-reminder>, <ide_selection>, …): их не оцениваем и не отправляем наружу."""
+    return SERVICE_BLOCK_RE.sub(" ", prompt).strip() if isinstance(prompt, str) else prompt
 
 
 def is_harness_message(prompt):
-    """Служебные сообщения среды (уведомления задач, отчёты субагентов, теги) — не запрос пользователя: не отправляем наружу."""
-    head = prompt.lstrip()[:200]
-    return head.startswith(HARNESS_PREFIXES) or "[Subagent hand-back]" in head or "<task-notification>" in head
+    """Служебные сообщения среды (уведомления задач, отчёты субагентов, теги) — не запрос пользователя: не отправляем наружу.
+    Запрос, у которого после вырезания служебных блоков остался текст, — обычный (блоки в начале его не делают служебным)."""
+    cleaned = strip_service_blocks(prompt)
+    if prompt.strip() and not cleaned:
+        return True
+    head = cleaned.lstrip()[:200]
+    return (head.startswith(HARNESS_PREFIXES) or "[Subagent hand-back]" in head or "<task-notification>" in head
+            or bool(UNCLOSED_SERVICE_RE.match(head)))     # служебный тег без закрывающего (обрезанное сообщение)
 
 
 def skip_reason(prompt):
     """Почему запрос не оцениваем (и не отправляем в TypeSafe); None — оцениваем."""
     if not isinstance(prompt, str):
         return "некорректный ввод хука"
-    if prompt.lstrip().startswith("/"):
-        return "команда /…"
     if is_harness_message(prompt):
         return "служебное сообщение среды"
+    prompt = strip_service_blocks(prompt)
+    if prompt.lstrip().startswith("/"):
+        return "команда /…"
     if len(prompt.strip()) < MIN_HOOK_CHARS:
         return "короткая реплика (< %d знаков)" % MIN_HOOK_CHARS
     if heur.is_chatter(prompt):
@@ -1317,9 +1336,10 @@ def run_hook():
         prompt = data.get("prompt") or ""
         sid = data.get("session_id") if isinstance(data.get("session_id"), str) else None
         why = skip_reason(prompt)
+        raw_prompt, prompt = prompt, strip_service_blocks(prompt)   # дальше (дайджест, журнал, дедуп) — только то, что написал пользователь
         if why:
             emit(skip_output(why))
-            log_skip(prompt, sid, why)
+            log_skip(raw_prompt, sid, why)
             return 0
         claim = dedup_claim(sid, prompt, started)
         if claim[0] == "dup":
