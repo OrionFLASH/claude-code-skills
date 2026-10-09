@@ -79,7 +79,7 @@ def test_hang_beyond_budget_gives_heuristic_note_in_time(monkeypatch, capsys):
     out = hook_raw(monkeypatch, capsys, {"prompt": TASK, "session_id": "s1"})
     assert time.monotonic() - t0 < 3.5
     c = ctx(out)
-    assert c.startswith("TypeSafe-триаж: уровень ") and "только эвристика" in c
+    assert c.startswith("ДЕЙСТВИЕ: ") and "только эвристика" in c
     assert "триаж пропущен" in out["systemMessage"] and "не уложилась" in out["systemMessage"]
     assert log_lines()[-1]["source"] == "heuristic"
 
@@ -102,7 +102,7 @@ def test_pending_marker_of_dead_process_is_taken_over(monkeypatch, capsys):
     f.parent.mkdir(parents=True, exist_ok=True)
     f.write_text(json.dumps({"state": "pending", "pid": dead_pid(), "ts": time.time()}))
     out = hook_raw(monkeypatch, capsys, p)
-    assert ctx(out).startswith("TypeSafe-триаж: уровень ")
+    assert ctx(out).startswith("ДЕЙСТВИЕ: ")
     assert json.loads(f.read_text())["state"] == "done"
 
 
@@ -110,7 +110,7 @@ def test_stale_pending_marker_is_taken_over(monkeypatch, capsys):
     f = marker("s1", TASK)
     f.parent.mkdir(parents=True, exist_ok=True)
     f.write_text(json.dumps({"state": "pending", "pid": os.getpid(), "ts": time.time() - t.PENDING_STALE_S - 1}))
-    assert ctx(hook_raw(monkeypatch, capsys, {"prompt": TASK, "session_id": "s1"})).startswith("TypeSafe-триаж: уровень ")
+    assert ctx(hook_raw(monkeypatch, capsys, {"prompt": TASK, "session_id": "s1"})).startswith("ДЕЙСТВИЕ: ")
 
 
 def test_loser_waits_for_live_winner_then_stays_silent(monkeypatch, capsys):
@@ -136,7 +136,7 @@ def test_loser_takes_over_when_winner_never_finishes(monkeypatch, capsys):
     t0 = time.monotonic()
     out = hook_raw(monkeypatch, capsys, {"prompt": TASK, "session_id": "s1"})
     assert time.monotonic() - t0 < 3
-    assert ctx(out).startswith("TypeSafe-триаж: уровень ") and "первый вызов хука" in out["systemMessage"]
+    assert ctx(out).startswith("ДЕЙСТВИЕ: ") and "первый вызов хука" in out["systemMessage"]
 
 
 def test_done_marker_still_silences_true_duplicate(monkeypatch, capsys):
@@ -224,7 +224,7 @@ def test_e2e_killed_first_call_does_not_silence_second(tmp_path):
         b = subprocess.run([sys.executable, "-B", str(SCRIPT), "--hook"], input=payload, capture_output=True, text=True,
                            env=dict(env, TYPESAFE_API_URL="http://127.0.0.1:9/v1/systemone"), timeout=30)
         out = json.loads(b.stdout) if b.stdout.strip() else {}
-        assert b.returncode == 0 and ctx(out).startswith("TypeSafe-триаж: уровень "), b.stdout + b.stderr
+        assert b.returncode == 0 and ctx(out).startswith("ДЕЙСТВИЕ: "), b.stdout + b.stderr
     finally:
         srv.shutdown()
 
@@ -239,7 +239,7 @@ def test_legacy_empty_marker_from_old_version_counts_as_done(monkeypatch, capsys
     assert time.monotonic() - t0 < 1
     old = time.time() - t.DEDUP_S - 1
     os.utime(f, (old, old))
-    assert ctx(hook_raw(monkeypatch, capsys, {"prompt": TASK, "session_id": "s1"})).startswith("TypeSafe-триаж: уровень ")
+    assert ctx(hook_raw(monkeypatch, capsys, {"prompt": TASK, "session_id": "s1"})).startswith("ДЕЙСТВИЕ: ")
 
 
 def test_marker_has_content_as_soon_as_it_exists(tmp_path):

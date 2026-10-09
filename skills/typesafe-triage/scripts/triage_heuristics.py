@@ -90,6 +90,43 @@ SHARED_TEXT_RE = re.compile(
     r"|\bпод\s+моим\s+(?:входом|аккаунтом|логином)|\bя\s+(?:уже\s+)?(?:вош[её]л|вошла|залогинил\w*|авторизовал\w*)"
     r"|\bCDP\b|\b9222\b|\bmy\s+(?:browser|open\s+tab|logged[- ]in\s+session)|\balready\s+logged\s+in\b)", FLAGS_RE)
 
+# 2.3.0 (#27): признаки для строки «ДЕЙСТВИЕ» — что выгоднее: сам, субагент или спросить (см. action_signals)
+# Одно устройство/эмулятор: одно взаимодействие с живым интерфейсом за раз, исполнитель его не разделит
+DEVICE_RE = re.compile(
+    r"\bэмулятор\w*|\bсимулятор\w*|\bemulators?\b|\bsimulators?\b|\bAVD\b|\badb\b|\bна\s+(?:устройстве|телефоне|смартфоне|планшете)"
+    r"|\bon\s+(?:the|my|a)\s+(?:device|phone|tablet)\b", FLAGS_RE)
+# Явная просьба пользователя о субагенте — сильнее любых индексов (триаж подтверждает, а не спорит)
+AGENT_REQ_RE = re.compile(
+    r"\bсубагент\w*|\bсаб-?агент\w*|\b(?:используй|задействуй|запусти|позови|отдай|поручи|передай|через|с\s+помощью)\s+(?:\w+\s+){0,2}"
+    r"агент\w*\b(?!\s+(?:поддержк|продаж|по\s|недвижимост|страхов|банк))"
+    r"|\bделегируй\b|\bделегировать\b|\bsub-?agents?\b|\b(?:use|spawn|launch|start|via|with)\s+(?:an?\s+|the\s+|separate\s+)?agents?\b"
+    r"|\bdelegate\b", FLAGS_RE)
+# … и просьба сделать самому, без делегирования (отрицание «не используй субагента» — тоже сюда)
+SELF_REQ_RE = re.compile(
+    r"\bбез\s+(?:суб-?)?агент\w*|\bне\s+(?:\w+\s+)?(?:делегируй|делегировать|используй\s+(?:суб-?)?агент\w*|запускай\s+(?:суб-?)?агент\w*"
+    r"|отдавай\s+(?:суб-?)?агент\w*)|\b(?:сделай|выполни|проверь|разберись|почини|поправь|напиши)\s+(?:это\s+)?сам\b"
+    r"|\bсам(?:а)?\s+(?:сделай|выполни|проверь|разберись|почини|поправь|напиши)\b|\bdo\s+it\s+yourself\b|\byourself,?\s+(?:not|without)\b"
+    r"|\bwithout\s+(?:a\s+|any\s+)?sub-?agents?\b|\bdon'?t\s+(?:use|spawn|delegate)\b|\bno\s+sub-?agents?\b", FLAGS_RE)
+# Долгое ожидание (минуты-часы): выгоднее фоновый скрипт и проверка его состояния, а не LLM-исполнитель, который ждёт
+WAIT_STRONG_RE = re.compile(
+    r"\bвсю\s+ночь\b|\bсутк\w*|\bsoak\b|\bovernight\b|\bдлительн\w*\s+(?:тест|прогон|запис|сценари|нагрузк|ожидан)"
+    r"|\bдолг\w*\s+(?:тест|прогон|запис|ожидан|сценари)|\blong[- ]running\b|\bwait\s+(?:for|until)\b|\bдожд(?:ись|аться|ёмся)\b"
+    r"|\bподожди\b|\bмониторь\b|\bследи\s+за\b|\bнаблюдай\s+за\b|\bkeep\s+an\s+eye\b|\bmonitor\s+(?:it|the|for)\b", FLAGS_RE)
+WAIT_DUR_RE = re.compile(
+    r"(?:\bна|\bв\s+течение|\bчерез|\bкаждые|\bраз\s+в|\bfor|\bevery|\bafter|\bin)\s+(\d+(?:[.,]\d+)?)\s*(?:-|–)?\s*"
+    r"(мин\w*|ч\b|час\w*|minutes?|mins?|hours?|h\b)|\bв\s+течение\s+(?:часа|дня|ночи)\b|\bраз\s+в\s+час\b|\bfor\s+an?\s+hour\b", FLAGS_RE)
+WAIT_MIN_MINUTES = 5
+# Части можно делать параллельно (несколько исполнителей)
+PARALLEL_RE = re.compile(
+    r"\bпараллельн\w*|\bв\s+параллель\b|\bодновременно\b|\bнезависим\w*\s+(?:част|задач|пакет|модул)|\bin\s+parallel\b|\bconcurrently\b"
+    r"|\bindependent\s+(?:parts|tasks|packages|modules)\b|\bдля\s+каждого\b|\bпо\s+каждому\b|\bfor\s+each\b|\beach\s+of\s+the\b", FLAGS_RE)
+# Ссылки на уже накопленный контекст разговора: передать его субагенту дорого
+CONTEXT_REF_RE = re.compile(
+    r"\bкак\s+(?:мы\s+)?(?:обсуждали|договорились|решили|выше|раньше|в\s+прошлый\s+раз)\b|\bвыше\s+(?:по\s+тексту|в\s+чате)\b"
+    r"|\b(?:из|по)\s+(?:предыдущ|прошл)\w+\s+(?:шаг|ответ|прогон|сообщени|итерац)\w*|\bнайденн\w+\s+(?:ранее\s+)?(?:дефект|ошибк|баг|проблем|находк)"
+    r"|\bas\s+(?:we\s+)?(?:discussed|agreed|above|before)\b|\bfrom\s+(?:the\s+)?(?:previous|earlier|last)\s+(?:step|answer|run|message)"
+    r"|\bthe\s+(?:issues|bugs|findings)\s+(?:you|we)\s+found\b", FLAGS_RE)
+
 # ---------- вторая ось: reasoning effort (глубина размышления) ----------
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
 # Тип намерения → «естественная» глубина 0..1 (берётся максимум найденных). Порядок не важен.
@@ -458,6 +495,61 @@ def shared_state_text(text):
     """Признаки общего интерактивного состояния в тексте запроса (браузер пользователя, его вход, CDP) — найденные фразы."""
     t = FENCE_RE.sub(" ", (text or ""))[:MAX_CHARS]
     return sorted({m.group(0).lower() for m in SHARED_TEXT_RE.finditer(t)})[:3]
+
+
+def _wait_phrase(text):
+    """Долгое ожидание: сильное слово («soak», «всю ночь», «подожди», «дождись») или длительность ≥ WAIT_MIN_MINUTES
+    с предлогом («на 60 минут», «в течение часа», «каждые 10 мин»). → найденная фраза или None."""
+    m = WAIT_STRONG_RE.search(text)
+    if m:
+        return m.group(0).strip().lower()
+    for m in WAIT_DUR_RE.finditer(text):
+        if m.group(1) is None:
+            return m.group(0).strip().lower()
+        try:
+            n = float(m.group(1).replace(",", "."))
+        except ValueError:
+            continue
+        unit = m.group(2).lower()
+        minutes = n * 60 if unit.startswith(("ч", "час", "h")) else n
+        if minutes >= WAIT_MIN_MINUTES:
+            return m.group(0).strip().lower()
+    return None
+
+
+def device_text(text):
+    """Признаки одного общего устройства (эмулятор, телефон, adb) в тексте запроса — найденные слова."""
+    t = FENCE_RE.sub(" ", (text or ""))[:MAX_CHARS]
+    return sorted({m.group(0).lower() for m in DEVICE_RE.finditer(t)})[:2]
+
+
+def action_signals(text):
+    """2.3.0 (#27): признаки для решения «сам / субагент / спросить» по тексту запроса. Упоминания (кавычки, код,
+    пересказ, вставленный отчёт) не считаются просьбой. → {agent_req: "agent"|"self"|None, agent_phrase, wait,
+    parallel (число частей или 0), refs (ссылки на накопленный контекст), dialog (вопрос-реплика), device}."""
+    raw = FENCE_RE.sub(" ", (text or ""))[:MAX_CHARS]
+    masked, _hidden, report = mentions(raw)
+    for rx in QUOTE_RES:                      # просьба в кавычках — цитата («используй субагента»), а не просьба
+        masked = rx.sub(lambda mt: " " * len(mt.group(0)), masked)
+    out = {"agent_req": None, "agent_phrase": None, "wait": None, "parallel": 0, "refs": False, "dialog": False,
+           "device": device_text(raw), "report": bool(report)}
+    m = SELF_REQ_RE.search(masked)
+    if m:
+        out.update(agent_req="self", agent_phrase=m.group(0).strip().lower())
+    else:
+        m = AGENT_REQ_RE.search(masked)
+        if m and not _negated(masked, m.start()):
+            out.update(agent_req="agent", agent_phrase=m.group(0).strip().lower())
+    out["wait"] = _wait_phrase(masked)
+    items = len(ITEM_RE.findall(raw))
+    if PARALLEL_RE.search(masked):
+        out["parallel"] = max(2, items)
+    out["refs"] = bool(CONTEXT_REF_RE.search(masked))
+    prose = raw.strip()
+    intents = {k for k, (_, rx) in _INTENT_RES.items() if rx.search(raw)}
+    out["dialog"] = bool(prose.endswith("?") and len(prose) < 160 and not PATH_RE.search(raw)
+                         and intents <= {"lookup", "explain"})
+    return out
 
 
 def is_chatter(text):

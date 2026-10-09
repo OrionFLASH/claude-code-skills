@@ -189,10 +189,14 @@ def test_hook_continuation_inherits_from_session_log(monkeypatch, capsys):
     monkeypatch.setattr(t, "ask_typesafe", lambda *a, **k: resp(0.8, irreversible=0.9))
     big = {"prompt": "Проведи полный прогон QA сайта: все разделы, вход, оплата, мобильная версия, отчёт и issues", "session_id": "S"}
     first = ctx(hook(monkeypatch, capsys, big))
-    assert "уровень opus" in first
+    assert "[TypeSafe-триаж: opus/" in first
     monkeypatch.setattr(t, "ask_typesafe", lambda *a, **k: resp(0.1))
-    second = ctx(hook(monkeypatch, capsys, {"prompt": "про доступ выдан, продолжай тесты, в т. ч. по Pro", "session_id": "S"}))
-    assert second.startswith("TypeSafe-триаж: уровень opus") and "унаследована" in second
+    # 2.3 (#27, «реже»): продолжение наследует оценку и действие — решение прежнее, заметку не повторяем
+    second = hook(monkeypatch, capsys, {"prompt": "про доступ выдан, продолжай тесты, в т. ч. по Pro", "session_id": "S"})
+    assert second == {}
+    rec = json.loads(t.LOG_PATH.read_text(encoding="utf-8").splitlines()[-1])
+    assert rec["quiet"] == t.QUIET_REASON and rec["model"] == "opus" and rec["inherited"]["model"] == "opus"
+    assert "task" not in rec and "Pro" not in json.dumps(rec, ensure_ascii=False)
 
 
 # ---------- T-2: тип qa ----------
@@ -201,7 +205,7 @@ def test_domain_has_qa_type_and_note_shows_it(monkeypatch, capsys):
     monkeypatch.setenv("TYPESAFE_API_KEY", "k")
     monkeypatch.setattr(t, "ask_typesafe", lambda *a, **k: resp(0.5, choice="qa"))
     c = ctx(hook(monkeypatch, capsys, {"prompt": "Проверь сайт на ошибки в мобильной версии и заведи issues со скриншотами"}))
-    assert "тип: qa" in c
+    assert "; тип qa" in c.split("\n")[0]
 
 
 # ---------- T-3: общее интерактивное состояние ----------
@@ -227,7 +231,7 @@ def test_note_says_delegate_only_independent_parts(tmp_path, monkeypatch, capsys
                                      "cwd": str(root), "session_id": "S3"})
     c = ctx(out)
     assert "Общее интерактивное состояние (браузер с отладкой (CDP) в .profile/; активный прогон в TASKS.md)" in c
-    assert "делегируй только независимые части" in c and "Делегируй (только независимые части)" in c
+    assert "делегируй только независимые части" in c and c.startswith("ДЕЙСТВИЕ: сам — общее устройство или сессия")
     rec = json.loads(t.LOG_PATH.read_text(encoding="utf-8").splitlines()[-1])
     assert rec["shared_state"]
     plain = ctx(hook(monkeypatch, capsys, {"prompt": "Найди мелкие недочёты на всех страницах и доведи список до 100 issues",

@@ -36,6 +36,10 @@
 первый упал или оборван — заметку даёт второй (2.2.0). Хук не молчит без причины: «TypeSafe-триаж пропущен: <причина>».
 2.2.0: короткие продолжения наследуют оценку сессии и получают строку «активная задача» из TASKS.md; тип задачи qa;
 признаки общего интерактивного состояния (профиль браузера/CDP, активный прогон) — «делегируй только независимые части».
+2.3.0: заметка начинается строкой «ДЕЙСТВИЕ: сам | Agent(model=…, effort=…) | спросить — причина (≤ 15 слов). Уверенность: …»
+(triage_action: явная просьба пользователя, общее устройство, долгое ожидание, накопленный контекст, параллельность, модель
+сессии — triage_session, локально из стенограммы); короткое продолжение с прежним решением — без заметки (журнал: quiet);
+--check проверяет регистрацию хука и имя скилла для Skill (triage_install).
 
 Запуск (только стандартная библиотека; ключ — переменная окружения TYPESAFE_API_KEY):
     python3 typesafe_triage.py "текст задачи"        # JSON с метриками, сигналами и рекомендацией
@@ -48,6 +52,7 @@
     python3 typesafe_triage.py --pause "причина"      # отключить TypeSafe вручную;  --set-budget USD  месячный потолок расходов
     python3 typesafe_triage.py --check                # диагностика: ключ, сеть, сертификаты; хук зарегистрирован? имя для Skill;
                                                      # команды починки (код 0 — всё в порядке, 1 — нет ответа TypeSafe, 3 — хук)
+    python3 typesafe_triage.py --set-agent-effort yes|no|auto   # есть ли у инструмента Agent параметр effort
     python3 typesafe_triage.py --selftest            # эталонные задачи (triage_cases.json) через TypeSafe; нужна сеть
     python3 typesafe_triage.py --selftest --heuristic   # те же задачи только по эвристике (офлайн)
     python3 typesafe_triage.py --calibrate [--heuristic] [--split train|holdout|all] [--cache F]
@@ -83,6 +88,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import typesafe_guard as guard  # паузы, учёт расходов, предупреждения (см. его докстринг)
 import triage_heuristics as heur  # локальные сигналы по тексту (без сети)
 import triage_effort as eff       # вторая ось: reasoning effort (политика, окружение, история)
+import triage_session as sess_mod  # 2.3: модель и effort сессии, параметр effort у Agent (локально, без сети)
+import triage_action as act       # 2.3: строка «ДЕЙСТВИЕ: сам | Agent(…) | спросить» и одна причина
 import triage_install as inst     # 2.3: --check — зарегистрирован ли хук, имя скилла для Skill, «призраки»
 
 API_URL = os.environ.get("TYPESAFE_API_URL") or "https://api.typesafe.ai/v1/systemone"  # переопределение — только для тестов
@@ -594,10 +601,34 @@ def inherit_from(task, records):
     return tier, eff.at_most(eff.at_least(effort, "medium"), INHERIT_MAX_EFFORT)
 
 
-def add_effort(r, m, h, task, env="auto", history=None, session=None, cwd=None, min_conf=None):
+def skill_config():
+    """config.json скилла (тот же файл, что у typesafe_guard: потолок расходов и т. п.) целиком; нет — {}."""
+    try:
+        d = json.loads(guard.config_path().read_text(encoding="utf-8"))
+        return d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def set_agent_effort(value):
+    """2.3: записать, есть ли у инструмента Agent параметр effort (True/False; None — снова определять автоматически)."""
+    c = skill_config()
+    if value is None:
+        c.pop("agent_effort", None)
+    else:
+        c["agent_effort"] = bool(value)
+    guard._write(guard.config_path(), c)
+
+
+def add_effort(r, m, h, task, env="auto", history=None, session=None, cwd=None, min_conf=None, transcript=None,
+               session_info=None):
     """Вторая ось + явные указания + история: дописывает в результат поля effort_* и при необходимости меняет модель
-    (явный выбор пользователя / эскалация по истории). Старые поля сохраняются (формат аддитивный)."""
+    (явный выбор пользователя / эскалация по истории), а с 2.3 — действие (поле action: сам / Agent / спросить).
+    Старые поля сохраняются (формат аддитивный). session_info — готовые сведения о сессии; без них при env="auto" они
+    читаются локально (стенограмма transcript, переменные, настройки), при env={} — не учитываются (офлайн-проверки)."""
     d = heur.directives(task)
+    if session_info is None:
+        session_info = {} if env == {} else sess_mod.session_info(transcript, cwd, config=skill_config())
     if env == "auto":
         env = eff.env_context(cwd)
     records = eff.read_history(LOG_PATH, session) if history is None else history
@@ -637,13 +668,27 @@ def add_effort(r, m, h, task, env="auto", history=None, session=None, cwd=None, 
     unsure = m is None or (min_conf is not None and min_conf < CLARIFY_CONF)
     open_ = v.get("ambiguity", 0) >= CLARIFY_AMBIG or h["effort"]["uncertain"] >= 1
     r["clarify"] = bool(stakes and unsure and open_ and not (user_tier or e["effort_source"] == "user" or prev))
-    shared = heur.shared_state_text(task) + (eff.shared_state_env(cwd) if cwd and env != {} else [])
+    shared = heur.shared_state_text(task) + heur.device_text(task) + (eff.shared_state_env(cwd) if cwd and env != {} else [])
     if shared:
         r["shared_state"] = shared[:4]
     if env:
         r["env"] = {k: env[k] for k in ("repo", "tests", "ci", "lock", "files", "marker") if k in env}
     if session:
         r["session"] = session
+    # 2.3 (#27): действие и сведения о сессии (только служебные: уровень модели, effort, параметр effort у Agent)
+    r["history_n"] = len(records)
+    if records:
+        last = records[-1]
+        r["prev"] = {"model": last.get("model"), "effort": last.get("effort"), "action": last.get("action"),
+                     "hints": last.get("action_hints") or []}
+    if session_info:
+        r["session_model"] = {k: session_info.get(k) for k in ("tier", "model", "model_source") if session_info.get(k)}
+        if session_info.get("agent_effort") is not None:
+            r["agent_effort"] = session_info["agent_effort"]
+        if session_info.get("effort"):
+            r["session_effort"] = session_info["effort"]
+    r["continuation"] = heur.is_continuation(task)
+    r["action"] = act.decide(r, heur.action_signals(task), session_info, r["continuation"])
     return r
 
 
@@ -739,6 +784,14 @@ def log(task, result, **extra):
     for k in ("inherited", "shared_state", "active_task"):   # 2.2: контекст задачи и общее состояние (без текста)
         if result.get(k):
             rec[k] = result[k] if k != "active_task" else True
+    a = result.get("action") or {}
+    if a.get("kind"):   # 2.3: действие и уровень модели сессии (без текста)
+        rec["action"] = a["kind"]
+        rec["action_why"] = a.get("why")
+        if a.get("hints"):
+            rec["action_hints"] = a["hints"]
+    if (result.get("session_model") or {}).get("tier"):
+        rec["session_tier"] = result["session_model"]["tier"]
     rec.update({k: v for k, v in extra.items() if v})
     _append_log(rec)
 
@@ -816,70 +869,113 @@ def self_command():
     return "%s %s" % ("python" if os.name == "nt" else "python3", ('"%s"' % p) if " " in p else p)
 
 
-def hook_context(result, cur_effort=None):
-    """Короткая императивная заметка для основной модели: пара «модель + effort», причины, что делать."""
-    tier = result["model"]
-    e = result.get("effort") or eff.DEFAULT_EFFORT
-    src = ("TypeSafe, уверенность %s" % result.get("confidence", "обычная")) if result.get("source") == "typesafe" \
-        else "только эвристика, уверенность низкая"
+CONF_RANK = {"низкая": 0, "средняя": 1, "высокая": 2}
+
+
+def overall_confidence(result):
+    """Одна уверенность на всю оценку (2.3, #27: без «effort high … Effort (низкая)» рядом): эвристика — низкая,
+    наследование — унаследована, иначе меньшая из уверенностей модели и effort (заданное пользователем не снижает)."""
+    if result.get("source") != "typesafe":
+        return "низкая"
+    if result.get("inherited"):
+        return "унаследована"
+    ranked = [x for x in (result.get("confidence"), result.get("effort_confidence")) if x in CONF_RANK]
+    if not ranked:
+        return "задано пользователем" if result.get("effort_source") == "user" or result.get("model_source") == "user" else "средняя"
+    return min(ranked, key=CONF_RANK.get)
+
+
+def agent_call(model, effort):
+    return "Agent(model=%s, effort=%s)" % (model, effort)
+
+
+def _fallback_text(fb):
+    if not fb or fb.get("kind") == "self":
+        return "сам"
+    return agent_call(fb["model"], fb["effort"])
+
+
+def note_tag(result):
+    """Хвост первой строки: что нужно задаче и откуда оценка (модель/effort; TypeSafe или эвристика; тип)."""
+    parts = ["%s/%s" % (result["model"], result.get("effort") or eff.DEFAULT_EFFORT),
+             "TypeSafe" if result.get("source") == "typesafe" else "только эвристика"]
     kind = (result.get("domain") or {}).get("kind")
-    ereasons = "; ".join(result.get("effort_reasons") or [])
-    head = "TypeSafe-триаж: уровень %s, effort %s (%s%s; %s). Причины: %s. Effort (%s): %s." % (
-        tier, e, src, ("; тип: %s" % kind) if kind else "", axes_line(result), result.get("reason", ""),
-        result.get("effort_confidence", "низкая"), ereasons or "по умолчанию")
-    lines = [head]
-    m_conf, e_conf = result.get("confirm", tier in CONFIRM_TIERS), result.get("effort_confirm", False)
+    if kind:
+        parts.append("тип %s" % kind)
+    return "[TypeSafe-триаж: %s]" % "; ".join(parts)
+
+
+def _confirm_line(result, a):
+    tier, e = result["model"], result.get("effort") or eff.DEFAULT_EFFORT
+    m_conf, e_conf = bool(result.get("confirm")), bool(result.get("effort_confirm"))
     mfb = result.get("fallback") if m_conf else tier
     efb = result.get("effort_fallback") if e_conf else e
+    qm = "«Запустить агента на %s?» («Да, %s» / «Нет, %s»)" % (tier, tier, mfb)
+    qe = "«Effort %s — %s?» («Да, %s» / «Нет, %s»)" % (e, "дольше и дороже" if e in eff.COSTLY_EFFORTS else "минимум размышлений",
+                                                     e, efb)
+    yes = agent_call(*(((a.get("agent") or {}).get("model", tier), (a.get("agent") or {}).get("effort", e))))
     if m_conf and e_conf:
-        lines.append(
-            "• %s и effort %s не запускать без подтверждения: ОДИН вызов AskUserQuestion с двумя вопросами — «Запустить агента на %s?» "
-            "с вариантами «Да, %s» / «Нет, %s» и %s. Нет явного «да» → работай на %s / effort %s." % (
-                tier, e, tier, tier, mfb, effort_question(e, efb), mfb, efb))
-    elif m_conf:
-        lines.append(
-            "• %s не запускать без подтверждения. Прежде чем делегировать — AskUserQuestion «Запустить агента на %s?» "
-            "с вариантами «Да, %s» / «Нет, %s». Нет явного «да» → работай на %s." % (tier, tier, tier, mfb, mfb))
-    elif e_conf:
-        lines.append("• effort %s не ставить без подтверждения: AskUserQuestion %s. Нет явного «да» → effort %s." % (
-            e, effort_question(e, efb), efb))
+        ask = "ОДИН вызов AskUserQuestion с двумя вопросами: %s и %s" % (qm, qe)
+    else:
+        ask = "AskUserQuestion %s" % (qm if m_conf else qe)
+    cost = " (xhigh/max — больше токенов)" if e in eff.COSTLY_EFFORTS or efb in eff.COSTLY_EFFORTS else ""
+    return "• %s. «Да» → %s; нет явного «да» → %s%s." % (ask, yes, _fallback_text(a.get("fallback")), cost)
+
+
+def _effort_line(result, a):
+    """Как передать effort исполнителю: параметром Agent (если он есть), фразой в промпте, для критичного — --run."""
+    tier, e = (a.get("agent") or {}).get("model", result["model"]), (a.get("agent") or {}).get("effort", result.get("effort") or "high")
+    has = result.get("agent_effort")
+    how = result.get("effort_delivery") or effort_delivery(result)
+    lang = ((result.get("signals") or {}).get("effort") or {}).get("lang")
+    phrase = effort_phrase(e, lang)
+    tail = ""
+    if how == "run" and has is not True:
+        flags = "--tier %s%s --effort %s%s" % (tier, " --confirmed" if tier in CONFIRM_TIERS else "", e,
+                                                " --confirmed-effort" if e in eff.CONFIRM_EFFORTS else "")
+        tail = "; effort критичен, работа изолируемая — можно отдельно: %s --run %s [--edit|--readonly] \"<задача>\"%s" % (
+            self_command(), flags, " (--confirmed* — после «да»)" if a.get("kind") == "ask" else "")
+    if has is True:
+        return "• effort=%s — параметром Agent: он есть, а правило CLAUDE.md/скилла — явное требование его передать." % e
+    if has is False:
+        return "• У Agent нет параметра effort (не ошибка): в промпт агента «%s»%s." % (phrase, tail)
+    return ("• effort — параметром Agent, если он есть в схеме (правило CLAUDE.md/скилла — явное требование); нет — не ссылайся "
+            "на него (не ошибка), в промпт агента «%s»%s. Есть ли параметр — запиши один раз: --set-agent-effort yes|no."
+            % (phrase, tail))
+
+
+def hook_context(result, cur_effort=None):
+    """2.3 (#27): заметка начинается строкой «ДЕЙСТВИЕ: сам | Agent(model=…, effort=…) | спросить — причина. Уверенность: …»;
+    дальше — только нужные пункты (подтверждение, способ передать effort, общее состояние, долгое ожидание …).
+    Числа осей и причины слоёв — в JSON и журнале, не в заметке."""
+    a = result.get("action") or act.decide(result)
+    kind = a.get("kind")
+    head_act = agent_call(a["agent"]["model"], a["agent"]["effort"]) if kind == "agent" else "спросить" if kind == "ask" else "сам"
+    lines = ["ДЕЙСТВИЕ: %s — %s. Уверенность: %s. %s" % (head_act, a.get("reason", ""), overall_confidence(result),
+                                                         note_tag(result))]
+    hints = a.get("hints") or []
+    delegating = kind == "agent" or (kind == "ask" and a.get("why") == "confirm")
+    if kind == "ask" and (result.get("confirm") or result.get("effort_confirm")):
+        lines.append(_confirm_line(result, a))
     if result.get("explicit"):
         lines.append("• Задано пользователем в запросе (%s) — это согласие, повторно не спрашивай." % ", ".join(result["explicit"]))
-    run = "Agent(model=%s, effort=%s)" % (tier, e)
-    if m_conf or e_conf:
-        run += " (без подтверждения — Agent(model=%s, effort=%s))" % (mfb, efb)
-    cost = " (xhigh/max — больше токенов)" if e in eff.COSTLY_EFFORTS else ""
-    how = result.get("effort_delivery") or effort_delivery(result)
-    shared = result.get("shared_state")
-    if shared:   # 2.2.0 (T-3): исполнитель не увидит окна браузера, входа пользователя и открытой сессии основной модели
-        lines.append(
-            "• Общее интерактивное состояние (%s): делегируй только независимые части — исполнитель получит свой браузер "
-            "и сессию, твоих вкладок и входа пользователя не увидит; шаги в общем окне (воспроизвести, измерить, снять "
-            "скриншот под входом) делай сам." % "; ".join(shared))
-    lines.append(
-        "• Делегируй%s, если работа содержательная (анализ, проектирование, нетривиальная правка, поиск причины) "
-        "и уровень выше твоей модели, или задача большая и изолируемая: %s с самодостаточным промптом "
-        "(цель, пути, ограничения, критерии готовности, что вернуть); результат проверь сам. effort — если параметр есть "
-        "у Agent%s; нет — не пытайся и не ссылайся на него (не ошибка)%s." % (
-            " (только независимые части)" if shared else "", run, cost, ", глубину задай в промпте" if how == "agent_param" else ""))
-    if how in ("prompt", "run"):   # запасные способы — только для необычного или критичного effort (не больше одного пункта)
-        lang = ((result.get("signals") or {}).get("effort") or {}).get("lang")
-        tail = ""
-        if how == "run":
-            flags = "--tier %s%s --effort %s%s" % (tier, " --confirmed" if tier in CONFIRM_TIERS else "", e,
-                                                    " --confirmed-effort" if e in eff.CONFIRM_EFFORTS else "")
-            tail = "; effort критичен, работа изолируемая — запусти отдельно: %s --run %s [--edit|--readonly] \"<задача>\"%s" % (
-                self_command(), flags, " (--confirmed* — после «да»)" if m_conf or e_conf else "")
-        lines.append("• Без параметра effort: в промпт агента «%s»%s." % (effort_phrase(e, lang), tail))
-    lines.append("• Иначе (диалог, мелочь, уровень не выше твоего) — делай сам, триаж не упоминай.")
-    if cur_effort and abs(eff.idx(cur_effort) - eff.idx(efb)) >= SESSION_EFFORT_GAP:
-        lines.append("• Делаешь сам в основной сессии (её effort %s): одной строкой предложи пользователю «/effort %s»." % (cur_effort, efb))
-    if result.get("clarify"):
-        lines.append("• Неуверенная оценка при высокой цене ошибки: сначала задай пользователю ОДИН короткий уточняющий вопрос "
-                     "(цель, границы, критерий готовности), не угадывай.")
-    lines.append(
-        "• Субагентам скилл typesafe-triage не применять. План SuperPowers: модели ролей — из его Model Selection, "
-        "«most capable» = opus, «cheapest» = sonnet (haiku/fable — только с подтверждения). Проверки обязательны; при сомнении — уровень выше.")
+    if delegating:
+        lines.append(_effort_line(result, a))
+    if "shared" in hints:   # 2.2.0 (T-3): исполнитель не увидит окна браузера, входа пользователя, устройства
+        lines.append("• Общее интерактивное состояние (%s): исполнитель не увидит твой браузер, вход и устройство — делегируй только "
+                     "независимые части, шаги в общем окне делай сам." % "; ".join(result.get("shared_state") or []))
+    if "wait" in hints:
+        lines.append("• Долгое ожидание («%s»): запусти фоновый скрипт (Bash в фоне, Monitor) и проверяй его состояние, "
+                     "а не держи субагента." % (a.get("wait") or "минуты и часы"))
+    if "parallel" in hints and delegating:
+        lines.append("• Части независимы: можно несколько Agent параллельно — только с непересекающимися путями "
+                     "(порядок и одно подтверждение на всё — --batch).")
+    efb = result.get("effort_fallback") if result.get("effort_confirm") else result.get("effort") or eff.DEFAULT_EFFORT
+    if kind == "self" and cur_effort and cur_effort in eff.EFFORTS and abs(eff.idx(cur_effort) - eff.idx(efb)) >= SESSION_EFFORT_GAP:
+        lines.append("• Делаешь сам (effort сессии %s): одной строкой предложи пользователю «/effort %s»." % (cur_effort, efb))
+    if delegating:
+        lines.append("• Исполнителю: самодостаточный промпт (шаблон references/executor-prompt.md), скилл typesafe-triage ему не "
+                     "применять; план SuperPowers — модели ролей из его Model Selection («most capable» = opus, «cheapest» = sonnet).")
     return "\n".join(lines)
 
 
@@ -1097,18 +1193,55 @@ def offline_triage(task, reason, **ctx):
     return fallback(task, heur.signals(task), reason, ctx)
 
 
-def hook_triage(prompt, sid, cwd, started, late=None):
+def hook_triage(prompt, sid, cwd, started, late=None, transcript=None):
     """Триаж в рамках HOOK_BUDGET_S от начала хука. → (результат, причина деградации или None)."""
     left = HOOK_BUDGET_S - (time.monotonic() - started)
     if late or left < NET_MIN_S + 0.3:
         why = late or "не осталось времени на TypeSafe"
-        return offline_triage(prompt, why, session=sid, cwd=cwd), why
+        return offline_triage(prompt, why, session=sid, cwd=cwd, transcript=transcript), why
     try:
-        r = call_with_deadline(lambda: triage(prompt, timeout=min(HOOK_TIMEOUT_S, left - 1.0), session=sid, cwd=cwd), left - 0.3)
+        r = call_with_deadline(lambda: triage(prompt, timeout=min(HOOK_TIMEOUT_S, left - 1.0), session=sid, cwd=cwd,
+                                              transcript=transcript), left - 0.3)
         return r, None
     except HookTimeout:
         why = "TypeSafe-оценка не уложилась в %.0f с" % HOOK_BUDGET_S
-        return offline_triage(prompt, why, session=sid, cwd=cwd), why
+        return offline_triage(prompt, why, session=sid, cwd=cwd, transcript=transcript), why
+
+
+QUIET_REASON = "решение прежнее (продолжение)"
+
+
+def quiet_reason(prompt, result, late=None):
+    """2.3 (#27, «реже»): короткое продолжение с тем же решением, что и в прошлый раз, — заметку не повторяем.
+    Молчим только если: это продолжение («продолжай …», «и ещё …»), в сессии есть прошлое решение, совпадают действие,
+    модель и effort, нет подтверждений, уточняющего вопроса, предупреждения TypeSafe и сбоя. Иначе — None (заметка)."""
+    prev = result.get("prev") or {}
+    a = result.get("action") or {}
+    if late or result.get("notice") or not result.get("continuation") or not prev:
+        return None
+    if result.get("confirm") or result.get("effort_confirm") or result.get("clarify") or a.get("kind") == "ask":
+        return None
+    if (prev.get("model"), prev.get("effort"), prev.get("action")) != (result.get("model"), result.get("effort"), a.get("kind")):
+        return None
+    if set(a.get("hints") or []) - set(prev.get("hints") or []):   # новое указание (долгое ожидание, общее устройство …)
+        return None
+    return QUIET_REASON
+
+
+def log_quiet(task, session_id, reason, result):
+    """Намеренное молчание (2.3): запись в журнал без текста запроса — время, хеш, длина, хеш сессии, причина и само
+    решение (оно продолжает историю сессии: наследование, повторы)."""
+    a = result.get("action") or {}
+    rec = {"ts": int(time.time()), "id": prompt_id(task), "chars": len(task), "quiet": reason,
+           "model": result.get("model"), "effort": result.get("effort"), "action": a.get("kind"),
+           "source": result.get("source"), "retry": result.get("retry")}
+    if a.get("hints"):
+        rec["action_hints"] = a["hints"]
+    if result.get("inherited"):
+        rec["inherited"] = result["inherited"]
+    if session_id:
+        rec["session"] = eff.session_tag(session_id)
+    _append_log(rec)
 
 
 def skip_output(reason, failure=False):
@@ -1127,7 +1260,7 @@ def skip_output(reason, failure=False):
 def hook_output(result, cwd, late=None):
     parts, out = [], {}
     if result.get("model") and not result.get("skip"):
-        parts.append(hook_context(result, eff.session_effort(cwd)))
+        parts.append(hook_context(result, result.get("session_effort") or eff.session_effort(cwd)))
     msgs = []
     if late:
         msgs.append(SKIP_PREFIX + late + "; уровень и effort — по локальной эвристике")
@@ -1144,7 +1277,8 @@ def hook_output(result, cwd, late=None):
 def run_hook():
     """Хук не ломает и не тормозит работу (код всегда 0, укладывается в HOOK_BUDGET_S) и не молчит без причины:
     вместо заметки — строка «TypeSafe-триаж пропущен: <причина>» и запись в журнал. Молчит только при выключателе,
-    внутри агента --run и когда заметку уже дал другой вызов хука на тот же запрос."""
+    внутри агента --run, когда заметку уже дал другой вызов хука на тот же запрос и (2.3, «реже») на короткое
+    продолжение с прежним решением — последнее пишется в журнал (поле quiet, без текста запроса)."""
     started = time.monotonic()
     if os.environ.get(CHILD_ENV):
         return 0  # мы внутри агента, запущенного --run: уровень модели уже выбран, советов и второго обращения в TypeSafe не нужно
@@ -1166,6 +1300,7 @@ def run_hook():
             log_skip(None, None, why)
             return 0
         cwd = data.get("cwd") if isinstance(data.get("cwd"), str) else None
+        transcript = data.get("transcript_path") if isinstance(data.get("transcript_path"), str) else None
         if switched_off(cwd):
             return 0
         prompt = data.get("prompt") or ""
@@ -1182,14 +1317,18 @@ def run_hook():
         f = claim[1]
         takeover = claim[2] if claim[0] == "takeover" else None
         late_in = takeover if takeover and HOOK_BUDGET_S - (time.monotonic() - started) < NET_MIN_S + 0.3 else None
-        result, late = hook_triage(prompt, sid, cwd, started, late_in)
+        result, late = hook_triage(prompt, sid, cwd, started, late_in, transcript)
         if result.get("skip"):
             why = "реплика (по оценке TypeSafe)"
             emit(skip_output(why))
             log_skip(prompt, sid, why)
         else:
-            emit(hook_output(result, cwd, late))
-            log(prompt, result, takeover=takeover, late=late)
+            quiet = quiet_reason(prompt, result, late)
+            if quiet:
+                log_quiet(prompt, sid, quiet, result)
+            else:
+                emit(hook_output(result, cwd, late))
+                log(prompt, result, takeover=takeover, late=late)
     except Exception as e:
         why = "ошибка %s" % type(e).__name__
         try:
@@ -1341,6 +1480,14 @@ def log_summary():
     print("  effort: " + count("effort") + "  (None — записи до 2.1)")
     print("  источник effort: " + count("effort_source"))
     print("  повторы (эскалация по истории): %d" % sum(1 for r in recs if r.get("retry")))
+    quiet = sum(1 for r in recs if r.get("quiet"))
+    acts = {}
+    for r in recs:
+        if r.get("action"):
+            acts[r["action"]] = acts.get(r["action"], 0) + 1
+    if quiet or acts:
+        print("  2.3: действие — %s; без заметки (решение прежнее): %d" % (
+            ", ".join("%s %d" % kv for kv in sorted(acts.items(), key=lambda kv: -kv[1])) or "—", quiet))
     if skipped:
         kinds = {}
         for r in skipped:
@@ -1621,6 +1768,10 @@ def run_check():
     print(format_status())
     res = inst.check(cwd=os.getcwd(), script=os.path.abspath(__file__))
     print("\n".join(inst.report_lines(res)))
+    s = sess_mod.session_info(None, os.getcwd(), config=skill_config())
+    print("Agent и effort: параметр effort у Agent — %s" % (
+        {True: "есть", False: "нет"}.get(s.get("agent_effort"), "неизвестно (запишите после проверки схемы: --set-agent-effort yes|no)")
+        + ((" (%s)" % s["agent_effort_source"]) if s.get("agent_effort_source") else "")))
     if r.get("source") != "typesafe":
         return 1
     return 0 if res["registered"] else 3
@@ -1668,6 +1819,16 @@ def main(argv):
         return 0
     if "--check" in argv:
         return run_check()
+    if "--set-agent-effort" in argv:
+        val = (opt(argv, "--set-agent-effort") or "").lower()
+        if val not in ("yes", "no", "auto"):
+            print("Использование: --set-agent-effort yes|no|auto — есть ли у инструмента Agent параметр effort (auto — "
+                  "определять по стенограмме)")
+            return 2
+        set_agent_effort(None if val == "auto" else val == "yes")
+        print("Записано в %s: у Agent параметр effort — %s." % (guard.config_path(), {"yes": "есть", "no": "нет",
+                                                                                      "auto": "определять автоматически"}[val]))
+        return 0
     if "--hook" in argv:
         rc = run_hook()
         if _ABANDONED:                     # поток с зависшим запросом брошен по тайм-ауту: выходим, не дожидаясь его

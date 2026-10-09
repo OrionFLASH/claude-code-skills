@@ -216,14 +216,15 @@ def test_hook_gives_note_for_non_code_tasks(monkeypatch, capsys, prompt):
     monkeypatch.setenv("TYPESAFE_API_KEY", "k-test")
     out = hook_out(monkeypatch, capsys, prompt)
     ctx = out["hookSpecificOutput"]["additionalContext"]
-    assert ctx.startswith("TypeSafe-триаж: уровень ") and "Agent(model=" in ctx and "systemMessage" not in out
+    # 2.3: заметка начинается строкой «ДЕЙСТВИЕ: …», модель/effort — в хвосте [TypeSafe-триаж: …]
+    assert ctx.startswith("ДЕЙСТВИЕ: ") and "[TypeSafe-триаж: " in ctx and "systemMessage" not in out
 
 
 def test_hook_note_without_key_uses_heuristic(monkeypatch, capsys):
     monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
     ctx = hook_out(monkeypatch, capsys, "Подготовь сводку продаж по регионам за квартал и объясни причины падения")[
         "hookSpecificOutput"]["additionalContext"]
-    assert "только эвристика, уверенность низкая" in ctx and "AskUserQuestion" not in ctx
+    assert "только эвристика" in ctx and "Уверенность: низкая" in ctx and "AskUserQuestion" not in ctx
 
 
 def test_hook_silent_when_typesafe_says_it_is_just_conversation(monkeypatch, capsys):
@@ -438,23 +439,31 @@ def note(tier, source="typesafe"):
 
 
 def test_note_is_short_imperative_and_keeps_rules():
-    txt = note("opus")
-    assert txt.startswith("TypeSafe-триаж: уровень opus, effort ") and "Agent(model=opus, effort=" in txt
+    txt = note("opus")      # 2.3: модель сессии неизвестна → Agent с оговоркой «если ты уже opus — сам»
+    assert txt.startswith("ДЕЙСТВИЕ: Agent(model=opus, effort=") and "[TypeSafe-триаж: opus/" in txt
     assert "AskUserQuestion" not in txt and "делай сам" in txt and "не применять" in txt and "Model Selection" in txt
     assert "effort указывай явно" not in txt                         # 2.1.2: у Agent параметра effort может не быть
-    assert "если параметр есть у Agent" in txt and "не ссылайся на него" in txt
+    assert "если он есть в схеме" in txt and "не ссылайся на него" in txt
     assert len(txt) < 2000 and txt.count("\n") <= 8
 
 
-@pytest.mark.parametrize("tier,safe", [("fable", "opus"), ("haiku", "sonnet")])
+@pytest.mark.parametrize("tier,safe", [("fable", "opus")])
 def test_note_for_confirm_tiers_demands_question_and_fallback(tier, safe):
     txt = note(tier)
+    assert txt.startswith("ДЕЙСТВИЕ: спросить — %s: только с согласия" % tier)
     assert "AskUserQuestion" in txt and "«Да, %s»" % tier in txt and "«Нет, %s»" % safe in txt
-    assert "не запускать без подтверждения" in txt and "работай на %s" % safe in txt
+    assert "нет явного «да» → Agent(model=%s" % safe in txt
+
+
+def test_note_haiku_is_done_by_yourself_without_question():
+    """2.3: haiku-задачу проще сделать самому — не делегируют и не спрашивают (подтверждение — только для агента haiku)."""
+    txt = note("haiku")
+    assert txt.startswith("ДЕЙСТВИЕ: сам — ") and "AskUserQuestion" not in txt
 
 
 def test_note_marks_heuristic_source():
-    assert "только эвристика, уверенность низкая" in note("sonnet", "heuristic")
+    txt = note("sonnet", "heuristic")
+    assert "только эвристика" in txt and "Уверенность: низкая" in txt
 
 
 def test_metrics_upper_mass_from_probabilities():
