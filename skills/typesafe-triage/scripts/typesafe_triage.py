@@ -46,7 +46,8 @@
     python3 typesafe_triage.py --status               # пауза, расходы за месяц, потолок
     python3 typesafe_triage.py --resume               # снять паузу после пополнения баланса / исправления ключа
     python3 typesafe_triage.py --pause "причина"      # отключить TypeSafe вручную;  --set-budget USD  месячный потолок расходов
-    python3 typesafe_triage.py --check                # диагностика: ключ, сеть, сертификаты
+    python3 typesafe_triage.py --check                # диагностика: ключ, сеть, сертификаты; хук зарегистрирован? имя для Skill;
+                                                     # команды починки (код 0 — всё в порядке, 1 — нет ответа TypeSafe, 3 — хук)
     python3 typesafe_triage.py --selftest            # эталонные задачи (triage_cases.json) через TypeSafe; нужна сеть
     python3 typesafe_triage.py --selftest --heuristic   # те же задачи только по эвристике (офлайн)
     python3 typesafe_triage.py --calibrate [--heuristic] [--split train|holdout|all] [--cache F]
@@ -82,6 +83,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import typesafe_guard as guard  # паузы, учёт расходов, предупреждения (см. его докстринг)
 import triage_heuristics as heur  # локальные сигналы по тексту (без сети)
 import triage_effort as eff       # вторая ось: reasoning effort (политика, окружение, история)
+import triage_install as inst     # 2.3: --check — зарегистрирован ли хук, имя скилла для Skill, «призраки»
 
 API_URL = os.environ.get("TYPESAFE_API_URL") or "https://api.typesafe.ai/v1/systemone"  # переопределение — только для тестов
 MODEL = "jev-latest"
@@ -1577,6 +1579,9 @@ def where_report(home=None, cwd=None):
         warn.append("хук прописан и в settings.json, и в плагине: заметка будет одна, но оставьте один хук")
     if not enabled and not hooks:
         warn.append("хук не найден ни в settings.json, ни среди включённых плагинов — заметок «TypeSafe-триаж» не будет")
+    _name, note, sp, _sf = inst.skill_status(home, cwd, bool(enabled))   # 2.3 (#28): имя для Skill и «призраки»
+    lines.append("# вызов через Skill: %s" % note)
+    warn += sp
     for w in warn:
         lines.append("# ВНИМАНИЕ: " + w)
     lines.append("# открытые сессии: правки хуков в settings.json подхватываются на лету, а хук только что установленного "
@@ -1603,6 +1608,22 @@ def format_status():
     lines.append("Оценка считается по токенам из ответов API и цене $%.3f за млн; это НЕ баланс аккаунта (баланс через API недоступен): "
                  "остаток смотрите в %s" % (guard.PRICE_PER_MTOK_USD, guard.CONSOLE_URL))
     return "\n".join(lines)
+
+
+def run_check():
+    """--check: TypeSafe (ключ, сеть, сертификаты) + 2.3 (#28): зарегистрирован ли хук, как вызывать скилл через Skill.
+    Код: 0 — всё в порядке; 1 — TypeSafe не ответил; 3 — TypeSafe ответил, но хук не зарегистрирован или сломан."""
+    r = triage("Исправь падение теста test_login: таймаут при вызове сервиса авторизации", timeout=10)
+    print(json.dumps({k: r.get(k) for k in ("model", "source", "reason")}, ensure_ascii=False))
+    print("python:", sys.version.split()[0], "| ключ:", "есть" if os.environ.get("TYPESAFE_API_KEY") else "НЕТ")
+    if r.get("notice"):
+        print(r["notice"])
+    print(format_status())
+    res = inst.check(cwd=os.getcwd(), script=os.path.abspath(__file__))
+    print("\n".join(inst.report_lines(res)))
+    if r.get("source") != "typesafe":
+        return 1
+    return 0 if res["registered"] else 3
 
 
 def main(argv):
@@ -1646,13 +1667,7 @@ def main(argv):
                           "directives": heur.directives(text), "signals": compact_signals(h)}, ensure_ascii=False, indent=2))
         return 0
     if "--check" in argv:
-        r = triage("Исправь падение теста test_login: таймаут при вызове сервиса авторизации", timeout=10)
-        print(json.dumps({k: r.get(k) for k in ("model", "source", "reason")}, ensure_ascii=False))
-        print("python:", sys.version.split()[0], "| ключ:", "есть" if os.environ.get("TYPESAFE_API_KEY") else "НЕТ")
-        if r.get("notice"):
-            print(r["notice"])
-        print(format_status())
-        return 0 if r.get("source") == "typesafe" else 1
+        return run_check()
     if "--hook" in argv:
         rc = run_hook()
         if _ABANDONED:                     # поток с зависшим запросом брошен по тайм-ауту: выходим, не дожидаясь его
