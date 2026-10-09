@@ -212,7 +212,7 @@ def test_model_names_in_a_description_are_not_directives():
 @pytest.mark.parametrize("text,tier", [
     ("Сделай на opus: проверь расчёт налога", "opus"), ("Use haiku for this: convert the list", "haiku"),
     ("запусти на haiku проверку орфографии", "haiku"), ("Проверь договор, модель fable, пожалуйста", "fable"),
-    ("Don't use opus for this, sonnet is enough", "sonnet" if False else None),
+    ("Don't use opus for this, sonnet is enough", "sonnet"),
 ])
 def test_real_directives_still_work(text, tier):
     assert heur.directives(text)["tier"] == tier

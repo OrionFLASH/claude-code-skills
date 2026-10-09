@@ -17,6 +17,7 @@
 mentions(text) -> (замаскированный текст, число скрытых упоминаний, вставленный отчёт?).
 """
 import bisect
+import os
 import re
 from collections import Counter
 
@@ -97,17 +98,24 @@ DEVICE_RE = re.compile(
     r"\bэмулятор\w*|\bсимулятор\w*|\bemulators?\b|\bsimulators?\b|\bAVD\b|\badb\b|\bна\s+(?:устройстве|телефоне|смартфоне|планшете)"
     r"|\bon\s+(?:the|my|a)\s+(?:device|phone|tablet)\b", FLAGS_RE)
 # Явная просьба пользователя о субагенте — сильнее любых индексов (триаж подтверждает, а не спорит)
+_AG = r"(?:суб|саб)?-?агент\w*"
 AGENT_REQ_RE = re.compile(
-    r"\bсубагент\w*|\bсаб-?агент\w*|\b(?:используй|задействуй|запусти|позови|отдай|поручи|передай|через|с\s+помощью)\s+(?:\w+\s+){0,2}"
+    r"\bсубагент\w*|\bсаб-?агент\w*|\b(?:используй|задействуй|запусти|позови|отдай|поручи|передай|через|с\s+помощью"
+    r"|привлеки|подключи|создай|создайте|вызови|спавни|стартуй|наймите|пусть)\s+(?:\w+\s+){0,2}"
     r"агент\w*\b(?!\s+(?:поддержк|продаж|по\s|недвижимост|страхов|банк))"
-    r"|\bделегируй\b|\bделегировать\b|\bsub-?agents?\b|\b(?:use|spawn|launch|start|via|with)\s+(?:an?\s+|the\s+|separate\s+)?agents?\b"
-    r"|\bdelegate\b", FLAGS_RE)
+    r"|\bпараллельно\s+(?:\w+\s+){0,2}агент\w*|\bспавни\w*"
+    r"|\bделегируй\b|\bделегировать\b|\bsub-?agents?\b|\b(?:use|spawn|launch|start|via|with|create|involve|call)\s+(?:an?\s+|the\s+|separate\s+|some\s+)?agents?\b"
+    r"|\bhand\s+(?:it\s+)?off\s+to\s+(?:an?\s+)?agents?\b|\bdelegate\b", FLAGS_RE)
 # … и просьба сделать самому, без делегирования (отрицание «не используй субагента» — тоже сюда)
+_DO = r"(?:сделай|выполни|проверь|разберись|почини|поправь|напиши|реши|исправь|посмотри)"
 SELF_REQ_RE = re.compile(
-    r"\bбез\s+(?:суб-?)?агент\w*|\bне\s+(?:\w+\s+)?(?:делегируй|делегировать|используй\s+(?:суб-?)?агент\w*|запускай\s+(?:суб-?)?агент\w*"
-    r"|отдавай\s+(?:суб-?)?агент\w*)|\b(?:сделай|выполни|проверь|разберись|почини|поправь|напиши)\s+(?:это\s+)?сам\b"
-    r"|\bсам(?:а)?\s+(?:сделай|выполни|проверь|разберись|почини|поправь|напиши)\b|\bdo\s+it\s+yourself\b|\byourself,?\s+(?:not|without)\b"
-    r"|\bwithout\s+(?:a\s+|any\s+)?sub-?agents?\b|\bdon'?t\s+(?:(?:use|spawn)\s+(?:an?\s+|any\s+|the\s+)?(?:sub-?)?agents?|delegate)\b|\bno\s+sub-?agents?\b", FLAGS_RE)
+    r"\bбез\s+(?:помощи\s+)?(?:суб-?|саб-?)?агент\w*|\bне\s+(?:\w+\s+)?(?:делегируй|делегировать|(?:используй|запускай|привлекай|подключай|создавай|вызывай|спавни|отдавай)\s+(?:\w+\s+)?"
+    r"(?:суб-?|саб-?)?агент\w*)"
+    r"|\bне\s+(?:нужн\w+|надо|требуется)\s+(?:суб-?|саб-?)?агент\w*|\b(?:суб-?|саб-?)?агент\w*\s+не\s+(?:нужн\w+|надо|требу\w+)"
+    r"|\b" + _DO + r"\s+(?:это\s+)?(?:сам|самостоятельно|своими\s+силами)\b"
+    r"|\b(?:сам(?:а)?|самостоятельно)\s*,?\s+(?:\w+\s+){0,2}" + _DO + r"\b|\bdo\s+it\s+yourself\b|\byourself,?\s+(?:not|without)\b|\bon\s+your\s+own\b|\bby\s+yourself\b"
+    r"|\bwithout\s+(?:a\s+|any\s+)?(?:help\s+from\s+)?sub-?agents?\b|\bdon'?t\s+(?:(?:use|spawn|launch|start|create|call|involve)\s+(?:an?\s+|any\s+|the\s+)?(?:sub-?)?agents?|delegate)\b"
+    r"|\bno\s+(?:need\s+for\s+)?(?:an?\s+)?sub-?agents?\b|\bno\s+need\s+(?:for|to)\s+(?:delegate|agents?)\b", FLAGS_RE)
 # Долгое ожидание (минуты-часы): выгоднее фоновый скрипт и проверка его состояния, а не LLM-исполнитель, который ждёт
 WAIT_STRONG_RE = re.compile(
     r"\bвсю\s+ночь\b|\bсутк\w*|\bsoak\b|\bovernight\b|\bдлительн\w*\s+(?:тест|прогон|запис|сценари|нагрузк|ожидан)"
@@ -191,16 +199,57 @@ LAT_RE = re.compile(r"[a-z]", re.I)
 # слово «opus» в постороннем смысле. Эффорт: «effort max», «max effort», «усилия: высокие», «ultrathink» — жёсткие
 # (точный уровень); «тщательно/глубоко/think hard» — мягкий пол, «кратко/навскидку/quick answer» — мягкий потолок low.
 TIER_ALIASES = {"haiku": r"haiku|хайку", "sonnet": r"sonnet|сонн?ет\w*", "opus": r"opus|опус\w*", "fable": r"fable|фейбл\w*"}
+_TIER_ANY = "|".join(TIER_ALIASES.values())
+# Маркеры «сильные» (глагол выбора: используй, задействуй, пусть сделает, хватит …) — 2.9.1 (#68, #69): в них обсуждением
+# считается только явный вопрос («стоит ли использовать Fable?»), а не любое слово «анализ» неподалёку.
+_STRONG_MARK = (r"\bиспользу(?:й|йте)|\bиспользовать|\bзадейству(?:й|йте)|\bзадействовать|\bприме(?:ни|ните|нить|нять)"
+                r"|\bпривлеки\w*|\bподключи\w*|\bвыбери(?:те)?|\bвыбрать|\bбери(?:те)?|\bвзять|\bвозьмите|\bпоставь(?:те)?|\bставь(?:те)?"
+                r"|\btry|\bswitch(?:\s+it)?\s+to|\bgo\s+with|\bpick|\bchoose|\bprefer|\bstick\s+(?:to|with)"
+                r"|\bпусть(?:\s+(?:это|её|ее|его|всё|все))?(?:\s+(?:сделает|делает|проверит|решит|напишет|выполнит|разберёт|разберет"
+                r"|посмотрит|проанализирует|поработает|ответит|исправит))?|\bпопроси(?:те)?|\bask|\blet"
+                r"|\bхватит|\bдостаточно|\bсойд[её]т|\bподойд[её]т|\benough")
+STRONG_MARK_RE = re.compile(r"^(?:%s)\b" % _STRONG_MARK, FLAGS_RE)
 TIER_DIRECTIVE_RE = re.compile(
-    r"(?:\bна|\bмодел\w*|\bmodel|\buse|\busing|\bon|\bwith|\bчерез|\bвозьми|\bзапусти\w*(?:\s+агента)?(?:\s+на)?|\brun(?:\s+it)?\s+on)\s+"
-    r"(?:модел\w+\s+|model\s+)?(?P<t>" + "|".join(TIER_ALIASES.values()) + r")\b", FLAGS_RE)
+    r"(?:\bна|\bмодел\w*|\bmodel|\buse|\busing|\bon|\bwith|\bчерез|\bвозьми|\bзапусти\w*(?:\s+агента)?(?:\s+на)?|\brun(?:\s+it)?\s+on"
+    r"|" + _STRONG_MARK + r"|\bбез|\bкроме|\bwithout|\bexcept)\s+"
+    r"(?:модел\w+\s+|model\s+)?(?P<t>" + _TIER_ANY + r")\b", FLAGS_RE)
+# 2.9.1 (#69): творительный падеж после глагола («делай фейблом», «реши опусом»)
+INSTR_TIER_RE = re.compile(
+    r"\b(?:делай|сделай|делайте|сделайте|реши|решай|выполни|проверь|напиши|пиши|перепиши|разбери|ответь|проанализируй|запусти)\w*\s+"
+    r"(?:(?:это|задачу|всё|все|его|её|ее)\s+)?(?P<t>фейблом|опусом|сонн?етом)\b", FLAGS_RE)
+# 2.9.1 (#69): обращение в начале запроса «Fable, перепиши …» — указание, только если дальше повелительный глагол
+ADDRESS_TIER_RE = re.compile(r"^\W*(?P<t>" + _TIER_ANY + r")\s*[,:—-]\s+(?=(?:%s))" % (
+    r"(?:с?дела|напиш|перепиш|исправ|провер|разбер|реш|ответ|выполн|проанализиру|оцен|почин|спроектиру|разработа|подготов|составь?|найд|объясн"
+    r"|реализу|рефактор|перенес|собер|создай?)(?:й|йте|и|ите|ь|ьте)?\b"
+    r"|(?:please|write|rewrite|fix|do|check|review|analy[sz]e|implement|refactor|migrate|build|create|make|run|find|explain"
+    r"|summari[sz]e|translate|design|solve|answer)\b"), FLAGS_RE)
+# 2.9.1 (#70): «Fable не нужен», «Fable не надо», «Fable is overkill» — отрицание после уровня (маркер не нужен)
+TIER_NEG_AFTER_RE = re.compile(
+    r"(?P<t>" + _TIER_ANY + r")\s+(?:тут\s+|здесь\s+|для\s+этого\s+)?(?:не\s+(?:нужен|нужна|нужно|надо|над[оа]|подходит|годится|используй\w*)"
+    r"|is\s+(?:not\s+needed|overkill|too\s+much)|isn'?t\s+needed)\b", FLAGS_RE)
+# 2.9.1: «Fable нужен для миграции», «opus подойдёт», «sonnet годится» — одобрение после уровня
+TIER_POS_AFTER_RE = re.compile(
+    r"(?P<t>" + _TIER_ANY + r")\s+(?:тут\s+|здесь\s+|для\s+этого\s+)?(?:нужен|нужна|нужно|надо|подойд[её]т|годится|хватит|достаточно|сойд[её]т"
+    r"|is\s+(?:needed|enough|fine|required))\b", FLAGS_RE)
+# «нужен Fable» / «не нужен Fable» (отрицание ловит _negated по слову «не» перед совпадением)
+TIER_NEED_RE = re.compile(r"\b(?:нужен|нужна|нужно|надо|need)\s+(?:модел\w+\s+|model\s+)?(?P<t>" + _TIER_ANY + r")\b", FLAGS_RE)
+TIER_RES = [(TIER_DIRECTIVE_RE, "marker"), (TIER_NEED_RE, "need"), (INSTR_TIER_RE, "instr"), (ADDRESS_TIER_RE, "address"),
+            (TIER_NEG_AFTER_RE, "neg_after"), (TIER_POS_AFTER_RE, "pos_after")]
 EFFORT_WORDS = {"low": "low", "medium": "medium", "high": "high", "xhigh": "xhigh", "max": "max",
                 "минимальн": "low", "низк": "low", "средн": "medium", "высок": "high", "очень высок": "xhigh", "максимальн": "max",
                 "максимум": "max", "минимум": "low"}
+_LVL = (r"low|medium|high|xhigh|max|очень высок\w*|минимальн\w*|низк\w*|средн\w*|высок\w*|максимальн\w*|максимум\w*|минимум\w*")
 EFFORT_DIRECTIVE_RE = re.compile(
-    r"(?:\b(?:reasoning\s+)?effort|\bусили[еяй]\w*|\bуровень усилий)\s*[:=]?\s*(?:на\s+)?(?P<a>low|medium|high|xhigh|max|очень высок\w*|минимальн\w*|"
-    r"низк\w*|средн\w*|высок\w*|максимальн\w*|максимум|минимум)\b"
-    r"|\b(?P<b>low|medium|high|xhigh|max|минимальн\w*|низк\w*|средн\w*|высок\w*|максимальн\w*)\s+(?:reasoning\s+)?(?:effort|усили\w*)", FLAGS_RE)
+    r"(?:\b(?:reasoning\s+)?effort|\bусили[еяй]\w*|\bуровень усилий)\s*[:=]?\s*(?:на\s+)?(?P<a>" + _LVL + r")\b"
+    r"|\b(?:рассуждени\w+|размышлени\w+|thinking|reasoning)\s*(?:[:=]\s*|на\s+|to\s+|at\s+)(?P<d>" + _LVL + r")\b"
+    r"|\b(?P<b>low|medium|high|xhigh|max|минимальн\w*|низк\w*|средн\w*|высок\w*|максимальн\w*)\s+(?:reasoning\s+)?(?:effort|усили\w*)"
+    # 2.9.1 (#72): «думай на максимуме», «рассуждай на высоком», «think at max»
+    r"|\b(?:думай|думать|рассуждай|размышляй|think|reason)\s+(?:на\s+|at\s+|on\s+)(?P<c>" + _LVL + r")\b", FLAGS_RE)
+# глагол перед словом effort: «поставь/включи/выставь effort max» — глагол входит в совпадение, чтобы отрицание «не ставь» работало
+EFFORT_VERB_RE = re.compile(
+    r"\b(?:поставь|ставь|выстав\w*|включи\w*|установи\w*|задай|переключи\w*|используй\w*|set|switch|bump|raise|crank|go)\s+"
+    r"(?:мне\s+|на\s+|уровень\s+|режим\s+|the\s+|to\s+|up\s+)*(?:(?:рассуждени\w+|размышлени\w+|усили\w+|effort|reasoning|thinking)\s*[:=]?\s*(?:на\s+|to\s+)?)"
+    r"(?P<a>" + _LVL + r")\b", FLAGS_RE)
 HARD_PHRASES = [  # (регэксп, уровень) — точный уровень, согласие пользователя
     (r"\bultrathink\b|\bультрасинк", "max"),
     (r"без размышлений|не думая\b|минимум усилий|минимальн\w* усили|without thinking|\bno thinking\b|minimal effort|\bno reasoning\b", "low"),
@@ -210,18 +259,23 @@ SOFT_MIN = [  # (регэксп, пол) — «подумай как следу�
      r"|think (?:really|very) hard|as thoroughly as possible|leave no stone unturned", "xhigh"),
     (r"подумай (?:как следует|хорошенько|хорошо|внимательно)|хорошенько подумай|\bтщательн\w*|\bглубок\w*|\bосновательн\w*|\bдосконально"
      r"|\bвдумчиво|не торопись|не спеши|без спешки|продумай вс[её]|think hard|think carefully|think deeply|\bthorough(?:ly)?\b"
-     r"|\bcarefully\b|in depth|\bdeep(?:ly)? (?:dive|analy)|take your time", "high"),
+     r"|\bcarefully\b|in depth|\bdeep(?:ly)? (?:dive|analy)|take your time"
+     r"|\bзадача\s+(?:сложная|непростая|нетривиальная|запутанная)|\b(?:сложная|непростая|нетривиальная|запутанная)\s+задача"
+     r"|\b(?:this\s+is\s+)?an?\s+(?:hard|tricky|complex|difficult)\s+(?:task|problem|bug)|\bthe\s+task\s+is\s+(?:hard|tricky|complex|difficult)", "high"),
 ]
 SOFT_MAX = [  # (регэксп, потолок) — «кратко», «навскидку»: просьба о быстром ответе
     (r"\bкратко\b|\bкоротко\b|в двух словах|\bнавскидку\b|по-быстрому|на скорую руку|быстрый ответ|(?:ответь|скажи|глянь|посмотри|подскажи) быстро"
      r"|быстро (?:ответь|скажи|глянь|посмотри|подскажи)|одн\w+(?:-двумя)? (?:фраз|строк|предложени)|\bbriefly\b|\bin short\b|in a nutshell"
      r"|quick answer|quickly (?:answer|tell|check)|off the top of your head|\btl;?dr\b|one sentence|one line answer|\bdon'?t overthink", "low"),
+    # 2.9.1 (#72): пользователь сам оценил сложность — «задача простая» ограничивает effort сверху (medium), не опускает до low
+    (r"\bзадача\s+(?:простая|несложная|тривиальная|элементарная)|\b(?:простая|несложная|тривиальная|элементарная)\s+задача"
+     r"|\b(?:this\s+is\s+)?an?\s+(?:simple|trivial|easy)\s+(?:task|job|change|fix)|\bthe\s+task\s+is\s+(?:simple|trivial|easy)", "medium"),
 ]
-NEG_BEFORE_RE = re.compile(r"(?:\bне|\bнет|\bни|\bno|\bnot|n't|\bnever|\bбез)(?:\s+[\w-]+){0,2}\s*[,:]?\s*$", FLAGS_RE)
+NEG_BEFORE_RE = re.compile(r"(?:\bне|\bнет|\bни|\bno|\bnot|n't|\bnever|\bбез)(?:(?:\s+[\w-]+){0,2}\s*|\s*[,:]\s*)$", FLAGS_RE)
 _HARD = [(re.compile(rx, FLAGS_RE), lvl) for rx, lvl in HARD_PHRASES]
 _SMIN = [(re.compile(rx, FLAGS_RE), lvl) for rx, lvl in SOFT_MIN]
 _SMAX = [(re.compile(rx, FLAGS_RE), lvl) for rx, lvl in SOFT_MAX]
-_MARKERS = [TIER_DIRECTIVE_RE, EFFORT_DIRECTIVE_RE] + [rx for rx, _ in _HARD + _SMIN + _SMAX]
+_MARKERS = [rx for rx, _ in TIER_RES] + [EFFORT_DIRECTIVE_RE, EFFORT_VERB_RE] + [rx for rx, _ in _HARD + _SMIN + _SMAX]
 
 # ---------- упоминание (mention) против использования (use) ----------
 # Маркер в кавычках/коде или в пересказе чужих слов — это упоминание («слово «ultrathink» ставит максимум»), а не
@@ -431,8 +485,27 @@ ENUM_AFTER_RE = re.compile(
     r"^[^.!?\n]{0,12}?(?:,|\bлибо\b|\bили\b|\bи\b|/|\bor\b|\band\b)\s*(?:модел\w+\s+|model\s+)?(?:" + "|".join(TIER_ALIASES.values()) + r")\b", FLAGS_RE)
 
 
-def _is_discussion(text, mt):
-    return bool(DISCUSS_BEFORE_RE.search(text[max(0, mt.start() - 70):mt.start()]) or ENUM_AFTER_RE.match(text[mt.end():mt.end() + 40]))
+# 2.9.1 (#71): вопрос или сомнение перед глаголом выбора — обсуждение, а не просьба
+QUESTION_BEFORE_RE = re.compile(
+    r"\b(?:стоит|можно|нужен|нужна|нужно|лучше)\s+ли\b|\bстоило\s+бы\b|\bа\s+если\b|\bкак\s+(?:лучше\s+)?$|\bкогда\s+(?:лучше\s+|стоит\s+)?$|\bзачем\s+$|\bпочему\s+$|"
+    r"\bчем\s+отлича\w+|\bshould\s+(?:i|we)\b|\bis\s+it\s+worth\b|\bwould\s+it\s+(?:be|make)\b|\b(?:can|could|may)\s+(?:i|we)\s*$|"
+    r"\bhow\s+(?:to|do\s+i)\s*$|\bwhen\s+(?:to|should)\s*$|\bwhy\s+(?:use|choose|pick)?\s*$", FLAGS_RE)
+
+
+def _clause_before(text, start, limit=70):
+    """Часть текста перед позицией start в пределах предложения (по .!?;\\n), не длиннее limit знаков."""
+    chunk = text[max(0, start - limit):start]
+    cut = max(chunk.rfind(c) for c in ".!?;\n")
+    return chunk[cut + 1:] if cut >= 0 else chunk
+
+
+def _is_discussion(text, mt, strong=False):
+    after = text[mt.end():mt.end() + 40]
+    if QUESTION_BEFORE_RE.search(_clause_before(text, mt.start(), 80)) or ENUM_AFTER_RE.match(after):
+        return True
+    if strong:   # глагол выбора («используй X») сам по себе — просьба; обсуждение только при явном вопросе или перечислении
+        return False
+    return bool(DISCUSS_BEFORE_RE.search(text[max(0, mt.start() - 70):mt.start()]))
 
 
 EFFORT_DISCUSS_RE = re.compile(
@@ -448,28 +521,51 @@ def _effort_discussed(text, mt):
 
 def _directives(text, report=False):
     out = {"tier": None, "tier_not": [], "effort": None, "effort_min": None, "effort_max": None, "phrases": []}
-    for mt in TIER_DIRECTIVE_RE.finditer(text):
-        if not _negated(text, mt.start()) and _is_discussion(text, mt):
-            out["discussed"] = True          # упоминание уровня в обсуждении — не указание
+    address_on = os.environ.get("TYPESAFE_TRIAGE_ADDRESS", "on").strip().lower() not in ("off", "0", "no", "false")
+    for rx, kind in TIER_RES:
+        if kind == "address" and not address_on:
             continue
-        word = mt.group("t").lower()
-        tier = next(k for k, rx in TIER_ALIASES.items() if re.fullmatch(rx, word, FLAGS_RE))
-        if _negated(text, mt.start()):
-            out["tier_not"].append(tier)
-            out["phrases"].append("не %s" % tier)
-        elif out["tier"] in (None, tier):
-            out["tier"] = tier
-            out["phrases"].append(mt.group(0).strip())
-        else:
-            out["tier"] = None            # два разных уровня в одном тексте — не угадываем
+        for mt in rx.finditer(text):
+            first = mt.group(0).strip().lower()
+            word = mt.group("t").lower()
+            tier = next(k for k, trx in TIER_ALIASES.items() if re.fullmatch(trx, word, FLAGS_RE))
+            neg_marker = kind == "neg_after" or bool(re.match(r"(?:без|кроме|without|except)\b", first))
+            strong = kind in ("instr", "address", "pos_after", "need") or bool(STRONG_MARK_RE.match(first))
+            negated = neg_marker or _negated(text, mt.start())
+            if not negated and _is_discussion(text, mt, strong):
+                out["discussed"] = True          # упоминание уровня в обсуждении — не указание
+                continue
+            if negated:
+                out["tier_not"].append(tier)
+                out["phrases"].append("не %s" % tier)
+            elif out["tier"] in (None, tier) and not out.get("_conflict"):
+                out["tier"] = tier
+                out["phrases"].append(mt.group(0).strip())
+            else:
+                out["tier"] = None            # два разных уровня в одном тексте — не угадываем
+                out["_conflict"] = True
+    out.pop("_conflict", None)
+    if out["tier"] in out["tier_not"]:        # «не используй X … используй X» — противоречие
+        out["tier"] = None
+    if not out.get("discussed") and not out["tier"] and not out["tier_not"]:
+        bare = sorted({k for k, trx in TIER_ALIASES.items() if re.search(r"\b(?:%s)\b" % trx, text, FLAGS_RE)})
+        if len(bare) == 1 and IMPERATIVE_RE.search(text):   # 2.9.1: уровень назван, формулировка не распознана → подсказка в заметке
+            mt = re.search(r"\b(?:%s)\b" % TIER_ALIASES[bare[0]], text, FLAGS_RE)
+            if not DISCUSS_BEFORE_RE.search(_clause_before(text, mt.start(), 70)):
+                out["tier_bare"] = bare
     hard = []
-    for mt in EFFORT_DIRECTIVE_RE.finditer(text):
-        lvl = _norm(mt.group("a") or mt.group("b"))
-        if lvl and not _negated(text, mt.start()) and _effort_discussed(text, mt):
-            out["discussed"] = True      # 2.8 (#65): «сравни эффективность effort max и xhigh» — вопрос про уровень, а не просьба
-            continue
-        if lvl:
-            hard.append((lvl, mt.start(), mt.group(0).strip()))
+    seen_eff = set()
+    for rx in (EFFORT_VERB_RE, EFFORT_DIRECTIVE_RE):   # глагольная форма первой: «не ставь effort max» отрицается по глаголу
+        for mt in rx.finditer(text):
+            lvl = _norm(mt.group("a") or mt.groupdict().get("b") or mt.groupdict().get("c") or mt.groupdict().get("d"))
+            if any(mt.start() < e1 and s1 < mt.end() for s1, e1 in seen_eff):
+                continue                  # тот же фрагмент уже разобран глагольной формой
+            seen_eff.add((mt.start(), mt.end()))
+            if lvl and not _negated(text, mt.start()) and _effort_discussed(text, mt):
+                out["discussed"] = True      # 2.8 (#65): «сравни эффективность effort max и xhigh» — вопрос про уровень, а не просьба
+                continue
+            if lvl:
+                hard.append((lvl, mt.start(), mt.group(0).strip()))
     for rx, lvl in _HARD:
         for mt in rx.finditer(text):
             if not _negated(text, mt.start()) and _effort_discussed(text, mt):
