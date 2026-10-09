@@ -46,6 +46,13 @@ import guard  # noqa: E402
 from masking import mask  # noqa: E402
 
 GUARD_UNAVAILABLE_EXIT = 6
+# UI waits (dump retries, «did the screen change», file picker) scale with ANDROID_QA_SLEEP_SCALE (tests: 0.05);
+# soak sampling intervals and screen recording times are never scaled.
+SLEEP_SCALE = float(os.environ.get("ANDROID_QA_SLEEP_SCALE") or 1)
+
+
+def nap(seconds):
+    time.sleep(max(0.0, seconds * SLEEP_SCALE))
 KEYS = {"BACK": 4, "HOME": 3, "ENTER": 66, "APP_SWITCH": 187, "TAB": 61, "DEL": 67, "MENU": 82, "ESCAPE": 111,
         "DPAD_UP": 19, "DPAD_DOWN": 20, "DPAD_LEFT": 21, "DPAD_RIGHT": 22, "DPAD_CENTER": 23, "SEARCH": 84,
         "VOLUME_UP": 24, "VOLUME_DOWN": 25, "POWER": 26, "WAKEUP": 224, "SLEEP": 223, "MOVE_END": 123,
@@ -380,7 +387,18 @@ def launch(c, pkg, activity=None, cold=False):
 
 
 def cmd_launch(c):
-    res = launch(c, c.pkg(c.a.pkg), c.a.activity, c.a.cold)
+    pkg = c.pkg(c.a.pkg)
+    res = launch(c, pkg, c.a.activity, c.a.cold)
+    # am start -W returns after the first frame of the activity; also wait until the app window has the focus
+    # (splash → main, a slow first draw): then dump-ui and tap see the app, not the launcher
+    started = time.time()
+    focus = current_focus(c)
+    while focus.get("package") != pkg and time.time() - started < max(0.0, c.a.wait_focus):
+        nap(0.5)
+        focus = current_focus(c)
+    res["focus"] = focus
+    res["focused"] = focus.get("package") == pkg
+    res["focus_wait_ms"] = int((time.time() - started) * 1000)
     emit(res)
     sys.exit(0 if res.get("Status") == "ok" and not res.get("error") else 5)
 
@@ -417,12 +435,12 @@ def cmd_start_time(c):
         fail("am start -W не вернул TotalTime", 5)
     res = {"package": pkg, "component": comp, "mode": c.a.mode, "runs": len(times), "times_ms": times,
            "launch_states": states, "median_ms": int(statistics.median(times)), "min_ms": min(times), "max_ms": max(times)}
+    res["host"] = host_load()
+    if (res["host"].get("emulators_running") or 0) > 1:
+        res["note"] = (f"во время замера работало эмуляторов: {res['host']['emulators_running']} — время запуска "
+                       "искажено; замеры производительности — на свободном хосте (parallelism.md)")
     emit(res)
-    if c.run_dir:
-        p = c.run_dir / "raw" / "metrics.jsonl"
-        p.parent.mkdir(parents=True, exist_ok=True)
-        with open(p, "a", encoding="utf-8") as f:
-            f.write(json.dumps({"metric": f"start-{c.a.mode}", "serial": c.serial, **res}, ensure_ascii=False) + "\n")
+    save_metric(c, f"start-{c.a.mode}", {k: v for k, v in res.items() if k != "host"})
 
 
 def cmd_stop(c):
@@ -490,16 +508,44 @@ def cmd_deeplink(c):
 
 # ---------- UI ----------
 
-def dump_xml(c):
-    for attempt in range(3):
-        code, out, err = c.adb.shell("uiautomator", "dump", "/sdcard/qa-window_dump.xml", timeout=40)
-        if code == 0 and "dumped to" in (out + err).lower():
-            _, xml, _ = c.adb.cmd("exec-out", "cat", "/sdcard/qa-window_dump.xml", timeout=30)
-            c.adb.shell("rm", "-f", "/sdcard/qa-window_dump.xml", timeout=10)
-            if xml.strip().startswith("<?xml") or "<hierarchy" in xml:
-                return xml
-        time.sleep(1.5)  # "could not get idle state": animations — retry
-    fail("uiautomator dump не удался (экран анимируется или защищён FLAG_SECURE): " + (out + err).strip()[:200], 5)
+ANIM_KEYS = ("window_animation_scale", "transition_animation_scale", "animator_duration_scale")
+NO_TREE_HINT = ("экран без дерева элементов (бесконечная анимация, «could not get idle state», FLAG_SECURE): "
+                "dump-ui --retry 6 --ignore-animations; нажатие — посмотреть screenshot и tap X Y --no-ui")
+
+
+def try_dump(c, retries=3, ignore_animations=False):
+    """uiautomator dump with retries (and optionally animations off for the dump). (xml or None, last error)."""
+    saved = None
+    if ignore_animations:  # ValueAnimator honours animator_duration_scale=0: endless animations stop for the dump
+        saved = {k: c.adb.shell("settings", "get", "global", k, timeout=10)[1].strip() for k in ANIM_KEYS}
+        for k in ANIM_KEYS:
+            c.run("settings", "put", "global", k, "0")
+    err_text = ""
+    try:
+        for attempt in range(max(1, retries)):
+            code, out, err = c.adb.shell("uiautomator", "dump", "/sdcard/qa-window_dump.xml", timeout=40)
+            err_text = (out + err).strip()
+            if code == 0 and "dumped to" in err_text.lower():
+                _, xml, _ = c.adb.cmd("exec-out", "cat", "/sdcard/qa-window_dump.xml", timeout=30)
+                c.adb.shell("rm", "-f", "/sdcard/qa-window_dump.xml", timeout=10)
+                if xml.strip().startswith("<?xml") or "<hierarchy" in xml:
+                    return xml, None
+            if attempt + 1 < max(1, retries):
+                nap(min(1.5 * (attempt + 1), 4))  # "could not get idle state": animations — retry with backoff
+    finally:
+        if saved is not None:
+            for k, v in saved.items():
+                c.run("settings", "put", "global", k, v if v and v != "null" else "1")
+    return None, err_text[:200]
+
+
+def dump_xml(c, retries=None, ignore_animations=None):
+    retries = retries if retries is not None else getattr(c.a, "retry", None) or 3
+    ign = ignore_animations if ignore_animations is not None else getattr(c.a, "ignore_animations", False)
+    xml, err = try_dump(c, retries, ign)
+    if xml is None:
+        fail(f"uiautomator dump не удался за {retries} попыт.: {err} — {NO_TREE_HINT}", 5)
+    return xml
 
 
 BOUNDS = re.compile(r"\[(-?\d+),(-?\d+)\]\[(-?\d+),(-?\d+)\]")
@@ -673,14 +719,83 @@ def screen_for_dump(xml, nodes, natural, current=None):
     return size, src
 
 
-def fresh_ui(c):
-    xml = dump_xml(c)
+def ui_cache_path(c):
+    return (c.run_dir / "raw" / f".ui-cache-{c.serial.replace(':', '_')}.json") if c.run_dir else None
+
+
+def save_ui_cache(c, xml, focus=None):
+    p = ui_cache_path(c)
+    if p:
+        focus = focus or current_focus(c)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps({"time": time.time(), "activity": (focus or {}).get("activity"), "xml": mask(xml)},
+                                ensure_ascii=False), encoding="utf-8")
+
+
+def load_ui_cache(c, max_age=120):
+    """Last tree of this stand (≤ max_age s) — used by tap --no-ui to name the element under the point."""
+    p = ui_cache_path(c)
+    if not p or not p.exists():
+        return None
+    try:
+        d = json.loads(p.read_text(encoding="utf-8"))
+    except ValueError:
+        return None
+    age = time.time() - float(d.get("time") or 0)
+    return dict(d, age=round(age)) if age <= max_age else None
+
+
+def fresh_ui(c, retries=None):
+    xml = dump_xml(c, retries)
+    save_ui_cache(c, xml, None)
     return xml, parse_ui(xml)
+
+
+def tree_signature(nodes):
+    """Hash of visible texts and bounds: «did the screen change» (scroll, tap --expect-change)."""
+    import hashlib
+    s = "|".join(f"{n['text']}~{n['desc']}~{n['bounds']}" for n in nodes if n["text"] or n["desc"] or n["interactive"])
+    return hashlib.sha1(s.encode("utf-8")).hexdigest()[:16]
+
+
+def node_box(n):
+    b = n["bounds"]
+    return [b[0], b[1], b[2] - b[0], b[3] - b[1]]
+
+
+def flat(text):
+    return (text or "").replace("\r", "").replace("\n", " ⏎ ")
 
 
 def cmd_dump_ui(c):
     xml, nodes = fresh_ui(c)
     focus = current_focus(c)
+    save_ui_cache(c, xml, focus)
+    try:
+        grep = re.compile(c.a.grep, re.I) if c.a.grep else None
+    except re.error as ex:
+        fail(f"--grep: неверный регэксп ({ex})", 2)
+    if c.a.texts or grep:
+        xml_out = c.out_path(c.a.out, f"ui-{ts()}.xml")
+        xml_out.write_text(mask(xml), encoding="utf-8")
+        rows = [(k, n) for k, n in enumerate(nodes) if (n["text"] or n["desc"] or (grep and n["id"]))]
+        if grep:
+            rows = [(k, n) for k, n in rows if grep.search(" ".join((n["text"], n["desc"], n["id"])))]
+        print(f"экран: {focus.get('package')}/{focus.get('activity')} · текстов {len(rows)} (из {len(nodes)} узлов) · "
+              f"файл {xml_out}")
+        for k, n in rows:
+            b = n["bounds"]
+            what = mask(flat(n["text"] or n["desc"]))
+            extra = (f" desc=\"{mask(flat(n['desc']))}\"" if n["text"] and n["desc"] else "") + \
+                (f" id={n['id'].split(':id/')[-1]}" if n["id"] else "") + (" (clickable)" if n["interactive"] else "")
+            print(f"[{k}] [{b[0]},{b[1]}][{b[2]},{b[3]}] box={','.join(map(str, node_box(n)))} \"{what}\"{extra}")
+        if c.a.json_out:
+            Path(c.a.json_out).parent.mkdir(parents=True, exist_ok=True)
+            Path(c.a.json_out).write_text(json.dumps({"focus": focus, "texts": [
+                {"i": k, "text": mask(n["text"]), "desc": mask(n["desc"]), "id": n["id"], "bounds": n["bounds"],
+                 "box": node_box(n), "clickable": n["interactive"]} for k, n in rows]}, ensure_ascii=False, indent=1),
+                encoding="utf-8")
+        return
     stamp = ts()
     xml_out = c.out_path(c.a.out, f"ui-{stamp}.xml")
     xml_out.write_text(mask(xml), encoding="utf-8")
@@ -707,6 +822,8 @@ def cmd_dump_ui(c):
                                      f"checked={e['checked']}" if e["checked"] is not None else "") if x)
         print(f"[{e['i']}] {e['class']} \"{e['label']}\"" + (f" id={e['id']}" if e["id"] else "") +
               f" @{e['center'][0]},{e['center'][1]}" + (f" ({flags})" if flags else ""))
+    if any(len(n["label"]) > 60 for n in nodes):
+        print("(подписи обрезаны до 60 символов: полные тексты и границы — dump-ui --texts, поиск — --grep «…»)")
     if cands:
         print("кандидаты (подтвердить по скриншоту):")
         for x in cands:
@@ -714,6 +831,8 @@ def cmd_dump_ui(c):
 
 
 def match_nodes(nodes, a):
+    """Nodes matching --text/--id/--desc, best first: exact text before a substring, clickable (or inside a clickable
+    parent) before plain text, enabled before disabled, shorter text before a paragraph that merely contains it."""
     def hit(n):
         if a.text is not None:
             t, want = n["text"].strip().lower(), a.text.strip().lower()
@@ -727,16 +846,43 @@ def match_nodes(nodes, a):
                 return False
         return True
     found = [n for n in nodes if hit(n)]
-    found.sort(key=lambda n: (not n["interactive"], not n["enabled"]))
+    found.sort(key=lambda n: rank(n, a))
     return found
+
+
+def rank(n, a):
+    want_t = (a.text or "").strip().lower()
+    want_d = (a.desc or "").strip().lower()
+    exact = (not want_t or n["text"].strip().lower() == want_t) and (not want_d or n["desc"].strip().lower() == want_d)
+    return (not exact, not (n["interactive"] or n["clickable_ancestor"]), not n["enabled"],
+            len(n["text"] or n["desc"]))
+
+
+def choose(found, a):
+    """(node, ambiguity info or None). --index N picks from the ranked list; without it several equally good
+    candidates in different places are ambiguous (exit 2 with the list), never «the first one»."""
+    if a.index is not None:
+        return found[min(a.index, len(found) - 1)], None
+    best = rank(found[0], a)[:3]
+    top = [n for n in found if rank(n, a)[:3] == best]
+    distinct = {tuple(n["center"]) for n in top}
+    if len(distinct) > 1:
+        return None, {"ambiguous": True, "count": len(top), "reason": f"ambiguous: {len(top)} matches — уточнить "
+                      "--exact / --id / --desc или выбрать --index N",
+                      "candidates": [{"index": found.index(n), "label": mask(n["label"])[:80], "id": n["id"],
+                                      "class": n["class"].split(".")[-1], "center": n["center"], "bounds": n["bounds"],
+                                      "clickable": n["interactive"]} for n in top[:10]]}
+    return found[0], None
 
 
 def cmd_find(c):
     _, nodes = fresh_ui(c)
     found = match_nodes(nodes, c.a)
-    emit({"count": len(found), "nodes": [{"label": mask(n["label"])[:80], "id": n["id"], "class": n["class"],
-                                          "center": n["center"], "bounds": n["bounds"], "clickable": n["interactive"],
-                                          "enabled": n["enabled"]} for n in found[:10]]})
+    emit({"count": len(found), "nodes": [{"index": i, "label": mask(n["label"])[:80], "text": mask(n["text"]),
+                                          "desc": mask(n["desc"]), "id": n["id"], "class": n["class"],
+                                          "center": n["center"], "bounds": n["bounds"], "box": node_box(n),
+                                          "clickable": n["interactive"], "enabled": n["enabled"]}
+                                         for i, n in enumerate(found[:10])]})
     sys.exit(0 if found else 4)
 
 
@@ -765,9 +911,49 @@ def guard_node(c, node, nodes, verb):
     return focus
 
 
+def guard_blind(c, verb, x, y):
+    """tap X Y --no-ui: the tree cannot be taken (endless animation). The element under the point comes from the
+    last tree of this stand (≤ 120 s, same activity) if there is one; otherwise guard checks the foreground
+    package and activity only. A screenshot before the tap is saved as evidence."""
+    focus = current_focus(c)
+    cache = load_ui_cache(c)
+    if cache and cache.get("activity") and cache["activity"] == focus.get("activity"):
+        nodes = parse_ui(cache["xml"])
+        node = node_at(nodes, x, y)
+        if node is not None:
+            guard_node(c, node, nodes, verb)
+            return node, {"element_checked": True, "tree": f"последний снимок дерева ({cache['age']} с назад)"}
+    dec = c.decide(guard.check_package, focus.get("package"), c.cfg)
+    if dec["decision"] == guard.ALLOW and focus.get("activity"):
+        try:
+            dec = guard.check_screen(focus.get("activity"), c.cfg) or dec
+        except Exception as ex:  # noqa: BLE001 — guard failure is «unavailable», never «allow»
+            c.unavailable(f"{type(ex).__name__}: {ex}")
+    c.gate(dec)
+    shot = None
+    try:
+        code, data, _ = c.adb.cmd("exec-out", "screencap", "-p", binary=True, timeout=60)
+        if code == 0 and data.startswith(b"\x89PNG"):
+            shot = c.out_path(None, f"before-{verb}-{ts()}.png", "screenshots")
+            shot.write_bytes(data)
+    except OSError:
+        pass
+    return None, {"element_checked": False, "tree": "нет (--no-ui): проверены только пакет и экран переднего плана",
+                  "screenshot_before": str(shot) if shot else None}
+
+
 def target_point(c, verb):
     a = c.a
-    _, nodes = fresh_ui(c)
+    if getattr(a, "no_ui", False):
+        if a.x is None or a.y is None:
+            fail("--no-ui — только с координатами X Y (элемент по тексту без дерева не найти)", 2)
+        node, info = guard_blind(c, verb, a.x, a.y)
+        return a.x, a.y, node, info
+    xml, err = try_dump(c, getattr(a, "retry", None) or 3, getattr(a, "ignore_animations", False))
+    if xml is None:
+        fail(f"дерево элементов не снято ({err}) — {NO_TREE_HINT}", 5)
+    save_ui_cache(c, xml)
+    nodes = parse_ui(xml)
     if a.x is not None and a.y is not None:
         node = node_at(nodes, a.x, a.y)
         x, y = a.x, a.y
@@ -777,34 +963,80 @@ def target_point(c, verb):
         found = match_nodes(nodes, a)
         if not found:
             fail("элемент не найден на экране (dump-ui покажет, что есть)", 4)
-        node = found[min(a.index, len(found) - 1)]
+        node, amb = choose(found, a)
+        if amb:
+            emit(amb)
+            sys.exit(2)
         x, y = node["center"]
     guard_node(c, node, nodes, verb)
-    return x, y, node
+    return x, y, node, {"tree_before": tree_signature(nodes)}
 
 
-def after_action(c, verb, x, y, node):
+def wait_expect(c, a, before_sig=None):
+    """--expect-text / --expect-gone / --expect-change: poll the tree up to --wait seconds. None if nothing asked."""
+    want, gone, change = getattr(a, "expect_text", None), getattr(a, "expect_gone", None), getattr(a, "expect_change", False)
+    if not (want or gone or change):
+        return None
+    deadline = time.time() + max(0.5, float(getattr(a, "wait", 5) or 5))
+    started = time.time()
+    last = {"ok": False, "reason": "дерево не снято"}
+    while True:
+        xml, err = try_dump(c, 1)
+        if xml is not None:
+            nodes = parse_ui(xml)
+            texts = " ".join(f"{n['text']} {n['desc']}" for n in nodes).lower()
+            checks = {}
+            if want:
+                checks["text"] = want.strip().lower() in texts
+            if gone:
+                checks["gone"] = gone.strip().lower() not in texts
+            if change:
+                checks["changed"] = before_sig is not None and tree_signature(nodes) != before_sig
+            last = {"ok": all(checks.values()), "checks": checks}
+            if last["ok"]:
+                break
+        if time.time() >= deadline:
+            break
+        nap(0.7)
+    last["waited_ms"] = int((time.time() - started) * 1000)
+    if not last["ok"]:
+        last["reason"] = ("экран не изменился как ожидалось: " +
+                          ", ".join(k for k, v in (last.get("checks") or {}).items() if not v)) if last.get("checks") else last["reason"]
+    return last
+
+
+def after_action(c, verb, x, y, node, info=None):
     c.pause()
     focus = current_focus(c)
     res = {"ok": True, "action": verb, "x": x, "y": y, "element": elem_ref(node) if node else None, "focus": focus}
+    for k in ("element_checked", "tree", "screenshot_before"):
+        if info and k in info:
+            res[k] = info[k]
     pol = c.decide(guard.check_package, focus.get("package"), c.cfg)
     if pol["decision"] == guard.DENY:
         res["left_app"] = pol["reason"]
         c.log("blocked.jsonl", {"rule": "base:left-app", "reason": f"после {verb} открылось {focus.get('package')} — вернуться BACK",
                                 "target": focus})
+    exp = wait_expect(c, c.a, (info or {}).get("tree_before"))
+    if exp is not None:
+        res["expect"] = exp
+        if not exp["ok"]:
+            res["ok"] = False
     emit(res)
+    if exp is not None and not exp["ok"]:
+        sys.exit(5)
 
 
 def cmd_tap(c):
-    x, y, node = target_point(c, "tap")
+    x, y, node, info = target_point(c, "tap")
     c.run("input", "tap", x, y)
-    after_action(c, "tap", x, y, node)
+    after_action(c, "tap", x, y, node, info)
 
 
 def cmd_long_press(c):
-    x, y, node = target_point(c, "long-press")
+    x, y, node, info = target_point(c, "long-press")
     c.run("input", "swipe", x, y, x, y, c.a.ms)
-    after_action(c, "long-press", x, y, node)
+    after_action(c, "long-press", x, y, node, info)
 
 
 def cmd_swipe(c):
@@ -814,14 +1046,28 @@ def cmd_swipe(c):
     emit({"ok": True, "action": "swipe", "from": [a.x1, a.y1], "to": [a.x2, a.y2]})
 
 
-def cmd_scroll(c):
+def scroll_once(c, direction, area=None):
     size = screen_size(c) or (1080, 1920)
     w, h = size
-    cx, cy = w // 2, h // 2
-    dx, dy = {"down": (0, -h // 3), "up": (0, h // 3), "left": (w // 3, 0), "right": (-w // 3, 0)}[c.a.direction]
+    if area:  # [x1, y1, x2, y2] of the scrollable list: swipe inside it
+        cx, cy = (area[0] + area[2]) // 2, (area[1] + area[3]) // 2
+        h3, w3 = max(60, (area[3] - area[1]) // 3), max(60, (area[2] - area[0]) // 3)
+    else:
+        cx, cy, h3, w3 = w // 2, h // 2, h // 3, w // 3
+    dx, dy = {"down": (0, -h3), "up": (0, h3), "left": (w3, 0), "right": (-w3, 0)}[direction]
     c.run("input", "swipe", cx, cy, cx + dx, cy + dy, 350)
     c.pause()
-    emit({"ok": True, "action": f"scroll {c.a.direction}"})
+
+
+def cmd_scroll(c):
+    xml, _ = try_dump(c, 2)
+    before = tree_signature(parse_ui(xml)) if xml else None
+    scroll_once(c, c.a.direction)
+    after_xml, _ = try_dump(c, 2) if before else (None, None)
+    changed = (tree_signature(parse_ui(after_xml)) != before) if (before and after_xml) else None
+    emit({"ok": True, "action": f"scroll {c.a.direction}", "changed": changed,
+          "note": "" if changed else ("содержимое не изменилось — конец списка или прокрутка не сработала"
+                                       if changed is False else "дерево не снято — изменение не проверено")})
 
 
 def input_text_escape(s):
@@ -911,11 +1157,21 @@ def cmd_text(c):
             c.pause()
             emit(dict(res, chars=len(value), via="ADBKeyBoard", ime_restored=restored))
             return
+        elif c.a.clipboard:
+            if secret:
+                fail("секрет через буфер обмена нельзя: буфер эмулятора синхронизируется с хостом — --adbkeyboard", 2)
+            if c.a.into_id or c.a.into_text:
+                focus_into(c)
+            via = paste_via_clipboard(c, value)
+            c.pause()
+            emit(dict(res, chars=len(value), via=via))
+            return
         else:
             have = adbkeyboard_installed(c)
             fail("не-ASCII текст (кириллица, emoji) через adb input не вводится. Варианты: --translit — латиницей "
-                 "(помечается в выводе); --adbkeyboard — через ADBKeyBoard на эмуляторе скила "
-                 f"({'установлен на этом устройстве' if have else 'на этом устройстве не установлен'}); "
+                 "(помечается в выводе); --clipboard — через буфер обмена эмулятора по gRPC (эмулятор запущен с "
+                 "--mic-inject; не для секретов); --adbkeyboard — через ADBKeyBoard на эмуляторе скила "
+                 f"({'установлен на этом устройстве' if have else 'на этом устройстве не установлен: ime install-adbkeyboard --apk <файл> после согласия'}); "
                  "ввести вручную в окне эмулятора (device-control.md → «Ввод текста»)", 4)
     if c.a.into_id or c.a.into_text:
         focus_into(c)
@@ -924,9 +1180,30 @@ def cmd_text(c):
     emit(dict(res, chars=len(value)))
 
 
+def paste_via_clipboard(c, value):
+    """Own emulator with gRPC token (start --mic-inject): setClipboard over gRPC, then KEYCODE_PASTE (API 24+)."""
+    import grpc_emu
+    import mic
+    if c.stand() != "own-emulator":
+        fail("--clipboard — только на эмуляторе скила (gRPC эмулятора)", 4)
+    info, err = mic.discovery(c)
+    if err:
+        fail(f"--clipboard: {err} — перезапустить эмулятор: avd_manager.py start <AVD> --mic-inject", 4)
+    if c.api() and c.api() < 24:
+        fail("KEYCODE_PASTE — с API 24", 4)
+    c.gate(c.decide(guard.check_adb, ["emu", "grpc", "setClipboard"], c.cfg, c.stand(), c.serial))
+    try:
+        grpc_emu.set_clipboard(info["port"], info["token"], value)
+    except (grpc_emu.GrpcError, OSError) as ex:
+        fail(mask(f"--clipboard: gRPC setClipboard: {ex}", secrets=(info["token"],)), 5)
+    c.log("actions.jsonl", {"clipboard": "setClipboard", "chars": len(value)})
+    c.run("input", "keyevent", "279")
+    return "clipboard (gRPC setClipboard + KEYCODE_PASTE)"
+
+
 def focus_into(c):
     c.a.id, c.a.text, c.a.desc, c.a.x, c.a.y, c.a.index, c.a.exact = c.a.into_id, c.a.into_text, None, None, None, 0, False
-    x, y, node = target_point(c, "focus")
+    x, y, node, _ = target_point(c, "focus")
     c.run("input", "tap", x, y)
     c.pause()
 
@@ -947,7 +1224,30 @@ def cmd_screenshot(c):
     if code != 0 or not data.startswith(b"\x89PNG"):
         fail(f"screencap: {err.strip()[:200] or 'не PNG (защищённый экран FLAG_SECURE?)'}", 5)
     out.write_bytes(data)
-    emit({"ok": True, "file": str(out), "bytes": len(data)})
+    res = {"ok": True, "file": str(out), "bytes": len(data)}
+    if c.a.mark:
+        res["annotation"] = annotate_shot(c, out, c.a.mark)
+    emit(res)
+
+
+def annotate_shot(c, png, mark_specs):
+    """screenshot --mark: boxes in screenshot pixels or text=/desc=/id= from a fresh tree; density from the device."""
+    import annotate_android as an
+    try:
+        marks = [an.parse_mark(m) for m in mark_specs]
+    except an.AnnotateError as ex:
+        return {"ok": False, "error": str(ex)}
+    nodes = None
+    if any(m["target"] for m in marks):
+        xml, err = try_dump(c, getattr(c.a, "retry", None) or 3)
+        if xml is None:
+            return {"ok": False, "error": f"дерево не снято ({err}) — отметки text=/id=/desc= недоступны, задать x,y,w,h"}
+        nodes = parse_ui(xml)
+    try:
+        return an.render(png, marks, density_of(c), None, nodes)
+    except an.AnnotateError as ex:
+        return {"ok": False, "error": str(ex), "original": str(png),
+                "spec": str(Path(png).with_name(Path(png).stem + ".spec.json"))}
 
 
 def cmd_screenrecord(c):
@@ -1153,17 +1453,86 @@ def cmd_grant(c, revoke=False):
     emit({"ok": code == 0, "package": pkg, "permission": perm, "state": st, "output": (out + err).strip()[:200]})
 
 
+NOTIF_RECORD = re.compile(r"NotificationRecord\(0x[0-9a-fA-F]+:?\s+pkg=(\S+)")
+NOTIF_FLAGS = {0x2: "ONGOING_EVENT", 0x8: "ONLY_ALERT_ONCE", 0x10: "AUTO_CANCEL", 0x20: "NO_CLEAR",
+               0x40: "FOREGROUND_SERVICE", 0x200: "GROUP_SUMMARY"}
+NOTIF_INACTIVE = re.compile(r"^\s*(Archive|Archived notifications|mArchive|Historical|Snoozed|History|"
+                            r"mNotificationHistory|Notification history)", re.I)
+
+
+def extra(block, key):
+    """android.<key>=<Type> (<value>) on one line; the value may contain brackets."""
+    m = re.search(rf"^\s*android\.{key}=(\w+) \((.*)\)\s*$", block, re.M)
+    return (m.group(1), m.group(2)) if m else (None, None)
+
+
+def parse_notifications(text, pkg):
+    """Active notifications of the package from `dumpsys notification --noredact`: every NotificationRecord of
+    pkg (ongoing, foreground-service and progress ones included — nothing is filtered by flags or category);
+    records under archive/history/snoozed headings are skipped. Fields: id, channel, importance, category, flags,
+    ongoing, foreground_service, progress/max/indeterminate, title/text/sub_text/big_text, actions."""
+    text = (text or "").replace("\r\n", "\n")
+    starts = [m for m in NOTIF_RECORD.finditer(text)]
+    items = []
+    for i, m in enumerate(starts):
+        if m.group(1) != pkg:
+            continue
+        before = text[:m.start()]
+        heading = next((ln for ln in reversed(before.splitlines()) if re.match(r"^\s{0,4}\S.*:\s*$", ln)), "")
+        if NOTIF_INACTIVE.search(heading.strip()):
+            continue
+        block = text[m.start():starts[i + 1].start() if i + 1 < len(starts) else len(text)]
+        head = block.split("\n", 1)[0]
+        g = lambda rx, s=block: (re.search(rx, s) or [None, None])[1]  # noqa: E731
+        flags_hex = g(r"\bflags=0x([0-9a-fA-F]+)", head) or g(r"^\s*flags=0x([0-9a-fA-F]+)", block)
+        flags = int(flags_hex, 16) if flags_hex else 0
+        words = [n for b, n in NOTIF_FLAGS.items() if flags & b]
+        sym = g(r"^\s*flags=([A-Z_|]+)\s*$")
+        if sym:
+            words = list(dict.fromkeys(words + sym.split("|")))
+        prog, maxp, indet = extra(block, "progress")[1], extra(block, "progressMax")[1], extra(block, "progressIndeterminate")[1]
+        actions = re.findall(r"^\s*\[\d+\] \"(.*?)\" ->", block, re.M)
+        n_actions = g(r"\bactions=(\d+)", head)
+        item = {"id": g(r"\bid=(-?\d+)", head), "tag": g(r"\btag=(\S+)", head), "channel": g(r"channel=([^\s,)]+)", head),
+                "importance": g(r"importance=(-?\d)", head), "category": g(r"\bcategory=([^\s,)]+)"),
+                "flags": words, "ongoing": "ONGOING_EVENT" in words or "NO_CLEAR" in words,
+                "foreground_service": "FOREGROUND_SERVICE" in words,
+                "title": mask(extra(block, "title")[1] or ""), "text": mask(extra(block, "text")[1] or ""),
+                "sub_text": mask(extra(block, "subText")[1] or ""), "big_text": mask(extra(block, "bigText")[1] or ""),
+                "progress": int(prog) if prog and prog.lstrip("-").isdigit() else None,
+                "progress_max": int(maxp) if maxp and maxp.lstrip("-").isdigit() else None,
+                "indeterminate": indet == "true" if indet else None,
+                "actions": [mask(x) for x in actions] or ([] if not n_actions else [f"{n_actions} (тексты не в дампе)"])}
+        if item["progress_max"]:
+            item["percent"] = round(100 * (item["progress"] or 0) / item["progress_max"])
+        if not item["title"] and not item["text"]:
+            item["note"] = "нет заголовка и текста в extras (своё оформление RemoteViews или пустое уведомление)"
+        items.append(item)
+    return items
+
+
+def parse_fgs(text):
+    """Foreground services of `dumpsys activity services <pkg>`: [{service, foreground_id, notification}]."""
+    out = []
+    for m in re.finditer(r"\* ServiceRecord\{\S+ \S+ ([\w.$/]+)\}(.*?)(?=\n\s*\* ServiceRecord|\Z)", text or "", re.S):
+        body = m.group(2)
+        if re.search(r"isForeground=true", body):
+            out.append({"service": m.group(1), "foreground_id": (re.search(r"foregroundId=(-?\d+)", body) or [None, None])[1],
+                        "notification": (re.search(r"foregroundNoti=Notification\((.*?)\)", body) or [None, ""])[1][:160]})
+    return out
+
+
 def cmd_notifications(c):
     pkg = c.pkg(c.a.pkg)
     _, out, _ = c.adb.shell("dumpsys", "notification", "--noredact", timeout=60)
-    items = []
-    for block in re.split(r"\n\s+NotificationRecord\(", out)[1:]:
-        if f"pkg={pkg} " not in block[:300]:
-            continue
-        g = lambda rx: (re.search(rx, block) or [None, None])[1]  # noqa: E731
-        items.append({"id": g(r"\bid=(-?\d+)"), "channel": g(r"channel=(\S+?)[ ,)]"), "importance": g(r"importance=(\d)"),
-                      "title": mask(g(r"android\.title=\S+ \((.*?)\)\n") or ""), "text": mask(g(r"android\.text=\S+ \((.*?)\)\n") or "")})
-    emit({"package": pkg, "count": len(items), "notifications": items})
+    items = parse_notifications(out, pkg)
+    _, svc, _ = c.adb.shell("dumpsys", "activity", "services", pkg, timeout=30)
+    fgs = parse_fgs(svc)
+    note = ""
+    if fgs and not any(x["foreground_service"] for x in items):
+        note = ("у приложения есть foreground-сервис, но его уведомления нет в списке dumpsys notification — проверить "
+                "шторку (shade open + screenshot): система может показывать уведомление FGS с задержкой")
+    emit({"package": pkg, "count": len(items), "notifications": items, "foreground_services": fgs, "note": note})
 
 
 # ---------- logs and metrics ----------
@@ -1175,16 +1544,32 @@ def logcat_file(c, out):
 LOG_HEAD = re.compile(r"^(\d\d-\d\d \d\d:\d\d:\d\d\.\d+)\s+(\d+)\s+(\d+)\s+([VDIWEFAS])\s+(.*?)\s*: ")
 
 
+# Emulator graphics/buffer chatter that floods the app's PID (verbose/debug/info only; W/E/F are always kept).
+# run-config logcat.noise_tags adds tags, logcat.keep_noise: true or --keep-noise keeps everything.
+NOISE_TAGS = ("EGL_emulation", "eglCodecCommon", "HostConnection", "goldfish-address-space", "goldfish-opengl",
+              "gralloc4", "Gralloc4", "gralloc_ranchu", "RanchuHwc", "BufferPoolAccessor*", "bufferpool*",
+              "AHardwareBuffer", "FrameEvents")
+
+
 class AppLogFilter:
     """Keeps logcat lines of the app under test: lines of its PIDs (updated on restart from «Start proc N:<pkg>/»
     and by polling ps), lines that mention the package (ActivityManager: start, ANR, death), buffer markers and
-    the continuation lines of a kept multi-line entry (same time, PID, TID, tag)."""
+    the continuation lines of a kept multi-line entry (same time, PID, TID, tag). Noise tags (V/D/I) are dropped
+    and counted."""
 
-    def __init__(self, pkg, pids=()):
+    def __init__(self, pkg, pids=(), noise=NOISE_TAGS):
         self.pkg, self.pids, self.last = pkg, set(map(str, pids)), None
+        self.noise = [t for t in (noise or ()) if t]
+        self.dropped = 0
 
     def add_pids(self, pids):
         self.pids.update(map(str, pids))
+
+    def is_noise(self, key):
+        if not self.noise or not key or key[3] not in "VDI":
+            return False
+        tag = key[4].strip()
+        return any(tag == t or (t.endswith("*") and tag.startswith(t[:-1])) for t in self.noise)
 
     def keep(self, line):
         if line.startswith("--------- beginning of"):
@@ -1195,9 +1580,38 @@ class AppLogFilter:
         head = LOG_HEAD.match(line)
         key = head.groups() if head else None
         if (key and key[1] in self.pids) or self.pkg in line or (key and key == self.last):
+            if self.is_noise(key):
+                self.dropped += 1
+                return False
             self.last = key or self.last
             return True
         return False
+
+
+def noise_tags(c):
+    if getattr(c.a, "keep_noise", False) or (c.cfg.get("logcat") or {}).get("keep_noise"):
+        return ()
+    return NOISE_TAGS + tuple((c.cfg.get("logcat") or {}).get("noise_tags") or ())
+
+
+def logcat_summary(text, pkg, dropped=None):
+    """Short summary of an app log: lines by level, top tags, distinct errors (numbers folded), crashes and ANR."""
+    from collections import Counter
+    levels, tags, errors = Counter(), Counter(), Counter()
+    for ln in text.splitlines():
+        h = LOG_HEAD.match(ln)
+        if not h:
+            continue
+        lvl, tag = h.group(4), h.group(5).strip()
+        levels[lvl] += 1
+        tags[tag] += 1
+        if lvl in "EF":
+            msg = ln[h.end():].strip()
+            errors[f"{tag}: " + re.sub(r"\b0x[0-9a-f]+\b|\b\d+\b", "N", msg)[:160]] += 1
+    crashes = parse_crashes(text, pkg) if pkg else []
+    return {"lines": sum(levels.values()), "by_level": dict(levels), "top_tags": tags.most_common(10),
+            "errors": [{"count": n, "message": mask(m)} for m, n in errors.most_common(15)],
+            "crashes": [{k: v for k, v in x.items() if k != "excerpt"} for x in crashes], "noise_dropped": dropped}
 
 
 def cmd_logcat_follow(c):
@@ -1205,21 +1619,33 @@ def cmd_logcat_follow(c):
     import signal
     import subprocess
     import threading
-    flt = AppLogFilter(c.a.package, app_pids(c.adb, c.a.package))
+    flt = AppLogFilter(c.a.package, app_pids(c.adb, c.a.package), () if c.a.keep_noise else
+                       NOISE_TAGS + tuple(t for t in (c.a.noise or "").split(",") if t))
     stop = threading.Event()
+    stats = Path(c.a.stats) if getattr(c.a, "stats", None) else None
 
     def poll():
         while not stop.wait(5):
             try:
                 flt.add_pids(app_pids(c.adb, c.a.package))
+                if stats:
+                    stats.write_text(json.dumps({"noise_dropped": flt.dropped}), encoding="utf-8")
             except Exception:  # noqa: BLE001 — the device may be busy; next round
                 continue
 
     proc = subprocess.Popen([su.tool_path("adb"), "-s", c.serial, "logcat", "-v", "threadtime", "-b", "main,system,crash"],
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
 
+    def save_stats():
+        if stats:
+            try:
+                stats.write_text(json.dumps({"noise_dropped": flt.dropped}), encoding="utf-8")
+            except OSError:
+                pass
+
     def finish(*_):
         stop.set()
+        save_stats()
         try:
             proc.terminate()
         except OSError:
@@ -1238,6 +1664,7 @@ def cmd_logcat_follow(c):
                 out.flush()
     finally:
         stop.set()
+        save_stats()
         if proc.poll() is None:
             proc.terminate()
 
@@ -1251,8 +1678,14 @@ def cmd_logcat(c):
         if pidfile.exists() and su.pid_alive(int(pidfile.read_text().split()[0] or 0)):
             emit({"ok": True, "already_running": True, "file": str(out)})
             return
+        stats = pidfile.with_suffix(".stats")
         if pkg:  # default: only the app under test (PIDs follow process restarts); --all — the whole device log
-            cmd = [sys.executable, str(Path(__file__).resolve()), "logcat-follow", "--serial", c.serial, "--package", pkg]
+            cmd = [sys.executable, str(Path(__file__).resolve()), "logcat-follow", "--serial", c.serial, "--package", pkg,
+                   "--stats", str(stats)]
+            if not noise_tags(c):
+                cmd.append("--keep-noise")
+            else:
+                cmd += ["--noise", ",".join((c.cfg.get("logcat") or {}).get("noise_tags") or [])]
         else:
             cmd = [su.tool_path("adb"), "-s", c.serial, "logcat", "-v", "threadtime", "-b", "main,system,crash"]
         proc = su.popen_detached(cmd, out)
@@ -1269,9 +1702,26 @@ def cmd_logcat(c):
         su.kill_pid(int(pid))
         pidfile.unlink()
         p = Path(path.strip())
+        text = ""
         if p.exists():
-            p.write_text(mask(p.read_text(encoding="utf-8", errors="replace")), encoding="utf-8")
-        emit({"ok": True, "file": str(p), "masked": True})
+            text = mask(p.read_text(encoding="utf-8", errors="replace"))
+            p.write_text(text, encoding="utf-8")
+        stats_file = pidfile.with_suffix(".stats")
+        dropped = None
+        time.sleep(0.3)
+        if stats_file.exists():
+            try:
+                dropped = json.loads(stats_file.read_text(encoding="utf-8")).get("noise_dropped")
+            except ValueError:
+                pass
+            stats_file.unlink()
+        res = {"ok": True, "file": str(p), "masked": True, "noise_dropped": dropped}
+        if c.a.summary:
+            s = logcat_summary(text, pkg, dropped)
+            sp = p.with_name(p.stem + ".summary.json")
+            sp.write_text(json.dumps(s, ensure_ascii=False, indent=1), encoding="utf-8")
+            res.update({"summary": s, "summary_file": str(sp)})
+        emit(res)
     elif act == "clear":
         c.run("logcat", "-c")
         emit({"ok": True, "cleared": True})
@@ -1279,14 +1729,19 @@ def cmd_logcat(c):
         args = ["logcat", "-d", "-v", "threadtime", "-b", "main,system,crash"] + (["-t", str(c.a.lines)] if c.a.lines else [])
         code, out, err = c.adb.cmd(*args, timeout=90)
         total = out.count("\n")
+        dropped = None
         if pkg:
-            flt = AppLogFilter(pkg, app_pids(c.adb, pkg))
+            flt = AppLogFilter(pkg, app_pids(c.adb, pkg), noise_tags(c))
             flt.add_pids(pid for pid, v in process_map(out.splitlines()).items() if belongs(v["name"], pkg))
             out = "".join(ln for ln in out.splitlines(keepends=True) if flt.keep(ln))
+            dropped = flt.dropped
         p = logcat_file(c, c.a.out or (f"{c.run_dir}/logs/logcat-dump-{ts()}.txt" if c.run_dir else f"logcat-dump-{ts()}.txt"))
         p.write_text(mask(out), encoding="utf-8")
-        emit({"ok": code == 0, "file": str(p), "lines": out.count("\n"), "lines_total": total, "filtered": bool(pkg),
-              "package": pkg, "masked": True})
+        res = {"ok": code == 0, "file": str(p), "lines": out.count("\n"), "lines_total": total, "filtered": bool(pkg),
+               "package": pkg, "masked": True, "noise_dropped": dropped}
+        if c.a.summary:
+            res["summary"] = logcat_summary(mask(out), pkg, dropped)
+        emit(res)
 
 
 def same_pid_block(lines, i, limit=40):
@@ -1471,13 +1926,29 @@ def parse_meminfo(text):
     return res
 
 
+def host_load():
+    """Load of the host during a measurement: 1-minute load average (not on Windows), CPUs, running emulators.
+    Performance numbers taken next to other emulators are marked in the report (parallelism.md)."""
+    res = {"cpus": os.cpu_count()}
+    try:
+        res["load1"] = round(os.getloadavg()[0], 2)
+    except (AttributeError, OSError):
+        res["load1"] = None
+    try:
+        _, devs, _ = su.Adb().devices()
+        res["emulators_running"] = sum(1 for d in devs if d["serial"].startswith("emulator-") and d["state"] == "device")
+    except (OSError, SystemExit):
+        res["emulators_running"] = None
+    return res
+
+
 def save_metric(c, metric, data):
     if c.run_dir:
         p = c.run_dir / "raw" / "metrics.jsonl"
         p.parent.mkdir(parents=True, exist_ok=True)
         with open(p, "a", encoding="utf-8") as f:
             f.write(json.dumps({"metric": metric, "serial": c.serial, "time": datetime.now().isoformat(timespec="seconds"),
-                                **data}, ensure_ascii=False) + "\n")
+                                **data, "host": host_load()}, ensure_ascii=False) + "\n")
 
 
 def cmd_meminfo(c):
@@ -1589,6 +2060,177 @@ def cmd_monkey(c):
     emit(res)
 
 
+# ---------- files, file picker, keyboard, microphone, long runs ----------
+
+MEDIA_FOLDERS = ("Download", "Music", "Movies", "Pictures", "DCIM", "Documents", "Recordings", "Podcasts")
+PICKERS = {"com.android.documentsui", "com.google.android.documentsui"}
+FOLDER_NAMES = {"download": ["Downloads", "Download", "Загрузки", "Скачанные файлы", "Загруженные"],
+                "music": ["Music", "Музыка", "Audio", "Аудио"], "documents": ["Documents", "Документы"],
+                "recordings": ["Recordings", "Записи"], "movies": ["Movies", "Видео", "Фильмы"],
+                "pictures": ["Pictures", "Изображения"], "dcim": ["DCIM", "Camera", "Камера"]}
+ROOTS_DESC = ("show roots", "показать корневые папки", "open navigation drawer", "открыть панель навигации",
+              "меню навигации", "navigate up")
+CONFIRM_TEXTS = ("выбрать", "select", "открыть", "open", "готово", "done", "ok", "ок")
+
+
+def push_media(c, path, folder="Download", name=None):
+    """Put a test file on the device as /sdcard/<folder>/qa-<name> and ask the media scanner to index it."""
+    path = Path(path)
+    if folder not in MEDIA_FOLDERS:
+        fail(f"--folder из {', '.join(MEDIA_FOLDERS)}", 2)
+    base = re.sub(r"[^\w.-]+", "-", name or path.name).strip("-") or "file"
+    base = base if base.startswith("qa-") else "qa-" + base
+    dest = f"/sdcard/{folder}/{base}"
+    code, out, err = c.adb_cmd("push", str(path), dest, timeout=600)
+    if code != 0:
+        fail(f"adb push: {(out + err).strip()[:200]}", 5)
+    c.run("am", "broadcast", "-a", "android.intent.action.MEDIA_SCANNER_SCAN_FILE", "-d", "file://" + dest)
+    return {"device_path": dest, "name": base, "folder": folder, "bytes": path.stat().st_size,
+            "remove": f"push-media --remove {base} --folder {folder}"}
+
+
+def cmd_push_media(c):
+    a = c.a
+    if a.remove:
+        name = a.remove if a.remove.startswith("qa-") else "qa-" + a.remove
+        code, out, err = c.run("rm", "-f", f"/sdcard/{a.folder}/{name}")
+        emit({"ok": code == 0, "removed": f"/sdcard/{a.folder}/{name}"})
+        return
+    if not a.file or not Path(a.file).is_file():
+        fail(f"нет файла {a.file}", 2)
+    emit({"ok": True, **push_media(c, a.file, a.folder, a.name),
+          "next": "в приложении открыть импорт (системный выбор файла), затем import-file --name <name>"})
+
+
+def picker_nodes(c, tries=2):
+    xml, err = try_dump(c, tries)
+    if xml is None:
+        return []
+    save_ui_cache(c, xml)
+    return parse_ui(xml)
+
+
+def tap_node(c, node, nodes, steps, why):
+    guard_node(c, node, nodes, "tap")
+    c.run("input", "tap", *node["center"])
+    c.pause()
+    steps.append(why)
+
+
+def file_node(nodes, name):
+    want = name.strip().lower()
+    stem = Path(want).stem
+    hits = [n for n in nodes if n["text"].strip().lower() == want] or \
+        [n for n in nodes if n["text"].strip().lower().startswith(stem) and len(stem) >= 4]
+    return hits[0] if hits else None
+
+
+def cmd_import_file(c):
+    """Choose a file in the system file picker (Documents UI) that the app has already opened: root folder, file by
+    name with scrolling and retries, a «Выбрать/Select» button in multi-select mode. Every tap goes through guard:
+    the picker is a «system app — ask» package, so one --confirmed covers this whole call; rules.preapproved_packages
+    removes the question for the run."""
+    a = c.a
+    focus = current_focus(c)
+    if focus.get("package") not in PICKERS:
+        fail(f"системный выбор файла не открыт (на экране {focus.get('package')}): открыть импорт в приложении, затем "
+             "import-file", 4)
+    steps, retries = [], max(1, a.retries)
+    if a.folder:
+        names = [x.lower() for x in FOLDER_NAMES.get(a.folder.lower(), [a.folder])]
+        for _ in range(retries):
+            nodes = picker_nodes(c)
+            if file_node(nodes, a.name):
+                break
+            hit = next((n for n in nodes if n["text"].strip().lower() in names), None)
+            if hit:
+                tap_node(c, hit, nodes, steps, f"папка «{hit['text']}»")
+                nap(1.2)
+                break
+            roots = next((n for n in nodes if n["desc"].strip().lower() in ROOTS_DESC), None)
+            if roots:
+                tap_node(c, roots, nodes, steps, "список папок")
+            nap(1.0)
+    found, scrolled_sig = None, None
+    for i in range(retries + max(0, a.scroll)):
+        nodes = picker_nodes(c)
+        found = file_node(nodes, a.name)
+        if found:
+            tap_node(c, found, nodes, steps, f"файл «{found['text']}»")
+            break
+        sig = tree_signature(nodes) if nodes else None
+        if scrolled_sig is not None and sig == scrolled_sig:
+            break  # scrolled and nothing changed: the end of the list
+        lists = sorted((n for n in nodes if n["scrollable"]), key=lambda n: -(n["w"] * n["h"]))
+        if i >= retries - 1 and lists:   # the first retries wait for the list to settle, then scroll
+            scrolled_sig = sig
+            scroll_once(c, "down", lists[0]["bounds"])
+            steps.append("прокрутка списка")
+        nap(1.0)
+    if not found:
+        visible = [n["text"] for n in picker_nodes(c, 1) if n["text"]][:15]
+        emit({"ok": False, "file": a.name, "steps": steps, "visible": [mask(x) for x in visible]})
+        fail(f"файл «{a.name}» не найден в выборе файла (push-media положил его в /sdcard/{a.folder or 'Download'}/?)", 4)
+    nap(1.5)
+    focus = current_focus(c)
+    if focus.get("package") in PICKERS:
+        nodes = picker_nodes(c)
+        btn = next((n for n in nodes if n["interactive"] and n["text"].strip().lower() in CONFIRM_TEXTS), None)
+        if btn:
+            tap_node(c, btn, nodes, steps, f"кнопка «{btn['text']}»")
+            nap(1.0)
+            focus = current_focus(c)
+    ok = focus.get("package") not in PICKERS
+    emit({"ok": ok, "file": a.name, "steps": steps, "focus": focus,
+          "note": "" if ok else "выбор файла ещё открыт — посмотреть screenshot"})
+    sys.exit(0 if ok else 5)
+
+
+def cmd_ime(c):
+    a = c.a
+    _, lst, _ = c.adb.shell("ime", "list", "-a", "-s", timeout=10)
+    _, cur, _ = c.adb.shell("settings", "get", "secure", "default_input_method", timeout=10)
+    installed = ADB_IME in lst
+    if a.action == "status":
+        emit({"adbkeyboard_installed": installed, "current": cur.strip(), "stand": c.stand(),
+              "hint": "" if installed else "кириллица: text --clipboard (эмулятор с --mic-inject) или "
+                                           "ime install-adbkeyboard --apk <ADBKeyboard.apk> (скачивает пользователь, с согласия)"})
+        return
+    if c.stand() != "own-emulator":
+        fail("ADBKeyBoard ставится только на эмулятор скила (qa-*)", 4)
+    if not a.apk or not Path(a.apk).is_file():
+        fail("нужен --apk <путь к ADBKeyboard.apk>: скил его не скачивает — файл даёт пользователь", 2)
+    pkg = apk_package(Path(a.apk))
+    if pkg and pkg != "com.android.adbkeyboard":
+        c.gate(guard.result(guard.DENY, "adb", {"install": a.apk, "package": pkg},
+                            f"это не ADBKeyBoard ({pkg})", "base:install-other"))
+    c.gate(guard.result(guard.CONFIRM, "adb", {"install": a.apk, "package": "com.android.adbkeyboard"},
+                        "установка стороннего приложения ADBKeyBoard на свой эмулятор — спросить пользователя",
+                        "base:install-ime"))
+    code, out, err = c.adb_cmd("install", "-r", a.apk, timeout=300)
+    ok = code == 0 and "Success" in out + err
+    if ok:
+        c.run("ime", "enable", ADB_IME)
+    emit({"ok": ok, "installed": ok, "output": (out + err).strip()[-200:],
+          "next": "text \"…\" --adbkeyboard (клавиатура переключается на время ввода и возвращается)"})
+    sys.exit(0 if ok else 5)
+
+
+def cmd_mic(c):
+    import mic
+    (mic.cmd_mic_status if c.a.cmd == "mic-status" else mic.cmd_mic_inject)(c, sys.modules[__name__])
+
+
+def cmd_soak(c):
+    import soak
+    soak.run(c, sys.modules[__name__])
+
+
+def cmd_job(c):
+    import soak
+    soak.job(c, sys.modules[__name__])
+
+
 # ---------- CLI ----------
 
 def main():
@@ -1597,6 +2239,7 @@ def main():
     common.add_argument("--run-dir")
     common.add_argument("--config")
     common.add_argument("--confirmed", action="store_true", help="пользователь подтвердил это действие (только confirm)")
+    common.add_argument("--journal-done", help="после успешного выполнения отметить пункт журнала (journal.py done)")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
 
@@ -1620,6 +2263,7 @@ def main():
     p = add("launch", cmd_launch, "pkg")
     p.add_argument("--activity")
     p.add_argument("--cold", action="store_true")
+    p.add_argument("--wait-focus", type=float, default=5, help="ждать фокуса окна приложения до N с (0 — не ждать)")
     p = add("start-time", cmd_start_time, "pkg")
     p.add_argument("--activity")
     p.add_argument("--mode", default="cold", choices=["cold", "warm", "hot"])
@@ -1635,16 +2279,29 @@ def main():
     p = add("dump-ui", cmd_dump_ui)
     p.add_argument("--out")
     p.add_argument("--json", dest="json_out")
+    p.add_argument("--texts", action="store_true", help="все тексты целиком с границами (box для --mark)")
+    p.add_argument("--grep", help="только узлы, где text/desc/id совпадает с регэкспом")
+    p.add_argument("--retry", type=int, default=3, help="попыток uiautomator dump (экран анимируется)")
+    p.add_argument("--ignore-animations", action="store_true",
+                   help="на время дампа масштаб анимаций 0 (изменение настроек — через guard), затем вернуть")
     for name, fn in (("find", cmd_find), ("tap", cmd_tap), ("long-press", cmd_long_press)):
         p = add(name, fn)
         if name != "find":
             p.add_argument("x", nargs="?", type=int)
             p.add_argument("y", nargs="?", type=int)
+            p.add_argument("--no-ui", action="store_true",
+                           help="X Y без дерева элементов: guard по пакету и экрану (+ последний снимок дерева), скриншот до")
+            p.add_argument("--expect-text", help="после нажатия на экране должен появиться этот текст")
+            p.add_argument("--expect-gone", help="после нажатия этот текст должен пропасть")
+            p.add_argument("--expect-change", action="store_true", help="после нажатия экран должен измениться")
+            p.add_argument("--wait", type=float, default=5, help="сколько ждать ожидаемого, с")
         p.add_argument("--text")
         p.add_argument("--id")
         p.add_argument("--desc")
-        p.add_argument("--index", type=int, default=0)
+        p.add_argument("--index", type=int, help="номер среди найденных (без него несколько равных — ambiguous, код 2)")
         p.add_argument("--exact", action="store_true")
+        p.add_argument("--retry", type=int, default=3)
+        p.add_argument("--ignore-animations", action="store_true")
         if name == "long-press":
             p.add_argument("--ms", type=int, default=800)
     p = add("swipe", cmd_swipe)
@@ -1660,8 +2317,14 @@ def main():
     g = p.add_mutually_exclusive_group()
     g.add_argument("--translit", action="store_true", help="не-ASCII → латиница (помечается в выводе)")
     g.add_argument("--adbkeyboard", action="store_true", help="не-ASCII через ADBKeyBoard (только эмулятор скила)")
+    g.add_argument("--clipboard", action="store_true",
+                   help="не-ASCII через буфер обмена эмулятора (gRPC, эмулятор с --mic-inject; не для секретов)")
     add("key", cmd_key).add_argument("name")
-    add("screenshot", cmd_screenshot).add_argument("out", nargs="?")
+    p = add("screenshot", cmd_screenshot)
+    p.add_argument("out", nargs="?")
+    p.add_argument("--mark", action="append", default=[],
+                   help="'x,y,w,h|подпись|error' или 'text=…|подпись|question' — аннотированная копия (annotate_android.py)")
+    p.add_argument("--retry", type=int, default=3)
     p = add("screenrecord", cmd_screenrecord)
     p.add_argument("out", nargs="?")
     p.add_argument("--seconds", type=int, default=20)
@@ -1698,7 +2361,13 @@ def main():
     p.add_argument("--package", help="пакет для фильтра (по умолчанию app.package из run-config)")
     p.add_argument("--all", action="store_true", help="весь журнал устройства, без фильтра по приложению")
     p.add_argument("--lines", type=int)
-    add("logcat-follow", cmd_logcat_follow).add_argument("--package", required=True)  # internal: started by logcat start
+    p.add_argument("--keep-noise", action="store_true", help="не отбрасывать шумовые теги эмулятора (EGL_emulation…)")
+    p.add_argument("--summary", action="store_true", help="stop/dump: сводка — уровни, теги, ошибки, падения")
+    p = add("logcat-follow", cmd_logcat_follow)  # internal: started by logcat start
+    p.add_argument("--package", required=True)
+    p.add_argument("--stats")
+    p.add_argument("--noise", default="")
+    p.add_argument("--keep-noise", action="store_true")
     add("crashes", cmd_crashes, "pkg")
     add("meminfo", cmd_meminfo, "pkg")
     add("gfxinfo", cmd_gfxinfo, "pkg").add_argument("--reset", action="store_true")
@@ -1708,13 +2377,93 @@ def main():
     p.add_argument("--events", default="500")
     p.add_argument("--seed", default="42")
     p.add_argument("--throttle", default="300")
-    a = ap.parse_args()
+    p = add("push-media", cmd_push_media)
+    p.add_argument("file", nargs="?")
+    p.add_argument("--folder", default="Download", choices=list(MEDIA_FOLDERS))
+    p.add_argument("--name", help="имя на устройстве (будет qa-<имя>)")
+    p.add_argument("--remove", help="удалить свой файл qa-<имя> с устройства")
+    p = add("import-file", cmd_import_file)
+    p.add_argument("--name", required=True, help="имя файла в выборе файла (например qa-speech.wav)")
+    p.add_argument("--folder", help="корневая папка: Download, Music, Documents… (по-русски тоже)")
+    p.add_argument("--retries", type=int, default=4)
+    p.add_argument("--scroll", type=int, default=6, help="сколько раз прокручивать список в поисках файла")
+    p = add("ime", cmd_ime)
+    p.add_argument("action", choices=["status", "install-adbkeyboard"])
+    p.add_argument("--apk", help="ADBKeyboard.apk (файл даёт пользователь)")
+    add("mic-status", cmd_mic)
+    p = add("mic-inject", cmd_mic)
+    p.add_argument("--wav", required=True, help="WAV PCM 8/16 бит, моно/стерео, 8–48 кГц")
+    p.add_argument("--via", default="auto", choices=["auto", "grpc", "loopback", "file"])
+    p.add_argument("--loop", type=int, default=1, help="повторов файла (0 — без конца, до --duration или job stop)")
+    p.add_argument("--at-sec", type=float, default=0.0, help="начать с N-й секунды файла")
+    p.add_argument("--duration", type=float, help="не дольше N секунд")
+    p.add_argument("--realtime", action="store_true", help="MODE_REAL_TIME (экспериментально у эмулятора)")
+    p.add_argument("--folder", default="Download", choices=list(MEDIA_FOLDERS), help="путь file: папка на устройстве")
+    p.add_argument("--name", help="путь file: имя на устройстве")
+    p = add("soak", cmd_soak, "pkg")
+    p.add_argument("--minutes", type=float, required=True)
+    p.add_argument("--every", type=float, default=60, help="снимать метрики каждые N секунд")
+    p.add_argument("--metrics", default="meminfo,df,focus", help="meminfo,df,focus,service,battery,thermal")
+    p.add_argument("--service", help="сервис приложения, который должен работать весь прогон (часть имени класса)")
+    p.add_argument("--screenshots", type=float, default=10, help="скриншот каждые N минут (0 — нет)")
+    p.add_argument("--tag", default="soak")
+    for pre in ("start", "stop"):
+        for kind in ("text", "desc", "id", "xy"):
+            p.add_argument(f"--{pre}-{kind}", help=f"действие {pre}: нажать по {kind}" + (" ('X,Y')" if kind == "xy" else ""))
+        p.add_argument(f"--{pre}-no-ui", action="store_true", help=f"{pre}: нажатие без дерева (по --{pre}-xy)")
+    p.add_argument("--expect-text", help="предусловие: этот текст на экране после старта")
+    p.add_argument("--expect-timeout", type=float, default=15)
+    p.add_argument("--screen-off-at", type=float, help="выключить экран на N-й минуте")
+    p.add_argument("--screen-on-at", type=float, help="включить экран на N-й минуте")
+    p.add_argument("--continue-on-loss", action="store_true", help="не останавливаться, если сервис пропал / процесс умер")
+    p.add_argument("--final-wait", type=float, default=5, help="ждать после стоп-действия, с")
+    p.add_argument("--expect-final-text", help="после стопа на экране должен быть этот текст")
+    p.add_argument("--expect-duration", action="store_true", help="после стопа на экране есть длительность ≈ --minutes (м:сс)")
+    p.add_argument("--expect-minutes", type=float, help="ожидаемая длительность итога, если не равна --minutes")
+    p.add_argument("--result-file", help="файл итога на устройстве (общая папка, можно * ?): длительность ≈ --minutes")
+    p.add_argument("--tolerance", type=float, default=0.05, help="допуск длительности (доля, не меньше 30 с)")
+    p = add("job", cmd_job)
+    p.add_argument("action", choices=["start", "status", "list", "stop", "log"])
+    p.add_argument("id", nargs="?")
+    p.add_argument("--name")
+    p.add_argument("--lines", type=int, default=40)
+    p.epilog = "job start [--name N] --serial S --run-dir R -- <подкоманда adb_helpers.py и её аргументы>"
+    p = sub.add_parser("job-run")  # internal: started by job start
+    p.add_argument("--job-file", required=True)
+    argv, job_cmd = sys.argv[1:], []
+    if argv[:1] == ["job"] and "--" in argv:  # everything after «--» is the job's own command line
+        k = argv.index("--")
+        argv, job_cmd = argv[:k], argv[k + 1:]
+    a = ap.parse_args(argv)
+    a.cmdline = job_cmd
+    if a.cmd == "job-run":
+        import soak
+        soak.job_run(a.job_file)
+        return
     if not su.tool_path("adb"):
         fail("adb не найден: установите platform-tools (INSTALL.md) или задайте ANDROID_HOME", 127)
     for attr in ("x", "y", "text", "id", "desc"):
         if not hasattr(a, attr):
             setattr(a, attr, None)
-    a.fn(Ctx(a))
+    c = Ctx(a)
+    try:
+        a.fn(c)
+    except SystemExit as ex:
+        if ex.code not in (0, None):
+            raise
+        journal_done(c)
+        raise
+    journal_done(c)
+
+
+def journal_done(c):
+    """--journal-done «пункт»: mark the journal item after a successful command (journal.md must exist)."""
+    item = getattr(c.a, "journal_done", None)
+    if not item or not c.run_dir or not (c.run_dir / "journal.md").exists():
+        return
+    import subprocess
+    subprocess.run([sys.executable, str(HERE / "journal.py"), "done", str(c.run_dir), item],
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 if __name__ == "__main__":
