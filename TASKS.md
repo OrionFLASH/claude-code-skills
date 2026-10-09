@@ -167,12 +167,20 @@
 ## 2026-10-09 (2) доработки по отзывам реальных прогонов (android 1.2.0, site 1.4.0, triage 2.3.0)
 Источники: slyshno-android-qa-audit/SKILL-FEEDBACK.md, SKILLS-FEEDBACK.md; SPOD_PROM/Docs/FEEDBACK_SKILLS_QA_TRIAGE.md. Issues #13–#30. Решения владельца: mic-inject — все три пути; заметка triage — новый формат и реже; disclosure — опция, по умолчанию выкл; объём — P0 и P1, P2 по мере сил.
 - [x] Прочитать отзывы, завести issues #13–#30
-- [ ] Агент C: android-qa-audit 1.2.0 (#13–#21)
-- [ ] Агент D: site-qa-audit 1.4.0 (#22–#26)
-- [ ] Агент E: typesafe-triage 2.3.0 (#27–#30)
-- [ ] Проверка мной: validate, unit.sh ×2, pytest; живые проверки по возможности
-- [ ] Слияние в main, sync, корневой CHANGELOG, INSTALL, push, теги
-- [ ] Удаление влитых веток и worktree
-- [ ] Обновление плагинов через маркетплейс, npm install, claude plugin list
-- [ ] Закрытие issues #13–#30 с комментариями (невыполненные остаются открытыми)
-- [ ] «Где остановился»
+- [x] Агент C: android-qa-audit 1.2.0 (#13–#21)
+- [x] Агент D: site-qa-audit 1.4.0 (#22–#26)
+- [x] Агент E: typesafe-triage 2.3.0 (#27–#30)
+- [x] Проверка мной: validate, unit.sh ×2, pytest; живые проверки по возможности
+- [x] Слияние в main, sync, корневой CHANGELOG, INSTALL, push, теги
+- [x] Удаление влитых веток и worktree
+- [x] Обновление плагинов через маркетплейс, npm install, claude plugin list
+- [x] Закрытие issues #13–#30 с комментариями (невыполненные остаются открытыми)
+- [x] «Где остановился»
+
+### Где остановился
+2026-10-09, round 2: android-qa-audit 1.2.0, site-qa-audit 1.4.0, typesafe-triage 2.3.0 влиты в main и запушены (fa2ac44), теги поставлены.
+- Сделано: issues #13–#25 и #27–#30 закрыты с комментариями; #26 открыт (автозагрузка скриншотов без права push); новые открытые: #31 (живая проверка android 1.2.0), #32 (отложенное android), #33 (triage), #34 (site).
+- Проверки: validate 0 ошибок; site unit.sh PASS 68; android unit.sh PASS 222; pytest typesafe-triage 334; живо: file:// (allow/deny/`..`), targets.js на file://.
+- Не проверено вживую: gRPC mic-inject на эмуляторе, настоящий GitHub (формы, вложения), видимое окно браузера, хук 2.3.0 в настоящей сессии.
+- Вне репозитория, ждёт решения владельца: `--set-agent-effort yes` (запись в ~/.claude/typesafe-triage/config.json), обновление раздела про триаж в ~/.claude/CLAUDE.md по шаблону INSTALL typesafe-triage (шаг 5), сломанный github-issue-structuring (#11).
+- Следующий шаг: новая сессия → проверить заметку «ДЕЙСТВИЕ:» и `--check`; `npm install` в папках новых версий; #31.
