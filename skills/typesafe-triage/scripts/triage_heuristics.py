@@ -107,7 +107,7 @@ SELF_REQ_RE = re.compile(
     r"\bбез\s+(?:суб-?)?агент\w*|\bне\s+(?:\w+\s+)?(?:делегируй|делегировать|используй\s+(?:суб-?)?агент\w*|запускай\s+(?:суб-?)?агент\w*"
     r"|отдавай\s+(?:суб-?)?агент\w*)|\b(?:сделай|выполни|проверь|разберись|почини|поправь|напиши)\s+(?:это\s+)?сам\b"
     r"|\bсам(?:а)?\s+(?:сделай|выполни|проверь|разберись|почини|поправь|напиши)\b|\bdo\s+it\s+yourself\b|\byourself,?\s+(?:not|without)\b"
-    r"|\bwithout\s+(?:a\s+|any\s+)?sub-?agents?\b|\bdon'?t\s+(?:use|spawn|delegate)\b|\bno\s+sub-?agents?\b", FLAGS_RE)
+    r"|\bwithout\s+(?:a\s+|any\s+)?sub-?agents?\b|\bdon'?t\s+(?:(?:use|spawn)\s+(?:an?\s+|any\s+|the\s+)?(?:sub-?)?agents?|delegate)\b|\bno\s+sub-?agents?\b", FLAGS_RE)
 # Долгое ожидание (минуты-часы): выгоднее фоновый скрипт и проверка его состояния, а не LLM-исполнитель, который ждёт
 WAIT_STRONG_RE = re.compile(
     r"\bвсю\s+ночь\b|\bсутк\w*|\bsoak\b|\bovernight\b|\bдлительн\w*\s+(?:тест|прогон|запис|сценари|нагрузк|ожидан)"
