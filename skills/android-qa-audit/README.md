@@ -8,6 +8,8 @@ QA-тестирование Android-приложения — по APK, split APK
 
 **Запуск.** Командой `/android-qa-audit`, названием скила в просьбе («используя скилл Android qa audit…») или обычной просьбой протестировать или проверить приложение, APK, Android-приложение, найти баги, проверить на разных версиях Android или на слабом телефоне, в том числе с путём к `.apk`. Если скил подхвачен по смыслу (не назван), он сначала спрашивает: «Похоже, вы хотите протестировать Android-приложение <что понял>. Запустить?» — при «Нет, это другое» ничего не создаёт. На разработку приложения, написание тестов Espresso/Appium и сайты (для них — `site-qa-audit`) не срабатывает. Исследовательский прогон, когда задача уже описана, — **лёгкий режим**: один вопрос «только неясное», затем сразу работа (`references/intake.md`).
 
+**Что нового в 1.3.0:** график PSS картинкой (SVG) и спарклайн в разделе «Длинные сценарии» отчёта; контактный лист скриншотов (`annotate_android.py sheet` — 8 снимков на картинку, HTML-лист рядом); `job stop` на Windows дожидается сводки soak (запрос остановки файлом, `--grace`); честное описание пути loopback на Windows. Подробно — [CHANGELOG.md](CHANGELOG.md).
+
 **Что нового в 1.2.0** (по отзыву реального прогона голосового приложения): звук в микрофон эмулятора (`mic-inject`: gRPC с токеном, loopback, файл), долгие сценарии с проверкой предусловий и фоновые задачи (`soak`, `job`), нажатия на экранах с бесконечной анимацией (`tap X Y --no-ui`), полные тексты экрана (`dump-ui --texts`), неоднозначные совпадения и проверка результата нажатия, уведомления с прогрессом, аннотированные скриншоты (`screenshot --mark`, `finding.py add`), публикация по их формам issue со скриншотами веткой и документами «уже известно», `disclosure: tool|none`, выбор файла в системном пикере (`import-file`), кириллица через буфер обмена, обёртка `qa` для zsh, переиспользование своих AVD в матрице.
 
 ## Что проверяется
@@ -98,6 +100,10 @@ python3 $S/finding.py add $R --title "…" --severity medium --direction visual-
 python3 $S/issue_forms.py fetch --repo owner/repo --out $R/raw/forms/owner__repo     # их формы issue (только чтение)
 python3 $S/render_draft.py all $R/findings.json --run-dir $R --repo owner/repo --form auto --human-steps
 python3 $S/attachments.py push $R --repo owner/repo --branch qa-screens --dir qa/run1 --yes    # скриншоты веткой — до issues
+# 1.3.0: график PSS, контактный лист, job stop на Windows
+python3 $S/build_report.py report $R                                      # + charts/soak-*-pss.svg под «Длинными сценариями»
+python3 $S/annotate_android.py sheet --soak $R/raw/soak-rec30-emulator-5556.json --out $R/screenshots/rec30-sheet.png   # 8 снимков на лист
+python3 $S/adb_helpers.py job stop rec30 --grace 180 --run-dir $R          # Windows: ждёт сводку soak до 180 с
 ```
 Короткая форма для zsh и bash — обёртка `qa`: `export QA_RUN_DIR=<RUN_DIR>` и `<SKILL_DIR>/scripts/qa emulator-5554 tap --text "Далее"` (Windows — `qa.ps1`).
 
@@ -118,14 +124,14 @@ python3 $S/attachments.py push $R --repo owner/repo --branch qa-screens --dir qa
 | bundletool | AAB → APK |
 | gh + вход | сверка с issues и (после «да») публикация |
 | scrcpy, Maestro, Appium (uiautomator2) | показ экрана, повторяемые сценарии — необязательные усилители |
-| Node.js 18+ и Playwright в `scripts/node` (`npm install` локально) | аннотированные скриншоты (`annotate.js` — вендорная копия из site-qa-audit) |
-| виртуальное аудиоустройство (BlackHole / Loopback / snd-aloop / VB-Cable) | только для пути loopback подачи звука; скил его не ставит, только проверяет |
+| Node.js 18+ и Playwright в `scripts/node` (`npm install` локально) | аннотированные скриншоты (`annotate.js` — вендорная копия из site-qa-audit) и PNG контактного листа (`sheet.js`); без них — HTML-лист |
+| виртуальное аудиоустройство (BlackHole / Loopback / snd-aloop / VB-Cable) | только для пути loopback подачи звука (macOS, Linux; на Windows — только вручную); скил его не ставит, только проверяет |
 | Скилы ui-ux-pro-max, laws-of-ux, ux-heuristics, ux-audit, ux-design-principles, qa-skills (resilience-audit, adversarial-audit — только пассивно) | методики для направлений, `references/plugins-map.md` |
 
 ## Ограничения
 - Только то, что видно через интерфейс и adb: причина дефекта — гипотеза, код не анализируется.
 - Кириллица и emoji через `adb input text` не вводятся: `text … --clipboard` (буфер обмена эмулятора по gRPC, эмулятор с `--mic-inject`; не для секретов), `text … --adbkeyboard` (ADBKeyBoard на эмуляторе скила: `ime install-adbkeyboard --apk …` с согласия пользователя, APK даёт пользователь), `text … --translit` (латиницей, с пометкой) или вручную в окне эмулятора.
-- Звук в микрофон: путь gRPC — только свой эмулятор, запущенный с `--mic-inject`, файл WAV PCM; loopback — только если пользователь сам поставил и выбрал виртуальное устройство; иначе — импорт файла (живой микрофон тогда не проверяется). Клиент gRPC проверен только на поддельном сервере — живой прогон с эмулятором не выполнялся.
+- Звук в микрофон: путь gRPC — только свой эмулятор, запущенный с `--mic-inject`, файл WAV PCM; loopback — только если пользователь сам поставил и выбрал виртуальное устройство (на Windows автоматически не поддерживается: без сторонних модулей не узнать устройство по умолчанию — `references/audio-input.md`); иначе — импорт файла (живой микрофон тогда не проверяется). Клиент gRPC проверен только на поддельном сервере — живой прогон с эмулятором не выполнялся.
 - Новый скил виден только в новой сессии Claude Code (в текущей — «Unknown skill»); продолжить в той же сессии — прочитать `SKILL.md` и идти по шагам.
 - Экраны без дерева элементов (игры на canvas, видео, `FLAG_SECURE`) проверяются по скриншотам; нажатия по координатам — с оценкой смысла кнопки исполнителем.
 - Язык системы и часовой пояс надёжно меняются только перезапуском эмулятора (`--locale`, `--timezone`); язык приложения через adb — с API 33.
@@ -134,7 +140,7 @@ python3 $S/attachments.py push $R --repo owner/repo --branch qa-screens --dir qa
 - Подпись AAB проверяется только у собранных из него APK (bundletool подписывает отладочным ключом — подпись отличается от магазинной).
 - GitHub не принимает картинки через `gh`: вложения — веткой в репозиторий до создания issues (`attachments.py`, ссылки `blob/…?raw=true`) или ссылками на локальные файлы.
 - Безопасность — только пассивная; это не пентест.
-- Версия 1.0.0 проверена офлайн и первым боевым прогоном на эмуляторе (smoke, API 34); 1.0.1 — исправления по нему, проверены офлайн (фейковые adb и SDK); 1.1.0 (fail closed, находки текстом, перепроверка, прямая публикация, стенды потоков) — только офлайн; 1.2.0 (микрофон, soak и job, экраны без дерева, аннотации, формы issue, вложения веткой) — офлайн на фейковых adb, SDK, gh, node и поддельном сервере gRPC; статус «в разработке».
+- Версия 1.0.0 проверена офлайн и первым боевым прогоном на эмуляторе (smoke, API 34); 1.0.1 — исправления по нему, проверены офлайн (фейковые adb и SDK); 1.1.0 (fail closed, находки текстом, перепроверка, прямая публикация, стенды потоков) — только офлайн; 1.2.0 (микрофон, soak и job, экраны без дерева, аннотации, формы issue, вложения веткой) — офлайн на фейковых adb, SDK, gh, node и поддельном сервере gRPC; 1.3.0 — офлайн, контактный лист и SVG-график дополнительно отрисованы вживую (Chromium через Playwright, просмотр в macOS), `job stop` на Windows не проверялся (поведение Windows проверено режимом `ANDROID_QA_JOB_STOP=file`); статус «в разработке».
 - Правовые утверждения (разрешения, персональные данные, реклама) — только факты и «возможно применимо»; вторая проверка другим исполнителем и юристом обязательна.
 
 ## Структура
@@ -148,7 +154,8 @@ templates/              run-config.example.yaml, finding.schema.json, issue-deta
 scripts/                check_env (.py/.sh/.ps1), apk_info, avd_manager, adb_helpers, guard, masking, matrix, intake,
                         journal, fingerprint, validate_findings, render_draft, build_report, gitignore_helper,
                         export_results, sdkutil, grpc_emu, mic, soak, annotate_android, finding, issue_forms,
-                        known_docs, attachments, qa (+ qa.ps1), node/ (annotate.js — копия из site-qa-audit),
+                        known_docs, attachments, qa (+ qa.ps1), node/ (annotate.js — копия из site-qa-audit, sheet.js),
                         shared/ (вендоренные модули репозитория)
-tests/                  unit.sh + v12.sh, helpers/ (фейковые adb, SDK, gh, node, сервер gRPC; проверка примеров), fixtures/
+tests/                  unit.sh + v12.sh + v13.sh, helpers/ (фейковые adb, SDK, gh, node, сервер gRPC), helpers/shared/
+                        (общие проверки примеров документации — копии shared/tests), fixtures/
 ```

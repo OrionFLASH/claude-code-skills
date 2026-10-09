@@ -668,6 +668,10 @@ check "build_report publish-table: колонка «Перепроверка», 
 # shellcheck source=v12.sh
 . "$HERE/v12.sh"
 
+# ---------- 1.3.0: PSS chart, contact sheet, job stop by the stop file, shared test helpers (tests/v13.sh) ----------
+# shellcheck source=v13.sh
+. "$HERE/v13.sh"
+
 # ---------- documentation: every command example is accepted by argparse (--help only, nothing runs) ----------
 check "примеры команд в SKILL.md, README, INSTALL и references/*.md принимаются скриптами (подкоманды и --опции)" \
   "$PY" "$HERE/helpers/shared/doc_commands.py" "$HERE/.." --python "$PY" --wrapper qa=adb_helpers --nested adb_helpers:job

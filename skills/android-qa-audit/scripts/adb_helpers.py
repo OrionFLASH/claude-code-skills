@@ -2427,6 +2427,8 @@ def main():
     p.add_argument("id", nargs="?")
     p.add_argument("--name")
     p.add_argument("--lines", type=int, default=40)
+    p.add_argument("--grace", type=float, default=120,
+                   help="stop на Windows: сколько секунд ждать, пока soak сам запишет сводку, прежде чем снять процесс")
     p.epilog = "job start [--name N] --serial S --run-dir R -- <подкоманда adb_helpers.py и её аргументы>"
     p = sub.add_parser("job-run")  # internal: started by job start
     p.add_argument("--job-file", required=True)

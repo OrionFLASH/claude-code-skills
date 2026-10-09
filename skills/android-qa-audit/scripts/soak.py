@@ -14,6 +14,11 @@ Exit code: 0 — ok / interrupted / result-mismatch (look at status), 5 — inva
 
 job: start any adb_helpers.py subcommand in the background (detached; its output — logs/job-<id>.log; state —
 raw/jobs/<id>.json) while the orchestrator works with another stand: start / status / list / stop / log.
+job stop: writes the stop request raw/jobs/<id>.stop (the job sees it as ANDROID_QA_STOP_FILE; soak checks it every
+≤ 0.5 s and between samples and writes its summary `stopped`), then — POSIX — SIGTERM as well; on Windows (no
+signals for a detached process) it waits up to --grace seconds for soak to finish by itself and only then kills the
+process tree (status `killed`, the summary is not written). Other subcommands are stopped at once.
+ANDROID_QA_JOB_STOP=file — the Windows behaviour on any OS (tests, diagnostics).
 """
 import argparse
 import json
@@ -30,10 +35,35 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 DURATION_RX = re.compile(r"(?<![\d:])(?:(\d{1,2}):)?(\d{1,2}):(\d{2})(?![\d:])")
+STOP_ENV = "ANDROID_QA_STOP_FILE"      # set by job-run for its child: the stop request file of the job
+GRACEFUL = ("soak",)                   # job subcommands that react to the stop file and write a summary
+STOP_SLICE_S = 0.5
 
 
 class Stop(Exception):
     pass
+
+
+def stop_requested():
+    p = os.environ.get(STOP_ENV)
+    return bool(p) and os.path.exists(p)
+
+
+def file_stop_mode():
+    """True — stop jobs by the stop file only (Windows: a detached process gets no SIGTERM; or ANDROID_QA_JOB_STOP=file)."""
+    return os.name == "nt" or (os.environ.get("ANDROID_QA_JOB_STOP") or "").lower() == "file"
+
+
+def sleep_or_stop(seconds):
+    """Sleep in short slices; a stop request (job stop) interrupts the wait → Stop."""
+    end = time.time() + max(0.0, seconds)
+    while True:
+        if stop_requested():
+            raise Stop()
+        left = end - time.time()
+        if left <= 0:
+            return
+        time.sleep(min(STOP_SLICE_S, left))
 
 
 def now():
@@ -146,7 +176,7 @@ def screen_texts(c, h, tries=2):
     return " ".join(f"{n['text']} {n['desc']}" for n in h.parse_ui(xml))
 
 
-def wait_text(c, h, text, timeout):
+def wait_text(c, h, text, timeout, stoppable=True):
     deadline = time.time() + timeout
     while True:
         t = screen_texts(c, h, 1)
@@ -154,6 +184,8 @@ def wait_text(c, h, text, timeout):
             return True
         if time.time() >= deadline:
             return False
+        if stoppable and stop_requested():
+            raise Stop()
         nap(1.0)
 
 
@@ -169,6 +201,8 @@ def wait_service(c, pkg, name, timeout):
             return True
         if time.time() >= deadline:
             return False
+        if stop_requested():
+            raise Stop()
         nap(1.0)
 
 
@@ -327,6 +361,8 @@ def run(c, h):
         last_pid = None
         with open(raw, "a", encoding="utf-8") as f:
             while True:
+                if stop_requested():
+                    raise Stop()
                 rec = sample(c, h, pkg, a, t0, last_pid)
                 samples.append(rec)
                 f.write(json.dumps(rec, ensure_ascii=False) + "\n")
@@ -361,15 +397,17 @@ def run(c, h):
                     next_shot += a.screenshots * 60
                 if t >= end:
                     break
-                time.sleep(max(0.2, min(a.every, end - t)))
+                sleep_or_stop(max(0.2, min(a.every, end - t)))
     except Stop:
         if status == "ok":
-            status, reason = "stopped", "остановлено (job stop / сигнал)"
+            status, reason = "stopped", "остановлено (job stop" + (")" if stop_requested() else " / сигнал)")
     except SystemExit:
         raise
     except Exception as ex:  # noqa: BLE001 — the summary is written in any case
         status, reason = "failed", f"{type(ex).__name__}: {h.mask(str(ex))[:200]}"
     finally:
+        if hasattr(signal, "SIGTERM"):  # a repeated stop must not interrupt writing the summary
+            signal.signal(signal.SIGTERM, lambda *_: None)
         if status in ("ok", "interrupted", "stopped"):
             offs = [e for e in events if e["event"] == "screen-off"]
             if offs and not any(e["event"] == "screen-on" for e in events):  # wake the screen before the stop action
@@ -395,7 +433,7 @@ def run(c, h):
     if status in ("ok", "interrupted") and (a.expect_duration or a.result_file or a.expect_final_text):
         expected = (a.expect_minutes if a.expect_minutes is not None else a.minutes) * 60
         if a.expect_final_text:
-            result["final_text"] = wait_text(c, h, a.expect_final_text, 5)
+            result["final_text"] = wait_text(c, h, a.expect_final_text, 5, stoppable=False)
         if a.expect_duration:
             durs = durations_on_screen(screen_texts(c, h) or "")
             if durs:
@@ -496,6 +534,8 @@ def job(c, h):
         if busy:
             h_fail(f"на {c.serial} уже идёт soak ({', '.join(busy)}): один стенд — одна задача с действиями в интерфейсе")
         log = (c.run_dir / "logs" / f"job-{jid}.log")
+        if stop_file(path).exists():   # a stale request of a previous job with this name
+            stop_file(path).unlink()
         data = {"id": jid, "argv": argv, "serial": c.serial, "run_dir": str(c.run_dir), "config": c.a.config,
                 "confirmed": bool(c.a.confirmed), "status": "running", "started_at": now(), "log": str(log)}
         save_job(path, data)
@@ -527,15 +567,41 @@ def job(c, h):
         if j.get("status") != "running" or not h.su.pid_alive(j.get("pid")):
             h.emit({"ok": True, "job": a.id, "status": j.get("status"), "note": "уже не работает"})
             return
+        h.emit(stop_job(c, h, path, j, a.grace))
+
+
+def stop_file(job_path):
+    return Path(job_path).with_suffix(".stop")
+
+
+def stop_job(c, h, path, j, grace):
+    """Stop request file first (soak writes its summary and exits); POSIX — also SIGTERM. Windows (or
+    ANDROID_QA_JOB_STOP=file): soak gets up to `grace` seconds to finish by itself, then the process tree is killed
+    (taskkill /T /F) and the job is marked `killed` — its summary is not written. Other subcommands — killed at once."""
+    stop_file(path).write_text(now(), encoding="utf-8")
+    graceful = (j.get("argv") or [""])[0] in GRACEFUL
+    file_mode = file_stop_mode()
+    wait = (max(5.0, float(grace)) if graceful else 0.0) if file_mode else 60.0
+    if not file_mode:
         h.su.kill_pid(j["pid"])
-        deadline = time.time() + 60
-        while time.time() < deadline and (load_job(path) or {}).get("status") == "running" and h.su.pid_alive(j["pid"]):
-            time.sleep(0.5)
-        h.emit({"ok": True, "job": a.id, "stopped": True, "view": job_view(c, h, load_job(path) or j)})
+    deadline = time.time() + wait
+    while time.time() < deadline and (load_job(path) or {}).get("status") == "running" and h.su.pid_alive(j["pid"]):
+        time.sleep(0.5)
+    how = "signal" if not file_mode else "stop-file"
+    if file_mode and (load_job(path) or {}).get("status") == "running" and h.su.pid_alive(j["pid"]):
+        h.su.kill_pid(j["pid"])                      # Windows: taskkill /T /F — the whole tree, no summary
+        jj = load_job(path) or j
+        jj.update({"status": "killed", "finished_at": now(),
+                   "note": (f"не завершилась за {int(wait)} с после запроса остановки — процесс снят, сводка не записана"
+                            if graceful else "подкоманда не поддерживает мягкую остановку — процесс снят")})
+        save_job(path, jj)
+        how = "killed"
+    return {"ok": True, "job": j["id"], "stopped": True, "how": how, "view": job_view(c, h, load_job(path) or j)}
 
 
 def job_run(job_file):
-    """Internal: runs the job's subcommand, forwards SIGTERM to it, records the exit code."""
+    """Internal: runs the job's subcommand (its stop request file is passed as ANDROID_QA_STOP_FILE), forwards SIGTERM
+    to it, records the exit code; status `stopped` if a stop was requested (signal or stop file)."""
     path = Path(job_file)
     j = load_job(path)
     argv = [sys.executable, str(HERE / "adb_helpers.py")] + j["argv"] + ["--serial", j["serial"], "--run-dir", j["run_dir"]]
@@ -544,7 +610,7 @@ def job_run(job_file):
     if j.get("confirmed"):
         argv.append("--confirmed")
     kw = {"start_new_session": True} if os.name != "nt" else {}
-    child = subprocess.Popen(argv, stdin=subprocess.DEVNULL, **kw)
+    child = subprocess.Popen(argv, stdin=subprocess.DEVNULL, env=dict(os.environ, **{STOP_ENV: str(stop_file(path))}), **kw)
     stopped = {"v": False}
 
     def term(*_):
@@ -562,6 +628,9 @@ def job_run(job_file):
         except KeyboardInterrupt:
             term()
     j = load_job(path) or j
+    if j.get("status") == "killed":    # job stop has already given up and recorded it
+        sys.exit(0)
+    stopped["v"] = stopped["v"] or stop_file(path).exists()
     j.update({"status": "stopped" if stopped["v"] else ("done" if code == 0 else "failed"), "exit_code": code,
               "finished_at": now()})
     save_job(path, j)

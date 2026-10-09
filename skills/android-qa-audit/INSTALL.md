@@ -159,8 +159,8 @@ Claude Code), как откатить (в клоне - git checkout android-qa-a
 | scrcpy | нет — показ экрана устройства | `brew install scrcpy` | `winget install Genymobile.scrcpy` | `scrcpy --version` |
 | Maestro | нет — повторяемые сценарии | `curl -fsSL "https://get.maestro.mobile.dev" \| bash` | через WSL (документация Maestro) | `maestro --version` |
 | Appium + uiautomator2 | нет — сложные сценарии | Node 18+, `npm i -g appium && appium driver install uiautomator2` | то же | `appium --version` |
-| Node.js 18+ и Playwright (Chromium) в `scripts/node` | нет — аннотированные скриншоты | `brew install node`; затем локально: `cd <SKILL_DIR>/scripts/node && npm install && npx playwright install chromium` | `winget install OpenJS.NodeJS.LTS`; то же в PowerShell | `python3 <SKILL_DIR>/scripts/annotate_android.py check` |
-| Виртуальное аудиоустройство | нет — только подача звука путём loopback (`references/audio-input.md`) | BlackHole: `brew install --cask blackhole-2ch` (или Loopback); выбрать входом и выходом по умолчанию — вручную | VB-Audio Virtual Cable (сайт VB-Audio); воспроизведение — вручную | строка «виртуальное аудиоустройство» в `check_env` |
+| Node.js 18+ и Playwright (Chromium) в `scripts/node` | нет — аннотированные скриншоты и PNG контактного листа | `brew install node`; затем локально: `cd <SKILL_DIR>/scripts/node && npm install && npx playwright install chromium` | `winget install OpenJS.NodeJS.LTS`; то же в PowerShell | `python3 <SKILL_DIR>/scripts/annotate_android.py check` |
+| Виртуальное аудиоустройство | нет — только подача звука путём loopback (`references/audio-input.md`) | BlackHole: `brew install --cask blackhole-2ch` (или Loopback); выбрать входом и выходом по умолчанию — вручную | VB-Audio Virtual Cable (сайт VB-Audio); путь loopback на Windows — только вручную (`audio-input.md` → «Windows»), автоматически — gRPC или файл | строка «виртуальное аудиоустройство» в `check_env` |
 | ADBKeyBoard (APK) | нет — ввод кириллицы клавиатурой (`text --adbkeyboard`) | APK скачивает пользователь (github.com/senzhk/ADBKeyBoard); поставить на свой эмулятор — `adb_helpers.py ime install-adbkeyboard --apk <файл> --confirmed` после согласия | то же | `adb_helpers.py ime status` |
 
 Ресурсы: эмулятор с 2 ГБ ОЗУ занимает ≈ 3 ГБ памяти хоста; 2 потока — от 16 ГБ ОЗУ, 4 — от 32 ГБ и 8 ядер. Диск: образ ≈ 3–6 ГБ, AVD ≈ 2–8 ГБ; держите свободными 15+ ГБ.
@@ -293,12 +293,12 @@ python <SKILL_DIR>\scripts\check_env.py --fast    # то же без обёрт�
 Android SDK, образы и AVD обновление не затрагивает.
 
 ## Аннотации скриншотов (необязательно)
-Рамки, стрелки и подписи на скриншотах находок (`references/screenshots.md`) рисует `scripts/node/annotate.js` в Chromium через Playwright. Ставится **локально в папку скила** (ничего глобального, кроме самого Node.js), только с согласия пользователя:
+Рамки, стрелки и подписи на скриншотах находок (`references/screenshots.md`) рисует `scripts/node/annotate.js` в Chromium через Playwright, контактный лист (`annotate_android.py sheet`) — `scripts/node/sheet.js` там же. Ставится **локально в папку скила** (ничего глобального, кроме самого Node.js), только с согласия пользователя:
 ```bash
 cd <SKILL_DIR>/scripts/node && npm install && npx playwright install chromium
 python3 <SKILL_DIR>/scripts/annotate_android.py check        # {"ok": true, …}
 ```
-Если Playwright уже стоит для site-qa-audit, можно не ставить второй раз: `ANDROID_QA_NODE_MODULES=<папка site-qa-audit>/scripts/node/node_modules` в `env` настроек Claude Code. Без Node.js: скриншоты и разметка (`*.spec.json`) сохраняются, рисование — «не поддерживается», остальное работает.
+Если Playwright уже стоит для site-qa-audit, можно не ставить второй раз: `ANDROID_QA_NODE_MODULES=<папка site-qa-audit>/scripts/node/node_modules` в `env` настроек Claude Code. Без Node.js: скриншоты и разметка (`*.spec.json`) сохраняются, рисование — «не поддерживается», контактный лист — только HTML, остальное работает. График PSS в отчёте Node не нужен (SVG на стандартной библиотеке).
 
 ## Звук в микрофон эмулятора (по необходимости)
 Ставить ничего не нужно: `avd_manager.py start <AVD> --mic-inject` запускает эмулятор с gRPC и токеном, `adb_helpers.py mic-inject --wav <файл>` подаёт звук (`references/audio-input.md`). Виртуальное аудиоустройство (BlackHole и др.) — только для пути loopback, ставит и выбирает пользователь сам; скил его не трогает. Короткая проверка: `adb_helpers.py mic-status --serial <serial> --run-dir <RUN_DIR>`.

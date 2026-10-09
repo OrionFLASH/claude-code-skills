@@ -12,6 +12,10 @@ checks the result (caption inside the picture, no caption over other boxes, colo
                       "extra": [{"src": "…", "marks": […]}]}]
   annotate_android.py box --ui raw/ui-….xml (--text T | --desc D | --id ID)      box of an element for --mark
   annotate_android.py check                                                     node + playwright available?
+  annotate_android.py sheet (FILE… | --dir DIR [--glob "*-annotated.png"] | --soak raw/soak-….json) --out sheet.png
+                      [--cols 4] [--per 8] [--thumb 240] [--html-only]
+        contact sheet: thumbnails with captions, ≤ per shots per PNG (one Read instead of eight) via node/sheet.js;
+        an HTML grid next to it (<out>.html) is always written — without Node only it (exit 4).
 
 Marks: "x,y,w,h|label|kind" — pixels of the screenshot (as in dump-ui bounds); "text=…|…", "desc=…|…", "id=…|…" —
 the element from --ui (or a fresh dump when called by adb_helpers.py screenshot --mark); "x,y,w,h|@avoid" — an area
@@ -154,7 +158,8 @@ def render(src, marks, density, out=None, nodes=None):
     node, modules = node_cmd()
     env = dict(os.environ, NODE_PATH=str(modules))
     try:
-        p = subprocess.run([node, str(NODE_DIR / "annotate.js"), "--in", str(src), "--spec", str(spec_path), "--out", str(out)],
+        p = subprocess.run([node, str(NODE_DIR / "annotate.js"), "--in", str(src.resolve()),     # node runs in NODE_DIR:
+                            "--spec", str(spec_path.resolve()), "--out", str(out.resolve())],   # absolute paths only
                            capture_output=True, text=True, encoding="utf-8", errors="replace", env=env, cwd=str(NODE_DIR),
                            timeout=180)
     except (OSError, subprocess.TimeoutExpired) as ex:
@@ -176,6 +181,112 @@ def render(src, marks, density, out=None, nodes=None):
     res.update({"annotated": str(out), "ok": not warnings, "items": items, "canvas": report.get("canvas"),
                 "must_view": f"посмотреть {out.name} (Read) до ссылки в находке; правки — подпись в {spec_path.name} и "
                              f"annotate_android.py render заново"})
+    return res
+
+
+def image_size(path):
+    """(width, height) of a PNG (IHDR) or JPEG (SOF) — stdlib only; unknown — None."""
+    try:
+        with open(path, "rb") as f:
+            head = f.read(64 * 1024)
+    except OSError:
+        return None
+    if head[:8] == b"\x89PNG\r\n\x1a\n" and head[12:16] == b"IHDR":
+        return int.from_bytes(head[16:20], "big"), int.from_bytes(head[20:24], "big")
+    if head[:2] == b"\xff\xd8":
+        i = 2
+        while i + 9 < len(head):
+            if head[i] != 0xFF:
+                i += 1
+                continue
+            marker, size = head[i + 1], int.from_bytes(head[i + 2:i + 4], "big")
+            if 0xC0 <= marker <= 0xCF and marker not in (0xC4, 0xC8, 0xCC):
+                return int.from_bytes(head[i + 7:i + 9], "big"), int.from_bytes(head[i + 5:i + 7], "big")
+            i += 2 + size
+    return None
+
+
+def sheet_inputs(files=(), from_dir=None, glob="*.png", soak=None):
+    """Screenshots for a contact sheet: explicit files, a folder (glob, by name) or a soak summary (its screenshots)."""
+    out = [Path(f) for f in files]
+    if from_dir:   # natural order: t5m before t10m
+        out += sorted((p for p in Path(from_dir).glob(glob) if p.is_file()),
+                      key=lambda p: [int(x) if x.isdigit() else x for x in re.split(r"(\d+)", p.name)])
+    if soak:
+        try:
+            data = json.loads(Path(soak).read_text(encoding="utf-8"))
+        except (OSError, ValueError) as ex:
+            raise AnnotateError(f"--soak: не читается сводка {soak}: {ex}", 2)
+        base = Path(soak).resolve().parent.parent / "screenshots"
+        for s in data.get("screenshots") or []:
+            p = Path(s)
+            out.append(p if p.is_file() else base / p.name)    # the run folder may have been moved
+    seen, res = set(), []
+    for p in out:
+        if p.suffix.lower() in (".png", ".jpg", ".jpeg") and p.is_file() and p.resolve() not in seen:
+            seen.add(p.resolve())
+            res.append(p)
+    return res
+
+
+def sheet_html(items, html_path, cols):
+    """A contact sheet for people (stdlib, always): an HTML grid with relative links and captions."""
+    from html import escape
+    rows = []
+    for it in items:
+        rel = os.path.relpath(it["file"], Path(html_path).resolve().parent).replace(os.sep, "/")  # both resolved
+        rows.append(f'<figure><a href="{escape(rel)}"><img src="{escape(rel)}" loading="lazy" alt="{escape(it["caption"])}"></a>'
+                    f'<figcaption>{escape(it["caption"])}</figcaption></figure>')
+    Path(html_path).write_text(
+        "<!doctype html>\n<meta charset=\"utf-8\"><title>Контактный лист</title>\n<style>body{margin:0;padding:8px;"
+        "background:#1b1b1b;color:#eee;font:12px -apple-system,'Segoe UI',Arial,sans-serif;display:grid;"
+        f"grid-template-columns:repeat({cols},minmax(0,1fr));gap:12px}}figure{{margin:0}}img{{width:100%;height:auto;"
+        "display:block;border:1px solid #555;background:#fff}figcaption{padding:3px 0;word-break:break-all}</style>\n"
+        + "\n".join(rows) + "\n", encoding="utf-8")
+    return str(html_path)
+
+
+def contact_sheet(files, out, cols=4, per=8, thumb=240, html_only=False):
+    """Contact sheet: always an HTML grid (<out>.html); a PNG sheet (≤ per shots each, for one Read) through
+    node/sheet.js when Node + Playwright are available, otherwise AnnotateError(4) — the HTML is still written."""
+    if not files:
+        raise AnnotateError("нет снимков для листа (файлы, --dir или --soak)", 2)
+    if not 1 <= cols <= 8 or not 1 <= per <= 24 or not 80 <= thumb <= 600:
+        raise AnnotateError("--cols 1–8, --per 1–24, --thumb 80–600", 2)
+    out = Path(out)
+    if out.suffix.lower() != ".png":
+        raise AnnotateError("--out: файл .png (листов больше одного — -1.png, -2.png …)", 2)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    items = []
+    for f in files:
+        size = image_size(f)
+        items.append({"file": str(Path(f).resolve()), "caption": Path(f).stem + (f" · {size[0]}×{size[1]}" if size else "")})
+    res = {"ok": False, "count": len(items), "html": sheet_html(items, out.with_suffix(".html"), cols), "sheets": []}
+    if html_only:
+        res["ok"] = True
+        return res
+    spec = out.with_suffix(".sheet.json")
+    spec.write_text(json.dumps({"out": str(out.resolve()), "cols": cols, "per": per, "thumb": thumb, "items": items},
+                               ensure_ascii=False, indent=1), encoding="utf-8")
+    try:
+        node, modules = node_cmd()
+    except AnnotateError as ex:
+        raise AnnotateError(f"{ex} — собран только HTML-лист для человека: {res['html']}; модели смотреть снимки по одному", 4)
+    try:
+        p = subprocess.run([node, str(NODE_DIR / "sheet.js"), "--spec", str(spec.resolve())], capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", env=dict(os.environ, NODE_PATH=str(modules)),
+                           cwd=str(NODE_DIR), timeout=300)
+    except (OSError, subprocess.TimeoutExpired) as ex:
+        raise AnnotateError(f"sheet.js не запустился: {ex}", 5)
+    try:
+        sheets = json.loads(p.stdout.strip().splitlines()[-1]).get("sheets") or []
+    except (ValueError, IndexError, AttributeError):
+        sheets = []
+    if p.returncode != 0 or not sheets or not all(Path(s).is_file() for s in sheets):
+        raise AnnotateError(f"sheet.js: код {p.returncode}: {(p.stderr or p.stdout).strip()[-300:]}", 5)
+    res.update({"ok": True, "sheets": sheets, "per": per,
+                "must_view": f"посмотреть {', '.join(Path(s).name for s in sheets)} (Read; по {per} снимков на лист) — "
+                             "подозрительный снимок открыть целиком"})
     return res
 
 
@@ -218,8 +329,28 @@ def main():
     g.add_argument("--desc")
     g.add_argument("--id")
     sub.add_parser("check")
+    s = sub.add_parser("sheet")
+    s.add_argument("files", nargs="*", help="PNG/JPEG снимки")
+    s.add_argument("--dir", help="папка со снимками (вместо списка или вместе с ним)")
+    s.add_argument("--glob", default="*.png", help="шаблон имён в --dir (по умолчанию *.png)")
+    s.add_argument("--soak", help="сводка raw/soak-<tag>-<serial>.json: её скриншоты")
+    s.add_argument("--out", required=True, help="лист .png (рядом — .html для человека)")
+    s.add_argument("--cols", type=int, default=4)
+    s.add_argument("--per", type=int, default=8, help="снимков на лист (больше — несколько листов)")
+    s.add_argument("--thumb", type=int, default=240, help="ширина миниатюры, px")
+    s.add_argument("--html-only", action="store_true", help="только HTML-лист (без Node)")
     a = ap.parse_args()
     try:
+        if a.cmd == "sheet":
+            try:
+                res = contact_sheet(sheet_inputs(a.files, a.dir, a.glob, a.soak), a.out, a.cols, a.per, a.thumb, a.html_only)
+            except AnnotateError as ex:
+                html = Path(a.out).with_suffix(".html")
+                print(json.dumps({"ok": False, "error": str(ex), "html": str(html) if html.is_file() else None},
+                                 ensure_ascii=False))
+                sys.exit(ex.code)
+            print(json.dumps(res, ensure_ascii=False, indent=1))
+            return
         if a.cmd == "check":
             node, modules = node_cmd()
             print(json.dumps({"ok": True, "node": node, "node_modules": str(modules)}, ensure_ascii=False))

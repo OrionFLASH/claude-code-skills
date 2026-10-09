@@ -93,7 +93,7 @@ def loopback_info(fast=False):
     if not dev:
         info["note"] = "виртуального аудиоустройства нет"
         info["hint"] = {"darwin": "BlackHole (brew install --cask blackhole-2ch) или Loopback — ставит пользователь сам",
-                        "win32": "VB-Audio Virtual Cable — ставит пользователь сам"}.get(
+                        "win32": "VB-Audio Virtual Cable — ставит пользователь сам; " + WINDOWS_LOOPBACK_HINT}.get(
             sys.platform, "snd-aloop (sudo modprobe snd-aloop) или null-sink PulseAudio/PipeWire — настраивает пользователь")
     else:
         inp = info["default_input"]
@@ -108,8 +108,18 @@ def loopback_info(fast=False):
                             "(и выходом — на macOS) по умолчанию вручную, затем mic-inject --via loopback; "
                             "или путь grpc / file")
             if os.name == "nt":
-                info["hint"] = "Windows: воспроизвести файл в VB-Cable вручную; автоматически — путь grpc или file"
+                info["hint"] = WINDOWS_LOOPBACK_HINT
     return info
+
+
+# Windows: Win32_SoundDevice lists devices but not which one is the default input/output; the Core Audio API needs COM
+# (third-party modules or compiled code). Playing «blindly» could send the sound to the speakers instead of the cable,
+# so the skill does not automate this path on Windows (references/audio-input.md → «Windows»).
+WINDOWS_LOOPBACK_HINT = (
+    "Windows: автоматически не поддерживается — без сторонних модулей скил не может узнать, какое устройство выбрано "
+    "по умолчанию, и не играет звук вслепую (он ушёл бы в динамики). Вручную: CABLE Input — вывод по умолчанию, "
+    "CABLE Output — ввод по умолчанию, слушать вход хоста (hostmicon — только после «да»), воспроизвести WAV "
+    "стандартным проигрывателем Windows. Автоматически — путь grpc (свой эмулятор с --mic-inject) или file")
 
 
 def play_to_loopback(path, info, seconds=None):

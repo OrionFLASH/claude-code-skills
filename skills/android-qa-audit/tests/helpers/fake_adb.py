@@ -18,6 +18,7 @@ Environment:
   FAKE_ADB_SERVICES  fixture for `dumpsys activity services`; FAKE_ADB_SERVICES_UNTIL N — present only N calls
   FAKE_ADB_PIDOF_UNTIL N — `pidof`/`ps` show the app only for the first N calls (process death)
   FAKE_ADB_PULL_FILE file copied by `adb pull` (default: «fake-mp4» bytes); FAKE_ADB_LS — output of `ls`
+  FAKE_ADB_MEMINFO_DELAY S — `dumpsys meminfo` answers after S seconds (a hung soak sample)
 Serials: emulator-* — emulator properties (getprop-emulator.txt); anything else — real phone (getprop-real.txt).
 Screen: natural 1080x2400; rotation 1/3 — 2400x1080 and window_dump_landscape.xml.
 """
@@ -156,6 +157,9 @@ def shell(serial, line):
         if what == "thermalservice":
             out("IsStatusOverride: false\nThermal Status: 1\n")
         if what in ("meminfo", "gfxinfo", "package", "notification", "diskstats"):
+            if what == "meminfo" and os.environ.get("FAKE_ADB_MEMINFO_DELAY"):   # a hung sample (job stop tests)
+                import time
+                time.sleep(float(os.environ["FAKE_ADB_MEMINFO_DELAY"]))
             if what == "gfxinfo" and "reset" in rest:
                 out()
             out(fx(f"dumpsys-{what}.txt"))

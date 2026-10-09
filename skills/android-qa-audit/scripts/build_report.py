@@ -191,14 +191,150 @@ def metrics_block(run):
     return L
 
 
-def long_runs_block(run):
-    """«Длинные сценарии»: soak runs (adb_helpers.py soak) — status, duration, result, PSS, events, host load."""
+SPARK = "▁▂▃▄▅▆▇█"
+LOSS_EVENTS = ("process-died", "service-lost", "process-restarted")
+
+
+def soak_samples(run, s):
+    """Points (minutes, PSS MB) of a soak run from its raw/soak-*.jsonl (the path in the summary, or the same name in
+    this run's raw/ when the run folder was moved)."""
+    cands = [Path(s["file"])] if s.get("file") else []
+    if s.get("file"):
+        cands.append(run.dir / "raw" / Path(s["file"]).name)
+    for p in cands:
+        if p.is_file():
+            return [(round(x["t_s"] / 60, 2), round(x["pss_kb"] / 1024, 1)) for x in jsonl(p)
+                    if isinstance(x.get("t_s"), (int, float)) and x.get("pss_kb")]
+    return []
+
+
+def sparkline(values, width=12):
+    """Text chart for a table cell: `width` bars (means of equal chunks), ▁ — minimum, █ — maximum."""
+    if len(values) < 2:
+        return ""
+    n = min(width, len(values))
+    chunks = [values[i * len(values) // n:(i + 1) * len(values) // n] for i in range(n)]
+    means = [sum(c) / len(c) for c in chunks if c]
+    lo, hi = min(means), max(means)
+    return "".join(SPARK[0] if hi == lo else SPARK[min(7, int((v - lo) / (hi - lo) * 8))] for v in means)
+
+
+def nice_ticks(lo, hi, count=5):
+    """Round axis ticks covering [lo, hi]: (start, stop, step)."""
+    import math
+    if hi <= lo:
+        hi = lo + 1
+    raw = (hi - lo) / count
+    mag = 10 ** math.floor(math.log10(raw))
+    step = next(m * mag for m in (1, 2, 2.5, 5, 10) if m * mag >= raw)
+    return math.floor(lo / step) * step, math.ceil(hi / step) * step, step
+
+
+def _fmt(v):
+    return f"{v:g}" if abs(v) >= 10 or v == int(v) else f"{v:.1f}"
+
+
+def pss_svg(points, events=(), title=""):
+    """PSS over time as a standalone SVG (stdlib only): one line, recessive grid, loss events as labelled vertical
+    lines, screen-off periods as a grey band, a hover title on each point (≤ 200). Light and dark themes (CSS
+    variables; plain colours in the attributes are the fallback for viewers without CSS)."""
+    from xml.sax.saxutils import escape, quoteattr
+    W, H, L, R, T, B = 720, 290, 56, 16, 44, 40
+    xs, ys = [p[0] for p in points], [p[1] for p in points]
+    x0, x1, xstep = nice_ticks(0, max(xs) or 1, 6)
+    pad = max(1.0, (max(ys) - min(ys)) * 0.1)
+    y0, y1, ystep = nice_ticks(max(0.0, min(ys) - pad), max(ys) + pad, 4)
+    sx = lambda v: L + (v - x0) / ((x1 - x0) or 1) * (W - L - R)  # noqa: E731
+    sy = lambda v: H - B - (v - y0) / ((y1 - y0) or 1) * (H - T - B)  # noqa: E731
+    o = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" role="img" '
+         f'aria-label={quoteattr(title)}>',
+         "<style>svg{--bg:#fcfcfb;--ink:#0b0b0b;--ink2:#52514e;--muted:#898781;--grid:#e1e0d9;--axis:#c3c2b7;"
+         "--line:#2a78d6;--crit:#d03b3b}"
+         "@media (prefers-color-scheme: dark){svg{--bg:#1a1a19;--ink:#ffffff;--ink2:#c3c2b7;--grid:#2c2c2a;"
+         "--axis:#383835;--line:#3987e5}}"
+         "text{font:12px system-ui,-apple-system,'Segoe UI',Arial,sans-serif;fill:var(--ink2)}"
+         ".t{font-size:13px;font-weight:600;fill:var(--ink)}.m{fill:var(--muted)}.e{fill:var(--ink)}"
+         ".bg{fill:var(--bg)}.band{fill:var(--grid)}.grid{stroke:var(--grid)}.axis{stroke:var(--axis)}"
+         ".ln{stroke:var(--line)}.dot{fill:var(--line);stroke:var(--bg)}.crit{stroke:var(--crit)}</style>",
+         f'<rect class="bg" fill="#fcfcfb" width="{W}" height="{H}"/>',
+         f'<text class="t" fill="#0b0b0b" x="{L}" y="20">{escape(title)}</text>']
+
+    def band(a, b, label):
+        o.append(f'<rect class="band" fill="#e1e0d9" opacity="0.6" x="{sx(a):.1f}" y="{T}" '
+                 f'width="{max(1.0, sx(b) - sx(a)):.1f}" height="{H - T - B}"><title>{escape(label)}</title></rect>')
+        if sx(b) - sx(a) >= 70:
+            o.append(f'<text class="m" fill="#898781" x="{sx(a) + 4:.1f}" y="{H - B - 6}">экран выкл.</text>')
+    off = None
+    for ev in sorted(events, key=lambda ev: ev.get("t_s", 0)):     # screen-off periods — background band
+        m = ev.get("t_s", 0) / 60
+        if ev.get("event") == "screen-off":
+            off = m
+        elif ev.get("event") == "screen-on" and off is not None:
+            band(off, m, f"экран выключен {off:.1f}–{m:.1f} мин")
+            off = None
+    if off is not None:
+        band(off, max(xs[-1], off), f"экран выключен с {off:.1f} мин")
+    v = y0
+    while v <= y1 + ystep / 2:
+        o.append(f'<line class="grid" stroke="#e1e0d9" stroke-width="1" x1="{L}" x2="{W - R}" y1="{sy(v):.1f}" '
+                 f'y2="{sy(v):.1f}"/>')
+        o.append(f'<text fill="#52514e" x="{L - 6}" y="{sy(v) + 4:.1f}" text-anchor="end">{_fmt(v)}</text>')
+        v += ystep
+    v = x0
+    while v <= x1 + xstep / 2:
+        o.append(f'<text fill="#52514e" x="{sx(v):.1f}" y="{H - B + 16}" text-anchor="middle">{_fmt(v)}</text>')
+        v += xstep
+    o.append(f'<line class="axis" stroke="#c3c2b7" stroke-width="1" x1="{L}" x2="{W - R}" y1="{H - B}" y2="{H - B}"/>')
+    o.append(f'<text class="m" fill="#898781" x="{W - R}" y="{H - 6}" text-anchor="end">минуты</text>')
+    o.append(f'<text class="m" fill="#898781" x="{L - 6}" y="{T - 14}" text-anchor="end">PSS, МБ</text>')
+    losses = [ev for ev in events if ev.get("event") in LOSS_EVENTS]
+    for i, ev in enumerate(losses[:6]):
+        m = ev.get("t_s", 0) / 60
+        x = sx(m)
+        o.append(f'<line class="crit" stroke="#d03b3b" stroke-width="1.5" stroke-dasharray="4 3" x1="{x:.1f}" '
+                 f'x2="{x:.1f}" y1="{T}" y2="{H - B}"/>')
+        anchor, dx = ("end", -4) if x > W - R - 160 else ("start", 4)
+        o.append(f'<text class="e" fill="#0b0b0b" x="{x + dx:.1f}" y="{T + 12 + 14 * i}" text-anchor="{anchor}">'
+                 f'✕ {escape(ev["event"])} {m:.1f} мин</text>')
+    path = " ".join(f"{'M' if i == 0 else 'L'}{sx(x):.1f},{sy(y):.1f}" for i, (x, y) in enumerate(points))
+    o.append(f'<path class="ln" stroke="#2a78d6" d="{path}" fill="none" stroke-width="2" stroke-linejoin="round" '
+             f'stroke-linecap="round"/>')
+    step = max(1, len(points) // 200)
+    for x, y in points[::step]:
+        o.append(f'<circle cx="{sx(x):.1f}" cy="{sy(y):.1f}" r="5" fill="transparent"><title>{x:g} мин — {y:g} МБ'
+                 f'</title></circle>')
+    lx, ly = points[-1]
+    o.append(f'<circle class="dot" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2" r="4" cx="{sx(lx):.1f}" '
+             f'cy="{sy(ly):.1f}"/>')
+    o.append(f'<text class="e" fill="#0b0b0b" x="{min(sx(lx), W - R - 4):.1f}" y="{sy(ly) - 9:.1f}" '
+             f'text-anchor="end">{_fmt(ly)} МБ</text>')
+    o.append("</svg>")
+    return "\n".join(o) + "\n"
+
+
+def long_runs_block(run, charts_dir=None, rel_base=None):
+    """«Длинные сценарии»: soak runs (adb_helpers.py soak) — status, duration, result, PSS (with a text sparkline and
+    an SVG chart per run in charts_dir, linked relative to rel_base), events, host load."""
     if not run.soaks:
         return []
     L = ["", "## Длинные сценарии", "", "| Сценарий | Стенд | Статус | Длительность | Итог | PSS, МБ (мин–макс, рост/ч) | "
          "События | Хост |", "|---|---|---|---|---|---|---|---|"]
     invalid = 0
+    charts = []
     for s in run.soaks:
+        pts = soak_samples(run, s)
+        spark = sparkline([p[1] for p in pts])
+        if charts_dir is not None and len(pts) >= 2:
+            name = Path(s.get("file") or f"soak-{s.get('tag')}-{s.get('serial')}.jsonl").stem + "-pss.svg"
+            Path(charts_dir).mkdir(parents=True, exist_ok=True)
+            title = f"PSS: {s.get('tag')} · {s.get('serial')} · {SOAK_STATUS.get(s.get('status'), s.get('status'))}"
+            (Path(charts_dir) / name).write_text(pss_svg(pts, s.get("events") or [], title), encoding="utf-8")
+            link = Path(charts_dir, name)
+            try:
+                link = link.relative_to(rel_base) if rel_base else link
+            except ValueError:
+                pass
+            charts.append(f"![{cell(title, 100)}]({link.as_posix()})")
         res = s.get("result") or {}
         sd, fd = res.get("screen_duration") or {}, res.get("file") or {}
         itog = "; ".join(x for x in [
@@ -208,6 +344,7 @@ def long_runs_block(run):
         pss = (f"{s.get('pss_min_mb', '—')}–{s.get('pss_max_mb', '—')}"
                + (f", {s['pss_growth_mb_per_hour']:+}" if s.get("pss_growth_mb_per_hour") is not None else "")) \
             if s.get("pss_max_mb") is not None else "—"
+        pss += f" {spark}" if spark else ""
         ev = ", ".join(f"{e['event']} {round(e['t_s'] / 60, 1)} мин" for e in s.get("events") or []
                        if e.get("event") not in ("screen-off", "screen-on")) or "—"
         scr = [e for e in s.get("events") or [] if e.get("event") in ("screen-off", "screen-on")]
@@ -226,6 +363,9 @@ def long_runs_block(run):
     if any((s.get("host") or {}).get("emulators_max") and s["host"]["emulators_max"] > 1 for s in run.soaks):
         L.append("\nПри нескольких эмуляторах на хосте время обработки (расшифровка, экспорт) искажено; память и "
                  "стабильность — достоверны.")
+    if charts:
+        L += ["", "PSS по времени (красный пунктир — смерть процесса / потеря сервиса, серая полоса — экран выключен; "
+                  "точки — `raw/soak-*.jsonl`):", ""] + [x + "\n" for x in charts]
     return L
 
 
@@ -263,10 +403,12 @@ def apk_block(run):
     return L
 
 
-def build_report(run):
+def build_report(run, out=None):
+    """out — where report.md goes: PSS charts are written to <its folder>/charts/ and linked relatively."""
     fs = run.findings
+    base = Path(out).resolve().parent if out else run.dir.resolve()
     L = header(run) + [""] + summary_block(run) + matrix_block(run) + crashes_block(run) + metrics_block(run) + \
-        long_runs_block(run)
+        long_runs_block(run, base / "charts", base)
     L += ["", "## Находки", "", "| ID | Severity | Статус | Заголовок | Экран | Окружение | Куда опубликовано |", "|---|---|---|---|---|---|---|"]
     for f in fs:
         env = f.get("environment") or {}
@@ -370,8 +512,8 @@ def main():
     ap.add_argument("--out")
     a = ap.parse_args()
     run = Run(a.run_dir)
-    text = build_report(run) if a.cmd == "report" else build_summary(run) if a.cmd == "summary" else "\n".join(publish_table(run)) + "\n"
     out = a.out or (str(Path(a.run_dir) / f"{a.cmd}.md") if a.cmd in ("report", "summary") else None)
+    text = build_report(run, out) if a.cmd == "report" else build_summary(run) if a.cmd == "summary" else "\n".join(publish_table(run)) + "\n"
     if out:
         Path(out).parent.mkdir(parents=True, exist_ok=True)
         Path(out).write_text(text, encoding="utf-8")

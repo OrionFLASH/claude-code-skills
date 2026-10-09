@@ -30,11 +30,22 @@ python3 <SKILL_DIR>/scripts/finding.py add <RUN_DIR> --title "Настройки
 - **Автопроверка**: подпись целиком в кадре, не закрывает другие рамки и подписи, цвет контрастен фону, отметок ≤ 3 — нарушения в `warnings` (код 1).
 - **Обязательно посмотреть результат** (Read изображения) до ссылки в находке и отметить: `finding.py viewed <RUN_DIR> --id F-NNN`. `finding.py list` показывает непросмотренные аннотации.
 
+## Контактный лист
+Много снимков (прогон soak, обход экранов, аннотации всех находок) удобнее смотреть листом: миниатюры с подписями (имя файла и размер), **по 8 снимков на картинку** — один Read вместо восьми. Идея — `shot.js sheet` скила site-qa-audit; здесь своя `scripts/node/sheet.js` под портретные снимки телефона.
+```bash
+python3 <SKILL_DIR>/scripts/annotate_android.py sheet --dir <RUN_DIR>/screenshots --glob "*-annotated.png" --out <RUN_DIR>/screenshots/annotated-sheet.png
+python3 <SKILL_DIR>/scripts/annotate_android.py sheet --soak <RUN_DIR>/raw/soak-rec60-emulator-5558.json --out <RUN_DIR>/screenshots/soak-rec60-sheet.png
+python3 <SKILL_DIR>/scripts/annotate_android.py sheet <RUN_DIR>/screenshots/a.png <RUN_DIR>/screenshots/b.png --out <RUN_DIR>/screenshots/ab.png --cols 2 --per 4 --thumb 320
+```
+- Источник снимков: список файлов, `--dir` с `--glob` (естественный порядок: `t5m` раньше `t10m`) или `--soak` — снимки из сводки прогона. Больше `--per` — несколько листов `…-1.png`, `…-2.png`.
+- Рядом всегда пишется `<имя>.html` — сетка со ссылками на оригиналы для человека (только стандартная библиотека). PNG-лист рисует Chromium через Playwright, как аннотации; без Node.js или Playwright — код 4 «не поддерживается», HTML-лист есть, модели — смотреть снимки по одному. `--html-only` — только HTML.
+- Лист — для обзора; подозрительный снимок открыть целиком, прежде чем делать вывод или ссылаться на него в находке.
+
 ## В находке и черновике
 `finding.py add/shot` пишет `shots: [{original, annotated, spec, marks, viewed}]` и `screenshots: [<annotated>, <original>]` (аннотированный — первым). `render_draft.py` показывает только аннотированный вариант (по `shots` или по соседнему файлу `<имя>-annotated.png`), оригинал — нет; ссылки на картинки в репозитории — `repo-sync.md` → «Вложения веткой».
 
 ## Что нужно для рисования
-Рисует `scripts/node/annotate.js` — вендорная копия `annotate.js` скила site-qa-audit (не править здесь; обновлять копированием), в Chromium через Playwright, локально:
+Рисует `scripts/node/annotate.js` — вендорная копия `annotate.js` скила site-qa-audit (не править здесь; обновлять копированием), в Chromium через Playwright, локально; контактный лист — `scripts/node/sheet.js` (своя копия идеи, те же зависимости):
 ```bash
 cd <SKILL_DIR>/scripts/node && npm install && npx playwright install chromium     # один раз, с согласия пользователя
 python3 <SKILL_DIR>/scripts/annotate_android.py check
