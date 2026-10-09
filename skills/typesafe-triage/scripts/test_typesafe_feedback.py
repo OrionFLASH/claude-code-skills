@@ -148,6 +148,27 @@ def decide(r, down=True, tier="opus", a=None, **sess):
     return act.decide(r, a or {}, dict({"tier": tier}, **sess), False, opts={"delegate_down": down})
 
 
+def test_delegate_down_catches_translation_by_units_and_moderate_risk():
+    """Пример из обращения: «добавь 19 языков» — TypeSafe даёт риск ≈ 0,57 и механику ≈ 0,48; единиц работы 19."""
+    r = result("sonnet", metrics=M(complexity=0.58, reasoning=0.1, risk=0.57, breadth=0.4, read_only=0.05, mechanical=0.48, irreversible=0.11))
+    a = {"units": 19}
+    d = act.decide(r, a, {"tier": "opus"}, False, opts={"delegate_down": True})
+    assert d["kind"] == "agent" and d["why"] == "cheaper"
+    assert act.decide(r, {}, {"tier": "opus"}, False, opts={"delegate_down": True})["why"] == "cheaper"        # механика 0,48 ≥ 0,45
+    assert act.decide(result("sonnet", metrics=M(complexity=0.58, reasoning=0.1, risk=0.65, mechanical=0.9)), a, {"tier": "opus"}, False,
+                      opts={"delegate_down": True})["why"] != "cheaper"                                         # риск выше 0,6 — нет
+
+
+@pytest.mark.parametrize("text,units", [("Добавь 19 языков интерфейса", 19), ("Проверь 12 файлов в docs", 12), ("fix 5 tests", 5), ("версия 2026 года", 0)])
+def test_units_signal(text, units):
+    assert heur_units(text) == units
+
+
+def heur_units(text):
+    import triage_heuristics as heur
+    return heur.action_signals(text)["units"]
+
+
 def test_delegate_down_is_off_by_default():
     d = decide(result("sonnet"), down=False)
     assert d["kind"] == "self" and d["why"] == "not_higher"

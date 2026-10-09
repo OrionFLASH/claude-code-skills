@@ -220,7 +220,7 @@ macOS / Linux:
 
 ```bash
 git clone https://github.com/OrionFLASH/claude-code-skills.git ~/dev/claude-code-skills
-cd ~/dev/claude-code-skills && git checkout typesafe-triage/v2.6.0   # релиз по тегу, а не main (версии — в CHANGELOG.md)
+cd ~/dev/claude-code-skills && git checkout typesafe-triage/v2.6.1   # релиз по тегу, а не main (версии — в CHANGELOG.md)
 tools/install.sh typesafe-triage
 ```
 
@@ -231,7 +231,7 @@ Windows (PowerShell) — junction на клон (как симлинк: `git pul
 ```powershell
 git clone https://github.com/OrionFLASH/claude-code-skills.git $HOME\dev\claude-code-skills
 cd $HOME\dev\claude-code-skills
-git checkout typesafe-triage/v2.6.0
+git checkout typesafe-triage/v2.6.1
 powershell -ExecutionPolicy Bypass -File tools\install.ps1 typesafe-triage
 # или копией (только если папки $HOME\.claude\skills\typesafe-triage ещё нет — иначе новая ляжет ВНУТРЬ старой, см. «Обновление на Windows»):
 # New-Item -ItemType Directory -Force $HOME\.claude\skills | Out-Null
