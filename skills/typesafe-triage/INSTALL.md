@@ -220,7 +220,7 @@ macOS / Linux:
 
 ```bash
 git clone https://github.com/OrionFLASH/claude-code-skills.git ~/dev/claude-code-skills
-cd ~/dev/claude-code-skills && git checkout typesafe-triage/v2.6.1   # релиз по тегу, а не main (версии — в CHANGELOG.md)
+cd ~/dev/claude-code-skills && git checkout typesafe-triage/v2.7.0   # релиз по тегу, а не main (версии — в CHANGELOG.md)
 tools/install.sh typesafe-triage
 ```
 
@@ -231,7 +231,7 @@ Windows (PowerShell) — junction на клон (как симлинк: `git pul
 ```powershell
 git clone https://github.com/OrionFLASH/claude-code-skills.git $HOME\dev\claude-code-skills
 cd $HOME\dev\claude-code-skills
-git checkout typesafe-triage/v2.6.1
+git checkout typesafe-triage/v2.7.0
 powershell -ExecutionPolicy Bypass -File tools\install.ps1 typesafe-triage
 # или копией (только если папки $HOME\.claude\skills\typesafe-triage ещё нет — иначе новая ляжет ВНУТРЬ старой, см. «Обновление на Windows»):
 # New-Item -ItemType Directory -Force $HOME\.claude\skills | Out-Null
@@ -365,7 +365,7 @@ python3 "$S/typesafe_triage.py" --check
 ## Триаж модели и effort (TypeSafe)
 - Если в запросе есть заметка «TypeSafe-триаж» (первая строка «ДЕЙСТВИЕ: …»), выполняй её всегда, без напоминаний: «сам» — делай сам; Agent(model=…, effort=…) — делегируй с самодостаточным промптом; «спросить» — один AskUserQuestion из заметки. Оговорку «если ты уже X или выше — делай сам» сверяй со своей реальной моделью.
 - Effort по заметке: если у Agent есть параметр effort — Agent(model=<уровень>, effort=<effort>), это моё явное требование (параметр ставится только по явной просьбе пользователя, CLAUDE.md или скилла). Если параметра нет — не ссылайся на него (это не ошибка): глубину задай фразой в промпте агента из заметки, а когда заметка предлагает `--run` и работа изолируемая — запусти её так.
-- Уровни haiku и fable, effort low и max — только после подтверждения через AskUserQuestion (один вопрос на обе оси); нет «да» → sonnet/opus, medium/xhigh. Явное указание в моём запросе («на opus», «effort max», «тщательно», «используй субагента», «сделай сам») — уже согласие.
+- Уровни haiku и fable, effort low и max выбираются без вопросов, но только по строгим критериям заметки; при haiku проверяй результат сам. Явное указание в моём запросе («на opus», «effort max», «тщательно», «используй субагента», «сделай сам») — главнее. Описание выбора модели в тексте («на модели Haiku, либо Fable» в рассуждении) указанием не считается.
 - Нет заметки на короткое продолжение («продолжай», «и ещё…») — решение прежнее. Нет ни заметки, ни строки «TypeSafe-триаж пропущен» на новую задачу — хук не работает: один раз запусти --check и скажи мне одной строкой, что починить.
 - При любом вызове Agent указывай model явно (из заметки или по уровню подзадачи), а не наследуй модель сессии. Однотипные подзадачи (переводы, проверки по списку, поиск) оценивай отдельно: механические — sonnet.
 - Субагентам скилл typesafe-triage не применять; строка Co-Authored-By у исполнителя — его собственная (его фактическая модель).
@@ -431,6 +431,9 @@ Select-String '"version"' "$S\..\.claude-plugin\plugin.json"
 
 ### Откат
 Верните папку `typesafe-triage.bak-ГГГГММДД` из `~/.claude/backups/` на место (под именем `typesafe-triage`), а из `settings.json` и `CLAUDE.md` — резервные копии `.bak-ГГГГММДД`. При установке из клона нужную версию можно взять по тегу `typesafe-triage/v<версия>`. Ключ и журнал откат не затрагивает.
+
+## Подтверждения haiku / fable / low / max (с 2.7)
+По умолчанию выключены: уровни выбираются без вопроса пользователю, по строгим критериям (`SKILL.md`, «Гарантии качества»). Вернуть вопрос: `TYPESAFE_TRIAGE_CONFIRM=on` (все четыре) или список (`haiku,fable`) в `env` файла `settings.json`; при этом в шаблон CLAUDE.md (шаг 5) верните строку: «Уровни haiku и fable, effort low и max — только после подтверждения через AskUserQuestion (один вопрос на обе оси); нет «да» → sonnet/opus, medium/xhigh.»
 
 ## Опции (2.6, выключены по умолчанию)
 - `TYPESAFE_TRIAGE_DELEGATE_DOWN=on` — рутинную изолируемую работу отдавать субагенту на рекомендованном уровне ниже модели сессии («sonnet достаточно — субагент дешевле»).
