@@ -41,6 +41,7 @@
 сессии — triage_session, локально из стенограммы); короткое продолжение с прежним решением — без заметки (журнал: quiet);
 --check проверяет регистрацию хука и имя скилла для Skill (triage_install); --batch (triage_batch); журнал решений и
 фактов в корне проекта и --fact (triage_projectlog, опция).
+2.9.1: формы явных указаний — глаголы выбора («используй», «задействуй», «пусть сделает», «делай фейблом», «Fable, перепиши …»), отрицание и исключение, вопросы как обсуждение, глагольный effort, субагент, самооценка сложности, подсказка «модель названа, но не распознана» (triage_heuristics, test_typesafe_directives.py).
 2.9.0: квоты на АВТОМАТИЧЕСКИЕ fable и effort max (сутки/неделя, по умолчанию 1/3 и 2/6), потолок --run $10 для них, этапы с отчётом в заметке; «уйдут на Fable» — не указание (triage_extremes.py, --extremes).
 2.8.0: политика по прямо прочитанным источникам — Opus дефолт, Fable только долгий горизонт/провал opus на high+, max только opus, --run на Fable с --confirmed (references/sources.md, benchmarks.md).
 2.7.0: haiku/fable/low/max без подтверждений по строгим критериям (TYPESAFE_TRIAGE_CONFIRM=on возвращает вопросы), причина повтора, рутина, источники (references/sources.md).
@@ -849,6 +850,8 @@ def add_effort(r, m, h, task, env="auto", history=None, session=None, cwd=None, 
     apply_extremes(r, task, session, extremes)
     if d["phrases"]:
         r["explicit"] = d["phrases"][:4]
+    if d.get("tier_bare"):
+        r["tier_bare"] = d["tier_bare"]   # 2.9.1: модель названа, но формулировка не распознана как указание
     if d.get("mentions"):
         r["mentions"] = d["mentions"]     # маркеры-упоминания (в кавычках, коде, пересказе) — не учтены как указания
     r["effort_delivery"] = effort_delivery(r)
@@ -1179,6 +1182,9 @@ def hook_context(result, cur_effort=None):
         lines.append(_confirm_line(result, a))
     if result.get("explicit"):
         lines.append("• Задано пользователем в запросе (%s) — это согласие, повторно не спрашивай." % ", ".join(result["explicit"]))
+    if result.get("tier_bare") and not result.get("explicit"):
+        lines.append("• В запросе названа модель %s, но формулировка не распознана как указание. Если это просьба выбрать её — выполни "
+                     "просьбу: явное указание пользователя главнее заметки." % ", ".join(x.capitalize() for x in result["tier_bare"]))
     if delegating:
         lines.append(_effort_line(result, a))
     if "shared" in hints:   # 2.2.0 (T-3): исполнитель не увидит окна браузера, входа пользователя, устройства

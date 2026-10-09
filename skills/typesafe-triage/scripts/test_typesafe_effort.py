@@ -198,7 +198,7 @@ def test_directives(text, key, val):
 
 def test_directive_negated_tier_and_conflicts():
     d = heur.directives("Don't use opus for this, sonnet is enough")
-    assert d["tier"] is None and d["tier_not"] == ["opus"]
+    assert d["tier"] == "sonnet" and d["tier_not"] == ["opus"]      # 2.9.1 (#70): «sonnet is enough» — положительный выбор
     assert eff.apply_tier_directive("opus", d)[0] == "sonnet"
     d = heur.directives("Сделай быстро и кратко, но очень тщательно")
     assert d["effort_min"] is None and d["effort_max"] is None and any("противоречив" in p for p in d["phrases"])
@@ -691,7 +691,7 @@ def test_directive_phrases_are_deduplicated():
 def test_negations_still_work_with_mentions():
     assert heur.directives("Не нужен effort max, хватит обычного")["effort_max"] == "xhigh"
     d = heur.directives("Don't use opus for this, sonnet is enough")
-    assert d["tier"] is None and d["tier_not"] == ["opus"]
+    assert d["tier"] == "sonnet" and d["tier_not"] == ["opus"]      # 2.9.1 (#70): «sonnet is enough» — положительный выбор
     assert heur.directives("Не нужно глубоко разбираться, поправь отступы")["effort_max"] == "medium"
 
 
