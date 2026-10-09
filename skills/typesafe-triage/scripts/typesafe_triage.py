@@ -39,7 +39,8 @@
 2.3.0: заметка начинается строкой «ДЕЙСТВИЕ: сам | Agent(model=…, effort=…) | спросить — причина (≤ 15 слов). Уверенность: …»
 (triage_action: явная просьба пользователя, общее устройство, долгое ожидание, накопленный контекст, параллельность, модель
 сессии — triage_session, локально из стенограммы); короткое продолжение с прежним решением — без заметки (журнал: quiet);
---check проверяет регистрацию хука и имя скилла для Skill (triage_install); --batch (triage_batch).
+--check проверяет регистрацию хука и имя скилла для Skill (triage_install); --batch (triage_batch); журнал решений и
+фактов в корне проекта и --fact (triage_projectlog, опция).
 
 Запуск (только стандартная библиотека; ключ — переменная окружения TYPESAFE_API_KEY):
     python3 typesafe_triage.py "текст задачи"        # JSON с метриками, сигналами и рекомендацией
@@ -55,10 +56,14 @@
     python3 typesafe_triage.py --set-agent-effort yes|no|auto   # есть ли у инструмента Agent параметр effort
     python3 typesafe_triage.py --batch tasks.json [--json] [--prompts]   # пакет подзадач: таблица, порядок по paths,
                                                      # одно AskUserQuestion, готовые Agent(...) и промпты исполнителей
+    python3 typesafe_triage.py --fact <id> --model M --effort E --tokens N [--minutes N] --outcome ok|review|rework|escalated|fail
+                                                     # факт после подзадачи — в triage-log.jsonl проекта (калибровка)
+    python3 typesafe_triage.py "текст" --project-log[=ПУТЬ]   # решение — ещё и в журнал проекта (или TYPESAFE_TRIAGE_PROJECT_LOG=on)
     python3 typesafe_triage.py --selftest            # эталонные задачи (triage_cases.json) через TypeSafe; нужна сеть
     python3 typesafe_triage.py --selftest --heuristic   # те же задачи только по эвристике (офлайн)
-    python3 typesafe_triage.py --calibrate [--heuristic] [--split train|holdout|all] [--cache F]
-                                                     # распределение effort/моделей, «ниже/выше ожидаемого», журнал
+    python3 typesafe_triage.py --calibrate [--heuristic] [--split train|holdout|all] [--cache F] [--facts F]
+                                                     # распределение effort/моделей, «ниже/выше ожидаемого», журнал;
+                                                     # 2.3: факты из triage-log.jsonl проекта (на код возврата не влияют)
     python3 typesafe_triage.py --run "текст задачи"  # триаж + запуск отдельного агента `claude -p` на нужной модели
         --readonly          агент только читает и планирует (--permission-mode plan), файлы не правит
         --edit              агент может править файлы в текущем каталоге (--permission-mode acceptEdits); без --edit и --readonly
@@ -94,6 +99,7 @@ import triage_session as sess_mod  # 2.3: модель и effort сессии, �
 import triage_action as act       # 2.3: строка «ДЕЙСТВИЕ: сам | Agent(…) | спросить» и одна причина
 import triage_batch as batch      # 2.3: --batch tasks.json (таблица, порядок по paths, одно подтверждение, Agent(...))
 import triage_install as inst     # 2.3: --check — зарегистрирован ли хук, имя скилла для Skill, «призраки»
+import triage_projectlog as plog  # 2.3: журнал решений и фактов в корне проекта (опция) и --fact
 
 API_URL = os.environ.get("TYPESAFE_API_URL") or "https://api.typesafe.ai/v1/systemone"  # переопределение — только для тестов
 MODEL = "jev-latest"
@@ -902,12 +908,14 @@ def _fallback_text(fb):
 
 
 def note_tag(result):
-    """Хвост первой строки: что нужно задаче и откуда оценка (модель/effort; TypeSafe или эвристика; тип)."""
+    """Хвост первой строки: что нужно задаче и откуда оценка (модель/effort; TypeSafe или эвристика; тип; id решения)."""
     parts = ["%s/%s" % (result["model"], result.get("effort") or eff.DEFAULT_EFFORT),
              "TypeSafe" if result.get("source") == "typesafe" else "только эвристика"]
     kind = (result.get("domain") or {}).get("kind")
     if kind:
         parts.append("тип %s" % kind)
+    if result.get("decision_id"):
+        parts.append("id %s" % result["decision_id"])
     return "[TypeSafe-триаж: %s]" % "; ".join(parts)
 
 
@@ -1333,6 +1341,7 @@ def run_hook():
             if quiet:
                 log_quiet(prompt, sid, quiet, result)
             else:
+                project_decision(prompt, result, cwd, via="hook")
                 emit(hook_output(result, cwd, late))
                 log(prompt, result, takeover=takeover, late=late)
     except Exception as e:
@@ -1763,6 +1772,33 @@ def format_status():
     return "\n".join(lines)
 
 
+def flag_value(argv, name):
+    """Флаг `--name` (→ True) или `--name=ЗНАЧЕНИЕ` (→ строка); нет флага — None."""
+    for a in argv:
+        if a == name:
+            return True
+        if a.startswith(name + "="):
+            return a.split("=", 1)[1]
+    return None
+
+
+def project_decision(task, result, cwd, via="cli", task_id=None, flag=None):
+    """2.3 (#30): решение — в журнал проекта triage-log.jsonl, если он включён (переменная или флаг); без текста запроса.
+    Ставит в результат decision_id (виден в заметке — для --fact) и expected (медиана прошлых фактов). Сбой — молча."""
+    try:
+        path = plog.log_path(cwd, flag)
+        if path is None:
+            return None
+        did = str(task_id) if task_id else prompt_id(task)
+        rec = plog.decision_record(did, result, via, task_id=task_id, session=result.get("session"), records=plog.read(path))
+        result["decision_id"] = did
+        if rec.get("expected"):
+            result["expected"] = rec["expected"]
+        return path if plog.append(path, rec) else None
+    except Exception:  # журнал проекта вспомогательный: не ломает ни хук, ни команду
+        return None
+
+
 def run_check():
     """--check: TypeSafe (ключ, сеть, сертификаты) + 2.3 (#28): зарегистрирован ли хук, как вызывать скилл через Skill.
     Код: 0 — всё в порядке; 1 — TypeSafe не ответил; 3 — TypeSafe ответил, но хук не зарегистрирован или сломан."""
@@ -1784,7 +1820,7 @@ def run_check():
 
 
 def run_batch_cli(argv):
-    """--batch tasks.json [--json] [--prompts] (2.3, #29)."""
+    """--batch tasks.json [--json] [--prompts] [--project-log[=ПУТЬ]] (2.3, #29)."""
     path = opt(argv, "--batch")
     if not path or path.startswith("--"):
         print("Использование: --batch tasks.json [--json] [--prompts] — файл: [{\"id\", \"task\", \"paths\": [...]}, …]")
@@ -1794,11 +1830,12 @@ def run_batch_cli(argv):
     except batch.BatchError as e:
         print("--batch: %s" % e)
         return 2
-    cwd = os.getcwd()
+    cwd, flag = os.getcwd(), flag_value(argv, "--project-log")
 
     def one(task):
         r = triage(task["task"], cwd=cwd)
         log(task["task"], r)
+        project_decision(task["task"], r, cwd, via="batch", task_id=task["id"], flag=flag)
         if r.get("notice"):
             print(r["notice"], file=sys.stderr)
         return r
@@ -1807,6 +1844,26 @@ def run_batch_cli(argv):
         print(json.dumps(rep, ensure_ascii=False, indent=2))
     else:
         print(batch.format_text(rep, prompts="--prompts" in argv))
+    return 0
+
+
+def run_fact_cli(argv):
+    """--fact <id> --model M --effort E --tokens N [--minutes N] --outcome X [--review-issues N] [--project-log=ПУТЬ]
+    (2.3, #30): факт после подзадачи — в журнал проекта (явная команда — пишет и без включённой опции)."""
+    try:
+        rec = plog.fact_record(opt(argv, "--fact"), opt(argv, "--model"), opt(argv, "--effort"), opt(argv, "--tokens"),
+                               opt(argv, "--minutes"), opt(argv, "--outcome"), opt(argv, "--review-issues"))
+    except ValueError as e:
+        print("--fact: %s" % e)
+        return 2
+    if str(rec.get("ref", "")).startswith("--"):
+        print("--fact: нужен id решения сразу после --fact")
+        return 2
+    path = plog.log_path(os.getcwd(), flag_value(argv, "--project-log") or True)
+    if path is None or not plog.append(path, rec):
+        print("--fact: не удалось записать журнал проекта (%s)" % path)
+        return 1
+    print("Факт записан в %s: %s" % (path, json.dumps(rec, ensure_ascii=False)))
     return 0
 
 
@@ -1864,6 +1921,8 @@ def main(argv):
         return 0
     if "--batch" in argv:
         return run_batch_cli(argv)
+    if "--fact" in argv:
+        return run_fact_cli(argv)
     if "--hook" in argv:
         rc = run_hook()
         if _ABANDONED:                     # поток с зависшим запросом брошен по тайм-ауту: выходим, не дожидаясь его
@@ -1877,12 +1936,19 @@ def main(argv):
         if split not in ("all", "train", "holdout"):
             print("--split: all | train | holdout")
             return 2
-        return run_selftest("--heuristic" in argv, split, "--calibrate" in argv)
+        rc = run_selftest("--heuristic" in argv, split, "--calibrate" in argv)
+        if "--calibrate" in argv:   # 2.3 (#30): факты из журнала проекта — для сведения, на код возврата не влияют
+            facts = opt(argv, "--facts")
+            path = Path(facts) if facts else plog.log_path(os.getcwd(), True)
+            if facts or (path and path.exists()):
+                print("\n".join(plog.summary(path)))
+        return rc
     if len(argv) < 2:
         print(__doc__)
         return 2
     task = " ".join(a for a in argv[1:] if not a.startswith("--"))
     result = triage(task, cwd=os.getcwd())
+    project_decision(task, result, os.getcwd(), via="cli", flag=flag_value(argv, "--project-log"))
     log(task, result)
     if result.get("notice"):
         print(result["notice"], file=sys.stderr)
