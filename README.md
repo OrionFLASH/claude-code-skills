@@ -27,7 +27,36 @@
 /plugin install <имя-скила>@claude-code-skills
 ```
 
-Обновление: `/plugin marketplace update claude-code-skills`.
+### Обновление
+
+Для каждого установленного скила; после этого — перезапуск Claude Code (новая версия и хуки плагинов видны только в новой сессии, либо `/reload-plugins`):
+
+```text
+/plugin marketplace update claude-code-skills
+/plugin update <имя-скила>@claude-code-skills
+```
+
+То же в терминале: `claude plugin marketplace update claude-code-skills`, `claude plugin update <имя-скила>@claude-code-skills`. Версии — `claude plugin list`. Что нужно после обновления:
+
+| Скил | Что сделать |
+|------|-------------|
+| `site-qa-audit` | в папке новой версии `cd scripts/node && npm install` (и `npx playwright install …`, если сменилась версия `playwright`); `SITE_QA_AUDIT_DIR`, если задана, поменять на новую папку |
+| `android-qa-audit` | `npm install` в `scripts/node` — только для аннотаций скриншотов |
+| `typesafe-triage` | `python3 <папка скилла>/scripts/typesafe_triage.py --check` (ключ, хук, имя для `Skill`) |
+
+Старые папки версий остаются в кэше плагинов (`~/.claude/plugins/cache/claude-code-skills/<скил>/<версия>/`) — это нормально. Ключи, результаты прогонов и журналы лежат вне папки скила и при обновлении сохраняются.
+
+### Хуки плагинов и принудительный запуск
+
+Хуки приходят вместе с плагином (`hooks/hooks.json`) и работают только при установке плагином; у симлинка или копии хука нет (слэш-вызов скила работает всегда).
+
+| Скил | Хук | Принудительный запуск |
+|------|-----|-----------------------|
+| `typesafe-triage` | заметка «ДЕЙСТВИЕ: …» к каждому запросу | слэш `/typesafe-triage:typesafe-triage <задача>`, метка `triage:` / `!триаж opus/high`, фраза «сделай триаж» — снимают пропуски хука |
+| `site-qa-audit` | строка «ЯВНЫЙ ВЫЗОВ» (без вопроса о намерении) | метка `!qa` / `qa:` / `!site-qa` с опциями `autopilot`, `smoke`/`standard`/`deep`, фраза «запусти скилл site-qa-audit» |
+| `android-qa-audit` | то же | `!qa` / `qa:` / `!android-qa`, фраза «запусти скилл android-qa-audit»; `!qa` без названия выбирает скил по содержимому (URL → site, APK → android) |
+
+Публикацию в GitHub метки не включают. Подробности — `SKILL.md`, `README.md` и `INSTALL.md` скила.
 
 ### Симлинками (разработка)
 
@@ -67,7 +96,7 @@ tools/validate.sh my-skill # один
 
 ```text
 .claude-plugin/marketplace.json  каталог плагинов
-skills/<имя>/                    подпроект скила (SKILL.md, README, CHANGELOG, references/, templates/, scripts/, tests/)
+skills/<имя>/                    подпроект скила (SKILL.md, README, INSTALL, CHANGELOG, references/, templates/, scripts/, hooks/, tests/)
 shared/                          общее для нескольких скилов (скрипты, шаблон каркаса)
 tools/                           install, new-skill, validate (sh + ps1, логика в tools/lib на Python stdlib)
 ```
