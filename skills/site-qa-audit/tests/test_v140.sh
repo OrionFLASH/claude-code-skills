@@ -328,5 +328,35 @@ check "coverage again: пустой список «не проверено» —
   mkdir -p '$TMP/r-empty' && printf '{\"run\": {}, \"findings\": []}' > '$TMP/r-empty/findings.json' &&
   test \$('$PY' '$CV' again '$TMP/r-empty' >/dev/null; echo \$?) = 1"
 
+# ---------- #24: autopilot, data variants and stands, decisions in the journal ----------
+JR="$S/journal.py"; RA="$TMP/run-auto"; mkdir -p "$RA" "$TMP/work-cwd"
+check "intake --autopilot: решения по умолчанию в decisions, output_dir = папка запуска, dry-run, без «старт»" sh -c "
+  cd '$TMP/work-cwd' && env -u SITE_QA_OUTPUT_DIR '$PY' '$S/intake.py' from-text --text 'Проверь https://example.com/, не нажимай «Купить»' --autopilot --json > '$TMP/ap.json' &&
+  '$PY' -c \"import json,sys,os; d=json.load(open(sys.argv[1])); c=d['config']; ds=' | '.join(d['decisions'])
+assert c['autopilot'] is True and c['mode']=='dry-run' and os.path.realpath(c['output_dir'])==os.path.realpath(sys.argv[2]), c
+assert 'output_dir' in ds and 'направления: все' in ds and 'режим: dry-run' in ds and 'варианты данных' in ds and 'без изменений' in ds, ds
+assert not any(m.startswith('output_dir') for m in d['missing']), d['missing']
+assert c['rules']['forbidden_actions'][0]['texts']==['Купить'], c['rules']\" '$TMP/ap.json' '$TMP/work-cwd'"
+check "intake: «автопилот» / «без вопросов» в тексте запроса включают автопилот; обычный запрос — нет" sh -c "
+  env -u SITE_QA_OUTPUT_DIR '$PY' '$S/intake.py' from-text --text '/site-qa-audit автопилот: проверь https://example.com/' --output-dir '$TMP' --json | '$PY' -c \"import json,sys; assert json.load(sys.stdin)['config']['autopilot'] is True\" &&
+  '$PY' '$S/intake.py' from-text --text 'Проверь https://example.com/ без вопросов' --output-dir '$TMP' --json | '$PY' -c \"import json,sys; assert json.load(sys.stdin)['config']['autopilot'] is True\" &&
+  '$PY' '$S/intake.py' from-text --text 'Проверь https://example.com/' --output-dir '$TMP' --json | '$PY' -c \"import json,sys; d=json.load(sys.stdin); assert d['config']['autopilot'] is False and d['decisions']==[]\""
+check "intake --autopilot --journal: решения в journal.md (РЕШЕНИЕ … [автопилот]), status показывает их" sh -c "
+  '$PY' '$S/intake.py' from-text --text 'Проверь https://example.com/' --output-dir '$TMP' --autopilot --journal '$RA' --out '$RA/run-config.yaml' > '$TMP/ap.out' &&
+  grep -q 'решение автопилота:' '$TMP/ap.out' && grep -q '^# Решение автопилота:' '$RA/run-config.yaml' &&
+  grep -q 'РЕШЕНИЕ: .*\[автопилот\]' '$RA/journal.md' &&
+  '$PY' '$JR' status '$RA' --json | '$PY' -c \"import json,sys; d=json.load(sys.stdin); assert len(d['decisions'])>=4, d\" &&
+  test \$('$PY' '$UG' nav https://example.com/ --config '$RA/run-config.yaml' >/dev/null; echo \$?) = 0"
+check "intake --autopilot: папка запуска — домашняя (некуда писать) — output_dir остаётся вопросом" sh -c "
+  cd \"\$HOME\" && env -u SITE_QA_OUTPUT_DIR '$PY' '$S/intake.py' from-text --text 'Проверь https://example.com/' --autopilot --json | '$PY' -c \"import json,sys; d=json.load(sys.stdin); assert d['config']['output_dir'] is None and any(m.startswith('output_dir') for m in d['missing']) and any('домашняя папка' in n for n in d['notes']), d\""
+check "journal decide: решение с причиной в журнале; status — счётчик решений" sh -c "
+  '$PY' '$JR' decide '$RA' 'WebKit пропущен' --why 'браузер не запускается' >/dev/null &&
+  grep -q 'РЕШЕНИЕ: WebKit пропущен (почему: браузер не запускается)' '$RA/journal.md' &&
+  '$PY' '$JR' status '$RA' | grep -q 'решений без вопроса'"
+check "intake: стенды и варианты данных — variants по хостам и пометка «включить в охват»; без них — variants []" sh -c "
+  '$PY' '$S/intake.py' from-text --text 'Проверь два стенда: https://test.example.com/ и https://example.com/' --output-dir '$TMP' --json | '$PY' -c \"import json,sys; d=json.load(sys.stdin); v=d['config']['variants']; assert [x['id'] for x in v]==['test.example.com','example.com'] and all(x['kind']=='stand' for x in v), v; assert any('включить каждый в охват' in n for n in d['notes'])\" &&
+  '$PY' '$S/intake.py' from-text --text 'Проверь на тестовых данных и боевых данных https://example.com/' --output-dir '$TMP' --json | '$PY' -c \"import json,sys; d=json.load(sys.stdin); assert d['config']['variants']==[] and any('variants' in n for n in d['notes'])\" &&
+  '$PY' '$S/intake.py' from-text --text 'Проверь https://example.com/' --output-dir '$TMP' --json | '$PY' -c \"import json,sys; d=json.load(sys.stdin); assert d['config']['variants']==[] and not any('variants' in n for n in d['notes'])\""
+
 echo "stream v1.4.0: PASS $pass, FAIL $fail"
 [ $fail -eq 0 ]

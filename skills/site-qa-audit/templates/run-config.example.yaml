@@ -12,6 +12,8 @@ skill_dir: /abs/path/to/site-qa-audit  # SKILL_DIR прогона: python3 <ск
                               # → <RUN_DIR>/skill (не пропадёт при обновлении плагина посреди прогона)
 skill_source: null            # откуда скопирован скил (заполняет skill_snapshot.py --update-config)
 mode: dry-run                 # live | dry-run (dry-run: всё, кроме публикации; черновики в drafts/)
+autopilot: false              # true — без опроса и «старт»: значения по умолчанию, решения — в journal.md
+                              # (intake.md → «Автопилот»); запреты и dry-run не ослабляются
 publish_mode: batch           # batch — черновики и сводная таблица в конце; direct — по запросу пользователя: каждая
                               # находка «воспроизвести дважды → дубли → issue → скриншоты» сразу (repo-sync.md §4a)
 language: ru                  # язык отчётов и issues
@@ -49,6 +51,17 @@ scope:
   urls: []                    # для url-list
   page_limit: 50              # для глубины standard
   exclude_patterns: []        # регэкспы URL, исключённые пользователем после разведки
+
+variants: []                  # варианты данных и стенды (intake.md, вопрос 2a): каждый входит в охват, у находки — variant
+# Пример:
+#  - id: test
+#    kind: stand               # stand | data | role
+#    ref: https://test.example.com/   # адрес стенда / путь к набору данных / роль
+#    note: "тестовые данные, можно портить"
+#  - id: prod
+#    kind: stand
+#    ref: https://example.com/
+#    note: "только чтение"
 
 goal:                         # что тестируем и что считать успехом (references/intake.md, вопросы 2 и 10)
   focus: [main-flows]         # main-flows | section | form | responsive | accessibility | performance | seo | content | all

@@ -4,7 +4,9 @@
   journal.py init RUN_DIR [--title "…"] [--todo "step" ...]   create journal.md (keeps an existing one)
   journal.py todo RUN_DIR "step" ["step" ...]                  add open items
   journal.py done RUN_DIR "text or item number" [--note "…"]   close an open item (substring or number from status)
-  journal.py note RUN_DIR "text"                               log entry (decision, where side effects were written…)
+  journal.py note RUN_DIR "text"                               log entry (where side effects were written…)
+  journal.py decide RUN_DIR "decision" [--why "…"] [--auto]    a decision taken without asking (autopilot: --auto) —
+                                                               «РЕШЕНИЕ: …» in the log; `status` lists them
   journal.py status RUN_DIR [--json]                           open items and the last entries; exit 1 if journal is missing
 
 journal.md sections: «Осталось» (open "- [ ]" items), «Сделано» ("- [x]" with time), «Записи» (log).
@@ -18,6 +20,7 @@ from datetime import datetime
 from pathlib import Path
 
 HEADS = ("## Осталось", "## Сделано", "## Записи")
+DECISION = "РЕШЕНИЕ:"
 
 
 def now():
@@ -89,6 +92,11 @@ def main():
     n = sub.add_parser("note")
     n.add_argument("run_dir")
     n.add_argument("text")
+    c = sub.add_parser("decide")
+    c.add_argument("run_dir")
+    c.add_argument("text")
+    c.add_argument("--why")
+    c.add_argument("--auto", action="store_true", help="принято автопилотом (без вопроса пользователю)")
     s = sub.add_parser("status")
     s.add_argument("run_dir")
     s.add_argument("--json", action="store_true")
@@ -129,13 +137,21 @@ def main():
         j["log"].append(f"- {now()} — {a.text}")
         write(a.run_dir, j)
         print("journal: запись добавлена")
+    elif a.cmd == "decide":
+        j = need(a.run_dir)
+        j["log"].append(f"- {now()} — {DECISION} {a.text}" + (f" (почему: {a.why})" if a.why else "") +
+                        (" [автопилот]" if a.auto else ""))
+        write(a.run_dir, j)
+        print(f"journal: решение записано ({sum(1 for x in j['log'] if DECISION in x)} в журнале)")
     else:
         j = need(a.run_dir)
+        decisions = [x.lstrip("- ") for x in j["log"] if DECISION in x]
         if a.json:
             print(json.dumps({"todo": [strip_box(x) for x in j["todo"]], "done": len(j["done"]),
-                              "last": j["log"][-3:]}, ensure_ascii=False, indent=1))
+                              "decisions": decisions, "last": j["log"][-3:]}, ensure_ascii=False, indent=1))
             return
-        print(f"{j['title']}: сделано {len(j['done'])}, осталось {len(j['todo'])}")
+        print(f"{j['title']}: сделано {len(j['done'])}, осталось {len(j['todo'])}" +
+              (f", решений без вопроса {len(decisions)}" if decisions else ""))
         for k, x in enumerate(j["todo"], 1):
             print(f"  {k}. {strip_box(x)}")
         for x in (j["done"][-1:] + j["log"][-2:]):
