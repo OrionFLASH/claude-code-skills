@@ -441,10 +441,10 @@ check "publish_shots push --confirm-push: своя ветка от main, заг�
   '$PY' -c \"import json,sys; s=json.load(open(sys.argv[1]))['repos']['owner/priv']; assert s['refs']['qa-screenshots']=='c0ffee' and list(s['files'])==['qa-screenshots:qa-screenshots/run-shots/qa-vis-01-annotated.png'], s; p=json.load(open(sys.argv[2])); assert p['screenshots/qa-vis-01-annotated.png'].endswith('?raw=true'), p\" '$TMP/gh-state.json' '$RS/shots-published.json' &&
   '$PY' '$PS' push '$RS' --repo owner/priv --confirm-push 2>/dev/null | '$PY' -c \"import json,sys; d=json.load(sys.stdin); assert [u['status'] for u in d['uploads']]==['unchanged'], d\" &&
   test \$(grep -c '\"PUT\"' '$TMP/gh-state.json') = 1"
-check "publish_shots push: в основную ветку — 2; репозиторий без push — 1; ошибка gh — 3" sh -c "
+check "publish_shots push: в основную ветку — 2; репозиторий без push — 1; нет доступа к репозиторию — plan local (1.5.0: не ошибка 3)" sh -c "
   test \$('$PY' '$PS' push '$RS' --repo owner/priv --branch main --confirm-push >/dev/null 2>&1; echo \$?) = 2 &&
   test \$('$PY' '$PS' push '$RS' --repo owner/pub --confirm-push >/dev/null 2>&1; echo \$?) = 1 &&
-  test \$('$PY' '$PS' plan '$RS' --repo owner/none >/dev/null 2>&1; echo \$?) = 3"
+  '$PY' '$PS' plan '$RS' --repo owner/none 2>/dev/null | '$PY' -c \"import json,sys; d=json.load(sys.stdin); assert d['mode']=='local', d\""
 check "ссылки на скриншоты с --screenshot-base: имя файла в URL экранируется (пробел -> %20), как в publish_shots" sh -c "
   '$PY' -c \"import json,sys; d=json.load(open(sys.argv[1])); d['findings'][0]['screenshots']=['screenshots/my shot-annotated.png']; json.dump(d, open(sys.argv[2],'w'), ensure_ascii=False)\" '$FG' '$TMP/fg-space.json' &&
   '$PY' '$RD' detailed '$TMP/fg-space.json' --id F-001 --screenshot-base https://github.com/owner/priv/blob/qa-screenshots/qa | grep -q 'qa/my%20shot-annotated.png?raw=true'"
