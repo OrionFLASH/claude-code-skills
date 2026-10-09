@@ -259,6 +259,10 @@ python <SKILL_DIR>\scripts\check_env.py --fast --no-browsers   # то же бе�
 
 `check_env` печатает таблицу «компонент / версия / статус / как исправить» и строку «Итог: можно работать» или «нужно исправить: …» (код выхода 0 или 1). Затем в Claude Code: `/site-qa-audit` должен быть в списке команд, а просьба «протестируй https://example.com» — приводить к вопросу «Похоже, вы хотите протестировать … Запустить QA-аудит?».
 
+## Принудительный запуск (хук плагина, с 1.6.0)
+
+Плагин приносит хук `UserPromptSubmit` (`hooks/hooks.json` → `scripts/shared/qa_force.py`, без сети, только Python): запрос с меткой `!qa …`, `qa: …`, `!site-qa …` или фразой «запусти скилл site-qa-audit» получает строку «ЯВНЫЙ ВЫЗОВ (qa-force)», и скил стартует без вопроса о намерении (опции метки: `autopilot`, `smoke|standard|deep`). Хук не блокирует запрос и ничего не печатает при ошибке. Проверка: `echo '{"prompt":"!qa deep https://example.com"}' | python3 <SKILL_DIR>/scripts/shared/qa_force.py --hook --skill site-qa-audit` печатает JSON с `additionalContext`. При установке без плагина (симлинк или копия) хука нет: метки распознаёт только сама модель по `SKILL.md`; слэш `/site-qa-audit` работает всегда. Хук подхватывается после перезапуска Claude Code или `/reload-plugins`.
+
 ## Обновление
 
 **Текущая версия:**

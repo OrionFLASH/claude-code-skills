@@ -4,6 +4,7 @@ miniyaml.py
 envcheck.py
 runjournal.py
 qa_gitignore.py
+qa_force.py
 qa_export.py
 qa_ingest.py
 qa_recheck.py
@@ -13,3 +14,4 @@ qa_known.py
 qa_attachments.py
 tests/doc_commands.py
 tests/doc_zsh.py
+tests/qa_force_check.py

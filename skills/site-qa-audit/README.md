@@ -74,9 +74,14 @@ Find bugs on https://example.org, standard depth, English report.
 Проверь юридически значимые элементы https://example.com для гостя: cookie-баннер, согласия, документы,
 на русском, английском и немецком. Страницы входа и оплаты — только прочитать.
 Протестируй https://app.example.com без Pro и с Pro и заводи находки сразу в репозиторий owner/feedback.
+!qa deep autopilot https://example.com — проверить вёрстку и доступность, без публикации.
+!site-qa:smoke https://example.com
+Запусти скилл site-qa-audit на https://example.com — только functional и SEO.
 /site-qa-audit автопилот: проверь офлайн-редактор file:///abs/path/app/index.html на копии, 4 потока,
 с открытым окном; стенды — тестовые и боевые данные; не нажимай «Удалить».
 ```
+
+Принудительный запуск без вопроса «Запустить QA-аудит?» (с 1.6.0, хук плагина): метка `!qa …` / `qa: …` / `!site-qa …` или фраза «запусти скилл site-qa-audit»; в метке допустимы `autopilot` и глубина `smoke|standard|deep`. Без названия (`!qa`) скил выбирается по содержимому (URL, сайт → site-qa-audit; APK, эмулятор → android-qa-audit). Публикацию в GitHub метка не включает.
 
 ## Команды (основные)
 Все пути — абсолютные; `<SKILL_DIR>` — папка скила, `<RUN_DIR>` — папка прогона. Подробности — в указанных `references/`.

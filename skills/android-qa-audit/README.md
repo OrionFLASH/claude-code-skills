@@ -57,7 +57,12 @@ QA-тестирование Android-приложения — по APK, split APK
 QA установленного приложения com.example.app на моём телефоне по USB: только смотреть, ничего не менять.
 Глубокий тест app.aab: жизненный цикл, разрешения, уведомления, monkey; ошибки — черновиками в owner/repo.
 Test this APK on emulators: Android 12 and 14, accessibility and performance, English report.
+!qa deep autopilot ~/Downloads/app-release.apk
+!android-qa:smoke app.apk
+Запусти скилл android-qa-audit для установленного приложения com.example.app.
 ```
+
+Принудительный запуск без вопроса «Запустить?» (с 1.4.0, хук плагина): метка `!qa …` / `qa: …` / `!android-qa …` или фраза «запусти скилл android-qa-audit»; в метке допустимы `autopilot` и глубина `smoke|standard|deep`. Без названия (`!qa`) скил выбирается по содержимому (APK, эмулятор → android-qa-audit; URL, сайт → site-qa-audit). Публикацию в GitHub метка не включает.
 
 ## Команды (основные)
 ```bash

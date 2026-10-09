@@ -2,6 +2,7 @@
 miniyaml.py
 envcheck.py
 qa_gitignore.py
+qa_force.py
 qa_export.py
 qa_ingest.py
 qa_recheck.py
@@ -9,3 +10,4 @@ qa_direct.py
 qa_snapshot.py
 qa_threads.py
 tests/doc_commands.py
+tests/qa_force_check.py

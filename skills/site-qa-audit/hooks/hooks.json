@@ -1,0 +1,16 @@
+{
+  "description": "Принудительный запуск site-qa-audit из запроса: метка «!qa …» / «!site-qa …» (опции autopilot, smoke/standard/deep) или фраза «запусти скилл site-qa-audit» — в контекст добавляется строка «ЯВНЫЙ ВЫЗОВ», вопрос о намерении не задаётся; хук без сети, не блокирует запрос",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/shared/qa_force.py\" --hook --skill site-qa-audit || python \"${CLAUDE_PLUGIN_ROOT}/scripts/shared/qa_force.py\" --hook --skill site-qa-audit",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
