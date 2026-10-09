@@ -626,3 +626,50 @@ def signals(text):
                    "retry": is_retry(text), "lang": language(prose),
                    "parts": {k: round(v, 2) for k, v in parts.items()}},
     }
+
+
+# ---------- 2.4.2: принудительный запуск триажа из запроса ----------
+# Пользователь сам просит триаж: слэш-вызов скилла, метка в начале («triage:», «!триаж opus/high») или фраза в тексте
+# («сделай триаж», «через typesafe-triage»). Принудительный запуск снимает только пропуски хука (короткая реплика,
+# «болтовня», команда /… этого скилла, режим «реже»); выбор модели, effort и действия остаётся прежним.
+_FORCE_LEVEL = r"(?:haiku|sonnet|opus|fable|low|medium|high|xhigh|max)"
+_FORCE_LEVELS = r"%s(?:\s*[/,+]\s*%s|\s+%s)?(?![\w-])" % (_FORCE_LEVEL, _FORCE_LEVEL, _FORCE_LEVEL)
+FORCE_SLASH_RE = re.compile(r"^\s*/(?:typesafe-triage:)?typesafe-triage(?=\s|$)[ \t]*", re.I)
+# «!triage …» — уровень можно писать через пробел; «triage:opus/high …» — уровень вплотную к двоеточию («triage: high …» — обычный текст)
+FORCE_LABEL_RE = re.compile(
+    r"^\s*(?:!(?:triage|триаж)(?=\s|$)[ \t]*(?P<bang>%s)?|(?:triage|триаж):(?P<colon>%s)?)[ \t]*" % (_FORCE_LEVELS, _FORCE_LEVELS), re.I)
+FORCE_PHRASE_RE = re.compile(
+    r"\b(?:с|через|используй|примени|прогони|запусти|сделай|проведи)\s+(?:сначала\s+)?(?:триаж\w*|typesafe[- ]triage)\b"
+    r"|\bсначала\s+триаж\b|\b(?:run|use|via|through|do|apply|start)\s+(?:the\s+)?(?:typesafe[- ]triage|triage)\b"
+    r"|\btriage\s+(?:this|it|first)\b", re.I)
+_TIER_WORDS = ("haiku", "sonnet", "opus", "fable")
+
+
+def _level_directive(levels):
+    """«opus/high», «haiku», «max» → «use opus, effort high: » (форма, которую понимает разбор указаний)."""
+    parts = []
+    for w in re.findall(_FORCE_LEVEL, levels or "", re.I):
+        w = w.lower()
+        parts.append("use " + w if w in _TIER_WORDS else "effort " + w)
+    return ", ".join(parts) + ": " if parts else ""
+
+
+def force_trigger(text):
+    """Запрос → (способ, текст без метки): способ — "slash" | "label" | "phrase" | None.
+    slash: «/typesafe-triage[:typesafe-triage] задача»; label: «triage: …», «триаж: …», «!triage …» с необязательным уровнем
+    («triage:opus/high …», «!triage haiku …») — уровень превращается в явное указание модели/effort (это согласие на
+    haiku/fable/low/max); phrase: фраза в тексте вне кавычек, `кода` и пересказа (текст не меняется)."""
+    t = text or ""
+    m = FORCE_SLASH_RE.match(t)
+    if m:
+        return "slash", t[m.end():].strip()
+    m = FORCE_LABEL_RE.match(t)
+    if m:
+        rest = t[m.end():].strip()
+        return "label", (_level_directive(m.group("bang") or m.group("colon")) + rest) if rest else ""
+    masked, _hidden, report = mentions(FENCE_RE.sub(" ", t)[:MAX_CHARS])
+    for rx in QUOTE_RES:                      # фраза в кавычках или `коде` — цитата, а не просьба
+        masked = rx.sub(lambda mt: " " * len(mt.group(0)), masked)
+    if not report and FORCE_PHRASE_RE.search(masked):
+        return "phrase", t.strip()
+    return None, t

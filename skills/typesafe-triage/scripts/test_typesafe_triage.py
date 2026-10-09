@@ -328,6 +328,62 @@ def test_service_blocks_are_stripped_not_skipped(monkeypatch, capsys):
     assert seen and all("секрет-контекст" not in x and "system-reminder" not in x for x in seen)
 
 
+@pytest.mark.parametrize("text,kind,rest", [
+    ("/typesafe-triage:typesafe-triage проверь орфографию в docs", "slash", "проверь орфографию в docs"),
+    ("/typesafe-triage проверь орфографию в docs", "slash", "проверь орфографию в docs"),
+    ("/typesafe-triage:typesafe-triage", "slash", ""),
+    ("triage: проверь орфографию в docs", "label", "проверь орфографию в docs"),
+    ("Триаж: проверь орфографию в docs", "label", "проверь орфографию в docs"),
+    ("!triage проверь орфографию в docs", "label", "проверь орфографию в docs"),
+    ("triage: high quality docs", "label", "high quality docs"),                          # уровень — только вплотную к двоеточию
+    ("triage:opus/high проверь договор", "label", "use opus, effort high: проверь договор"),
+    ("!triage haiku проверь орфографию", "label", "use haiku: проверь орфографию"),
+    ("!триаж opus high сделай", "label", "use opus, effort high: сделай"),
+    ("!triage max", "label", ""),
+    ("сделай триаж и проверь орфографию", "phrase", "сделай триаж и проверь орфографию"),
+    ("проверь орфографию через typesafe-triage", "phrase", "проверь орфографию через typesafe-triage"),
+    ("Please run triage on this and check the docs", "phrase", "Please run triage on this and check the docs"),
+    ("почини баг в typesafe-triage", None, None),                  # название как объект задачи — не просьба
+    ("/typesafe:typesafe-ai что-то", None, None),                  # чужой скилл
+    ('в отчёте написано "сделай триаж", это цитата', None, None),
+    ("`run triage` — пример из кода", None, None),
+    ("triagex: не метка", None, None),
+])
+def test_force_trigger(text, kind, rest):
+    k, r = heur.force_trigger(text)
+    assert k == kind and (rest is None or r == rest)
+
+
+def test_force_level_label_gives_explicit_directives():
+    """Метка с уровнем = явное указание (согласие на haiku/fable/low/max), как «на opus» в тексте."""
+    k, r = heur.force_trigger("!triage haiku max проверь орфографию")
+    d = heur.directives(r)
+    assert k == "label" and d["tier"] == "haiku" and d["effort"] == "max"
+
+
+def test_forced_run_lifts_skips(monkeypatch, capsys):
+    """2.4.2: слэш-вызов скилла, метка и фраза снимают пропуски (команда /…, короткая реплика, «болтовня», режим «реже»)."""
+    import io, json
+    seen = []
+    monkeypatch.setattr(t, "triage", lambda text, *a, **k: seen.append(text) or {"model": "opus", "source": "typesafe", "reason": "x"})
+    cases = [("/typesafe-triage:typesafe-triage проверь орфографию во всей документации", "проверь орфографию во всей документации"),
+             ("триаж: поправь опечатку", "поправь опечатку"),
+             ("сделай триаж, спасибо", "сделай триаж, спасибо")]
+    for p, expect in cases:
+        assert t.skip_reason(p) is not None or p.startswith("сделай")          # без метки такие запросы пропускались
+        monkeypatch.setattr(t.sys, "stdin", io.StringIO(json.dumps({"prompt": p, "session_id": "f-" + expect[:5]})))
+        assert t.run_hook() == 0
+        out = json.loads(capsys.readouterr().out)["hookSpecificOutput"]["additionalContext"]
+        assert "пропущен" not in out, p
+        assert seen[-1] == expect                                                # метка вырезана, в оценку идёт только задача
+    for p, why in (("/typesafe-triage:typesafe-triage", "нет текста задачи"), ("!triage max", "нет текста задачи"),
+                   ("<task-notification>x</task-notification>", "служебное")):
+        monkeypatch.setattr(t.sys, "stdin", io.StringIO(json.dumps({"prompt": p, "session_id": "f2"})))
+        assert t.run_hook() == 0
+        assert why in json.loads(capsys.readouterr().out)["hookSpecificOutput"]["additionalContext"], p
+    assert t.skip_reason("/commit fix") == "команда /…"                          # чужие команды по-прежнему пропускаются
+
+
 def test_agent_cmd_edit_and_allow():
     cmd = t.build_agent_cmd("sonnet", edit=True, allow=("Bash(git status)", "Bash(python3 -m pytest:*)"))
     assert cmd[cmd.index("--permission-mode") + 1] == "acceptEdits"
