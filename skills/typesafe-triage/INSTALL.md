@@ -220,7 +220,7 @@ macOS / Linux:
 
 ```bash
 git clone https://github.com/OrionFLASH/claude-code-skills.git ~/dev/claude-code-skills
-cd ~/dev/claude-code-skills && git checkout typesafe-triage/v2.9.1   # релиз по тегу, а не main (версии — в CHANGELOG.md)
+cd ~/dev/claude-code-skills && git checkout typesafe-triage/v2.9.2   # релиз по тегу, а не main (версии — в CHANGELOG.md)
 tools/install.sh typesafe-triage
 ```
 
@@ -231,7 +231,7 @@ Windows (PowerShell) — junction на клон (как симлинк: `git pul
 ```powershell
 git clone https://github.com/OrionFLASH/claude-code-skills.git $HOME\dev\claude-code-skills
 cd $HOME\dev\claude-code-skills
-git checkout typesafe-triage/v2.9.1
+git checkout typesafe-triage/v2.9.2
 powershell -ExecutionPolicy Bypass -File tools\install.ps1 typesafe-triage
 # или копией (только если папки $HOME\.claude\skills\typesafe-triage ещё нет — иначе новая ляжет ВНУТРЬ старой, см. «Обновление на Windows»):
 # New-Item -ItemType Directory -Force $HOME\.claude\skills | Out-Null
@@ -440,8 +440,8 @@ Select-String '"version"' "$S\..\.claude-plugin\plugin.json"
 ## Квоты Fable и effort max (с 2.9)
 Автоматический выбор Fable ограничен 1 в сутки и 3 в неделю, effort `max` — 2 и 6: исчерпана квота — `fable → opus`, `max → xhigh`, причина видна в заметке. Явная просьба пользователя квоту не тратит и не блокируется. Настройка в `env` файла `settings.json`: `TYPESAFE_TRIAGE_FABLE_LIMIT`, `TYPESAFE_TRIAGE_MAX_LIMIT` (`1/3`, `2`, `0`, `off`). Для `--run` на Fable и `--effort max` действует потолок `--max-budget-usd` ($10 по умолчанию, `TYPESAFE_TRIAGE_EXTREME_BUDGET_USD`). Остаток квот и расход — `python3 …/typesafe_triage.py --extremes`. После обновления с 2.8 других действий не нужно: `claude plugin marketplace update claude-code-skills` → `claude plugin update typesafe-triage@claude-code-skills` → `/reload-plugins` → `python3 …/typesafe_triage.py --verify --remote`.
 
-## Формулировки указаний (с 2.9.1)
-Явная просьба о модели, effort или субагенте теперь распознаётся и в «человеческих» формах: «используй Fable», «задействуй Opus», «пусть это сделает Opus», «не используй Fable, хватит opus», «поставь effort max», «привлеки агентов» / «не привлекай, сделай сам». Вопросы («стоит ли использовать Fable?») — обсуждение. Если модель названа, но формулировка не распознана, в заметке появится подсказка — ответьте на неё явной фразой («используй X»). Обращение в начале запроса («Fable, перепиши …») считается указанием; отключить — `TYPESAFE_TRIAGE_ADDRESS=off` в `env` файла `settings.json`. После обновления с 2.9.0 других действий не нужно: `claude plugin marketplace update claude-code-skills` → `claude plugin update typesafe-triage@claude-code-skills` → `/reload-plugins` → `python3 …/typesafe_triage.py --verify --remote`.
+## Формулировки указаний (с 2.9.1, дополнено в 2.9.2)
+Явная просьба о модели, effort или субагенте теперь распознаётся и в «человеческих» формах: «используй Fable», «задействуй Opus», «пусть это сделает Opus», «не используй Fable, хватит opus», «поставь effort max», «привлеки агентов» / «не привлекай, сделай сам». Вопросы («стоит ли использовать Fable?») — обсуждение. Если модель названа, но формулировка не распознана, в заметке появится подсказка — ответьте на неё явной фразой («используй X»). Обращение в начале запроса («Fable, перепиши …») считается указанием; отключить — `TYPESAFE_TRIAGE_ADDRESS=off` в `env` файла `settings.json`. После обновления с 2.9.x других действий не нужно: `claude plugin marketplace update claude-code-skills` → `claude plugin update typesafe-triage@claude-code-skills` → `/reload-plugins` → `python3 …/typesafe_triage.py --verify --remote`.
 
 ## Опции (2.6, выключены по умолчанию)
 - `TYPESAFE_TRIAGE_DELEGATE_DOWN=on` — рутинную изолируемую работу отдавать субагенту на рекомендованном уровне ниже модели сессии («sonnet достаточно — субагент дешевле»).
