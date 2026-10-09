@@ -31,6 +31,8 @@ BIG_TS = 0.85            # сложность или объём TypeSafe от �
 BIG_PATHS = 5            # … или столько файлов в тексте
 BIG_ITEMS = 6            # … или столько пунктов
 HISTORY_CONTEXT = 3      # столько оценённых запросов сессии — контекст уже накоплен
+FACTS_HIGH = 30          # 2.4.0: столько фактов (успешных результатов инструментов, кроме записи) после сжатия — тоже
+DIALOG_TURNS = 4         # 2.4.0: сессия-диалог (мало работы с файлами) с таким числом реплик — тоже
 KINDS = ("self", "agent", "ask")
 
 
@@ -70,13 +72,28 @@ def is_big(r, a):
 
 def context_cost(r, a, sess, continuation):
     """Стоимость передачи контекста субагенту: high — запрос опирается на накопленное (продолжение, «как обсуждали»)
-    в длинной сессии; medium — опирается, сессия короткая; low — задача самодостаточна."""
+    в длинной сессии, при многих накопленных фактах или в сессии-диалоге; medium — опирается, накоплено немного;
+    low — задача самодостаточна. 2.4.0 (#33): факты и профиль — из служебных полей стенограммы (triage_session.work):
+    договорённости диалога субагент сам не перечитает, а файлы перечитает — поэтому «чтение» цену не поднимает."""
     refs = bool(a.get("refs") or continuation or r.get("inherited"))
     if not refs:
         return "low"
-    if (sess or {}).get("long") or (r.get("history_n") or 0) >= HISTORY_CONTEXT:
+    w = (sess or {}).get("work") or {}
+    if (sess or {}).get("long") or (r.get("history_n") or 0) >= HISTORY_CONTEXT or (w.get("facts") or 0) >= FACTS_HIGH:
+        return "high"
+    if w.get("profile") == "dialog" and (w.get("user_turns") or 0) >= DIALOG_TURNS:
         return "high"
     return "medium"
+
+
+def context_reason(sess):
+    """Причина «сам: контекст дорого передавать» (≤ 15 слов) с числом фактов или пометкой диалога, если они известны."""
+    w = (sess or {}).get("work") or {}
+    if (w.get("facts") or 0) >= FACTS_HIGH:
+        return "продолжение: в контексте %d фактов — передавать их субагенту дорого" % w["facts"]
+    if w.get("profile") == "dialog":
+        return "продолжение диалога: договорённости из разговора субагенту не передать дёшево"
+    return "продолжение: контекст накоплен, передавать его дорого"
 
 
 def _confirm_what(r):
@@ -106,8 +123,10 @@ def decide(r, a=None, sess=None, continuation=False):
         hints.append("wait")
     if shared:
         hints.append("shared")
+    w = sess.get("work") or {}
     base = {"session_tier": st, "session_source": src or None, "context_cost": cost, "small": small, "big": big,
-            "wait": a.get("wait"), "parallel": a.get("parallel", 0), "user": a.get("agent_req")}
+            "wait": a.get("wait"), "parallel": a.get("parallel", 0), "user": a.get("agent_req"),
+            "facts": w.get("facts"), "profile": w.get("profile")}
 
     def out(kind, why, reason, **kw):
         d = dict(base, kind=kind, why=why, reason=reason, hints=hints + kw.pop("extra", []), agent=None, fallback=None,
@@ -153,7 +172,7 @@ def decide(r, a=None, sess=None, continuation=False):
     if big and cost != "high":
         return delegate("big", "большая изолируемая задача — субагент сбережёт контекст сессии")
     if cost == "high":
-        return out("self", "context", "продолжение: контекст накоплен, передавать его дорого")
+        return out("self", "context", context_reason(sess))
     if st is not None:
         return out("self", "not_higher", "уровень %s не выше модели сессии (%s)" % (tier, st))
     return out("self", "default", "хватит %s; модель сессии хуку неизвестна" % tier)

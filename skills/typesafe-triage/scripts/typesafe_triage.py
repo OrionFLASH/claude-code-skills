@@ -41,6 +41,8 @@
 сессии — triage_session, локально из стенограммы); короткое продолжение с прежним решением — без заметки (журнал: quiet);
 --check проверяет регистрацию хука и имя скилла для Skill (triage_install); --batch (triage_batch); журнал решений и
 фактов в корне проекта и --fact (triage_projectlog, опция).
+2.4.0: автозапись факта после субагента хуком плагина PostToolUse/SubagentStop (triage_autofact, опция, выкл.);
+«чем занята сессия» — счётчики инструментов, фактов, реплик и токенов из служебных полей стенограммы (triage_session.work).
 
 Запуск (только стандартная библиотека; ключ — переменная окружения TYPESAFE_API_KEY):
     python3 typesafe_triage.py "текст задачи"        # JSON с метриками, сигналами и рекомендацией
@@ -100,6 +102,7 @@ import triage_action as act       # 2.3: строка «ДЕЙСТВИЕ: сам
 import triage_batch as batch      # 2.3: --batch tasks.json (таблица, порядок по paths, одно подтверждение, Agent(...))
 import triage_install as inst     # 2.3: --check — зарегистрирован ли хук, имя скилла для Skill, «призраки»
 import triage_projectlog as plog  # 2.3: журнал решений и фактов в корне проекта (опция) и --fact
+import triage_autofact as autofact  # 2.4: автозапись факта хуком плагина PostToolUse/SubagentStop (опция)
 
 API_URL = os.environ.get("TYPESAFE_API_URL") or "https://api.typesafe.ai/v1/systemone"  # переопределение — только для тестов
 MODEL = "jev-latest"
@@ -699,6 +702,8 @@ def add_effort(r, m, h, task, env="auto", history=None, session=None, cwd=None, 
             r["agent_effort"] = session_info["agent_effort"]
         if session_info.get("effort"):
             r["session_effort"] = session_info["effort"]
+        if session_info.get("work"):   # 2.4.0 (#33): счётчики и профиль сессии — без текста стенограммы
+            r["session_work"] = session_info["work"]
     r["continuation"] = heur.is_continuation(task)
     r["action"] = act.decide(r, heur.action_signals(task), session_info, r["continuation"])
     return r
@@ -802,6 +807,9 @@ def log(task, result, **extra):
         rec["action_why"] = a.get("why")
         if a.get("hints"):
             rec["action_hints"] = a["hints"]
+        for k in ("facts", "profile"):   # 2.4.0 (#33): для калибровки (числа и профиль, без текста)
+            if a.get(k) is not None:
+                rec["session_" + k] = a[k]
     if (result.get("session_model") or {}).get("tier"):
         rec["session_tier"] = result["session_model"]["tier"]
     rec.update({k: v for k, v in extra.items() if v})
@@ -977,6 +985,8 @@ def hook_context(result, cur_effort=None):
     if delegating:
         lines.append("• Исполнителю: самодостаточный промпт (шаблон references/executor-prompt.md), скилл typesafe-triage ему не "
                      "применять; план SuperPowers — модели ролей из его Model Selection («most capable» = opus, «cheapest» = sonnet).")
+    if delegating and result.get("decision_id") and autofact.enabled():   # 2.4.0 (#33): привязка факта к решению
+        lines.append("• Автозапись факта: добавь в description Agent метку «triage:%s»." % result["decision_id"])
     return "\n".join(lines)
 
 
@@ -1805,6 +1815,16 @@ def run_check():
     print("Agent и effort: параметр effort у Agent — %s" % (
         {True: "есть", False: "нет"}.get(s.get("agent_effort"), "неизвестно (запишите после проверки схемы: --set-agent-effort yes|no)")
         + ((" (%s)" % s["agent_effort_source"]) if s.get("agent_effort_source") else "")))
+    w = s.get("work") or {}
+    if w:   # 2.4.0 (#33): только счётчики служебных полей, без текста
+        print("Сессия (служебные поля%s): чтение %d, запись %d, команды %d, агенты %d; фактов %d, реплик %d; контекст %s; "
+              "профиль %s" % (", после сжатия" if w.get("compacted") else "", w.get("read", 0), w.get("write", 0),
+                              w.get("shell", 0), w.get("agent", 0), w.get("facts", 0), w.get("user_turns", 0),
+                              ("%d ток." % w["context_tokens"]) if w.get("context_tokens") is not None else "неизвестен",
+                              w.get("profile") or "не определён (мало данных)"))
+    plp = plog.log_path(os.getcwd())
+    print("Автозапись фактов (%s): %s" % (autofact.ENV, "выкл (по умолчанию)" if not autofact.enabled() else (
+        "вкл → %s" % plp if plp else "вкл, но журнал проекта выключен (%s) — факты не пишутся" % plog.ENV)))
     if r.get("source") != "typesafe":
         return 1
     return 0 if res["registered"] else 3

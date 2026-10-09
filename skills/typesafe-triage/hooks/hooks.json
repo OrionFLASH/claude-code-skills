@@ -1,5 +1,5 @@
 {
-  "description": "TypeSafe-триаж: заметка «ДЕЙСТВИЕ: сам | Agent(model, effort) | спросить» к запросу; короткие продолжения с прежним решением — без заметки (python3, при его отсутствии — python)",
+  "description": "TypeSafe-триаж: заметка «ДЕЙСТВИЕ: сам | Agent(model, effort) | спросить» к запросу; короткие продолжения с прежним решением — без заметки; автозапись факта после субагента (PostToolUse Agent, SubagentStop) — только при TYPESAFE_TRIAGE_AUTO_FACT=on и включённом журнале проекта, иначе хук сразу выходит (python3, при его отсутствии — python)",
   "hooks": {
     "UserPromptSubmit": [
       {
@@ -7,6 +7,29 @@
           {
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/typesafe_triage.py\" --hook || python \"${CLAUDE_PLUGIN_ROOT}/scripts/typesafe_triage.py\" --hook",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Agent|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/triage_autofact.py\" || python \"${CLAUDE_PLUGIN_ROOT}/scripts/triage_autofact.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/triage_autofact.py\" || python \"${CLAUDE_PLUGIN_ROOT}/scripts/triage_autofact.py\"",
             "timeout": 10
           }
         ]

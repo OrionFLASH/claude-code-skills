@@ -87,8 +87,26 @@ def read(path):
             rec = json.loads(ln)
         except ValueError:
             continue
-        if isinstance(rec, dict) and rec.get("kind") in ("decision", "fact"):
+        if isinstance(rec, dict) and rec.get("kind") in ("decision", "fact", "launch"):
             out.append(rec)
+    return out
+
+
+def merged_facts(records):
+    """Факты для сводок: ручной `--fact <id>` дополняет последний автоматический факт с тем же ref (исход, замечания;
+    его числа главнее), а не считается вторым фактом. 2.4.0 (#33); записи «launch» в сводки не входят."""
+    out = []
+    for r in records:
+        if r.get("kind") != "fact":
+            continue
+        if not r.get("auto"):
+            prev = next((f for f in reversed(out) if f.get("auto") and f.get("ref") == r.get("ref") and not f.get("merged")),
+                        None)
+            if prev is not None:
+                prev.update({k: v for k, v in r.items() if v is not None and k not in ("ts", "kind", "ref", "auto")})
+                prev["merged"] = True
+                continue
+        out.append(dict(r))
     return out
 
 
@@ -100,7 +118,7 @@ def _median(xs):
 def expected(records, model, effort):
     """Ожидаемый расход для (модель, effort): медиана токенов и минут прошлых фактов (не меньше EXPECT_MIN_FACTS),
     иначе None — без фактов оценки нет (не придумываем)."""
-    facts = [r for r in records if r.get("kind") == "fact" and r.get("model") == model and r.get("effort") == effort]
+    facts = [r for r in merged_facts(records) if r.get("model") == model and r.get("effort") == effort]
     toks = [r.get("tokens") for r in facts if r.get("tokens")]
     if len(toks) < EXPECT_MIN_FACTS:
         return None
@@ -158,7 +176,7 @@ def link(records):
             by_id[r.get("id")] = r
             if r.get("task_id"):
                 by_id[r["task_id"]] = r
-    return [(by_id.get(f.get("ref")), f) for f in records if f.get("kind") == "fact"]
+    return [(by_id.get(f.get("ref")), f) for f in merged_facts(records)]
 
 
 def under_by_fact(decision, fact):
@@ -178,9 +196,12 @@ def summary(path):
     """Строки сводки для --calibrate: по (модель, effort) — число фактов, медианы токенов и минут, исходы;
     сколько фактов сопоставлено с решениями и сколько из них — недооценка по факту."""
     recs = read(path)
-    facts = [r for r in recs if r.get("kind") == "fact"]
+    facts = merged_facts(recs)
     decisions = [r for r in recs if r.get("kind") == "decision"]
-    lines = ["\nЖурнал проекта %s: решений %d, фактов %d" % (path, len(decisions), len(facts))]
+    auto = sum(1 for f in facts if f.get("auto"))
+    lines = ["\nЖурнал проекта %s: решений %d, фактов %d" % (path, len(decisions), len(facts))
+             + (" (автоматических %d, из них с исходом %d)" % (auto, sum(1 for f in facts if f.get("auto") and f.get("outcome")))
+                if auto else "")]
     if not facts:
         lines.append("  фактов нет: после подзадачи — --fact <id> --model … --effort … --tokens … --outcome ok|review|rework|escalated|fail")
         return lines

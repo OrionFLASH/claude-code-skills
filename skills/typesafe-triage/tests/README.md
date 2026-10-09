@@ -12,7 +12,10 @@ python3 -m pytest $S -q -p no:cacheprovider      # офлайн: политик�
                                                  # 2.3: строка «ДЕЙСТВИЕ», правила действия, модель сессии из стенограммы,
                                                  # «реже» (test_typesafe_action.py); регистрация хука, имя для Skill, «призраки»,
                                                  # синонимы (test_typesafe_install.py); --batch (test_typesafe_batch.py);
-                                                 # журнал проекта и --fact (test_typesafe_projectlog.py)
+                                                 # журнал проекта и --fact (test_typesafe_projectlog.py);
+                                                 # 2.4: автозапись факта хуком PostToolUse/SubagentStop, привязка к решению,
+                                                 # ручной факт дополняет автоматический, счётчики и профиль сессии из служебных
+                                                 # полей стенограммы, цена контекста (test_typesafe_autofact.py)
 python3 $S/typesafe_triage.py --selftest --heuristic   # эталонные задачи только по эвристике (офлайн)
 python3 $S/typesafe_triage.py --selftest         # эталонные задачи triage_cases.json через TypeSafe, нужны сеть и ключ
 python3 $S/typesafe_triage.py --calibrate --split train     # подстройка порогов только по обучающей части …

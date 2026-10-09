@@ -15,6 +15,12 @@ ANTHROPIC_MODEL → поле model в .claude/settings.local.json, .claude/setti
 Из стенограммы читается только хвост файла (TAIL_BYTES) и только служебные поля: message.model, effort, version, имена
 инструментов, наличие ключа effort во входе Agent и флаг is_error результата. Текст сообщений не читается и не сохраняется.
 Формат стенограммы внутренний и не документирован: любой сбой разбора — «неизвестно», а не догадка.
+
+2.4.0 (#33): «чем занята сессия» — те же служебные поля, без текста (work): число вызовов инструментов по видам (чтение,
+запись, команды, агенты, прочее), число накопленных фактов (успешные результаты инструментов, кроме записи), реплик
+пользователя (записи user без tool_result, кроме служебных isMeta), размер контекста в токенах (usage последнего ответа);
+счёт — после последнего сжатия контекста (system / compact_boundary). Отсюда доля записи среди файловых операций,
+доля работы инструментами (файлы и команды) против диалога и профиль: dialog | reading | writing | mixed (мало данных — None).
 """
 import json
 import os
@@ -32,6 +38,45 @@ NO_WORDS = ("no", "off", "0", "false", "нет")
 TAIL_BYTES = 1024 * 1024           # читаем не больше хвоста стенограммы (стенограммы бывают по 100+ МБ)
 LONG_SESSION_BYTES = 3 * 1024 * 1024   # стенограмма больше — «длинная сессия»: контекст накоплен (оценка, не точный счёт)
 AGENT_TOOLS = ("Agent", "Task")
+READ_TOOLS = ("Read", "Grep", "Glob", "LS", "NotebookRead", "WebFetch", "WebSearch")
+WRITE_TOOLS = ("Edit", "Write", "MultiEdit", "NotebookEdit")
+SHELL_TOOLS = ("Bash", "BashOutput", "PowerShell")
+LONG_CONTEXT_TOKENS = 150000   # контекст основной сессии (usage последнего ответа) больше — тоже «длинная сессия»
+PROFILE_MIN = 6                # операций (файлы и команды) + реплик меньше — профиль не определяется
+DIALOG_SHARE = 0.3             # доля работы инструментами (файлы и команды) против реплик ниже — «диалог»
+
+
+def tool_kind(name):
+    if name in READ_TOOLS:
+        return "read"
+    if name in WRITE_TOOLS:
+        return "write"
+    if name in SHELL_TOOLS:
+        return "shell"
+    if name in AGENT_TOOLS:
+        return "agent"
+    return "other"
+
+
+def work_profile(w):
+    """Счётчики → доли и профиль (без текста): write_share — доля записи среди файловых операций (чтение+запись);
+    tool_share — работа инструментами (файлы и команды) против реплик пользователя, то есть «работа против диалога»;
+    profile — dialog | reading | writing | mixed, мало данных — None."""
+    r, wr, sh, turns = w.get("read", 0), w.get("write", 0), w.get("shell", 0), w.get("user_turns", 0)
+    files, ops = r + wr, r + wr + sh
+    w["write_share"] = round(wr / files, 2) if files else None
+    w["tool_share"] = round(ops / (ops + turns), 2) if ops + turns else None
+    if ops + turns < PROFILE_MIN:
+        w["profile"] = None
+    elif turns >= 3 and w["tool_share"] < DIALOG_SHARE:
+        w["profile"] = "dialog"
+    elif wr >= 3 and wr * 4 > r:
+        w["profile"] = "writing"
+    elif r >= 5:
+        w["profile"] = "reading"
+    else:
+        w["profile"] = "mixed"
+    return w
 
 
 def tier_of(model):
@@ -82,6 +127,12 @@ def from_transcript(path):
     out = {"bytes": size}
     with_effort, ok_effort = set(), False
     last = None
+    kinds, work, ctx_tokens = {}, {}, None
+
+    def reset():
+        work.clear()
+        work.update({"read": 0, "write": 0, "shell": 0, "agent": 0, "other": 0, "facts": 0, "user_turns": 0})
+    reset()
     for ln in lines:
         if not ln.strip():
             continue
@@ -93,20 +144,41 @@ def from_transcript(path):
             continue
         if isinstance(rec.get("version"), str):
             out["version"] = rec["version"][:20]
+        if rec.get("type") == "system" and rec.get("subtype") == "compact_boundary":   # контекст сжат: счёт заново
+            reset()
+            work["compacted"] = True
+            continue
         msg = rec.get("message") if isinstance(rec.get("message"), dict) else {}
         content = msg.get("content") if isinstance(msg.get("content"), list) else []
         if rec.get("type") == "assistant":
             if msg.get("model") and tier_of(msg.get("model")):
                 last = rec
+            u = msg.get("usage") if isinstance(msg.get("usage"), dict) else None
+            if u:
+                ctx_tokens = sum(v for k, v in u.items() if k in ("input_tokens", "cache_creation_input_tokens",
+                                                                   "cache_read_input_tokens") and isinstance(v, int))
             for c in content:
+                if isinstance(c, dict) and c.get("type") == "tool_use":
+                    k = tool_kind(c.get("name"))
+                    kinds[c.get("id")] = k
+                    work[k] += 1
                 if (isinstance(c, dict) and c.get("type") == "tool_use" and c.get("name") in AGENT_TOOLS
                         and isinstance(c.get("input"), dict) and "effort" in c["input"]):
                     with_effort.add(c.get("id"))
-        elif rec.get("type") == "user" and with_effort:
-            for c in content:
-                if (isinstance(c, dict) and c.get("type") == "tool_result" and c.get("tool_use_id") in with_effort
-                        and not c.get("is_error")):
+        elif rec.get("type") == "user":
+            results = [c for c in content if isinstance(c, dict) and c.get("type") == "tool_result"]
+            for c in results:
+                if not c.get("is_error") and kinds.get(c.get("tool_use_id")) != "write":
+                    work["facts"] += 1
+            if not results and not rec.get("isMeta") and (isinstance(msg.get("content"), str) or any(
+                    isinstance(c, dict) and c.get("type") == "text" for c in content)):
+                work["user_turns"] += 1
+            for c in results:
+                if c.get("tool_use_id") in with_effort and not c.get("is_error"):
                     ok_effort = True
+    if ctx_tokens is not None:
+        work["context_tokens"] = ctx_tokens
+    out["work"] = work_profile(dict(work))
     if last is not None:
         out["model"] = str(last["message"]["model"])
         e = str(last.get("effort") or "").lower()
@@ -159,10 +231,12 @@ def session_info(transcript=None, cwd=None, environ=None, home=None, config=None
         transcript = find_transcript(env.get(SESSION_ID_ENV), home)
     info = {"tier": None, "model": None, "model_source": None, "effort": None, "effort_source": None,
             "agent_effort": None, "agent_effort_source": None, "version": None, "bytes": None, "long": False,
-            "transcript": transcript}
+            "transcript": transcript, "work": None}
     tr = from_transcript(transcript)
     info["bytes"] = tr.get("bytes")
-    info["long"] = bool(tr.get("bytes") and tr["bytes"] >= LONG_SESSION_BYTES)
+    info["work"] = tr.get("work")
+    ctx_tokens = (tr.get("work") or {}).get("context_tokens") or 0
+    info["long"] = bool(tr.get("bytes") and tr["bytes"] >= LONG_SESSION_BYTES) or ctx_tokens >= LONG_CONTEXT_TOKENS
     info["version"] = tr.get("version")
     declared = (env.get(MODEL_ENV) or "").strip()
     if declared.lower() in OFF_WORDS:

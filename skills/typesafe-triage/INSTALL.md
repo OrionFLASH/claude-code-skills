@@ -305,6 +305,24 @@ Windows (имя пользователя подставьте своё, слеш
 - Хук плагина начинает работать в **новых** сессиях или после `/reload-plugins`; в сессии, открытой до установки или включения плагина, его нет. Правки хуков в `settings.json` открытые сессии подхватывают на лету — поэтому, если в открытой сессии убрать ручной хук до перезапуска, в ней не будет ни заметок, ни строки «пропущен» (так и было в отзыве 2026-10-09).
 - Отправку в TypeSafe плагинный хук включает только при наличии `TYPESAFE_API_KEY`; без ключа работают локальные сигналы, в сеть ничего не уходит.
 
+#### Автозапись факта (2.4, по желанию; по умолчанию выключена)
+С 2.4 в `hooks/hooks.json` плагина ещё два хука — `PostToolUse` (matcher `Agent|Task`) и `SubagentStop` — на `scripts/triage_autofact.py`. Пока опция выключена, они только дочитывают ввод и выходят (десятки миллисекунд на вызов `Agent`). Включить — в `env` того же `settings.json` (журнал проекта обязателен: факты пишутся в его `triage-log.jsonl`):
+
+```json
+"env": { "TYPESAFE_TRIAGE_PROJECT_LOG": "on", "TYPESAFE_TRIAGE_AUTO_FACT": "on" }
+```
+
+Ручная установка (способы 2 и 3) — добавьте два хука рядом с `UserPromptSubmit` (Windows — `python` и путь `C:/Users/ИМЯ/…`, как выше):
+
+```json
+"PostToolUse": [ { "matcher": "Agent|Task", "hooks": [ { "type": "command", "timeout": 10,
+  "command": "f=\"$HOME/.claude/skills/typesafe-triage/scripts/triage_autofact.py\"; [ -f \"$f\" ] && python3 \"$f\"; true" } ] } ],
+"SubagentStop": [ { "hooks": [ { "type": "command", "timeout": 10,
+  "command": "f=\"$HOME/.claude/skills/typesafe-triage/scripts/triage_autofact.py\"; [ -f \"$f\" ] && python3 \"$f\"; true" } ] } ]
+```
+
+Что пишется и откуда — [references/action.md](references/action.md) → «Автозапись факта»; что читается — [references/privacy.md](references/privacy.md). `--check` показывает строку «Автозапись фактов: …» (выкл / вкл → путь журнала / вкл, но журнал проекта выключен). Проверено офлайн (поддельный ввод хуков в формате документации Claude Code); в живой сессии с включённой опцией — нет (см. CHANGELOG 2.4.0).
+
 ### Шаг 4. Проверка
 
 Перезапустите Claude Code (или выполните `/reload-plugins` в каждой открытой сессии) и найдите каталог скриптов `S`:
