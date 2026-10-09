@@ -1,0 +1,6 @@
+{
+  "name": "@playwright/test",
+  "private": true,
+  "description": "site-qa-audit: playwright/test of the skill + guard of the run, for specs run by e2e_run.js (NODE_PATH only)",
+  "main": "index.js"
+}
