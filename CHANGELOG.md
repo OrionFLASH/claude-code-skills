@@ -4,6 +4,17 @@
 
 ## [Unreleased]
 
+## 2026-10-09 (2)
+### Добавлено
+- `android-qa-audit` 1.2.0 — по отзывам реального прогона (диктофон): подача звука в микрофон эмулятора (`mic-inject`: gRPC с токеном, loopback, файл; `avd_manager start --mic-inject`, `--extra-args` с белым списком), нажатия без дерева элементов (`tap X Y --no-ui`), `dump-ui --retry/--texts/--grep`, `find` с границами, неоднозначность `tap`, `soak` и `job` (долгие сценарии с проверкой предусловий), исправленные `notifications`, аннотированные скриншоты (`screenshot --mark`, `finding.py`), публикация по GitHub issue forms, документы «известно», вложения веткой, `disclosure: tool|none` (по умолчанию `tool`), `import-file`/`push-media`/`ime`, обёртка `qa` для zsh, матрица с существующими `qa-*` AVD и профилем 8 ГБ, `intake --lite`, чек-лист `audio-voice`.
+- `site-qa-audit` 1.4.0 — локальные приложения по `file://` (`site.local_roots`, fail closed), `browser.headed`/`slowmo` в run-config, копия скила и приложения в RUN_DIR, автопилот, варианты данных и стенды, единый формат результата исполнителей (`validate_findings.py --array`, `dup_check`, срез реестра), метрики и вторая волна по потокам, группы находок по первопричине и блок «Как проверить», заготовки e2e, скриншоты в приватный репозиторий через API.
+- `typesafe-triage` 2.3.0 — заметка начинается с «ДЕЙСТВИЕ: сам | Agent(model, effort) | спросить» и выдаётся реже (продолжения молчат), модель сессии из стенограммы, `--check` проверяет реальную регистрацию хука и имя для Skill, `--batch` с конфликтами по путям, шаблон промпта исполнителя, журнал решений `triage-log.jsonl` (опция) и `--fact`.
+- Общие модули `shared/scripts`: `qa_issueforms.py`, `qa_known.py`, `qa_attachments.py`, `qa_snapshot.py`, `qa_threads.py`.
+### Исправлено
+- `site-qa-audit`: JS-зеркало охраны (`lib.js navAllowed`) пропускало любой хост при пустом `allowed_domains`; `a11y.js` открывал страницы без проверки `url_guard`.
+- `typesafe-triage`: уровень зависел от версии Python при нагрузке ровно на пороге; INSTALL советовал класть резервную копию в `~/.claude/skills` (создавала «призрак» скилла).
+- `android-qa-audit`: `guard.py emulator-args` принимал цель, начинающуюся с «-», за опцию.
+
 ## 2026-10-09
 ### Добавлено
 - `site-qa-audit` 1.3.0 — по обратной связи боевого прогона (S-1…S-9, G-1…G-12): fail closed у `url_guard.py`/`guard.js` (код 4 = стоп), `nav --read-only`, стабильный `SKILL_DIR` (`skill_dir.py`, `SITE_QA_AUDIT_DIR`), безопасная выгрузка состояния входа (фильтр cookie, localStorage, chmod 600, удаление), эмуляция телефона с проверкой `pointer: coarse`, находки JSON-блоком (`ingest_findings.py`), реестр вкладок `tabs.py`, поле `repro` и обязательная перепроверка (`recheck.py`), предусловия аккаунта в `claims.py`, направление `legal-ui` (`legal_guest.js`, `--locales`), `rtl.js`, `targets.js`, фильтры `occlusion.js`, группировка и тип `suggestion`, режим `direct` публикации, `publish_web.mjs --attach-to`, видимое окно браузера по умолчанию (`SITE_QA_HEADLESS`, `SITE_QA_SLOWMO`).
