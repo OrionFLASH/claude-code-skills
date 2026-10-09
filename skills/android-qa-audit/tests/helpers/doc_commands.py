@@ -35,13 +35,24 @@ def snippets(path):
     return out
 
 
+QA = re.compile(r"(?:^|[\s/])qa(?:\.ps1)?\s+(emulator-\d+|[A-Z0-9][\w.:-]{5,}|-)\s+([a-z][a-z0-9-]*)\b([^\n]*)")
+
+
 def commands(text):
-    """[(script, [tokens])] for every `<name>.py …` in a snippet (several commands: ;, &&, |, →)."""
+    """[(script, [tokens])] for every `<name>.py …` in a snippet (several commands: ;, &&, |, →); the wrapper
+    `qa <serial> <command> …` is adb_helpers.py <command> …; `job start … -- <command> …` checks both parts."""
     res = []
     text = text.replace("\\|", "|")
     for part in re.split(r"\s(?:&&|;|\|\||\||→)\s|;\s*|\s→\s", text):
-        for m in CALL.finditer(part):
-            res.append((m.group(1), m.group(2).split()))
+        found = [(m.group(1), m.group(2).split()) for m in CALL.finditer(part)]
+        found += [("adb_helpers", [m.group(2)] + m.group(3).split()) for m in QA.finditer(part)
+                  if m.group(1) not in ("<serial|->",)]
+        for script, toks in found:
+            if script == "adb_helpers" and toks[:1] == ["job"] and "--" in toks:
+                k = toks.index("--")
+                res += [(script, toks[:k]), (script, toks[k + 1:])]
+            else:
+                res.append((script, toks))
     return res
 
 
@@ -81,8 +92,8 @@ def main():
     skill = Path(a.skill_dir).resolve()
     scripts = skill / "scripts"
     known = {p.stem for p in scripts.glob("*.py")
-             if "argparse" in p.read_text(encoding="utf-8") or "qa_gitignore.main" in p.read_text(encoding="utf-8")
-             or "qa_export.main" in p.read_text(encoding="utf-8") or "runjournal.main" in p.read_text(encoding="utf-8")}
+             if "argparse" in p.read_text(encoding="utf-8")
+             or re.search(r"\b(qa_\w+|runjournal)\.(main|cli)\(", p.read_text(encoding="utf-8"))}
     docs = [skill / "SKILL.md", skill / "README.md", skill / "INSTALL.md"] + sorted((skill / "references").rglob("*.md"))
     helps = Help(scripts, a.python)
     errors, checked = [], 0

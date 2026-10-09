@@ -29,7 +29,8 @@ def log(tool, args):
 def aapt2(args):
     apk = Path(args[-1]).name
     if args[:2] == ["dump", "badging"]:
-        name = "badging-other.txt" if "other" in apk else "badging-split-arm64.txt" if "arm64_v8a" in apk else "badging.txt"
+        name = "badging-other.txt" if "other" in apk else "badging-split-arm64.txt" if "arm64_v8a" in apk else \
+            "badging-adbkeyboard.txt" if "adbkeyboard" in apk.lower() else "badging.txt"
         sys.stdout.write(fx(name))
         return 0
     if args[:2] == ["dump", "xmltree"]:

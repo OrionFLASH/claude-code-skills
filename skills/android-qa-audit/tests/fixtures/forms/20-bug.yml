@@ -1,0 +1,64 @@
+name: Ошибка в приложении
+description: Сообщить об ошибке Android-приложения
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо, что сообщаете об ошибке! Сначала проверьте раздел «Известные ограничения».
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Что произошло?
+      description: Кратко опишите проблему
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Шаги воспроизведения
+      placeholder: "1. …"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Ожидаемое поведение
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Серьёзность
+      options:
+        - Критичная (приложение падает, данные теряются)
+        - Высокая
+        - Средняя
+        - Низкая
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Версия приложения
+      placeholder: "1.0.0 (100)"
+  - type: input
+    id: android
+    attributes:
+      label: Версия Android
+  - type: textarea
+    id: logs
+    attributes:
+      label: Логи
+      render: shell
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Скриншоты
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Проверки
+      options:
+        - label: Я поискал среди открытых issues
+          required: true
+        - label: Готов помочь с проверкой исправления

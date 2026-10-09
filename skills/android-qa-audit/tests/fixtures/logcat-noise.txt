@@ -1,0 +1,11 @@
+--------- beginning of main
+10-09 01:00:00.000   600   620 I ActivityManager: Start proc 1234:com.example.app/u0a55 for next-top-activity {com.example.app/com.example.app.MainActivity}
+10-09 01:00:01.000  1234  1290 D EGL_emulation: app_time_stats: avg=16.66ms min=15.20ms max=17.10ms count=60
+10-09 01:00:01.100  1234  1291 D BufferPoolAccessor2.0: bufferpool2 0xb4000071 : 5(40960 size) total buffers - 4(32768 size) used buffers
+10-09 01:00:01.200  1234  1290 D EGL_emulation: app_time_stats: avg=16.70ms min=15.10ms max=17.30ms count=61
+10-09 01:00:01.300  1234  1292 I HostConnection: HostComposition ext ANDROID_EMU_CHECKSUM_HELPER_v1
+10-09 01:00:02.000  1234  1234 I RecorderService: recording started, codec=aac
+10-09 01:00:03.000  1234  1295 W EGL_emulation: eglMakeCurrent: 0x3000 (warning kept: W is never noise)
+10-09 01:00:04.000  1234  1234 E RecorderService: encoder buffer overflow at 120 ms
+10-09 01:00:05.000  1234  1234 E RecorderService: encoder buffer overflow at 250 ms
+10-09 01:00:06.000  5678  5690 D EGL_emulation: other app frame stats

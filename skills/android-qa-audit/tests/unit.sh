@@ -198,7 +198,7 @@ check "avd_manager start чужого AVD без --allow-foreign -> 3" test "$(r
 ES=$("$PY" -c "import json,sys; print(json.loads(open(sys.argv[1]).read().strip().splitlines()[-1])['serial'])" "$TMP/start.out" 2>/dev/null || echo emulator-5556)  # first free port: real emulators of the host may hold 5556+
 check "avd_manager start: свободный порт (5554 занят), -no-window, stands.json" sh -c "test $c = 0 && test '$ES' != emulator-5554 && grep -q '\"serial\": \"'$ES'\"' '$TMP/start.out' && grep -q -- '-no-window' '$TMP/start.out' && ! grep -q -- '-read-only' '$TMP/start.out' && grep -q '$ES' '$RUN/stands.json'"
 sleep 1
-check "avd_manager wait-boot: boot_completed" sh -c "'$PY' '$S/avd_manager.py' wait-boot $ES --timeout 20 --run-dir '$RUN' | grep -q '\"api\": 34'"
+check "avd_manager wait-boot: boot_completed, «ready»: true и «готов» в stderr" sh -c "'$PY' '$S/avd_manager.py' wait-boot $ES --timeout 20 --run-dir '$RUN' 2> '$TMP/wb.err' | grep -q '\"ready\": true, \"boot_seconds\": [0-9]*, \"api\": 34' && grep -q '^готов: ' '$TMP/wb.err'"
 check "avd_manager stop эмулятора не этого прогона -> 3" test "$(rc "$PY" "$S/avd_manager.py" stop emulator-5554 --run-dir "$RUN")" = 3
 check "avd_manager start того же AVD повторно -> 3 (один стенд — одно действие, лишний не запускать)" test "$(rc "$PY" "$S/avd_manager.py" start qa-api34-small-2gb-2c --headless --run-dir "$RUN")" = 3
 check "avd_manager stop чужого потока (--owner w2, стенд orchestrator) -> 3" test "$(rc "$PY" "$S/avd_manager.py" stop $ES --owner w2 --run-dir "$RUN")" = 3
@@ -664,6 +664,10 @@ check "render_draft --body-only: в файле только тело, TITLE — 
 check "build_report publish-table: колонка «Перепроверка», без подтверждения — «НЕ публиковать»" sh -c "
   '$PY' '$S/build_report.py' publish-table '$RUN' | grep -q '| Перепроверка |' && '$PY' '$S/build_report.py' publish-table '$RUN' | grep -q 'НЕ публиковать до перепроверки'"
 
+# ---------- 1.2.0: microphone, long runs, annotations, publication by forms, file picker, matrix (tests/v12.sh) ----------
+# shellcheck source=v12.sh
+. "$HERE/v12.sh"
+
 # ---------- documentation: every command example is accepted by argparse (--help only, nothing runs) ----------
 check "примеры команд в SKILL.md, README, INSTALL и references/*.md принимаются скриптами (подкоманды и --опции)" \
   "$PY" "$HERE/helpers/doc_commands.py" "$HERE/.." --python "$PY"
@@ -677,7 +681,7 @@ assert 'Abcdef0123456789Abcdef' not in t and 'code=***' in t and 'SECRET1' not i
 x=mask('<node password=\"false\" text=\"a\"/> password=\"S3cretValue\"'); assert 'password=\"false\"' in x and 'S3cretValue' not in x, x
 " "$S"
 SK="$HERE/.."
-check "универсальность: в скиле нет личных путей и конкретных приложений" sh -c "! grep -rIl --exclude-dir=__pycache__ -E '/Users/[a-z]+|C:\\\\Users\\\\[A-Za-z]+|TgStat|com\\.versus|Versus' '$SK' | grep -v -E 'tests/unit.sh\$'"
+check "универсальность: в скиле нет личных путей и конкретных приложений" sh -c "! grep -rIl --exclude-dir=__pycache__ --exclude-dir=node_modules -E '/Users/[a-z]+|C:\\\\Users\\\\[A-Za-z]+|TgStat|com\\.versus|Versus|slyshno|Слышно|krut\\.top|ru\\.top\\.|GigaAM|Yandex Disk|Яндекс Диск' '$SK' | grep -v -E 'tests/unit.sh\$'"
 check "SKILL.md: frontmatter, ≤ 300 строк, description ≤ 1024 символов" pyok "
 import re,sys; t=open(sys.argv[1],encoding='utf-8').read(); assert t.startswith('---\nname: android-qa-audit\n')
 fm=t.split('\n---',1)[0]; d=re.search(r'description: >\n((?:  .*\n)+)', fm+'\n').group(1); d=' '.join(x.strip() for x in d.splitlines())

@@ -1,0 +1,7 @@
+ACTIVITY MANAGER SERVICES (dumpsys activity services)
+  User 0 active services:
+  * ServiceRecord{9f2c1a u0 com.example.app/.record.RecordingService}
+    intent={cmp=com.example.app/.record.RecordingService}
+    packageName=com.example.app
+    isForeground=true foregroundId=42 foregroundNoti=Notification(channel=recording shortcut=null contentView=null vibrate=null sound=null defaults=0x0 flags=0x62 color=0x00000000 category=progress actions=1 vis=PRIVATE)
+    createTime=-5m2s ago startingBgTimeout=--

@@ -8,12 +8,23 @@ Environment:
                      and the screen rotation of a device: rotation-<serial>.txt (set by `cmd window user-rotation lock N`)
   FAKE_ADB_LOGCAT    logcat fixture (default logcat-crash.txt)
   FAKE_ADB_IME       extra line for `ime list -a -s` (e.g. com.android.adbkeyboard/.AdbIME)
+  FAKE_ADB_DISCOVERY path printed by `emu avd discoverypath` (emulator gRPC discovery ini); unset — «KO»
+  FAKE_ADB_DUMP_FAIL N — the first N `uiautomator dump` calls fail with «could not get idle state» (counter in
+                     FAKE_ADB_STATE); «always» — every call fails
+  FAKE_ADB_UI_FLOW   JSON {"state": "<screen>", "screens": {"<screen>": {"xml": "<fixture>", "focus": "pkg/.Activity",
+                     "taps": [{"bounds": [x1, y1, x2, y2], "to": "<screen>"}], "swipe": "<screen>"}}}: the screen
+                     (dump, focus) changes with `input tap` / `input swipe` (state in FAKE_ADB_STATE/ui-<serial>.txt)
+  FAKE_ADB_NOTIF     notification fixture (default dumpsys-notification.txt)
+  FAKE_ADB_SERVICES  fixture for `dumpsys activity services`; FAKE_ADB_SERVICES_UNTIL N — present only N calls
+  FAKE_ADB_PIDOF_UNTIL N — `pidof`/`ps` show the app only for the first N calls (process death)
+  FAKE_ADB_PULL_FILE file copied by `adb pull` (default: «fake-mp4» bytes); FAKE_ADB_LS — output of `ls`
 Serials: emulator-* — emulator properties (getprop-emulator.txt); anything else — real phone (getprop-real.txt).
 Screen: natural 1080x2400; rotation 1/3 — 2400x1080 and window_dump_landscape.xml.
 """
 import json
 import os
 import shlex
+import shutil
 import signal
 import sys
 from pathlib import Path
@@ -21,6 +32,41 @@ from pathlib import Path
 FIX = Path(os.environ.get("FAKE_ADB_FIXTURES", Path(__file__).resolve().parent.parent / "fixtures"))
 STATE = Path(os.environ.get("FAKE_ADB_STATE", "/nonexistent"))
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
+
+
+def counter(name):
+    """Increment and return a per-test counter (FAKE_ADB_STATE/<name>.count)."""
+    if STATE == Path("/nonexistent"):
+        return 1
+    STATE.mkdir(parents=True, exist_ok=True)
+    p = STATE / f"{name}.count"
+    n = int(p.read_text() or 0) + 1 if p.exists() else 1
+    p.write_text(str(n))
+    return n
+
+
+def flow():
+    f = os.environ.get("FAKE_ADB_UI_FLOW")
+    if not f:
+        return None
+    return json.loads(Path(f).read_text(encoding="utf-8"))
+
+
+def flow_state(serial, fl):
+    p = STATE / f"ui-{serial}.txt"
+    return p.read_text(encoding="utf-8").strip() if p.exists() else fl["state"]
+
+
+def flow_set(serial, name):
+    STATE.mkdir(parents=True, exist_ok=True)
+    (STATE / f"ui-{serial}.txt").write_text(name, encoding="utf-8")
+
+
+def flow_screen(serial):
+    fl = flow()
+    if not fl:
+        return None
+    return fl["screens"][flow_state(serial, fl)]
 
 
 def fx(name, default=""):
@@ -84,6 +130,9 @@ def shell(serial, line):
                 out(ln.split(": [", 1)[1].rstrip("]") + "\n")
         out("\n")
     if c == "uiautomator":
+        fail = os.environ.get("FAKE_ADB_DUMP_FAIL")
+        if fail and (fail == "always" or counter(f"dump-{serial}") <= int(fail)):
+            out("ERROR: could not get idle state.\n", 0)
         out("UI hierchary dumped to: /sdcard/qa-window_dump.xml\n")
     if c == "wm":
         if rest[:1] == ["size"] and len(rest) == 1:
@@ -93,8 +142,19 @@ def shell(serial, line):
         out()
     if c == "dumpsys":
         what = rest[0] if rest else ""
+        if what == "activity" and rest[1:2] == ["services"]:
+            until = os.environ.get("FAKE_ADB_SERVICES_UNTIL")
+            if os.environ.get("FAKE_ADB_SERVICES") and (not until or counter(f"svc-{serial}") <= int(until)):
+                out(fx(os.environ["FAKE_ADB_SERVICES"]))
+            out("ACTIVITY MANAGER SERVICES (dumpsys activity services)\n  (nothing)\n")
         if what == "activity":
-            out("  topResumedActivity=ActivityRecord{1a2b u0 com.example.app/.MainActivity t12}\n")
+            scr = flow_screen(serial)
+            focus = scr["focus"] if scr else "com.example.app/.MainActivity"
+            out(f"  topResumedActivity=ActivityRecord{{1a2b u0 {focus} t12}}\n")
+        if what == "notification":
+            out(fx(os.environ.get("FAKE_ADB_NOTIF", "dumpsys-notification.txt")))
+        if what == "thermalservice":
+            out("IsStatusOverride: false\nThermal Status: 1\n")
         if what in ("meminfo", "gfxinfo", "package", "notification", "diskstats"):
             if what == "gfxinfo" and "reset" in rest:
                 out()
@@ -136,10 +196,31 @@ def shell(serial, line):
         out()
     if c == "monkey":
         out(fx("monkey-crash.txt"))
-    if c == "pidof":
-        out("1234\n")
-    if c == "ps":
-        out("PID NAME\n1\tinit\n600 system_server\n1234 com.example.app\n5678 com.other.app\n")
+    if c in ("pidof", "ps"):
+        until = os.environ.get("FAKE_ADB_PIDOF_UNTIL")
+        alive = not until or counter(f"pid-{serial}-{c}") <= int(until)
+        if c == "pidof":
+            out("1234\n" if alive else "", 0 if alive else 1)
+        out("PID NAME\n1\tinit\n600 system_server\n" + ("1234 com.example.app\n" if alive else "") + "5678 com.other.app\n")
+    if c == "df":
+        out("Filesystem      1K-blocks    Used Available Use% Mounted on\n/dev/block/dm-5   6082264 2370436   3696356  40% /data\n")
+    if c == "ls":
+        out(os.environ.get("FAKE_ADB_LS", "") + "\n")
+    if c == "input":
+        fl = flow()
+        if fl and rest[:1] == ["tap"] and len(rest) >= 3:
+            x, y = int(float(rest[1])), int(float(rest[2]))
+            scr = fl["screens"][flow_state(serial, fl)]
+            for tp in scr.get("taps", []):
+                b = tp["bounds"]
+                if b[0] <= x <= b[2] and b[1] <= y <= b[3]:
+                    flow_set(serial, tp["to"])
+                    break
+        if fl and rest[:1] == ["swipe"]:
+            scr = fl["screens"][flow_state(serial, fl)]
+            if scr.get("swipe"):
+                flow_set(serial, scr["swipe"])
+        out()
     if c == "settings" and rest[:3] == ["put", "system", "user_rotation"] and len(rest) > 3:
         set_rotation(serial, int(rest[3]))
         out()
@@ -180,6 +261,9 @@ def main():
         if rest[:2] == ["avd", "name"]:
             name = (emus.get(serial) or {}).get("name") or fx("emu-avd-name.txt", "qa-api34-pixel7-2gb-2c").strip()
             out(f"{name}\nOK\n")
+        if rest[:2] == ["avd", "discoverypath"]:
+            d = os.environ.get("FAKE_ADB_DISCOVERY")
+            out(f"{d}\nOK\n" if d else "KO: unknown command\n")
         if rest[:1] == ["kill"]:
             info = emus.get(serial)
             if info:
@@ -195,13 +279,22 @@ def main():
     if cmd == "uninstall":
         out("Success\n")
     if cmd == "pull":
-        Path(rest[-1]).write_bytes(b"fake-mp4")
+        src = os.environ.get("FAKE_ADB_PULL_FILE")
+        if src:
+            shutil.copyfile(src, rest[-1])
+        else:
+            Path(rest[-1]).write_bytes(b"fake-mp4")
         out(f"{rest[-2]}: 1 file pulled\n")
+    if cmd == "push":
+        out(f"{rest[0]}: 1 file pushed, 0 skipped.\n")
     if cmd == "exec-out":
         if rest[:1] == ["screencap"]:
             sys.stdout.buffer.write(PNG)
             sys.exit(0)
         if rest[:1] == ["cat"]:
+            scr = flow_screen(serial)
+            if scr:
+                out(fx(scr["xml"]))
             out(fx("window_dump_landscape.xml" if rotation(serial) in (1, 3) else "window_dump.xml"))
         out()
     if cmd == "logcat":  # -d (dump) and streaming: the fixture, then the stream ends

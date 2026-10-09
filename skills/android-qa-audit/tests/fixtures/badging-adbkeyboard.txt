@@ -1,0 +1,3 @@
+package: name='com.android.adbkeyboard' versionCode='1' versionName='2.0' compileSdkVersion='30'
+sdkVersion:'21'
+targetSdkVersion:'30'
