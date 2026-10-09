@@ -2,6 +2,8 @@
 
 Когда нужно: публикация в **чужой** (часто приватный) репозиторий, куда нельзя закоммитить картинки (`screenshots: commit` требует `push`), а REST API GitHub вложения не принимает. Единственный рабочий путь — загрузить файл через веб-редактор GitHub в браузере пользователя, где он **сам** вошёл, и вставить полученную ссылку `https://github.com/user-attachments/assets/…` в тело issue или комментарий.
 
+**Сначала проверить, нужен ли браузер вообще:** `python3 <SKILL_DIR>/scripts/publish_shots.py plan <RUN_DIR> --repo owner/repo`. Если у пользователя есть `push` (свой или приватный командный репозиторий) — режим `api-commit`: `publish_shots.py push … --confirm-push` загружает скриншоты в отдельную ветку через `gh api` без входа в браузере и ручных шагов (`repo-sync.md` §4 п. 7). Веб-форма — только когда `push` нет.
+
 Скрипты: `scripts/node/publish_web.mjs` (новый issue), `scripts/node/comment_web.mjs` (комментарий, в том числе к закрытому issue для `FIXED-INSUFFICIENT` / `REGRESSION`). Общая логика — `scripts/node/web_upload_lib.mjs`.
 
 ## Предпосылки

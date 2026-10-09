@@ -358,5 +358,79 @@ check "intake: стенды и варианты данных — variants по �
   '$PY' '$S/intake.py' from-text --text 'Проверь на тестовых данных и боевых данных https://example.com/' --output-dir '$TMP' --json | '$PY' -c \"import json,sys; d=json.load(sys.stdin); assert d['config']['variants']==[] and any('variants' in n for n in d['notes'])\" &&
   '$PY' '$S/intake.py' from-text --text 'Проверь https://example.com/' --output-dir '$TMP' --json | '$PY' -c \"import json,sys; d=json.load(sys.stdin); assert d['config']['variants']==[] and not any('variants' in n for n in d['notes'])\""
 
+# ---------- #26: groups by root cause, «Как проверить», e2e stub, screenshots to a private repo ----------
+RD="$S/render_draft.py"; FG="$F/findings-groups.json"; RG="$TMP/run-groups"; mkdir -p "$RG"
+check "suggest-groups: один элемент и пункт чек-листа на разных страницах/устройствах -> одна группа (F-001..F-003)" sh -c "
+  '$PY' '$RD' suggest-groups '$FG' --out '$RG/groups.yaml' >/dev/null &&
+  '$PY' -c \"import sys; sys.path.insert(0, sys.argv[1]); import miniyaml; g=miniyaml.load_file(sys.argv[2])['groups']; assert len(g)==1 and g[0]['findings']==['F-001','F-002','F-003'], g\" '$S/shared' '$RG/groups.yaml'"
+check "group --map: issue на первопричину — проявления таблицей, шаги основного, «Как проверить» по каждому, маркер на каждую" sh -c "
+  '$PY' '$RD' group '$FG' --map '$RG/groups.yaml' --run-dir '$RG' > '$TMP/gm.out' &&
+  D='$RG/drafts/groups/G1.md' && grep -q '^TITLE: \[HIGH\] .*(3 проявления)' \"\$D\" && grep -q '## Проявления' \"\$D\" &&
+  test \$(grep -c '^| [123] |' \"\$D\") = 3 && grep -q '## Шаги воспроизведения (основное проявление, № 1)' \"\$D\" &&
+  grep -q '## Как проверить' \"\$D\" && grep -q 'Проявление 3.\*\* После сохранения ссылка' \"\$D\" &&
+  test \$(grep -c 'site-qa-audit:fp=' \"\$D\") = 3 && grep -q 'не в группах 2: F-004, F-005' '$TMP/gm.out' &&
+  '$PY' -c \"import json,sys; d=json.load(open(sys.argv[1])); assert d['ungrouped']==['F-004','F-005'] and d['groups'][0]['findings']==['F-001','F-002','F-003'], d\" '$RG/groups.json'"
+check "group --map --disclosure none: без подписи и маркеров скила" sh -c "
+  '$PY' '$RD' group '$FG' --map '$RG/groups.yaml' --run-dir '$RG' --disclosure none >/dev/null &&
+  ! grep -qi 'site-qa-audit' '$RG/drafts/groups/G1.md'"
+printf 'groups:\n  - id: A\n    findings: [F-001, F-099]\n' > "$TMP/g-bad1.yaml"
+printf 'groups:\n  - id: A\n    findings: [F-001]\n  - id: B\n    findings: [F-001, F-002]\n' > "$TMP/g-bad2.yaml"
+check "group --map: неизвестная находка и находка в двух группах — ошибка" sh -c "
+  out=\$('$PY' '$RD' group '$FG' --map '$TMP/g-bad1.yaml' --run-dir '$RG' 2>&1); test \$? != 0 && echo \"\$out\" | grep -q 'F-099' &&
+  out=\$('$PY' '$RD' group '$FG' --map '$TMP/g-bad2.yaml' --run-dir '$RG' 2>&1); test \$? != 0 && echo \"\$out\" | grep -q 'в двух группах'"
+check "detailed: «Как проверить» — из repro (js), из шагов и ожидаемого; без данных — раздела нет" sh -c "
+  '$PY' '$RD' detailed '$FG' --id F-001 | grep -A4 '## Как проверить' | grep -q 'elementFromPoint' &&
+  '$PY' '$RD' detailed '$FG' --id F-005 | grep -A1 '## Как проверить' | grep -q 'ожидается — Исходные значения' &&
+  ! '$PY' '$RD' detailed '$FG' --id F-004 | grep -q '## Как проверить'"
+check "group --ids (мелкие одной темы): строка «Как проверить» у находки с repro" sh -c "
+  '$PY' '$RD' group '$FG' --ids F-001,F-002 | grep -q 'Как проверить: На https://example.com/report (pixel7)'"
+ES="$S/e2e_stub.py"
+check "e2e_stub (ts): goto через BASE_URL, шаги комментариями, проверка repro.js — toBeFalsy" sh -c "
+  '$PY' '$ES' '$FG' --id F-001 > '$TMP/F-001.spec.ts' &&
+  grep -q \"import { test, expect } from '@playwright/test'\" '$TMP/F-001.spec.ts' && grep -q 'new URL(\"/editor\", BASE_URL)' '$TMP/F-001.spec.ts' &&
+  grep -q '// 2. Нажать «Сохранить»  — TODO' '$TMP/F-001.spec.ts' && grep -q 'page.evaluate(() => (document.elementFromPoint' '$TMP/F-001.spec.ts' &&
+  grep -q 'repeat-each=3' '$TMP/F-001.spec.ts'"
+if command -v node >/dev/null 2>&1; then
+  check "e2e_stub (js): устройство Pixel 7, рамка элемента, iframe -> frameLocator; синтаксис node --check" sh -c "
+    '$PY' -c \"import json,sys; d=json.load(open(sys.argv[1])); d['findings'][1]['repro']['selector']='iframe#app >>> #apply'; json.dump(d, open(sys.argv[2],'w'))\" '$FG' '$TMP/fg2.json' &&
+    '$PY' '$ES' '$TMP/fg2.json' --id F-002 --lang js --out '$TMP/F-002.spec.js' >/dev/null && node --check '$TMP/F-002.spec.js' &&
+    grep -q 'devices\[\"Pixel 7\"\]' '$TMP/F-002.spec.js' && grep -q 'frameLocator(\"iframe#app\").locator(\"#apply\")' '$TMP/F-002.spec.js' &&
+    grep -q 'expect(b.y > 800' '$TMP/F-002.spec.js' && '$PY' '$ES' '$FG' --id F-001 --lang js --out '$TMP/F-001.spec.js' >/dev/null && node --check '$TMP/F-001.spec.js'"
+fi
+check "e2e_stub: без repro — test.fixme; file:// — APP_URL и путь от каталога, без абсолютного пути; --all — только недочёты" sh -c "
+  '$PY' '$ES' '$FG' --id F-005 | grep -q '^test.fixme(' &&
+  mkdir -p '$RG/app' && printf 'site:\n  local_roots:\n    - %s/app\n' '$RG' > '$RG/run-config.yaml' &&
+  '$PY' -c \"import json,sys,pathlib; d=json.load(open(sys.argv[1])); d['findings'][0]['url']=pathlib.Path(sys.argv[2],'app','sub','page.html').as_uri(); d['findings'][0]['repro']['url']=d['findings'][0]['url']; json.dump(d, open(sys.argv[3],'w'))\" '$FG' '$RG' '$RG/findings.json' &&
+  '$PY' '$ES' '$RG/findings.json' --id F-001 > '$TMP/fl.spec.ts' && grep -q 'APP_URL' '$TMP/fl.spec.ts' && grep -q 'new URL(\"sub/page.html\"' '$TMP/fl.spec.ts' &&
+  ! grep -q '$RG' '$TMP/fl.spec.ts' &&
+  '$PY' '$ES' '$FG' --all --run-dir '$RG' | grep -q 'заготовок 5' && test -f '$RG/drafts/e2e/F-001.spec.ts'"
+# publish_shots: fake gh api (repository info, refs, contents) — never the network
+PS="$S/publish_shots.py"; RS="$TMP/run-shots"; mkdir -p "$RS/screenshots"
+"$PY" -c "
+import json,sys; d=json.load(open(sys.argv[1]))
+d['findings'][0]['screenshots']=['screenshots/qa-vis-01.png','screenshots/qa-vis-01-annotated.png']
+d['findings'][1]['screenshots']=['screenshots/qa-mob-02.png']; d['findings'][1]['evidence']={'sensitive': True}
+d['findings'][2]['screenshots']=['screenshots/missing.png']
+json.dump(d, open(sys.argv[2],'w'), ensure_ascii=False)" "$FG" "$RS/findings.json"
+printf 'png-1' > "$RS/screenshots/qa-vis-01.png"; printf 'png-1-annotated' > "$RS/screenshots/qa-vis-01-annotated.png"; printf 'secret' > "$RS/screenshots/qa-mob-02.png"
+printf '{"repos": {"owner/priv": {"private": true, "permissions": {"push": true}, "default_branch": "main", "refs": {"main": "c0ffee"}, "files": {}}, "owner/pub": {"private": false, "permissions": {"push": false}, "default_branch": "main", "refs": {"main": "c0ffee"}, "files": {}}}}' > "$TMP/gh-state.json"
+export QA_GH_BIN="$HERE/helpers/fake_gh_contents.py" FAKE_GH_STATE="$TMP/gh-state.json" QA_GH_PAUSE=0
+check "publish_shots plan: приватный с push — api-commit (без браузера); без push — web-upload; sensitive и пропавшие — skipped" sh -c "
+  '$PY' '$PS' plan '$RS' --repo owner/priv | '$PY' -c \"import json,sys; d=json.load(sys.stdin); assert d['mode']=='api-commit' and d['private'] and [f['file'] for f in d['files']]==['screenshots/qa-vis-01-annotated.png'], d; r=sorted(x['reason'][:8] for x in d['skipped']); assert len(r)==2, d['skipped']\" &&
+  '$PY' '$PS' plan '$RS' --repo owner/pub | '$PY' -c \"import json,sys; d=json.load(sys.stdin); assert d['mode']=='web-upload', d\""
+check "publish_shots push без --confirm-push — пробный: ничего не загружено, печатается --screenshot-base" sh -c "
+  '$PY' '$PS' push '$RS' --repo owner/priv 2> '$TMP/ps.err' | '$PY' -c \"import json,sys; d=json.load(sys.stdin); assert d['dry_run'] and d['uploads'][0]['url'].endswith('/blob/qa-screenshots/qa-screenshots/run-shots/qa-vis-01-annotated.png?raw=true'), d\" &&
+  grep -q 'ПРОБНЫЙ' '$TMP/ps.err' && ! grep -q 'PUT' '$TMP/gh-state.json'"
+check "publish_shots push --confirm-push: своя ветка от main, загрузка через API, shots-published.json; повтор — без изменений" sh -c "
+  '$PY' '$PS' push '$RS' --repo owner/priv --confirm-push > '$TMP/ps1.json' 2>/dev/null &&
+  '$PY' -c \"import json,sys; s=json.load(open(sys.argv[1]))['repos']['owner/priv']; assert s['refs']['qa-screenshots']=='c0ffee' and list(s['files'])==['qa-screenshots:qa-screenshots/run-shots/qa-vis-01-annotated.png'], s; p=json.load(open(sys.argv[2])); assert p['screenshots/qa-vis-01-annotated.png'].endswith('?raw=true'), p\" '$TMP/gh-state.json' '$RS/shots-published.json' &&
+  '$PY' '$PS' push '$RS' --repo owner/priv --confirm-push 2>/dev/null | '$PY' -c \"import json,sys; d=json.load(sys.stdin); assert [u['status'] for u in d['uploads']]==['unchanged'], d\" &&
+  test \$(grep -c '\"PUT\"' '$TMP/gh-state.json') = 1"
+check "publish_shots push: в основную ветку — 2; репозиторий без push — 1; ошибка gh — 3" sh -c "
+  test \$('$PY' '$PS' push '$RS' --repo owner/priv --branch main --confirm-push >/dev/null 2>&1; echo \$?) = 2 &&
+  test \$('$PY' '$PS' push '$RS' --repo owner/pub --confirm-push >/dev/null 2>&1; echo \$?) = 1 &&
+  test \$('$PY' '$PS' plan '$RS' --repo owner/none >/dev/null 2>&1; echo \$?) = 3"
+unset QA_GH_BIN FAKE_GH_STATE QA_GH_PAUSE
+
 echo "stream v1.4.0: PASS $pass, FAIL $fail"
 [ $fail -eq 0 ]

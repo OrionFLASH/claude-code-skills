@@ -10,7 +10,15 @@
                   несколько мелких находок по одной теме -> один issue: таблица + подробности, маркер на каждую
   render_draft.py groups findings.json --run-dir DIR [--severities low,info] [--by direction|check]
                   автоматически: темы, где >= 2 мелкие находки -> DIR/drafts/groups/NN-<bug|suggestion>-<тема>.md
+  render_draft.py group findings.json --map groups.yaml --run-dir DIR [--body-only]
+                  группы ПО ПЕРВОПРИЧИНЕ: один issue на причину (проявления таблицей: где, что, окружение, поток,
+                  скриншот; шаги основного проявления; гипотеза; «Как проверить»; маркер на каждую находку)
+                  -> DIR/drafts/groups/<id>.md и DIR/groups.json; не вошедшие в группы — списком (отдельные issues)
+  render_draft.py suggest-groups findings.json [--out groups.yaml] [--threshold 0.5]
+                  черновик groups.yaml: один элемент или пункт чек-листа на разных страницах/устройствах/потоках,
+                  похожие заголовки — кандидаты в одну причину (проверить и поправить руками)
   --body-only (detailed, group): в файл только тело для gh --body-file, заголовок печатается строкой TITLE: …
+  В каждом issue — блок «Как проверить» (verify находки, иначе её repro, иначе шаги и ожидаемое).
 
 Publication settings (CLI flags override run-config repos[] entry chosen by --repo):
   --config run-config.yaml --repo owner/repo   read disclosure / cross_links / marker / severity_map for that repo
@@ -232,7 +240,34 @@ def common_values(f, run, opts=None):
         "status_links": "".join(f" — {m.get('repo')}#{m.get('number')}" for m in f.get("matches") or []
                                 if opts.cross_links or norm_repo(m.get("repo")) == opts.repo),
         "legal_md": legal_md(f),
+        "verify_md": verify_md(f, opts),
     }
+
+
+def verify_md(f, opts=None):
+    """«Как проверить»: the condition «before the fix — yes, after — no», from verify / repro / steps."""
+    opts = opts or Opts()
+    if f.get("verify"):
+        return str(f["verify"]).strip()
+    r = f.get("repro") or {}
+    where = r.get("url") or f.get("url") or ""
+    env = ", ".join(x for x in (r.get("device") or r.get("size"), r.get("locale")) if x)
+    at = f"{where}" + (f" ({env})" if env else "")
+    if r.get("js"):
+        return (f"Открыть {at} и выполнить в консоли браузера:\n\n```js\n{r['js']}\n```\n\n"
+                "До исправления — `true` (дефект есть), после — `false`.")
+    if r.get("selector") and r.get("assert"):
+        return (f"На {at} найти элемент `{r['selector']}` и проверить условие над его рамкой `b = {{x, y, w, h}}`: "
+                f"`{r['assert']}` — до исправления выполняется, после — нет.")
+    if r.get("selector"):
+        return f"На {at} элемент `{r['selector']}` виден — до исправления; после — нет (или ведёт себя как ожидается ниже)."
+    if (r.get("argv") or r.get("cmd")) and opts.disclosure != "none":
+        cmd = r.get("cmd") or " ".join(r.get("argv") or [])
+        exp = r.get("expect") or (f"код выхода {r['expect_exit']}" if r.get("expect_exit") is not None else "дефект не воспроизводится")
+        return f"Команда проверки:\n\n```bash\n{cmd}\n```\n\nПосле исправления: {exp}."
+    if f.get("steps") and f.get("expected"):
+        return f"Пройти шаги воспроизведения: ожидается — {f['expected']}"
+    return ""
 
 
 def legal_md(f):
@@ -291,6 +326,9 @@ def render_group(items, run, title=None, kind="bug", rel_prefix="", screenshot_b
             d += [f"{i}. {s}" for i, s in enumerate(f["steps"], 1)]
         if kind == "suggestion" and f.get("hypothesis"):
             d.append(f"\nЗачем: {f['hypothesis']}")
+        vm = verify_md(f, opts)
+        if vm and kind != "suggestion":
+            d.append("\nКак проверить: " + vm)
         lm = legal_md(f)
         if lm:
             d.append("\n" + lm)
@@ -302,6 +340,137 @@ def render_group(items, run, title=None, kind="bug", rel_prefix="", screenshot_b
     label = opts.severity_label({"severity": worst}) or worst.upper()
     prefix = "Предложения" if kind == "suggestion" else "Мелкие недочёты"
     return title or f"[{label}] {prefix}: {topic} ({len(items)})", mask(opts.finish(body))
+
+
+SEV_ORDER = ["critical", "high", "medium", "low", "info"]
+
+
+def plural(n, forms):
+    """Russian plural: 1 проявление, 2 проявления, 5 проявлений."""
+    n = abs(int(n))
+    if n % 10 == 1 and n % 100 != 11:
+        return f"{n} {forms[0]}"
+    if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
+        return f"{n} {forms[1]}"
+    return f"{n} {forms[2]}"
+
+
+MANIF = ("проявление", "проявления", "проявлений")
+
+
+def load_groups_map(path):
+    """groups.yaml -> [{id, title?, cause?, findings: [...], type?, severity?, verify?}] (SystemExit on bad input)."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent / "shared"))
+    import miniyaml  # noqa: E402
+    data = miniyaml.load_file(str(path)) or {}
+    groups = data.get("groups") if isinstance(data, dict) else data
+    if not isinstance(groups, list) or not groups:
+        sys.exit("group --map: в файле нет списка groups")
+    out, seen = [], {}
+    for n, g in enumerate(groups, 1):
+        if not isinstance(g, dict) or not g.get("findings"):
+            sys.exit(f"group --map: группа {n} — нужен список findings")
+        gid = str(g.get("id") or f"G{n}")
+        if not re.fullmatch(r"[\w.-]+", gid):
+            sys.exit(f"group --map: id «{gid}» — латиница, цифры, «-», «_»")
+        ids = [str(x).strip() for x in g["findings"]]
+        for i in ids:
+            if i in seen:
+                sys.exit(f"group --map: {i} в двух группах ({seen[i]} и {gid}) — у находки одна первопричина")
+            seen[i] = gid
+        out.append(dict(g, id=gid, findings=ids))
+    return out
+
+
+def render_cause_group(g, items, run, rel_prefix="", screenshot_base=None, opts=None):
+    """One issue per ROOT CAUSE: manifestations as a table, steps of the main one, cause, «Как проверить»."""
+    opts = opts or Opts()
+    worst = min((f.get("severity") or "info" for f in items), key=lambda x: SEV_ORDER.index(x) if x in SEV_ORDER else 9)
+    sev = g.get("severity") if g.get("severity") in SEV_ORDER else worst
+    # the main manifestation: with steps first, then the most severe
+    main = min(items, key=lambda f: (not f.get("steps"), SEV_ORDER.index(f.get("severity")) if f.get("severity") in SEV_ORDER else 9))
+    label = opts.severity_label({"severity": sev}) or sev.upper()
+    title = g.get("title") or main.get("title")
+    where = sorted({f.get("url") or "" for f in items})
+    envs = sorted({x for f in items for x in ([(f.get("environment") or {}).get("viewport"), f.get("platform"),
+                                              (f.get("repro") or {}).get("device")]) if x})
+    threads = sorted({(f.get("ingested") or {}).get("thread") for f in items if (f.get("ingested") or {}).get("thread")})
+    head = [g.get("cause") and f"**Первопричина (гипотеза):** {g['cause']}" or "",
+            f"Одна причина — {plural(len(items), MANIF)}" + (f": страниц {len(where)}" if len(where) > 1 else "") +
+            (f", окружений {len(envs)} ({', '.join(envs[:6])})" if envs else "") + "."]
+    L = ["## Кратко", "\n".join(x for x in head if x), "", "| | |", "|---|---|", f"| **Severity** | {label if opts.disclosure == 'none' else f'{label} ({sev})' if opts.severity_map else sev} |",
+         f"| **Направления** | {', '.join(sorted({DIR_LABEL.get(f.get('direction'), f.get('direction') or '') for f in items}))} |",
+         f"| **Проявлений** | {len(items)} |"]
+    if threads and opts.disclosure != "none":
+        L.append(f"| **Потоки проверки** | {', '.join(threads)} |")
+    L += ["", "## Проявления", "", "| № | Где | Что не так | Окружение | Скриншот |", "|---|---|---|---|---|"]
+    for n, f in enumerate(items, 1):
+        shots = visible_shots(f.get("screenshots") or [])
+        shot = ""
+        if shots:
+            s0 = shots[0]
+            src = f"{screenshot_base.rstrip('/')}/{Path(s0).name}?raw=true" if screenshot_base else f"{rel_prefix}{s0}"
+            shot = f"![{Path(s0).stem}]({src})"
+        w = (f.get("url") or "") + (f" · `{cell(f['element'], 60)}`" if f.get("element") else "")
+        env = ", ".join(x for x in ((f.get("environment") or {}).get("viewport"), f.get("platform"),
+                                    (f.get("repro") or {}).get("device"), f.get("variant")) if x)
+        L.append(f"| {n} | {cell(w, 120)} | {cell(f.get('actual') or f.get('title'))} | {cell(env, 60)} | {shot} |")
+    if main.get("steps"):
+        L += ["", f"## Шаги воспроизведения (основное проявление, № {items.index(main) + 1})", ""]
+        L += [f"{i}. {x}" for i, x in enumerate(main["steps"], 1)]
+    if main.get("expected"):
+        L += ["", "## Ожидаемый результат", main["expected"]]
+    hyps = list(dict.fromkeys(f.get("hypothesis") for f in items if f.get("hypothesis")))
+    if hyps:
+        L += ["", "## Гипотеза причины"] + ([hyps[0]] if len(hyps) == 1 else [f"- {h}" for h in hyps])
+    sugg = list(dict.fromkeys(f.get("suggestion") for f in items if f.get("suggestion")))
+    if sugg:
+        L += ["", "## Предложение"] + ([sugg[0]] if len(sugg) == 1 else [f"- {x}" for x in sugg])
+    checks = [g["verify"]] if g.get("verify") else [x for x in (verify_md(f, opts) for f in items) if x]
+    if checks:
+        L += ["", "## Как проверить"]
+        if len(checks) == 1:
+            L.append(checks[0])
+        else:
+            for i, c in enumerate(checks, 1):
+                L += [f"**Проявление {i}.** {c}", ""]
+        L.append("Исправление принимается, когда условие не выполняется ни в одном проявлении из таблицы.")
+    lm = [legal_md(f) for f in items if legal_md(f)]
+    if lm:
+        L += ["", "## Правовые нормы", lm[0]]
+    body = "\n".join(L) + "\n"
+    if opts.disclosure != "none":
+        body += "\n---\n_Создано site-qa-audit. Проверка через браузер без доступа к исходному коду; причина — гипотеза._\n"
+    body += "".join(f"<!-- site-qa-audit:fp={f.get('fingerprint', '')} -->\n" for f in items if f.get("fingerprint"))
+    return f"[{label}] {title}" + (f" ({plural(len(items), MANIF)})" if len(items) > 1 else ""), mask(opts.finish(body))
+
+
+def suggest_groups(findings, threshold=0.5):
+    """Draft groups by root cause: same check + element on different pages/devices/threads, or similar titles."""
+    fp_norm = lambda e: re.sub(r":nth-(child|of-type)\(\d+\)|\s+", "", str(e or "")).lower()  # noqa: E731
+    tok = lambda t: {w for w in re.findall(r"[\w-]{4,}", (t or "").lower())}  # noqa: E731
+    groups, used = [], set()
+    open_ = [f for f in findings if f.get("status") in (None, "NEW", "REGRESSION", "FIXED-INSUFFICIENT")]
+    for f in open_:
+        if f["id"] in used:
+            continue
+        mates = [f]
+        for o in open_:
+            if o is f or o["id"] in used:
+                continue
+            same_el = f.get("element") and fp_norm(f.get("element")) == fp_norm(o.get("element")) and \
+                f.get("check_id") == o.get("check_id")
+            a, b = tok(f.get("title")), tok(o.get("title"))
+            sim = len(a & b) / len(a | b) if a and b else 0
+            if same_el or (f.get("check_id") == o.get("check_id") and sim >= threshold) or sim >= max(threshold, 0.7):
+                mates.append(o)
+        if len(mates) > 1:
+            used.update(m["id"] for m in mates)
+            why = "один элемент и пункт чек-листа" if all(fp_norm(m.get("element")) == fp_norm(f.get("element")) and m.get("element")
+                                                          for m in mates) else "похожие заголовки"
+            groups.append({"id": f"G{len(groups) + 1}", "title": f.get("title"), "cause": f"проверить: {why} ({f.get('check_id')})",
+                           "findings": [m["id"] for m in mates]})
+    return groups
 
 
 def auto_groups(findings, severities=("low", "info"), key="direction"):
@@ -363,8 +532,10 @@ def write(out, title, body, body_only=False):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("cmd", choices=["detailed", "comment", "all", "severity", "group", "groups"])
+    ap.add_argument("cmd", choices=["detailed", "comment", "all", "severity", "group", "groups", "suggest-groups"])
     ap.add_argument("--ids", help="group: id находок через запятую (F-003,F-007)")
+    ap.add_argument("--map", help="group: groups.yaml — группы по первопричине (id, title, cause, findings, verify)")
+    ap.add_argument("--threshold", type=float, default=0.5, help="suggest-groups: сходство заголовков")
     ap.add_argument("--title", help="group: свой заголовок issue")
     ap.add_argument("--type", dest="group_type", choices=["bug", "suggestion"], help="group: недочёты или предложения")
     ap.add_argument("--severities", default="low,info", help="groups: какие severity собирать (по умолчанию low,info)")
@@ -418,6 +589,44 @@ def main():
             title, body = render_detailed(f, run, screenshot_base=a.screenshot_base, rel_prefix="../../", opts=opts)
             write(Path(a.run_dir) / "drafts" / "copies" / f"{i:02d}-{f.get('status') or 'NEW'}-{f.get('fingerprint', f['id'])}.md",
                   title, body)
+        return
+    if a.cmd == "suggest-groups":
+        sys.path.insert(0, str(Path(__file__).resolve().parent / "shared"))
+        import miniyaml  # noqa: E402
+        gs = suggest_groups(findings, a.threshold)
+        text = ("# groups.yaml — ЧЕРНОВИК групп по первопричине (render_draft.py suggest-groups): проверить причину,\n"
+                "# поправить состав и заголовки, затем render_draft.py group findings.json --map groups.yaml --run-dir DIR\n"
+                + miniyaml.dump({"groups": gs}) + "\n") if gs else "groups: []\n"
+        if a.out:
+            Path(a.out).write_text(text, encoding="utf-8")
+            print(f"suggest-groups: групп {len(gs)} -> {a.out}")
+        else:
+            print(text, end="")
+        return
+    if a.cmd == "group" and a.map:
+        if not a.run_dir and not a.out:
+            ap.error("group --map: нужен --run-dir (или --out папка)")
+        groups = load_groups_map(a.map)
+        by_id = {f.get("id"): f for f in findings}
+        missing = [i for g in groups for i in g["findings"] if i not in by_id]
+        if missing:
+            sys.exit(f"group --map: нет находок {', '.join(missing)}")
+        out_dir = Path(a.out) if a.out else Path(a.run_dir) / "drafts" / "groups"
+        res = []
+        for g in groups:
+            items = [by_id[i] for i in g["findings"]]
+            title, body = render_cause_group(g, items, run, rel_prefix="" if a.out else "../../",
+                                             screenshot_base=a.screenshot_base, opts=opts)
+            path = out_dir / f"{g['id']}.md"
+            write(path, title, body, body_only=a.body_only)
+            res.append({"id": g["id"], "title": title, "findings": g["findings"], "file": str(path)})
+        grouped = {i for g in groups for i in g["findings"]}
+        rest = [f.get("id") for f in findings if f.get("id") not in grouped]
+        if a.run_dir:
+            Path(a.run_dir, "groups.json").write_text(json.dumps({"groups": res, "ungrouped": rest}, ensure_ascii=False,
+                                                                 indent=1) + "\n", encoding="utf-8")
+        print(f"group --map: issues по причинам {len(res)} (находок {len(grouped)}); не в группах {len(rest)}"
+              + (f": {', '.join(rest[:12])}{'…' if len(rest) > 12 else ''} — отдельными issues (detailed)" if rest else ""))
         return
     if a.cmd == "group":
         ids = [x.strip() for x in (a.ids or "").split(",") if x.strip()]
