@@ -17,9 +17,9 @@
 //   hosts: {first, third}, banner, consent, links, operator, age, dialogs, note? }. Cookie VALUES are never stored.
 const fs = require('fs');
 const path = require('path');
-const { parseArgs, loadRules, writeOut, urlsFromArgs, hostMatches, launchOptions } = require('./lib');
+const { parseArgs, loadRules, writeOut, urlsFromArgs, hostMatches, launchOptions, trackPage, closeTab } = require('./lib');
 const { guardContext, guardedPage } = require('./guard');
-const { resolveDevice } = require('./device_context');
+const { resolveDevice, targetIdOf } = require('./device_context');
 
 const CONSENT_RX = '(cookie|куки|кукис|согласи|персональн\\w* данн|обработк\\w* данн|consent|privacy|datenschutz|einwilligung|' +
   'consentement|confidentialit|consentimiento|privacidad|zgod|prywatno|同意|동의|クッキー|개인정보|ملفات تعريف الارتباط|موافق|' +
@@ -71,9 +71,13 @@ async function inspectLocale(browser, url, locale, a, rules, allowed) {
   const ctxOpts = { ...d.options, ...(locale ? { locale, extraHTTPHeaders: { 'Accept-Language': locale } } : {}) };
   const context = await browser.newContext(ctxOpts);
   const blocked = [];
+  let tabId = null;
   try {
     if (rules) await guardContext(context, rules, { logFile: a.log, log: blocked });
     const page = await context.newPage();
+    // tabs.json: over CDP the page is a tab of the user's Chrome (tool cdp, target id) — closed with the context below
+    tabId = a.cdp ? trackPage(page, { profile: 'cdp' + (locale ? '@' + locale : ''), tool: 'cdp', targetId: await targetIdOf(context, page), engine: 'chromium' })
+      : trackPage(page, { profile: (a.device || 'desktop') + (locale ? '@' + locale : ''), engine: 'chromium' });
     const hosts = new Set();
     page.on('request', r => { try { hosts.add(new URL(r.url()).hostname); } catch { /* data: */ } });
     const g = guardedPage(page, rules, { logFile: a.log, throttleMs: 0 });
@@ -97,7 +101,7 @@ async function inspectLocale(browser, url, locale, a, rules, allowed) {
       banner: info.banner, consent: info.consent, links: info.links, operator: info.operator, age: info.age,
       dialogs: blocked.filter(e => e.type === 'dialog').map(e => e.reason), ...(shot ? { screenshot: shot } : {}),
       ...(info.webdriver ? { note: 'navigator.webdriver = true: счётчики (Метрика и т.п.) могут не ставить cookie в автоматизированном браузере — повторить с --cdp в обычном Chrome' } : {}) };
-  } finally { await context.close().catch(() => {}); }
+  } finally { if (await context.close().then(() => true, () => false)) closeTab(tabId); }
 }
 
 function summary(r) {

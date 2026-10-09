@@ -3,8 +3,8 @@
 const fs = require('fs');
 const path = require('path');
 
-// Flags of every browser script that never take a value (browserMode): `--headed URL` keeps URL positional.
-const BOOL_FLAGS = new Set(['headed', 'headless']);
+// Flags of every browser script that never take a value (browserMode, tab registry): `--headed URL` keeps URL positional.
+const BOOL_FLAGS = new Set(['headed', 'headless', 'no-tabs']);
 
 function parseArgs(argv, defaults = {}) {
   const out = { _: [], ...defaults };
@@ -248,5 +248,152 @@ function launchOptions(extra = {}, rules = null) {
   return { headless: m.headless, ...(m.headless ? {} : { slowMo: m.slowMo }), ...rest };
 }
 
+// ---- Tab registry of the run: <RUN_DIR>/tabs.json, the format and the lock file of scripts/tabs.py (#9) ----------
+// RUN_DIR — the first that is set: --run-dir DIR, SITE_QA_RUN_DIR, the folder of --rules when run-config.yaml lies next
+// to it (<RUN_DIR>/rules.json). None — nothing is registered (as before 1.5.0). Off: --no-tabs or SITE_QA_TABS=0.
+// Owner: --owner <qa-id>, SITE_QA_OWNER, else "node". Records of a script: tool "node" — a page of the script's own
+// browser (pid, script); tool "cdp" — a page it created in the user's browser (target id). A script changes ONLY its
+// own records (same pid); on exit its open "node" records are closed (the browser dies with the process), a "cdp" page
+// it could not close stays open for `tabs.py cleanup <RUN_DIR> --cdp URL --yes`. Registry errors never stop a check.
+const TAB_LOCK_STALE_MS = 60000, TAB_LOCK_WAIT_MS = 10000;
+const tabNow = () => new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');  // = tabs.py now()
+const sleepSync = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+
+// fn(data) under <file>.lock (O_EXCL, stale after 60 s — like tabs.py Lock); returns false -> nothing is written.
+function withTabsFile(file, fn) {
+  const lock = file + '.lock';
+  const deadline = Date.now() + TAB_LOCK_WAIT_MS;
+  let fd;
+  for (;;) {
+    try { fd = fs.openSync(lock, 'wx'); break; } catch (e) {
+      if (e.code !== 'EEXIST') throw e;
+      try { if (Date.now() - fs.statSync(lock).mtimeMs > TAB_LOCK_STALE_MS) { fs.rmSync(lock, { force: true }); continue; } } catch { /* released */ }
+      if (Date.now() > deadline) throw new Error(`файл занят (${lock})`);
+      sleepSync(50);
+    }
+  }
+  try {
+    const data = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : { tabs: [] };
+    if (!Array.isArray(data.tabs)) data.tabs = [];
+    const res = fn(data);
+    if (res !== false) {
+      const tmp = file + '.tmp';
+      fs.writeFileSync(tmp, JSON.stringify(data, null, 1));
+      fs.renameSync(tmp, file);
+    }
+    return res;
+  } finally { fs.closeSync(fd); fs.rmSync(lock, { force: true }); }
+}
+
+function flagValue(argv, name) {
+  const i = argv.lastIndexOf('--' + name);
+  return i >= 0 && argv[i + 1] !== undefined && !argv[i + 1].startsWith('--') ? argv[i + 1] : null;
+}
+
+function tabsConfig(argv = process.argv.slice(2), env = process.env) {
+  if (argv.includes('--no-tabs') || env.SITE_QA_TABS === '0') return null;
+  let runDir = flagValue(argv, 'run-dir') || env.SITE_QA_RUN_DIR || null;
+  if (!runDir) {
+    const r = flagValue(argv, 'rules');
+    if (r && fs.existsSync(path.join(path.dirname(path.resolve(r)), 'run-config.yaml'))) runDir = path.dirname(path.resolve(r));
+  }
+  if (!runDir) return null;
+  if (!fs.existsSync(runDir)) { process.stderr.write(`tabs.json: папки прогона нет (${runDir}) — вкладки не регистрируются\n`); return null; }
+  return { runDir: path.resolve(runDir), owner: flagValue(argv, 'owner') || env.SITE_QA_OWNER || 'node' };
+}
+
+class TabRegistry {
+  constructor({ runDir, owner, script }) {
+    this.runDir = runDir; this.file = path.join(runDir, 'tabs.json'); this.owner = owner; this.script = script;
+    this.mine = new Map();  // id -> tool, only records of this process
+    this.warned = false; this.hooked = false;
+  }
+  _safe(fn) {
+    try { return fn(); } catch (e) {
+      if (!this.warned) { this.warned = true; process.stderr.write(`tabs.json: реестр вкладок не обновлён — ${e.message || e}\n`); }
+      return null;
+    }
+  }
+  _own(data, id) { return data.tabs.find(t => t.id === id && t.pid === process.pid && t.owner === this.owner); }
+  open({ profile = 'desktop', tool = 'node', url = null, targetId = null, engine = null } = {}) {
+    const id = this._safe(() => withTabsFile(this.file, (data) => {
+      const tid = `T-${String(data.tabs.length + 1).padStart(3, '0')}`;
+      data.tabs.push({ id: tid, owner: this.owner, profile, tool, session: `${this.script}:${process.pid}`, url, target_id: targetId,
+        window_name: `${this.owner}-${profile}`, opened_at: tabNow(), closed_at: null, pid: process.pid, script: this.script,
+        ...(engine ? { engine } : {}) });
+      return tid;
+    }));
+    if (id) { this.mine.set(id, tool); this._hook(); }
+    return id;
+  }
+  update(id, fields) {
+    if (!id || !this.mine.has(id)) return;
+    this._safe(() => withTabsFile(this.file, (data) => { const t = this._own(data, id); if (!t) return false; Object.assign(t, fields); }));
+  }
+  close(id, fields = {}) {
+    if (!id || !this.mine.has(id)) return;
+    this.mine.delete(id);
+    this._safe(() => withTabsFile(this.file, (data) => {
+      const t = this._own(data, id);
+      if (!t || t.closed_at) return false;
+      Object.assign(t, fields, { closed_at: tabNow() });
+    }));
+  }
+  // Before the script ends: its own browser pages are closed with the process; CDP pages that are still registered
+  // were not closed by the script — they stay open in the registry, with the command to close them.
+  cleanup() {
+    const left = [...this.mine].filter(([, tool]) => tool === 'cdp').map(([id]) => id);
+    for (const [id, tool] of [...this.mine]) if (tool !== 'cdp') this.close(id);
+    if (left.length) process.stderr.write(`tabs.json: в браузере пользователя осталась вкладка скрипта ${left.join(', ')} — ` +
+      `python3 <SKILL_DIR>/scripts/tabs.py cleanup ${this.runDir} --cdp <URL> --yes\n`);
+    return left;
+  }
+  _hook() {
+    if (this.hooked) return;
+    this.hooked = true;
+    process.once('exit', () => this.cleanup());
+  }
+}
+
+let tabRegistry;
+// The registry of this process (null when RUN_DIR is unknown or registration is off).
+function tabs() {
+  if (tabRegistry === undefined) {
+    const c = tabsConfig();
+    tabRegistry = c ? new TabRegistry({ ...c, script: path.basename(process.argv[1] || 'node') }) : null;
+  }
+  return tabRegistry;
+}
+
+const realUrl = (u) => (u && !/^(about|data|blob|chrome-error):/i.test(u) ? u : null);
+
+// Register a page the script opened: url = first real address (updated once), last address on close.
+// tool "node": closed in the registry when the page closes; tool "cdp": only after closeTab() (the page in the user's
+// browser also "closes" for Playwright on disconnect, while the tab is still there).
+function trackPage(page, { profile = 'desktop', tool = 'node', targetId = null, engine = null } = {}) {
+  const reg = tabs();
+  if (!reg || !page) return null;
+  let last = realUrl(page.url());
+  const id = reg.open({ profile, tool, targetId, engine, url: last });
+  if (!id) return null;
+  let named = !!last;
+  page.on('framenavigated', (frame) => {
+    if (frame !== page.mainFrame()) return;
+    const u = realUrl(frame.url());
+    if (!u) return;
+    last = u;
+    if (!named) { named = true; reg.update(id, { url: u }); }
+  });
+  if (tool !== 'cdp') page.once('close', () => reg.close(id, last ? { url: last } : {}));
+  page.__qaTabId = id;
+  return id;
+}
+
+function closeTab(id, fields = {}) {
+  const reg = tabs();
+  if (reg && id) reg.close(id, fields);
+}
+
 module.exports = { GuardUnavailableError, launchOptions, browserMode, parseArgs, loadRules, navAllowed, resourceBlocked, guardContext, hostMatches, hostpathMatches, sleep, writeOut,
-  urlsFromArgs, toUrl, fileCheck, realpathLoose, loadRunConfig, multiArg, appendJsonl };
+  urlsFromArgs, toUrl, fileCheck, realpathLoose, loadRunConfig, multiArg, appendJsonl,
+  tabs, tabsConfig, trackPage, closeTab, TabRegistry, withTabsFile };

@@ -71,7 +71,8 @@ for f in claims intake journal build_report gitignore_helper export_results skil
   "$PY" -c "import ast,sys; ast.parse(open(sys.argv[1],encoding='utf-8').read(), sys.argv[1])" "$S/$f.py" 2>"$TMP/pyc.err" \
     && ok "syntax $f.py" || { cat "$TMP/pyc.err"; bad "syntax $f.py"; }
 done
-for f in guard invariants occlusion reachability device_context shot frames annotate targets repro legal_guest rtl a11y; do
+for f in guard invariants occlusion reachability device_context shot frames annotate targets repro legal_guest rtl a11y lib lighthouse \
+         e2e_run mcp_guard mcp_check e2e/playwright.config e2e/shim/@playwright/test/index; do
   node --check "$S/node/$f.js" && ok "node --check $f.js" || bad "node --check $f.js"
 done
 for f in publish_web comment_web web_upload_lib; do
@@ -115,6 +116,11 @@ PY="$PY" bash "$HERE/test_v130.sh" > "$TMP/v130.log" 2>&1 \
 PY="$PY" bash "$HERE/test_v140.sh" > "$TMP/v140.log" 2>&1 \
   && ok "v1.4.0 ($(tail -1 "$TMP/v140.log"))" || { cat "$TMP/v140.log"; bad "v1.4.0"; }
 
+# 1.5.0: tab registry of node scripts (lib.js <-> tabs.py, lock, tool node), e2e_run verdicts, publish_shots checks in
+# advance and the local fallback (fake gh), browser_mode.py mcp (separate Playwright MCP with the guard of the run)
+PY="$PY" bash "$HERE/test_v150.sh" > "$TMP/v150.log" 2>&1 \
+  && ok "v1.5.0 ($(tail -1 "$TMP/v150.log"))" || { cat "$TMP/v150.log"; bad "v1.5.0"; }
+
 # Browser suites B and C: need node + scripts/node/node_modules/playwright + Chromium; otherwise SKIP.
 # Set QA_SKIP_BROWSER=1 to skip them explicitly.
 have_browser=0
@@ -130,6 +136,8 @@ if [ $have_browser -eq 1 ]; then
     && ok "v1.3.0 browser ($(grep '^stream v1.3.0 browser:' "$TMP/v130b.log" | tail -1))" || { tail -n 30 "$TMP/v130b.log"; bad "v1.3.0 browser"; }
   PY="$PY" bash "$HERE/test_v140_browser.sh" > "$TMP/v140b.log" 2>&1 \
     && ok "v1.4.0 browser file:// ($(grep '^stream v1.4.0 browser:' "$TMP/v140b.log" | tail -1))" || { tail -n 30 "$TMP/v140b.log"; bad "v1.4.0 browser"; }
+  PY="$PY" bash "$HERE/test_v150_browser.sh" > "$TMP/v150b.log" 2>&1 \
+    && ok "v1.5.0 browser ($(grep '^stream v1.5.0 browser:' "$TMP/v150b.log" | tail -1))" || { tail -n 30 "$TMP/v150b.log"; bad "v1.5.0 browser"; }
 else
   echo "SKIP stream B/C: нет node, playwright (cd scripts/node && npm install) или Chromium (npx playwright install chromium)"
 fi

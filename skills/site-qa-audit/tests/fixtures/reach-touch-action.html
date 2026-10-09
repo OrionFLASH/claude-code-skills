@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Фикстура (б3): панель выше окна, контейнер overflow-y:auto, но touch-action: none</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; font: 14px sans-serif; }
+  /* Холст редактора запрещает жесты браузера: колесо мыши прокручивает, палец — нет */
+  #root { height: 100%; overflow-y: auto; touch-action: none; }
+  #layers { width: 260px; height: 615px; background: #f3f3f3; position: relative; }
+  #layers h2 { margin: 0; padding: 8px; }
+  #only-missing { position: absolute; left: 8px; top: 568px; height: 36px; }
+</style></head>
+<body><div id="root"><aside id="layers" aria-label="Слои"><h2>Слои</h2>
+  <button style="margin:8px">Все слои</button>
+  <button id="only-missing">Только ненайденные</button>
+</aside></div></body></html>

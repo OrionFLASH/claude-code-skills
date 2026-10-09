@@ -341,6 +341,7 @@ if (require.main === module) {
       const context = await browser.newContext();
       await guardContext(context, rules, { logFile: a.log });
       const page = await context.newPage();
+      require('./lib').trackPage(page, { profile: 'guard-check', engine: a.browser || 'chromium' });  // tabs.json of the run
       const g = guardedPage(page, rules, { logFile: a.log, throttleMs: 0 });
       const nav = await g.goto(a.url, { waitUntil: 'load' });
       res = nav;

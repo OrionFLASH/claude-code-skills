@@ -23,13 +23,15 @@
 // (phone: isMobile + hasTouch + mobile UA). Browser window: visible by default, SITE_QA_HEADLESS=1 hides it,
 // SITE_QA_SLOWMO=<ms> slows visible actions down.
 //
-// API: openDevice({ device, browser, cdp, storageState, rules, logFile, locale }) ->
-//        { browser, context, page, close, device, media }
+// API: openDevice({ device, browser, cdp, storageState, rules, logFile, locale, track }) ->
+//        { browser, context, page, close, device, media, tabId }
+//      the page is registered in <RUN_DIR>/tabs.json when the run folder is known (lib.js → tabs(): --run-dir,
+//      SITE_QA_RUN_DIR or the folder of --rules; --owner <qa-id>); track: false — not registered (probes)
 //      configsFrom({ sizes, devices }) -> [{ name, options, engine }]
 //      filterState(state, domains) -> { state, kept, dropped }
 const fs = require('fs');
 const path = require('path');
-const { parseArgs, loadRules, writeOut, hostMatches, launchOptions, loadRunConfig, toUrl } = require('./lib');
+const { parseArgs, loadRules, writeOut, hostMatches, launchOptions, loadRunConfig, toUrl, trackPage, closeTab } = require('./lib');
 
 const PIXEL7_UA = 'Pixel 7';
 // name -> Playwright descriptor name or explicit options. Viewports are CSS px.
@@ -220,7 +222,19 @@ function storageForContext(state) {
   return { storageState: rest, sessionStorage };
 }
 
+// CDP target id of a page (the id of /json/list): tabs.py cleanup --cdp closes the tab by it.
+async function targetIdOf(context, page) {
+  try {
+    const s = await context.newCDPSession(page);
+    const info = await s.send('Target.getTargetInfo');
+    await s.detach().catch(() => {});
+    return (info && info.targetInfo && info.targetInfo.targetId) || null;
+  } catch { return null; }
+}
+
 // Attach to the user's browser without touching its state. Picks an existing page (by URL substring) or the last one.
+// A page the script had to create is registered in <RUN_DIR>/tabs.json (tool cdp, target id) and closed by the script;
+// the user's own pages are never registered and never closed.
 async function attachCdp(cdpUrl, pageMatch) {
   const { chromium } = require('playwright');
   const browser = await chromium.connectOverCDP(cdpUrl);
@@ -228,11 +242,22 @@ async function attachCdp(cdpUrl, pageMatch) {
   const pages = context.pages();
   let page = pageMatch ? pages.find(p => p.url().includes(pageMatch)) : pages[pages.length - 1];
   const created = !page;
-  if (!page) page = await context.newPage();
-  return { browser, context, page, close: async () => { if (created) await page.close().catch(() => {}); await browser.close().catch(() => {}); }, device: null, media: null };
+  let tabId = null;
+  if (!page) {
+    page = await context.newPage();
+    tabId = trackPage(page, { profile: 'cdp', tool: 'cdp', targetId: await targetIdOf(context, page), engine: 'chromium' });
+  }
+  const close = async () => {
+    if (created) {
+      const last = page.url();
+      if (await page.close().then(() => true, () => false)) closeTab(tabId, /^https?:|^file:/.test(last) ? { url: last } : {});
+    }
+    await browser.close().catch(() => {});
+  };
+  return { browser, context, page, close, device: null, media: null, created, tabId };
 }
 
-async function openDevice({ device, browser: engineOverride, cdp, storageState, rules, logFile, headless, pageMatch, locale, readOnly } = {}) {
+async function openDevice({ device, browser: engineOverride, cdp, storageState, rules, logFile, headless, pageMatch, locale, readOnly, track = true } = {}) {
   if (cdp && !device) return attachCdp(cdp, pageMatch);
   const d = resolveDevice(device || 'desktop', engineOverride);
   const pw = require('playwright');
@@ -251,13 +276,16 @@ async function openDevice({ device, browser: engineOverride, cdp, storageState, 
   }
   if (rules) await require('./guard').guardContext(context, rules, { logFile, readOnly });
   const page = await context.newPage();
+  // tabs.json of the run (tool node): one record per opened page, closed with the browser
+  const tabId = track ? trackPage(page, { profile: d.name + (locale ? '@' + locale : ''), tool: 'node', engine: d.engine }) : null;
   const media = await ensureTouchMedia(page, context, d);
   const { _session, ...mediaOut } = media;
-  return { browser, context, page, device: d, media: mediaOut, _session, close: () => browser.close() };
+  const close = async () => { try { await browser.close(); } finally { closeTab(tabId); } };
+  return { browser, context, page, device: d, media: mediaOut, _session, close, tabId };
 }
 
 module.exports = { CATALOG, resolveDevice, configsFrom, captureState, captureStateReport, writeState, removeState, filterState, cookieAllowed,
-  attachCdp, openDevice, probeMedia, ensureTouchMedia };
+  attachCdp, openDevice, probeMedia, ensureTouchMedia, targetIdOf };
 
 if (require.main === module) {
   (async () => {
@@ -277,7 +305,7 @@ if (require.main === module) {
       const rows = [];
       for (const name of a.devices.split(',').map(s => s.trim()).filter(Boolean)) {
         let dev;
-        try { dev = await openDevice({ device: name, browser: a.browser, headless: true }); rows.push({ device: name, engine: dev.device.engine, ...dev.media }); }
+        try { dev = await openDevice({ device: name, browser: a.browser, headless: true, track: false }); rows.push({ device: name, engine: dev.device.engine, ...dev.media }); }
         catch (e) { rows.push({ device: name, error: String(e.message || e).split('\n')[0] }); }
         finally { if (dev) await dev.close().catch(() => {}); }
       }

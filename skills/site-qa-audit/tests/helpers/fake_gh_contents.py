@@ -2,7 +2,10 @@
 """Offline stand-in for `gh api` used by tests of publish_shots.py: repository info, git refs, contents GET/PUT.
 
 State: $FAKE_GH_STATE (JSON) = {"repos": {"owner/repo": {"private": true, "permissions": {"push": true},
-"default_branch": "main", "refs": {"main": "<sha>"}, "files": {"<branch>:<path>": {"sha", "content"}}}}, "calls": []}.
+"default_branch": "main", "refs": {"main": "<sha>"}, "files": {"<branch>:<path>": {"sha", "content"}},
+"deny_put_after": N?}}, "auth": {"logged_in": true, "scopes": ["repo"]}?, "calls": []}.
+`gh auth status`: logged in unless auth.logged_in is false; prints «Token scopes» when auth.scopes is given.
+deny_put_after: the PUT after N uploaded files answers 403 (a token without Contents: write / SSO).
 Every call is appended to state["calls"]. Never talks to the network.
 """
 import base64
@@ -33,6 +36,16 @@ def fail(msg, code=1):
 def main(argv):
     s = load()
     s.setdefault("calls", []).append(argv)
+    if argv[:2] == ["auth", "status"]:
+        # "auth": {"logged_in": false} — not logged in; "scopes": [...] — a classic token shows its scopes
+        auth = s.get("auth") or {}
+        save(s)
+        if auth.get("logged_in") is False:
+            return fail("You are not logged into any GitHub hosts. To log in, run: gh auth login")
+        print("github.com\n  - Logged in to github.com account qa-user (keyring)")
+        if auth.get("scopes") is not None:
+            print("  - Token scopes: " + ", ".join(f"'{x}'" for x in auth["scopes"]))
+        return 0
     if not argv or argv[0] != "api":
         save(s)
         return fail(f"fake gh: unsupported {argv[:2]}")
@@ -81,6 +94,9 @@ def main(argv):
                 return fail("HTTP 404: Not Found")
             out = {"sha": repo["files"][key]["sha"], "path": fpath}
         elif method == "PUT":
+            if repo.get("deny_put_after") is not None and sum(1 for k in repo["files"] if not k.startswith("main:")) >= repo["deny_put_after"]:
+                save(s)
+                return fail("HTTP 403: Resource not accessible by personal access token (gh: Resource not accessible)")
             if body.get("branch") not in repo["refs"]:
                 save(s)
                 return fail("HTTP 422: branch not found")

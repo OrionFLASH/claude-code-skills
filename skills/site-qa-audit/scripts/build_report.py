@@ -281,6 +281,9 @@ def build_report(run):
         L.append("Контактный лист: " + (", ".join(f"[{x}]({x})" for x in sheets) if sheets else
                                         f"`node <SKILL_DIR>/scripts/node/shot.js sheet --out {run.dir}/screenshots/contact.png "
                                         f"{run.dir}/screenshots/*-annotated.png`") + ".")
+        if (run.dir / "results" / "screenshots.zip").is_file():  # publish_shots.py local: fallback without GitHub
+            L.append("Не загружены в репозиторий — приложены к отчёту: [results/screenshots/index.md](results/screenshots/index.md), "
+                     "архив [results/screenshots.zip](results/screenshots.zip) (перетащить в комментарий issue вручную).")
     L += ["", "## Находки", "", "| ID | Severity | Статус | Заголовок | URL | Куда опубликовано |", "|---|---|---|---|---|---|"]
     for f in fs:
         pub = ", ".join(f"{p.get('repo')}#{p.get('number')}" if p.get("number") else f"{p.get('kind')}" for p in f.get("published") or [])
