@@ -15,7 +15,10 @@
   avd_manager.py start NAME [--port 5554] [--headless] [--cold-boot] [--wipe-data] [--read-only] [--snapshot S]
                        [--netspeed full|lte|hsdpa|umts|edge|gprs] [--netdelay none|lte|umts|edge|gprs]
                        [--locale ru-RU] [--timezone Europe/Moscow] [--gpu auto] [--allow-foreign] [--owner w1] [--run-dir R]
-                       an AVD that is already running is NOT started again (exit 3): one stand — one executor
+                       [--mic-inject] [--keep-audio] [--extra-args "-prop k=v -camera-back virtualscene"] [--confirmed]
+                       an AVD that is already running is NOT started again (exit 3): one stand — one executor;
+                       --extra-args: white list (guard.py emulator-args; -grpc only with -grpc-use-token/-jwt, deny → 3,
+                       host mic/camera → 2 until --confirmed); --mic-inject: -grpc <free port> -grpc-use-token, audio on
   avd_manager.py wait-boot SERIAL [--timeout 420] [--unlock] [--disable-animations] [--run-dir R]
   avd_manager.py snapshot save|load|list SERIAL [NAME]      quick reset of an own emulator (adb emu avd snapshot)
   avd_manager.py stop SERIAL|NAME [--run-dir R] [--any-qa] [--owner w1]   --owner: a stand of another thread -> exit 3
@@ -42,6 +45,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import sdkutil as su  # noqa: E402
+from masking import mask  # noqa: E402 — emulator logs and gRPC errors may contain tokens
 
 PROFILES = {  # alias -> (avdmanager ids in preference order, short name for the AVD name, lcd WxH, density)
     "phone": (["pixel_7", "pixel_6", "pixel_5", "Nexus 5"], "pixel7", "1080x2400", 420),
@@ -482,6 +486,40 @@ def port_free(port):
     return True
 
 
+def tcp_free(port):
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        s.bind(("127.0.0.1", port))
+        return True
+    except OSError:
+        return False
+    finally:
+        s.close()
+
+
+def pick_grpc_port(reserved):
+    """gRPC port of the emulator (127.0.0.1): 8554, 8556, … not used by another emulator of the run or the host."""
+    for port in range(8554, 8700, 2):
+        if port not in reserved and tcp_free(port):
+            return port
+    die("нет свободного порта gRPC 8554–8698")
+
+
+def extra_emulator_args(a):
+    """--extra-args and --mic-inject → list of flags checked by guard.check_emulator_args (deny → 3, confirm → 2)."""
+    import shlex
+    import guard  # noqa: E402 — same folder
+    extra = shlex.split(a.extra_args or "")
+    decision = guard.check_emulator_args(extra)
+    if decision["decision"] == guard.DENY:
+        print(json.dumps({"blocked": True, **decision}, ensure_ascii=False))
+        die(f"флаги эмулятора запрещены: {decision['reason']}", 3)
+    if decision["decision"] == guard.CONFIRM and not a.confirmed:
+        print(json.dumps({"needs_confirmation": True, **decision}, ensure_ascii=False))
+        die(f"нужно согласие пользователя: {decision['reason']} — после «да» тот же вызов с --confirmed", 2)
+    return extra, decision
+
+
 def pick_port(reserved, wanted=None):
     online = set(running_emulators())
     for port in ([wanted] if wanted else range(5554, 5684, 2)):
@@ -505,6 +543,9 @@ def cmd_start(a):
         die("emulator не найден (sdkmanager \"emulator\")", 127)
     if a.netspeed not in NETSPEED or a.netdelay not in NETDELAY:
         die(f"--netspeed из {NETSPEED}, --netdelay из {NETDELAY}")
+    extra, _ = extra_emulator_args(a)
+    if a.mic_inject and foreign:
+        die("--mic-inject (gRPC с токеном) — только для своих AVD qa-*", 3)
     # One stand — one executor (S-7): an AVD that is already running is reused, not started again.
     already = [s for s, n in running_emulators().items() if n == a.name]
     if already and not a.read_only:
@@ -519,9 +560,19 @@ def cmd_start(a):
         read_only = a.read_only or foreign
         if read_only:
             cmd.append("-read-only")
+        keep_audio = a.keep_audio or a.mic_inject
         if a.headless:
-            cmd += ["-no-window", "-no-audio"]
-        cmd += ["-gpu", a.gpu or ("swiftshader_indirect" if a.headless else "auto")]
+            cmd += ["-no-window"] + ([] if keep_audio else ["-no-audio"])
+        grpc_port = None
+        if a.mic_inject and "-grpc" not in extra:
+            reserved = {e.get("grpc_port") for e in data["emulators"] if e.get("grpc_port") and su.pid_alive(e.get("pid"))}
+            grpc_port = pick_grpc_port(reserved)
+            cmd += ["-grpc", str(grpc_port), "-grpc-use-token"]
+        elif "-grpc" in extra:
+            grpc_port = int(extra[extra.index("-grpc") + 1])
+        if "-gpu" not in extra:
+            cmd += ["-gpu", a.gpu or ("swiftshader_indirect" if a.headless else "auto")]
+        cmd += extra
         if a.cold_boot:
             cmd.append("-no-snapshot-load")
         if a.snapshot:
@@ -539,12 +590,19 @@ def cmd_start(a):
         entry = {"name": a.name, "serial": f"emulator-{port}", "port": port, "pid": proc.pid, "started_at": now(),
                  "headless": a.headless, "read_only": read_only, "foreign": foreign, "log": str(log),
                  "owner": a.owner or "orchestrator", "args": [str(c) for c in cmd[1:]]}
+        if grpc_port:
+            entry.update({"grpc_port": grpc_port, "grpc_auth": "token" if "-grpc-use-token" in cmd else "jwt"})
+        if extra:
+            entry["extra_args"] = extra
         data["emulators"].append(entry)
         reg.save(data)
     time.sleep(1.5)
     if proc.poll() is not None:
         tail = log.read_text(encoding="utf-8", errors="replace")[-600:] if log.exists() else ""
-        die(f"эмулятор завершился сразу (код {proc.returncode}): {tail.strip()}", 6)
+        die(f"эмулятор завершился сразу (код {proc.returncode}): {mask(tail.strip())}", 6)
+    if grpc_port:
+        entry["note"] = ("gRPC 127.0.0.1:%d с токеном: токен — в discovery-файле эмулятора (adb emu avd discoverypath), "
+                         "не печатается; подача звука — adb_helpers.py mic-inject" % grpc_port)
     print(json.dumps(entry, ensure_ascii=False))
 
 
@@ -558,7 +616,7 @@ def cmd_wait_boot(a):
     while time.time() - start < a.timeout:
         if entry and entry.get("pid") and not su.pid_alive(entry["pid"]):
             tail = Path(entry["log"]).read_text(encoding="utf-8", errors="replace")[-600:] if Path(entry["log"]).exists() else ""
-            die(f"процесс эмулятора завершился ({stage}): {tail.strip()}", 6)
+            die(f"процесс эмулятора завершился ({stage}): {mask(tail.strip())}", 6)
         code, state, _ = adb.cmd("get-state", timeout=10)
         if code == 0 and state.strip() == "device":
             stage = "загрузка Android"
@@ -576,8 +634,10 @@ def cmd_wait_boot(a):
         for key in ("window_animation_scale", "transition_animation_scale", "animator_duration_scale"):
             adb.shell("settings", "put", "global", key, "0", timeout=10)
     props = adb.getprop()
-    print(json.dumps({"serial": a.serial, "boot_seconds": round(time.time() - start), **su.device_summary(props)},
+    secs = round(time.time() - start)
+    print(json.dumps({"serial": a.serial, "ready": True, "boot_seconds": secs, **su.device_summary(props)},
                      ensure_ascii=False))
+    sys.stderr.write(f"готов: {a.serial} загружен за {secs} с\n")
 
 
 def ensure_own_emulator(serial, run_dir):
@@ -765,6 +825,11 @@ def main():
     st.add_argument("--gpu")
     st.add_argument("--allow-foreign", action="store_true")
     st.add_argument("--owner", help="поток-владелец стенда (w1, w2…); записывается в stands.json")
+    st.add_argument("--extra-args", help="дополнительные флаги эмулятора одной строкой (белый список guard.py emulator-args)")
+    st.add_argument("--mic-inject", action="store_true",
+                    help="gRPC с токеном для mic-inject: -grpc <свободный порт> -grpc-use-token, звук не выключается")
+    st.add_argument("--keep-audio", action="store_true", help="с --headless не добавлять -no-audio")
+    st.add_argument("--confirmed", action="store_true", help="пользователь согласился на флаги уровня confirm")
     st.add_argument("--run-dir")
     wb = sub.add_parser("wait-boot")
     wb.add_argument("serial")

@@ -11,6 +11,8 @@ error). Code 4, any other code, «No such file» or empty output = STOP: the act
   guard.py deeplink <uri> --config …           may the agent open this URI (am start -a VIEW -d …)?
   guard.py adb "<adb arguments>" --stand own-emulator|foreign-emulator|real [--serial S] --config …
                                                adb command risk: read / app / device / deny × stand × consent
+  guard.py emulator-args "<flags>" --config …  extra emulator flags (avd_manager.py start --extra-args): white list;
+                                               -grpc only with -grpc-use-token/-grpc-use-jwt; host mic/camera — confirm
   guard.py export --config … [--out rules.json]
   guard.py selftest
 
@@ -104,6 +106,43 @@ DENY_SCHEMES = {"tel": "звонок", "sms": "SMS", "smsto": "SMS", "mms": "MMS
 READ_SHELL = re.compile(r"^(getprop|dumpsys|uiautomator|screencap|ps|pidof|top|cat|ls|df|du|id|whoami|date|wm|"
                         r"logcat|echo|sleep|true|ime|uptime|stat|which|toybox|grep|head|tail|wc|sed|awk)$")
 READ_PM = {"list", "path", "dump", "resolve-activity", "query-activities", "has-feature", "get-install-location"}
+# Test media files of the skill: /sdcard/<standard folder>/qa-<name> (push-media) and /sdcard/qa-* temp files.
+SKILL_FILE = re.compile(r"^/(sdcard|storage/emulated/0)/((Download|Music|Movies|Pictures|DCIM|Documents|Recordings|"
+                        r"Podcasts|Audiobooks|Alarms|Ringtones|Notifications)/)?qa-[\w.-]+$|^/data/local/tmp/qa-[\w.-]+$")
+EMU_READ = {("avd", "name"), ("avd", "path"), ("avd", "discoverypath"), ("avd", "snapshotspath"), ("avd", "id"),
+            ("avd", "status"), ("help",)}
+
+# ---- emulator command line (avd_manager.py start --extra-args) ----
+# flag -> (decision, takes a value, why). Anything else is denied: a flag outside the list may change the AVD or
+# open the emulator to the network (references/stands.md → «Дополнительные флаги эмулятора»).
+EMU_FLAGS = {
+    "-no-window": (ALLOW, False, "без окна"), "-no-audio": (ALLOW, False, "без звука"),
+    "-no-boot-anim": (ALLOW, False, ""), "-no-snapshot": (ALLOW, False, ""), "-no-snapshot-load": (ALLOW, False, ""),
+    "-no-snapshot-save": (ALLOW, False, ""), "-netfast": (ALLOW, False, ""), "-verbose": (ALLOW, False, ""),
+    "-show-kernel": (ALLOW, False, ""), "-delay-adb": (ALLOW, False, ""), "-no-sim": (ALLOW, False, ""),
+    "-grpc-use-token": (ALLOW, False, "gRPC с токеном (grpc.token в discovery-файле)"),
+    "-grpc-use-jwt": (ALLOW, False, "gRPC с JWT (как Android Studio)"),
+    "-grpc": (ALLOW, True, "порт gRPC на 127.0.0.1 — только вместе с -grpc-use-token или -grpc-use-jwt"),
+    "-prop": (ALLOW, True, "системное свойство на этот запуск"), "-feature": (ALLOW, True, "флаг возможности эмулятора"),
+    "-memory": (ALLOW, True, "ОЗУ на этот запуск, МБ"), "-cores": (ALLOW, True, "ядра на этот запуск"),
+    "-gpu": (ALLOW, True, ""), "-netspeed": (ALLOW, True, ""), "-netdelay": (ALLOW, True, ""),
+    "-dns-server": (ALLOW, True, ""), "-timezone": (ALLOW, True, ""), "-change-locale": (ALLOW, True, ""),
+    "-screen": (ALLOW, True, "touch | multi-touch | no-touch"), "-camera-back": (ALLOW, True, "emulated | virtualscene | none"),
+    "-camera-front": (ALLOW, True, "emulated | none"), "-accel": (ALLOW, True, ""),
+    "-allow-host-audio": (CONFIRM, False, "эмулятор получит звук микрофона хоста — спросить пользователя"),
+    "-http-proxy": (CONFIRM, True, "трафик эмулятора через прокси — спросить"),
+    "-tcpdump": (CONFIRM, True, "запись сетевого трафика в файл — спросить; файл только в <RUN_DIR>"),
+    "-wipe-data": (DENY, False, "стирание данных — флаг avd_manager.py --wipe-data (только свой AVD)"),
+    "-read-only": (DENY, False, "флаг avd_manager.py --read-only"),
+    "-writable-system": (DENY, False, "запись в системный раздел"), "-qemu": (DENY, False, "произвольные параметры QEMU"),
+    "-selinux": (DENY, True, "ослабление SELinux"), "-avd": (DENY, True, "AVD задаёт avd_manager.py"),
+    "-port": (DENY, True, "порт — avd_manager.py --port"), "-ports": (DENY, True, "порт — avd_manager.py --port"),
+    "-sysdir": (DENY, True, "образ"), "-system": (DENY, True, "образ"), "-kernel": (DENY, True, "образ"),
+    "-ramdisk": (DENY, True, "образ"), "-data": (DENY, True, "раздел данных"), "-initdata": (DENY, True, "раздел данных"),
+    "-shell": (DENY, False, "root-консоль"), "-shell-serial": (DENY, True, "root-консоль"),
+    "-grpc-tls-key": (ALLOW, True, ""), "-grpc-tls-cer": (ALLOW, True, ""), "-grpc-tls-ca": (ALLOW, True, ""),
+}
+CAMERA_HOST = re.compile(r"^webcam\d*$", re.I)
 APP_AM = {"start", "start-activity", "force-stop", "kill", "send-trim-memory", "set-inactive", "get-inactive",
           "stack", "make-uid-idle", "crash", "start-foreground-service", "startservice", "start-service"}
 
@@ -137,6 +176,9 @@ def validate_rules(cfg):
                 re.compile(pat)
             except (re.error, TypeError) as ex:
                 raise GuardUnavailable(f"неверный регэксп в {key}: {pat!r} ({ex})")
+    pp = r.get("preapproved_packages") or []
+    if not isinstance(pp, list) or any(not (isinstance(x, str) or (isinstance(x, dict) and x.get("package"))) for x in pp):
+        raise GuardUnavailable("preapproved_packages: список имён пакетов или {package, source}")
     for key in ("forbidden_actions", "require_confirmation_actions", "preapproved_actions"):
         for rule in r.get(key) or []:
             if not isinstance(rule, dict):
@@ -163,6 +205,10 @@ def rules_of(cfg):
         "require_confirmation_actions": r.get("require_confirmation_actions") or [],
         "preapproved_actions": r.get("preapproved_actions") or [],
         "adb_require_confirmation": r.get("adb_require_confirmation") or [],
+        # system apps (file picker, settings…) the user allowed once for the whole run: lifts only the
+        # «системное приложение — спросить» confirm of the package, never a deny and never a confirm of an action
+        "preapproved_packages": [x if isinstance(x, str) else x.get("package") for x in (r.get("preapproved_packages") or [])
+                                 if x and (isinstance(x, str) or (isinstance(x, dict) and x.get("package")))],
         "consent": [c for c in (st.get("consent") or []) if isinstance(c, dict) and c.get("serial")],
         "deeplink_hosts": app.get("deeplink_hosts") or [],
     }
@@ -184,6 +230,9 @@ def check_package(pkg, cfg):
         return result(DENY, "package", pkg, f"чужое приложение: {DENY_PACKAGES[pkg]} — базовый запрет, вернуться BACK",
                       "base:package")
     if pkg in CONFIRM_PACKAGES:
+        if pkg in rules["preapproved_packages"]:
+            return result(ALLOW, "package", pkg, f"системное приложение ({CONFIRM_PACKAGES[pkg]}) — разрешено пользователем "
+                          "на весь прогон (rules.preapproved_packages)", f"user:preapproved_packages:{pkg}")
         return result(CONFIRM, "package", pkg, f"системное приложение ({CONFIRM_PACKAGES[pkg]}) — спросить", "base:package-confirm")
     if not rules["package"]:
         return result(CONFIRM, "package", pkg, "в run-config нет app.package — неизвестно, своё ли это приложение", "base:no-app")
@@ -352,9 +401,15 @@ def _classify_shell(toks, app):
         return "deny", None, "root на устройстве"
     if c == "rm":
         paths = [x for x in rest if not x.startswith("-")]
-        if paths and all(re.match(r"^/(sdcard|storage/emulated/0|data/local/tmp)/qa-[\w.-]+$", x) for x in paths):
+        if paths and all(SKILL_FILE.match(x) for x in paths):
             return "app", None, "удаление временных файлов скила"
-        return "deny", None, "rm вне временных файлов скила (/sdcard/qa-*)"
+        return "deny", None, "rm вне временных файлов скила (/sdcard/qa-*, /sdcard/<папка>/qa-*)"
+    if c == "run-as":
+        pkg = first
+        if not pkg or pkg != app:
+            return "deny", pkg, "run-as другого приложения"
+        cmd = rest[1] if len(rest) > 1 else ""
+        return ("read" if cmd in ("cat", "ls", "stat", "du") else "app"), pkg, f"run-as {pkg} {cmd}".strip()
     if c in ("pm", "cmd") and (c == "pm" or first == "package"):
         sub = rest[1] if c == "cmd" and len(rest) > 1 else first
         args = rest[2:] if c == "cmd" else rest[1:]
@@ -378,6 +433,10 @@ def _classify_shell(toks, app):
             if any("MASTER_CLEAR" in a or "FACTORY_RESET" in a for a in rest):
                 return "deny", None, "сброс устройства"
             pkg = next((rest[i + 1] for i, a in enumerate(rest[:-1]) if a == "-p"), None)
+            data = next((rest[i + 1] for i, a in enumerate(rest[:-1]) if a == "-d"), "")
+            if "android.intent.action.MEDIA_SCANNER_SCAN_FILE" in rest and \
+                    SKILL_FILE.match(re.sub(r"^file://", "", data)):
+                return "app", None, "медиасканер для тестового файла скила (push-media)"
             return ("app", pkg, "broadcast тестируемому приложению") if pkg and pkg == app else \
                 ("device", pkg, "broadcast (системный или другому приложению)")
         if sub in ("start", "start-activity"):
@@ -463,8 +522,10 @@ def classify_adb(args, app):
         return [("app", pkg, "удаление тестируемого приложения") if pkg and pkg == app else
                 ("deny", pkg, f"удаление другого приложения ({pkg})")]
     if sub == "emu":
-        if rest[:2] == ["avd", "name"] or rest[:1] in (["help"],):
+        if tuple(rest[:2]) in EMU_READ or tuple(rest[:1]) in EMU_READ:
             return [("read", None, "emu (чтение)")]
+        if rest[:2] == ["avd", "hostmicon"]:
+            return [("host-mic", None, "микрофон хоста в эмулятор (adb emu avd hostmicon)")]
         return [("emulator", None, f"консоль эмулятора: {' '.join(rest[:3])}")]
     if sub in ("reboot",):
         return [("deny" if rest and rest[0] in ("bootloader", "recovery", "sideload", "fastboot") else "device", None, "reboot")]
@@ -472,7 +533,7 @@ def classify_adb(args, app):
         return [("emulator", None, f"adb {sub}")]
     if sub in ("push",):
         dest = rest[-1] if rest else ""
-        return [("app" if re.match(r"^/(sdcard|data/local/tmp)/qa-", dest) else "device", None, f"push в {dest}")]
+        return [("app" if SKILL_FILE.match(dest) else "device", None, f"push в {dest}")]
     if sub in ("logcat",):
         return [("device" if ("-c" in rest or "--clear" in rest) else "read", None, "logcat")]
     if sub == "kill-server":
@@ -505,6 +566,10 @@ def check_adb(args, cfg, stand="own-emulator", serial=None):
         elif risk == "emulator":
             d = result(ALLOW, "adb", target, why, None) if stand == "own-emulator" else \
                 result(DENY, "adb", target, f"{why} — только на своём эмуляторе", "base:adb-emulator-only")
+        elif risk == "host-mic":
+            d = result(CONFIRM, "adb", target, f"{why}: эмулятор услышит устройство ввода хоста — спросить", "base:adb-host-mic") \
+                if stand == "own-emulator" else result(DENY, "adb", target, f"{why} — только на своём эмуляторе",
+                                                       "base:adb-emulator-only")
         elif risk == "monkey":
             d = result(ALLOW, "adb", target, why, None) if stand == "own-emulator" else (
                 result(CONFIRM, "adb", target, f"{why} на {stand}: случайные нажатия — спросить", "base:adb-monkey")
@@ -529,6 +594,62 @@ def check_adb(args, cfg, stand="own-emulator", serial=None):
             if re.search(pat, line, re.I):
                 return result(CONFIRM, "adb", target, f"по правилу пользователя: /{pat}/", f"user:adb_require_confirmation:{pat}")
     return worst
+
+
+def split_emulator_args(args):
+    """'-grpc 8554 -grpc-use-token' -> [('-grpc', '8554'), ('-grpc-use-token', None)]; unknown flags keep their
+    following non-flag token as a value (so the whole flag is denied, not half of it)."""
+    toks = shlex.split(args) if isinstance(args, str) else [str(x) for x in args]
+    out, i = [], 0
+    while i < len(toks):
+        t = toks[i]
+        spec = EMU_FLAGS.get(t)
+        takes = spec[1] if spec else (i + 1 < len(toks) and not toks[i + 1].startswith("-"))
+        val = toks[i + 1] if takes and i + 1 < len(toks) else None
+        out.append((t, val))
+        i += 2 if takes and val is not None else 1
+    return out
+
+
+def check_emulator_args(args):
+    """Decision for extra emulator flags of avd_manager.py start --extra-args: allow / confirm / deny (worst wins)."""
+    pairs = split_emulator_args(args)
+    names = [n for n, _ in pairs]
+    target = {"emulator_args": args if isinstance(args, str) else " ".join(map(str, args))}
+    decisions = []
+    for name, val in pairs:
+        spec = EMU_FLAGS.get(name)
+        if not name.startswith("-"):
+            decisions.append(result(DENY, "emulator", target, f"«{name}» — не флаг эмулятора", "base:emu-args"))
+            continue
+        if not spec:
+            decisions.append(result(DENY, "emulator", target, f"флаг {name} не из белого списка (stands.md → «Дополнительные "
+                                    "флаги эмулятора»)", "base:emu-args-unknown"))
+            continue
+        dec, takes, why = spec
+        if takes and val is None:
+            decisions.append(result(DENY, "emulator", target, f"{name} без значения", "base:emu-args"))
+            continue
+        if name == "-grpc":
+            if "-grpc-use-token" not in names and "-grpc-use-jwt" not in names:
+                decisions.append(result(DENY, "emulator", target, "открытый gRPC без авторизации — только вместе с "
+                                        "-grpc-use-token (или -grpc-use-jwt)", "base:emu-grpc-no-auth"))
+                continue
+            if not str(val).isdigit() or not 1024 <= int(val) <= 65535:
+                decisions.append(result(DENY, "emulator", target, f"-grpc {val}: нужен номер порта 1024–65535", "base:emu-args"))
+                continue
+        if name in ("-camera-back", "-camera-front") and val and CAMERA_HOST.match(val):
+            decisions.append(result(CONFIRM, "emulator", target, f"{name} {val}: эмулятор получит камеру хоста — спросить",
+                                    "base:emu-host-camera"))
+            continue
+        if name == "-prop" and val and not re.match(r"^[\w.]+=\S*$", val):
+            decisions.append(result(DENY, "emulator", target, f"-prop {val}: нужен вид имя=значение", "base:emu-args"))
+            continue
+        decisions.append(result(dec, "emulator", target, f"{name}{' ' + val if val else ''}" + (f": {why}" if why else ""),
+                                None if dec == ALLOW else f"base:emu-{name.lstrip('-')}"))
+    if not decisions:
+        return result(ALLOW, "emulator", target, "дополнительных флагов нет", None)
+    return max(decisions, key=lambda x: (ORDER[x["decision"]], x["rule"] is not None))
 
 
 # ---------- CLI ----------
@@ -560,6 +681,10 @@ def selftest():
         bad_regex_detected = True
     A = lambda **kw: check_action(cfg, **kw)["decision"]  # noqa: E731
     D = lambda line, stand="own-emulator", serial=None: check_adb(line, cfg, stand, serial)["decision"]  # noqa: E731
+    E = lambda line: check_emulator_args(line)["decision"]  # noqa: E731
+    cfg_pp = dict(cfg, rules=dict(cfg["rules"], preapproved_packages=["com.google.android.documentsui",
+                                                                       {"package": "com.android.vending"}]))
+    P = lambda **kw: check_action(cfg_pp, **kw)["decision"]  # noqa: E731
     cases = [
         (A(text="Купить за 199 ₽"), DENY), (A(text="Subscribe"), DENY), (A(text="Оформить подписку"), DENY),
         (A(text="Continue with Google"), DENY), (A(text="Google", context="Войти через"), DENY),
@@ -603,6 +728,19 @@ def selftest():
         (D("shell ime set com.android.adbkeyboard/.AdbIME"), ALLOW),
         (D("kill-server"), DENY), (D("-s emulator-5554 kill-server"), DENY),
         (DENY if bad_regex_detected else ALLOW, DENY),  # fail closed: a broken user regex -> guard unavailable
+        # 1.2.0: emulator flags, skill media files, run-as, emulator console reads, host microphone, file picker
+        (E("-grpc 8554 -grpc-use-token"), ALLOW), (E("-grpc 8554"), DENY), (E("-grpc-use-jwt -grpc 8600 -no-window"), ALLOW),
+        (E("-allow-host-audio"), CONFIRM), (E("-camera-back webcam0"), CONFIRM), (E("-camera-back emulated"), ALLOW),
+        (E("-writable-system"), DENY), (E("-qemu -m 4096"), DENY), (E("-foo"), DENY), (E("-prop debug.x=1 -feature Vulkan"), ALLOW),
+        (E("-grpc abc -grpc-use-token"), DENY), (E(""), ALLOW),
+        (D("emu avd discoverypath", "foreign-emulator", "emulator-5556"), ALLOW), (D("emu avd hostmicon"), CONFIRM),
+        (D("emu avd hostmicon", "foreign-emulator", "emulator-5556"), DENY), (D("emu avd hostmicoff"), ALLOW),
+        (D("push /tmp/a.wav /sdcard/Download/qa-a.wav", "real", "R1"), ALLOW), (D("push /tmp/a.wav /sdcard/Download/a.wav", "real", "R1"), CONFIRM),
+        (D("shell rm -f /sdcard/Download/qa-a.wav"), ALLOW), (D("shell rm -f /sdcard/Download/a.wav"), DENY),
+        (D("shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Download/qa-a.wav", "real", "R1"), ALLOW),
+        (D("shell run-as com.other.app cat x"), DENY), (D("shell run-as com.example.app cat files/x", "real", "R3"), ALLOW),
+        (P(text="Downloads", pkg="com.google.android.documentsui"), ALLOW), (A(text="Downloads", pkg="com.google.android.documentsui"), CONFIRM),
+        (P(text="Удалить", pkg="com.google.android.documentsui"), CONFIRM), (P(text="Install", pkg="com.android.vending"), DENY),
     ]
     failed = [(i, got, exp) for i, (got, exp) in enumerate(cases) if got != exp]
     for i, got, exp in failed:
@@ -644,7 +782,7 @@ def load_checked(path):
 
 def main():
     ap = FailClosedParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("command", choices=["action", "package", "deeplink", "adb", "export", "selftest"])
+    ap.add_argument("command", choices=["action", "package", "deeplink", "adb", "emulator-args", "export", "selftest"])
     ap.add_argument("target", nargs="?")
     ap.add_argument("--config")
     ap.add_argument("--text", default="")
@@ -657,7 +795,13 @@ def main():
     ap.add_argument("--stand", default="own-emulator", choices=["own-emulator", "foreign-emulator", "real"])
     ap.add_argument("--serial")
     ap.add_argument("--out")
-    a = ap.parse_args()
+    argv, raw = sys.argv[1:], None
+    # «guard.py emulator-args "-allow-host-audio"» / «guard.py adb "-s S shell …"»: the target starts with «-»
+    if len(argv) >= 2 and argv[0] in ("emulator-args", "adb") and argv[1].startswith("-") and not argv[1].startswith("--"):
+        raw = argv.pop(1)
+    a = ap.parse_args(argv)
+    if raw is not None:
+        a.target = raw
     if a.command == "selftest":
         sys.exit(selftest())
     cfg = load_checked(a.config)
@@ -675,6 +819,8 @@ def main():
         if not a.target:
             ap.error("нужна строка аргументов adb")
         res = check_adb(a.target, cfg, a.stand, a.serial)
+    elif a.command == "emulator-args":
+        res = check_emulator_args(a.target or "")
     else:
         data = json.dumps(export(cfg), ensure_ascii=False, indent=2)
         if a.out:

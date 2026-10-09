@@ -234,11 +234,10 @@ def main():
         ver = version_of(out, r"Version (\S+)") or version_of(out)
         proto = version_of(out, r"version (\d+\.\d+\.\d+)")
         in_path = adb_t["in_path"]
+        # not in PATH is not a problem for the skill (scripts call adb by full path): OK with a hint for the terminal
         rows.append(ec.Row("adb (platform-tools)", f"{ver} ({proto})" if proto else ver, ec.OK,
-                           adb_t["path"] + ("" if in_path else " — не в PATH (скил вызывает по полному пути)"),
-                           "" if in_path else path_fix(sdk)))
-        if not in_path:
-            rows[-1]["status"] = ec.WARN
+                           adb_t["path"] + ("" if in_path else " — не в PATH: скилу не мешает (вызывает по полному пути); "
+                                            "для своего терминала: " + path_fix(sdk))))
     else:
         rows.append(ec.Row("adb (platform-tools)", "", ec.FAIL, "не найден",
                            "sdkmanager \"platform-tools\"  или  brew install --cask android-platform-tools"))
@@ -357,6 +356,14 @@ def main():
             drivers = []
         opt["appium"]["drivers"] = drivers
         rows[-1]["note"] += f"; драйверы: {', '.join(drivers) or 'нет'}"
+    import mic  # noqa: E402 — loopback detection (read-only, installs nothing)
+    lb = mic.loopback_info(fast=a.fast)
+    rows.append(ec.Row("виртуальное аудиоустройство (loopback)", ", ".join(lb["devices"][:2]), ec.OK,
+                       ("найдено" + ("; вход по умолчанию: " + lb["default_input"] if lb["default_input"] else "")
+                        if lb["devices"] else "нет — необязательно: нужно только для подачи звука в микрофон путём 2 "
+                                              "(mic-inject --via loopback); пути grpc и file работают без него")
+                       + (f"; {lb['hint']}" if lb["hint"] and not lb["ready"] else "")))
+    opt["loopback_audio"] = {k: lb[k] for k in ("devices", "default_input", "default_output", "ready")}
     u2 = importlib.util.find_spec("uiautomator2") is not None
     rows.append(ec.Row("python uiautomator2", "", ec.OK if u2 else ec.WARN,
                        "доступен (необязательно)" if u2 else "нет — не нужен: скил работает через adb и uiautomator dump"))

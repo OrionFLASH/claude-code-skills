@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Masking of secrets and personal data in logcat, UI texts, findings and drafts (references/safety-rules.md §5).
 
-  from masking import mask, find_unmasked
+  from masking import mask, find_unmasked        mask(text, secrets=(token,)) — also every exact known secret
   python3 masking.py FILE [--in-place]      mask a text file (logcat dump) and print or rewrite it
 
 e-mail -> a***@d***.tld; tokens/keys/JWT -> first 4 chars + …(length); URL parameters token/key/session/code/
@@ -18,6 +18,9 @@ TOKEN = re.compile(r"\b(?=[A-Za-z0-9_\-]*\d)(?=[A-Za-z0-9_\-]*[A-Za-z])[A-Za-z0-
 AUTH_HDR = re.compile(r"(?i)\b(authorization|bearer|basic|x-api-key|api[_-]?key|access[_-]?token|refresh[_-]?token|"
                       r"client[_-]?secret|password|passwd|secret)(\"?\s*[:=]\s*\"?|\s+)((?:bearer|basic|token)\s+)?([^\s\"',;&]{4,})")
 URL_PARAM = re.compile(r"(?i)([?&](?:token|access_token|id_token|key|api_key|session|sid|code|state|password|auth|signature|sig)=)[^&#\s\"']+")
+# token=… / grpc.token=… / auth_token: … (the emulator discovery file, gRPC errors): only with ":" or "=" — «token is
+# invalid» is a message, not a value
+TOKEN_KV = re.compile(r"(?i)\b((?:grpc[._-]|auth[_-]?|id[_-]?|session[_-]?|console[_-]?)?token)(\"?\s*[:=]\s*\"?)([^\s\"',;&]{4,})")
 # international (+…) or Russian 8 (9xx) … numbers only: plain digit runs in logcat are PIDs, ids and timestamps
 PHONE = re.compile(r"(?<![\w.:])(?:\+\d{1,3}|\b8)[\s(-]*\d{3}[\s)-]*\d{3}[\s-]*\d{2}[\s-]*\d{2}(?![\w.])")
 IMEI = re.compile(r"\b\d{15}\b")
@@ -38,11 +41,17 @@ def _flag(value):
     return value.lower() in ("true", "false", "null", "none")
 
 
-def mask(text):
+def mask(text, secrets=()):
+    """Mask secrets and personal data. secrets — exact values known to the caller (a gRPC token read from the
+    emulator discovery file, a password from env): every occurrence becomes `abcd…(N)` whatever the context."""
     if not text:
         return text
+    for s in sorted({str(x) for x in secrets if x and len(str(x)) >= 4}, key=len, reverse=True):
+        text = text.replace(s, _short(s))
     text = JWT.sub(lambda m: _short(m.group(0)), text)
     text = AUTH_HDR.sub(lambda m: m.group(0) if _flag(m.group(4)) else f"{m.group(1)}{m.group(2)}{m.group(3) or ''}***", text)
+    text = TOKEN_KV.sub(lambda m: m.group(0) if _flag(m.group(3)) or m.group(3).startswith("***") or "…(" in m.group(3)
+                        else f"{m.group(1)}{m.group(2)}***", text)
     text = URL_PARAM.sub(lambda m: m.group(1) + "***", text)
     text = DEVICE_ID.sub(lambda m: f"{m.group(1)}{m.group(2)}***", text)
     text = EMAIL.sub(lambda m: f"{m.group(1)}***@{m.group(2)}***.{m.group(3)}", text)
@@ -70,6 +79,9 @@ def find_unmasked(text):
         out.append("похоже на немаскированный JWT")
     for m in AUTH_HDR.finditer(text or ""):
         if not m.group(4).startswith("***") and not _flag(m.group(4)):
+            out.append(f"значение {m.group(1)} без маскирования")
+    for m in TOKEN_KV.finditer(text or ""):
+        if not m.group(3).startswith("***") and "…(" not in m.group(3) and not _flag(m.group(3)):
             out.append(f"значение {m.group(1)} без маскирования")
     return out
 
