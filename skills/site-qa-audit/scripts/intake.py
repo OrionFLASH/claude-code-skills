@@ -14,10 +14,12 @@ Exit codes: 0 ok, 2 empty input.
 """
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
 from urllib.parse import urlsplit
+from urllib.request import url2pathname
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "shared"))
 import miniyaml  # noqa: E402
@@ -66,6 +68,9 @@ QUOTE_RX = re.compile(r"«([^«»]{1,80})»|“([^”]{1,80})”|\"([^\"]{1,80})
 REPO_URL = re.compile(r"https?://github\.com/([\w.-]+/[\w.-]+?)(?:\.git)?(?=[/\s,;.)»]|$)")
 REPO_BARE = re.compile(r"(?<![\w/.@-])([A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9_.-]+)(?![\w/])")
 URL_RX = re.compile(r"https?://[^\s,;)»\"']+")
+# Local app (references/local-files.md): file:///… URLs and absolute paths to .html files
+FILE_URL_RX = re.compile(r"file:///[^\s,;)»\"']+", re.I)
+LOCAL_PATH_RX = re.compile(r"(?<![\w/:.])((?:[A-Za-z]:\\|~/|/)(?:[^\s,;)»\"'<>|]+[/\\])*[^\s,;)»\"'<>|/\\]+\.x?html?)\b")
 SIDE_EFFECT = re.compile(r"(загруз\w* (файл|сохранени|сейв)|рейтинг|публичн|рассылк|upload|leaderboard)", re.I)
 MAX_WORKERS = 4  # parallel browser threads, references/parallelism.md
 WORD_NUM = {"один": 1, "одном": 1, "два": 2, "двух": 2, "три": 3, "трёх": 3, "трех": 3, "четыре": 4, "четырёх": 4,
@@ -89,6 +94,17 @@ def strip_www(h):
     return h[4:] if h.startswith("www.") else h
 
 
+def local_start_urls(text):
+    """file:///… URLs and absolute paths to .html files in the request -> file:// URLs (~ is expanded)."""
+    out = [u.rstrip(".") for u in FILE_URL_RX.findall(text)]
+    rest = FILE_URL_RX.sub(" ", URL_RX.sub(" ", text))
+    for m in LOCAL_PATH_RX.finditer(rest):
+        p = os.path.expanduser(m.group(1))
+        if os.path.isabs(p):
+            out.append(Path(p).as_uri())
+    return list(dict.fromkeys(out))
+
+
 def parse(text, output_dir=None):
     low = text.lower()
     notes, missing = [], []
@@ -105,13 +121,23 @@ def parse(text, output_dir=None):
                 if not re.search(r"\.(com|ru|org|net|io|top|html?)\b", cand, re.I) and not re.fullmatch(r"\d+/\d+", cand):
                     repos.setdefault(cand, None)
     site_urls = [u.rstrip(".") for u in URL_RX.findall(text) if "github.com" not in urlsplit(u).netloc.lower()]
-    start_urls = list(dict.fromkeys(site_urls))
-    hosts = list(dict.fromkeys(strip_www(urlsplit(u).hostname) for u in start_urls if urlsplit(u).hostname))
+    local_urls = local_start_urls(text)
+    start_urls = list(dict.fromkeys(site_urls + local_urls))
+    hosts = list(dict.fromkeys(strip_www(urlsplit(u).hostname) for u in site_urls if urlsplit(u).hostname))
     strict = bool(re.search(r"(строго|только) (этот|один) (хост|домен)|не выход\w* за (пределы )?(домен|хост|сайт)", low))
     allowed = []
     for h in hosts:
         allowed += [h] if strict else [h, f"*.{h}"]
     cfg["site"] = {"start_urls": start_urls, "allowed_domains": allowed, "third_party_resources": []}
+    if local_urls:
+        roots = []
+        for u in local_urls:
+            d = os.path.dirname(url2pathname(urlsplit(u).path))
+            if d not in roots:
+                roots.append(d)
+        cfg["site"]["local_roots"] = roots
+        notes.append("локальное приложение (file://): переходы и загрузка только внутри " + ", ".join(roots) +
+                     "; лучше тестировать копию в <RUN_DIR>/app (local_app.py copy, references/local-files.md)")
     if not start_urls:
         missing.append("site.start_urls — стартовый URL")
 

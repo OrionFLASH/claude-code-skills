@@ -221,7 +221,7 @@ module.exports = { detect, detectInFrame, INTERACTIVE };
 if (require.main === module) {
   (async () => {
     const a = parseArgs(process.argv.slice(2), { frames: 'main', 'min-area': '16' });
-    const urls = a.cdp && !a._.length ? [null] : urlsFromArgs(a);
+    const urls = a.cdp && !a._.length && !a.url ? [null] : urlsFromArgs(a);
     const rules = loadRules(a.rules);
     const setup = a.setup ? require(path.resolve(a.setup)) : null;
     let configs = configsFrom({ sizes: a.sizes, devices: a.device, browser: a.browser });

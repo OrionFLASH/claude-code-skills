@@ -43,8 +43,35 @@ def is_slug(s):
     return len(parts) >= 3 and all(len(x) <= 16 for x in parts)
 
 
+# Local paths never go to an issue as is: the app folder (site.local_roots) becomes <app>, a home folder — ~
+HOME_RX = re.compile(r"(?<![\w.-])(?:/Users|/home|[A-Za-z]:[\\/]Users)[\\/][^\\/\s)\]'\"`<>|]+")
+LOCAL_ROOTS = []  # [{"path", "real"}], set in main() from --config / <run-dir>/run-config.yaml
+
+
+def set_local_roots(config_path):
+    global LOCAL_ROOTS
+    if not config_path or not Path(config_path).is_file():
+        return
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    sys.path.insert(0, str(Path(__file__).resolve().parent / "shared"))
+    try:
+        import miniyaml  # noqa: E402
+        import url_guard  # noqa: E402
+        LOCAL_ROOTS = url_guard.local_roots_of(miniyaml.load_file(str(config_path)) or {})
+    except Exception as ex:  # noqa: BLE001 — drafts are still rendered; home folders are masked anyway
+        sys.stderr.write(f"render_draft: local_roots не прочитаны ({ex})\n")
+
+
+def mask_paths(text):
+    for r in LOCAL_ROOTS:
+        for base in sorted({r["path"], r["real"]}, key=len, reverse=True):
+            text = text.replace(Path(base).as_uri(), "<app>").replace(base, "<app>")
+    return HOME_RX.sub("~", text)
+
+
 def mask(text):
     text = EMAIL.sub(lambda m: f"{m.group(1)}***@{m.group(2)}***.{m.group(3)}", text)
+    text = mask_paths(text)
     return TOKEN.sub(lambda m: m.group(0) if is_slug(m.group(0)) else f"{m.group(0)[:4]}…({len(m.group(0))})", text)
 
 
@@ -363,6 +390,8 @@ def main():
     ap.add_argument("--out")
     ap.add_argument("--body-only", action="store_true", help="detailed/group: в файл только тело (gh --body-file), заголовок — в stdout")
     a = ap.parse_args()
+    set_local_roots(a.config or (str(Path(a.run_dir) / "run-config.yaml") if a.run_dir else None)
+                    or (str(Path(a.findings).resolve().parent / "run-config.yaml") if a.findings else None))
     opts = Opts.build(a)
     if a.cmd == "severity":
         smap = opts.severity_map

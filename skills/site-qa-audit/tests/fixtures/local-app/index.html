@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Локальное приложение (file://): редактор</title>
+<!-- Fixture of a local web app opened as file:// (references/local-files.md). Only local files of this folder;
+     ../local-outside.html is outside the app folder and must be blocked by the guard. -->
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; font: 14px sans-serif; }
+  header { height: 40px; padding: 8px; }
+  #frame { position: absolute; left: 20px; top: 60px; width: 520px; height: 300px; border: 4px solid #888; }
+  #toast { position: fixed; left: 300px; top: 100px; width: 220px; height: 50px; background: #333; color: #fff; z-index: 10; }
+  #tools { position: fixed; left: 600px; top: 60px; width: 300px; }
+  #save-all { position: fixed; left: 600px; top: 120px; width: 120px; height: 40px; }
+  #badge { position: fixed; left: 680px; top: 130px; width: 60px; height: 30px; z-index: 20; background: #c00; color: #fff; }
+  #tiny { position: fixed; left: 600px; top: 200px; width: 16px; height: 16px; padding: 0; }
+  #panel { position: absolute; left: 600px; top: 260px; width: 260px; height: 640px; background: #f3f3f3; }
+  #deep { position: absolute; left: 8px; top: 560px; height: 36px; }
+</style></head>
+<body>
+  <header>Редактор отчётов
+    <a id="inside" href="sub/page.html">Справка</a>
+    <a id="outside" href="../local-outside.html">Наружу</a>
+    <a id="missing" href="nope.html">Старый раздел</a>
+  </header>
+  <iframe id="frame" src="inner.html" title="Таблица"></iframe>
+  <div id="toast">Изменения сохранены</div>
+  <div id="tools">
+    <button id="save-all">Сохранить всё</button>
+    <span id="badge">новое</span>
+    <button id="tiny" aria-label="Свернуть">–</button>
+    <button id="leave" style="position:fixed;left:740px;top:200px" onclick="location.href='../local-outside.html'">Открыть соседний файл</button>
+  </div>
+  <aside id="panel" aria-label="Параметры"><button style="margin:8px">Обновить</button><button id="deep">Применить параметр</button></aside>
+  <img src="logo.png" width="10" height="10">
+</body></html>

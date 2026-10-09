@@ -1,7 +1,8 @@
 'use strict';
 // axe-core по списку URL. Только чтение страницы: никаких кликов и отправок.
-// node a11y.js URL [URL...] [--urls-file f] [--rules rules.json] [--browser chromium|firefox|webkit]
+// node a11y.js URL [URL...] [--url URL] [--urls-file f] [--rules rules.json] [--log blocked.jsonl] [--browser chromium|firefox|webkit]
 //      [--width 1440 --height 900] [--tags wcag2a,wcag2aa,wcag21aa,wcag22aa] [--throttle 1500] [--out a11y.json]
+//      URL: http(s), file:///… or a path to a local file (inside site.local_roots of rules.json)
 //      [--frames all|main]  all (default): axe enters iframes; the result lists innerText length per frame so that
 //                           an app inside an iframe (page text ~250 chars) is visible. main: iframes excluded.
 //      [--locales ru-RU,de-DE,ar-SA]  every URL in every locale (context locale + Accept-Language); lang/dir in results
@@ -9,6 +10,7 @@ const { parseArgs, loadRules, guardContext, sleep, writeOut, urlsFromArgs } = re
 const pw = require('playwright');
 const { AxeBuilder } = require('@axe-core/playwright');
 const { pageText } = require('./frames');
+const { guardedPage } = require('./guard');
 
 (async () => {
   const args = parseArgs(process.argv.slice(2), { browser: 'chromium', width: '1440', height: '900',
@@ -26,9 +28,12 @@ const { pageText } = require('./frames');
       await guardContext(context, rules, blocked);
       const page = await context.newPage();
       page.on('dialog', d => d.dismiss().catch(() => {}));
+      const g = guardedPage(page, rules, { log: blocked, logFile: args.log, throttleMs: 0 });
       for (const url of urls) {
         try {
-          await page.goto(url, { waitUntil: 'load', timeout: 45000 });
+          // url_guard first (http(s) and file:// inside local_roots); a denied URL is reported, not opened
+          const nav = await g.goto(url, { waitUntil: 'load', timeout: 45000 });
+          if (!nav.performed) { results.push({ url, ...(locale ? { locale } : {}), blocked: { rule: nav.rule, reason: nav.reason } }); continue; }
           await page.waitForTimeout(800);
           let builder = new AxeBuilder({ page }).withTags(args.tags.split(','));
           if (args.frames === 'main') builder = builder.exclude('iframe');
@@ -46,7 +51,10 @@ const { pageText } = require('./frames');
             incomplete: r.incomplete.map(v => ({ id: v.id, help: v.help, count: v.nodes.length })),
             passes: r.passes.length,
           });
-        } catch (e) { results.push({ url, ...(locale ? { locale } : {}), error: String(e.message || e) }); }
+        } catch (e) {
+          if (e && e.exitCode === 4) throw e;  // guard unavailable: stop
+          results.push({ url, ...(locale ? { locale } : {}), error: String(e.message || e) });
+        }
         await sleep(+args.throttle);
       }
       await context.close().catch(() => {});

@@ -107,6 +107,12 @@ bash "$HERE/test_v121.sh" > "$TMP/v121.log" 2>&1 \
 PY="$PY" bash "$HERE/test_v130.sh" > "$TMP/v130.log" 2>&1 \
   && ok "v1.3.0 ($(tail -1 "$TMP/v130.log"))" || { cat "$TMP/v130.log"; bad "v1.3.0"; }
 
+# 1.4.0: file:// and local folders (url_guard local_roots), copy of the skill and of the app in RUN_DIR, browser window
+# in run-config, executor results (array + run.json, dup_check, threads, coverage), autopilot, second wave, groups by
+# root cause, «Как проверить», e2e stub, screenshots to a private repository (fake gh)
+PY="$PY" bash "$HERE/test_v140.sh" > "$TMP/v140.log" 2>&1 \
+  && ok "v1.4.0 ($(tail -1 "$TMP/v140.log"))" || { cat "$TMP/v140.log"; bad "v1.4.0"; }
+
 # Browser suites B and C: need node + scripts/node/node_modules/playwright + Chromium; otherwise SKIP.
 # Set QA_SKIP_BROWSER=1 to skip them explicitly.
 have_browser=0
@@ -120,6 +126,8 @@ if [ $have_browser -eq 1 ]; then
     && ok "stream C web-upload ($(grep '^passed:' "$TMP/stream-c.log" | tail -1))" || { tail -n 30 "$TMP/stream-c.log"; bad "stream C web-upload"; }
   bash "$HERE/test_v130_browser.sh" > "$TMP/v130b.log" 2>&1 \
     && ok "v1.3.0 browser ($(grep '^stream v1.3.0 browser:' "$TMP/v130b.log" | tail -1))" || { tail -n 30 "$TMP/v130b.log"; bad "v1.3.0 browser"; }
+  PY="$PY" bash "$HERE/test_v140_browser.sh" > "$TMP/v140b.log" 2>&1 \
+    && ok "v1.4.0 browser file:// ($(grep '^stream v1.4.0 browser:' "$TMP/v140b.log" | tail -1))" || { tail -n 30 "$TMP/v140b.log"; bad "v1.4.0 browser"; }
 else
   echo "SKIP stream B/C: нет node, playwright (cd scripts/node && npm install) или Chromium (npx playwright install chromium)"
 fi

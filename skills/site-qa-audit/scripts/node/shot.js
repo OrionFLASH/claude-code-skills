@@ -22,7 +22,7 @@
 // cover of other boxes, contrast >= 2 against the ring around the box). Output JSON: files, items, checks, warnings.
 const fs = require('fs');
 const path = require('path');
-const { parseArgs, loadRules, multiArg, writeOut } = require('./lib');
+const { parseArgs, loadRules, multiArg, writeOut, toUrl } = require('./lib');
 const { locate, listFrames } = require('./frames');
 const { openDevice, attachCdp } = require('./device_context');
 const { render } = require('./annotate');
@@ -174,7 +174,7 @@ async function openTarget(a, shotOpts = {}) {
   const dev = a.cdp && !device && !locale ? await attachCdp(a.cdp, a['page-match'])
     : await openDevice({ device: device || 'desktop', cdp: a.cdp, storageState: a.state ? JSON.parse(fs.readFileSync(a.state, 'utf8')) : undefined, rules, logFile: a.log, locale });
   const guarded = guardedPage(dev.page, rules, { logFile: a.log, throttleMs: 0 });
-  const url = shotOpts.url || a.url;
+  const url = toUrl(shotOpts.url || a.url);
   if (url) {
     const nav = await guarded.goto(url, { waitUntil: 'load', timeout: 45000 });
     if (!nav.performed) { await dev.close(); throw new Error('переход запрещён: ' + nav.reason); }

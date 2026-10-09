@@ -52,7 +52,7 @@
 // API: runSideEffect(page, guarded, cfg, effectId, { file, runDir, prevVocab }) -> result
 const fs = require('fs');
 const path = require('path');
-const { parseArgs, loadRules, loadRunConfig } = require('./lib');
+const { parseArgs, loadRules, loadRunConfig, toUrl } = require('./lib');
 const { locate, listFrames } = require('./frames');
 
 const LOG_HEADER = '# Побочные эффекты прогона\n\nЧто загружено, включено и что осталось в браузере или на сайте после действий прогона.\n\n' +
@@ -272,6 +272,7 @@ module.exports = { preflight, runSideEffect, logSideEffect, findRequired, watchD
 if (require.main === module) {
   (async () => {
     const a = parseArgs(process.argv.slice(2));
+    a.url = toUrl(a.url);
     const cmd = a._[0];
     if (cmd === 'log') {
       if (!a['run-dir'] || !a.what) throw new Error('log --run-dir DIR --what "…" [--effect SE1] [--result "…"] [--left "…"]');

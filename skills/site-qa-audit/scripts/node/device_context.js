@@ -29,7 +29,7 @@
 //      filterState(state, domains) -> { state, kept, dropped }
 const fs = require('fs');
 const path = require('path');
-const { parseArgs, loadRules, writeOut, hostMatches, launchOptions, loadRunConfig } = require('./lib');
+const { parseArgs, loadRules, writeOut, hostMatches, launchOptions, loadRunConfig, toUrl } = require('./lib');
 
 const PIXEL7_UA = 'Pixel 7';
 // name -> Playwright descriptor name or explicit options. Viewports are CSS px.
@@ -262,6 +262,7 @@ module.exports = { CATALOG, resolveDevice, configsFrom, captureState, captureSta
 if (require.main === module) {
   (async () => {
     const a = parseArgs(process.argv.slice(2));
+    a.url = toUrl(a.url);
     const cmd = a._[0];
     if (cmd === 'list') {
       const pw = require('playwright');
