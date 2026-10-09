@@ -524,6 +524,10 @@ def device_text(text):
     return sorted({m.group(0).lower() for m in DEVICE_RE.finditer(t)})[:2]
 
 
+UNITS_RE = re.compile(r"\b(\d{1,3})\s+(?:язык\w*|файл\w*|страниц\w*|раздел\w*|пункт\w*|стран\w*|локал\w*|экран\w*|компонент\w*|модул\w*|"
+                      r"тест\w*|шаблон\w*|записей|строк\w*|languages?|files?|pages?|sections?|items?|locales?|screens?|components?|modules?|tests?|templates?)\b", re.I)
+
+
 def action_signals(text):
     """2.3.0 (#27): признаки для решения «сам / субагент / спросить» по тексту запроса. Упоминания (кавычки, код,
     пересказ, вставленный отчёт) не считаются просьбой. → {agent_req: "agent"|"self"|None, agent_phrase, wait,
@@ -542,6 +546,7 @@ def action_signals(text):
         if m and not _negated(masked, m.start()):
             out.update(agent_req="agent", agent_phrase=m.group(0).strip().lower())
     out["wait"] = _wait_phrase(masked)
+    out["units"] = max([int(n) for n in UNITS_RE.findall(masked)] or [0])   # «19 языков», «12 файлов»: однотипных единиц работы
     items = len(ITEM_RE.findall(raw))
     if PARALLEL_RE.search(masked):
         out["parallel"] = max(2, items)

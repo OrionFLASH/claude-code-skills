@@ -207,7 +207,8 @@ def frontmatter():
 
 def test_skill_frontmatter_name_and_plugin_layout():
     fm = frontmatter()
-    assert fm["name"] == "typesafe-triage" and SKILL.name == "typesafe-triage"
+    # у плагина из кэша папка называется по версии (…/typesafe-triage/2.6.0), у клона и копии — typesafe-triage
+    assert fm["name"] == "typesafe-triage" and (SKILL.name == "typesafe-triage" or re.fullmatch(r"\d+\.\d+\.\d+", SKILL.name))
     pj = json.loads((SKILL / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
     assert pj["name"] == "typesafe-triage" and pj["skills"] == ["./"]       # плагинное имя: typesafe-triage:typesafe-triage
 
