@@ -18,7 +18,7 @@
 
 ### Тесты
 - `tests/test_v150.sh` (офлайн, Python 3.9 и 3.14): `tabs.py` с инструментом `node` (живой и завершённый процесс, `cleanup`, правило одной вкладки), `lib.js` (`tabsConfig`, `--no-tabs`, формат записей, SIGKILL, чужие записи, общий lock с `tabs.py` — 3 node-процесса и 2 цикла Python параллельно), `brief.py`, логика `e2e_run.js` (адреса, вердикты, коды 2/4), `publish_shots.py` на поддельном gh (нет gh, нет входа, нет scope, 403 на втором файле, `local`, `--fallback-local`, ссылка в отчёте), `browser_mode.py mcp`, `mcp_guard.js` без правил.
-- `tests/test_v150_browser.sh` + `v150.test.js`: реестр вкладок у occlusion/a11y/shot/device_context/repro/targets/legal_guest/lighthouse, сбой (`process.exit`, SIGKILL), браузер-заглушка «пользователя» по CDP (закрывается только вкладка скрипта), достижимость в WebKit и `touch-action`, `e2e_run.js` (до/после исправления, три повтора, `fixme`, guard внутри теста, коды 3/4), Playwright MCP по stdio с guard и без него; видимое окно — `QA_HEADED=1`.
+- `tests/test_v150_browser.sh` + `v150.test.js`: реестр вкладок у occlusion/a11y/shot/device_context/repro/targets/legal_guest/lighthouse, сбой (`process.exit`, SIGKILL), браузер-заглушка «пользователя» по CDP (закрывается только вкладка скрипта), достижимость в WebKit и `touch-action`, `e2e_run.js` (до/после исправления, три повтора, `fixme`, guard внутри теста, коды 3/4, `--base-url` на локальном http), Playwright MCP по stdio с guard и без него; видимое окно — `QA_HEADED=1`.
 - `doc_node_flags.py` учитывает флаги реестра вкладок `lib.js` (`--owner`, `--run-dir`, `--no-tabs`).
 
 ## [1.4.0] — 2026-10-09

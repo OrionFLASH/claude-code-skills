@@ -34,6 +34,7 @@ def snippets(path):
 LIB_FLAGS = [  # flags read by shared helpers of scripts/node/lib.js, not by the script itself
     (re.compile(r"\burlsFromArgs\b"), {"--url", "--urls-file"}),                       # positional + --url + --urls-file
     (re.compile(r"\b(launchOptions|openDevice)\b"), {"--headed", "--headless", "--slowmo"}),  # lib.browserMode
+    (re.compile(r"\b(openDevice|attachCdp|trackPage|tabs)\b"), {"--owner", "--run-dir", "--no-tabs"}),  # lib.tabsConfig
 ]
 
 
