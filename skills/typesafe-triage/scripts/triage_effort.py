@@ -385,6 +385,7 @@ def decide_effort(m, h, tier, env=None, hist=(0, 0, []), d=None, min_conf=None):
         depth += bump
         why.append("c) окружение: " + ", ".join(ewhy))
         layers["env"] = round(bump, 3)
+    depth = round(depth, 9)   # 2.3: одинаковый результат на Python 3.9 и 3.12+ у самой границы порога (точность sum())
     if m:
         e = level_from_depth(depth)
         # low — только уверенно лёгкое: и TypeSafe, и текст

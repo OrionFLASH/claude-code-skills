@@ -478,7 +478,7 @@ def mass(x):
 
 
 def heur_load(h):
-    return sum(WEIGHTS[k] * h["axes"][k] for k in WEIGHTS)
+    return round(sum(WEIGHTS[k] * h["axes"][k] for k in WEIGHTS), 9)   # округление — см. decide
 
 
 def decide(m, h=None):
@@ -490,6 +490,9 @@ def decide(m, h=None):
     load_ts = sum(WEIGHTS[k] * v[k] for k in WEIGHTS)
     load_h = heur_load(h) if h else None
     load = load_ts + HEUR_RAISE * max(0.0, load_h - load_ts) if h else load_ts
+    # 2.3: округление до 9 знаков — sum() в Python 3.12+ складывает float точнее, чем в 3.9, и на самой границе порога
+    # (например, все оси 0.6 → нагрузка ровно LOAD_OPUS) уровень иначе зависел бы от версии Python
+    load_ts, load = round(load_ts, 9), round(load, 9)
     why.append("нагрузка %.2f" % load + (" (TypeSafe %.2f, текст %.2f)" % (load_ts, load_h) if h else ""))
     tier = 0 if load < LOAD_SONNET else 1 if load < LOAD_OPUS else 2
 

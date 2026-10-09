@@ -101,6 +101,16 @@ def test_first_line_is_action_reason_confidence(monkeypatch, task, level, flags)
     assert txt.count("Уверенность") == 1
 
 
+def test_boundary_load_gives_the_same_tier_on_every_python():
+    """Найдено по дороге: sum() в Python 3.12+ точнее, чем в 3.9; нагрузка ровно на пороге давала sonnet на 3.9 и opus
+    на 3.14. Теперь нагрузка и глубина округляются до 9 знаков перед сравнением с порогами."""
+    m = {k: (0.6, 0.9, 1.0) for k in t.SCORES}
+    m.update({k: (0.05, 0.9, 0.05) for k in t.FLAGS})
+    assert t.decide(m)[0] == "opus"
+    assert eff.decide_effort({k: (0.45, 0.9, 0.0) for k in eff.EFFORT_WEIGHTS}, heur.signals("Сделай это"), "opus",
+                             env={}, min_conf=0.9)["effort_depth"] == 0.45
+
+
 def test_all_reason_templates_fit_fifteen_words():
     reasons = []
     for tier in t.TIERS:
