@@ -193,3 +193,9 @@
 - Открыто: #31 (живая проверка android на эмуляторе — нужен эмулятор и решение о запуске), #35 (общий node-модуль листа, doc_zsh в site), #10 (решение по приватности: источники дайджеста), #11 (github-issue-structuring вне репозитория).
 - Вне репозитория, ждёт решения владельца: `--set-agent-effort yes`, раздел про триаж в ~/.claude/CLAUDE.md (шаблон в INSTALL typesafe-triage, шаг 5), `claude mcp add` для Playwright MCP с file:// (`browser_mode.py mcp`).
 - Следующий шаг: новая сессия → проверить заметку «ДЕЙСТВИЕ:» и `--check`.
+
+### Вне репозитория (сделано с разрешения владельца, 2026-10-09)
+- `~/.claude/CLAUDE.md` раздел 5 обновлён по шаблону INSTALL typesafe-triage (копия: `~/.claude/backups/CLAUDE.md.bak-20261009`).
+- `typesafe_triage.py --set-agent-effort yes` → `~/.claude/typesafe-triage/config.json`.
+- `~/.claude/skills/github-issue-structuring`: путь к `typesafe_guard` через плагин (копия: `~/.claude/backups/github-issue-structuring.bak-20261009`); issue #11 закрыт.
+- Playwright MCP для file:// не добавлялся (по решению владельца): команду печатает `browser_mode.py mcp <RUN_DIR>`.
