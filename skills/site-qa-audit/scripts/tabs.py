@@ -12,8 +12,14 @@
                   not in the registry; nothing is closed
   tabs.py cleanup <RUN_DIR> [--owner qa-ux] [--cdp URL] [--yes]
                   before finishing a step and the run: plan of what to close (default) / close (--yes): CDP tabs from the
-                  registry are closed by their target id; CLI sessions and MCP tabs get the exact command to run.
+                  registry are closed by their target id; CLI sessions and MCP tabs get the exact command to run;
+                  tabs of node scripts (tool node) are marked closed when their process has ended (a running script is
+                  never touched — it closes its own browser).
                   Only tabs from the registry are touched — never the user's own tabs.
+
+Node scripts of the skill (scripts/node/lib.js → tabs()) write the same file with the same lock: tool «node» — a page
+of the script's own browser (pid, script), tool «cdp» — a page the script created in the user's browser (target id).
+They are registered without the «one tab per profile» check: such a tab cannot be reused by an executor.
 
 Rules (references/parallelism.md): never `playwright-cli close-all` / `kill-all` and never close other sessions; close
 only your named session (`playwright-cli -s=<qa-id> close`). Exit codes: 0 ok, 1 bad input, 3 tab already open.
@@ -87,6 +93,35 @@ def open_tabs(data, owner=None, profile=None):
             and (not profile or t["profile"] == profile)]
 
 
+def pid_alive(pid):
+    """Is the process still running? Never sends a signal (os.kill(pid, 0) on Windows would send CTRL_C_EVENT)."""
+    try:
+        pid = int(pid)
+    except (TypeError, ValueError):
+        return False
+    if pid <= 0:
+        return False
+    if os.name == "nt":
+        import ctypes
+        k32 = ctypes.windll.kernel32
+        h = k32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            return False
+        code = ctypes.c_ulong()
+        ok = k32.GetExitCodeProcess(h, ctypes.byref(code))
+        k32.CloseHandle(h)
+        return bool(ok) and code.value == 259  # STILL_ACTIVE
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return True
+
+
 def close_command(t):
     if t.get("tool") == "cli":
         return f"playwright-cli -s={t.get('session') or t['owner']} close"
@@ -94,6 +129,8 @@ def close_command(t):
         return "Playwright MCP: browser_tabs action=close (вкладка " + (t.get("url") or t["id"]) + ")"
     if t.get("tool") == "cdp":
         return f"tabs.py cleanup <RUN_DIR> --cdp <URL> --yes (target {t.get('target_id') or '?'})"
+    if t.get("tool") == "node":
+        return f"дождаться завершения {t.get('script') or 'node-скрипта'} (pid {t.get('pid')}): он закрывает свой браузер сам"
     return "закрыть вручную"
 
 
@@ -118,7 +155,9 @@ def host_ok(url, domains):
 def cmd_open(a):
     with Lock(reg_path(a.run_dir)):
         data = load(a.run_dir)
-        same = open_tabs(data, a.owner, a.profile)
+        # tabs of node scripts live in the script's own browser (or are closed by it): never «reuse this one», and a node
+        # record itself is never refused (like scripts/node/lib.js, which writes them without this check)
+        same = [] if a.tool == "node" else [t for t in open_tabs(data, a.owner, a.profile) if t.get("tool") != "node"]
         if same:
             print(json.dumps({"exists": True, "tab": same[0], "hint": "одна вкладка на профиль устройства: используйте эту"},
                              ensure_ascii=False))
@@ -154,7 +193,9 @@ def cmd_list(a):
         print(json.dumps(rows, ensure_ascii=False, indent=1))
         return 0
     for t in rows:
-        print(f"{t['id']} {t['owner']} {t['profile']} {t.get('tool')} {'открыта' if not t.get('closed_at') else 'закрыта'} {t.get('url') or ''}")
+        who = f" {t.get('script')}:{t.get('pid')}" if t.get("tool") == "node" else ""
+        print(f"{t['id']} {t['owner']} {t['profile']} {t.get('tool')}{who} "
+              f"{'открыта' if not t.get('closed_at') else 'закрыта'} {t.get('url') or ''}")
     print(f"tabs: всего {len(data['tabs'])}, открыто {len(open_tabs(data))}")
     return 0
 
@@ -194,7 +235,16 @@ def cmd_cleanup(a):
             alive = {p.get("id") for p in browser_pages(a.cdp)}
         for t in todo:
             step = {"id": t["id"], "owner": t["owner"], "profile": t["profile"], "tool": t.get("tool")}
-            if t.get("tool") == "cdp" and t.get("target_id") and a.cdp:
+            if t.get("tool") == "node":
+                if pid_alive(t.get("pid")):
+                    step["action"] = ("скрипт ещё работает (pid " + str(t.get("pid")) + "): дождаться завершения, "
+                                      "он закрывает свой браузер сам; если pid занят другим процессом — tabs.py close "
+                                      f"<RUN_DIR> --id {t['id']}")
+                else:
+                    step["action"] = "уже закрыта (процесс завершён)"
+                    if a.yes:
+                        t["closed_at"] = now()
+            elif t.get("tool") == "cdp" and t.get("target_id") and a.cdp:
                 if t["target_id"] not in (alive or set()):
                     step["action"] = "уже закрыта"
                     if a.yes:
@@ -221,7 +271,7 @@ def main():
     ap.add_argument("run_dir")
     ap.add_argument("--owner")
     ap.add_argument("--profile")
-    ap.add_argument("--tool", choices=["mcp", "cli", "cdp"], default="cli")
+    ap.add_argument("--tool", choices=["mcp", "cli", "cdp", "node"], default="cli")
     ap.add_argument("--session")
     ap.add_argument("--url")
     ap.add_argument("--target-id")

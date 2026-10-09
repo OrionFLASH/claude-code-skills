@@ -6,7 +6,7 @@
 //      [--frames all|main]  all (default): axe enters iframes; the result lists innerText length per frame so that
 //                           an app inside an iframe (page text ~250 chars) is visible. main: iframes excluded.
 //      [--locales ru-RU,de-DE,ar-SA]  every URL in every locale (context locale + Accept-Language); lang/dir in results
-const { parseArgs, loadRules, guardContext, sleep, writeOut, urlsFromArgs, launchOptions } = require('./lib');
+const { parseArgs, loadRules, guardContext, sleep, writeOut, urlsFromArgs, launchOptions, trackPage, closeTab } = require('./lib');
 const pw = require('playwright');
 const { AxeBuilder } = require('@axe-core/playwright');
 const { pageText } = require('./frames');
@@ -27,6 +27,7 @@ const { guardedPage } = require('./guard');
         ...(locale ? { locale, extraHTTPHeaders: { 'Accept-Language': locale } } : {}) });
       await guardContext(context, rules, blocked);
       const page = await context.newPage();
+      const tabId = trackPage(page, { profile: `${args.width}x${args.height}` + (locale ? '@' + locale : ''), engine: args.browser });
       page.on('dialog', d => d.dismiss().catch(() => {}));
       const g = guardedPage(page, rules, { log: blocked, logFile: args.log, throttleMs: 0 });
       for (const url of urls) {
@@ -58,6 +59,7 @@ const { guardedPage } = require('./guard');
         await sleep(+args.throttle);
       }
       await context.close().catch(() => {});
+      closeTab(tabId);
     }
   } finally { await browser.close(); }
   writeOut(args.out, { tool: 'axe-core', frames: args.frames, browser: args.browser, viewport: `${args.width}x${args.height}`,

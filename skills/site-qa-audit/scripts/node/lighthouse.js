@@ -4,7 +4,7 @@
 //      [--out lighthouse.json] [--reports-dir DIR]  (полные HTML-отчёты)
 const fs = require('fs');
 const path = require('path');
-const { parseArgs, sleep, writeOut, urlsFromArgs } = require('./lib');
+const { parseArgs, sleep, writeOut, urlsFromArgs, tabs, closeTab } = require('./lib');
 
 (async () => {
   const args = parseArgs(process.argv.slice(2), { form: 'both', categories: 'performance,accessibility,best-practices,seo' });
@@ -17,6 +17,9 @@ const { parseArgs, sleep, writeOut, urlsFromArgs } = require('./lib');
   const chromeLauncher = await import('chrome-launcher');
   const chromePath = process.env.CHROME_PATH || require('playwright').chromium.executablePath();
   const chrome = await chromeLauncher.launch({ chromePath, chromeFlags: ['--headless=new', '--no-sandbox'] });
+  // tabs.json of the run: one record for the measuring Chrome (its own headless browser, closed below)
+  const reg = tabs();
+  const tabId = reg ? reg.open({ profile: 'lighthouse-' + args.form, tool: 'node', url: urls[0], engine: 'chrome-launcher' }) : null;
   const forms = args.form === 'both' ? ['mobile', 'desktop'] : [args.form];
   const results = [];
   try {
@@ -47,6 +50,6 @@ const { parseArgs, sleep, writeOut, urlsFromArgs } = require('./lib');
       } catch (e) { results.push({ url, form, error: String(e.message || e) }); }
       await sleep(1000);
     }
-  } finally { await chrome.kill(); }
+  } finally { try { await chrome.kill(); } finally { closeTab(tabId); } }
   writeOut(args.out, { tool: 'lighthouse', version: require('lighthouse/package.json').version, results, ...(notApplicable.length ? { notApplicable } : {}) });
 })().catch(e => { console.error(e); process.exit((e && e.exitCode) || 1); });
