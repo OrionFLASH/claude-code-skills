@@ -277,7 +277,7 @@ def run(c, h):
     shots = []
     events = []
     samples = []
-    status, reason = "ok", ""
+    status, reason, exit_code = "ok", "", None
     start_spec, stop_spec = action_spec(a, "start"), action_spec(a, "stop")
     if a.screen_off_at is not None:  # fail early (before N minutes) if screen control needs a confirmation
         c.gate(c.decide(h.guard.check_adb, ["shell", "wm", "dismiss-keyguard"], c.cfg, c.stand(), c.serial))
@@ -294,7 +294,14 @@ def run(c, h):
         shot = screenshot(c, c.out_path(None, f"soak-{tag}-{serial}-before.png", "screenshots"))
         shots += [shot] if shot else []
         if start_spec:
-            info["start_action"] = dict(tap(c, h, start_spec, a.start_no_ui or start_spec[0] == "xy"), spec=list(start_spec))
+            try:
+                info["start_action"] = dict(tap(c, h, start_spec, a.start_no_ui or start_spec[0] == "xy"), spec=list(start_spec))
+            except SystemExit as ex:  # guard 2/3/6, ambiguous (2), not found (4): the run did not start
+                exit_code = ex.code if isinstance(ex.code, int) else 5
+                status = "invalid"
+                reason = (f"стартовое нажатие не выполнено (код {exit_code}: 2 — нужно согласие или неоднозначно, "
+                          "3 — запрет guard, 4 — элемент не найден, 6 — guard недоступен) — прогон не начат")
+                raise Stop()
             nap(1.0)
         pre = {}
         if a.expect_text:
@@ -416,7 +423,7 @@ def run(c, h):
     summary_path.write_text(json.dumps(info, ensure_ascii=False, indent=1), encoding="utf-8")
     c.log("actions.jsonl", {"soak": tag, "status": status, "minutes": actual_min})
     h.emit(info)
-    sys.exit(5 if status in ("invalid", "failed") else 0)
+    sys.exit(exit_code if exit_code else (5 if status in ("invalid", "failed") else 0))
 
 
 # ---------------------------------------------------------------- jobs

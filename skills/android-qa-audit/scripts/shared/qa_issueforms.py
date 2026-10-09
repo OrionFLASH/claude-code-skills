@@ -267,6 +267,8 @@ def render_body(form, rows):
                 out.append(NO_RESPONSE)
             elif f.get("render"):
                 out += [f"```{f['render']}", str(v).rstrip(), "```"]
+            elif item.get("source") == "logs" and "```" not in str(v):
+                out += ["```text", str(v).rstrip(), "```"]
             else:
                 out.append(str(v).rstrip())
         out.append("")

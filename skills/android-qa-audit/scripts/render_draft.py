@@ -399,8 +399,12 @@ def cmd_all(a, opts):
             continue
         if SEV.index(f.get("severity", "info")) > limit:
             continue
+        if st == "KNOWN" and not statuses:
+            rows.append(f"| — | {f['id']} | не черновик: уже известно — {Path((f.get('known') or {}).get('doc', '')).name} "
+                        "(known_docs.py) | — | — | — | — |")
+            continue
         if (f.get("evidence") or {}).get("sensitive"):
-            rows.append(f"| — | {f['id']} | не черновик: чувствительная находка (evidence.sensitive) — решение пользователя | — | — |")
+            rows.append(f"| — | {f['id']} | не черновик: чувствительная находка (evidence.sensitive) — решение пользователя | — | — | — | — |")
             continue
         n += 1
         title, body, problems = render(f, run, opts, rel_prefix="../../")
