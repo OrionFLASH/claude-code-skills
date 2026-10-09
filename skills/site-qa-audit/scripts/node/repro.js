@@ -11,13 +11,14 @@
 // Exit code: 0 reproduced, 1 not reproduced, 4 guard unavailable, 2 other error (recheck.py treats it as an error).
 const path = require('path');
 const fs = require('fs');
-const { parseArgs, loadRules } = require('./lib');
+const { parseArgs, loadRules, toUrl } = require('./lib');
 const { openDevice } = require('./device_context');
 const { guardedPage } = require('./guard');
 const { locate } = require('./frames');
 
 (async () => {
   const a = parseArgs(process.argv.slice(2), { wait: '500' });
+  a.url = toUrl(a.url);
   if (!a.url || (!a.js && !a.selector)) {
     console.error('node repro.js --url URL (--js EXPR | --selector SEL [--assert EXPR]) [--device D|--size WxH] [--rules rules.json]');
     process.exit(2);

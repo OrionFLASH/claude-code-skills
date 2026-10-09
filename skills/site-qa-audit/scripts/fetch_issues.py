@@ -8,6 +8,9 @@
       Права текущего пользователя, метки, наличие issues — JSON.
   fetch_issues.py registry --cache DIR [--out registry.json] owner/repo ...
       Сводный реестр известных проблем (для fingerprint.py match).
+  fetch_issues.py brief <RUN_DIR>/registry.json [--limit 150] [--state all|open|closed] [--format md|json] [--out FILE]
+      Срез реестра для задания исполнителю (brief.py): одна строка на issue — номер, статус (закрыт как исправленный —
+      «исправлено»: повтор = REGRESSION), заголовок, ключевые слова. Без сети.
 
 Требуется авторизованный gh (`gh auth status`). Пауза и повторы при лимитах API.
 Pull requests из выдачи issues исключаются.
@@ -138,14 +141,74 @@ def registry(repos, cache):
     return {"generated_at": now_iso(), "repos": repos, "issues": out}
 
 
+BRIEF_STOP = set("""the and for with from this that was are not but have has into when then than your you its
+это как для что при или его она они так все уже еще ещё нет там тут где без над под после перед
+когда если чтобы только также можно нужно надо есть был была были будет страница странице кнопка кнопки
+site-qa-audit qa-fp""".split())
+
+
+def keywords(iss, n=5):
+    """Short keywords of an issue: labels first, then frequent words of the title and the body (no markers, URLs)."""
+    words = []
+    body = MARKER_RX.sub(" ", iss.get("body") or "")
+    body = re.sub(r"https?://\S+|```.*?```|<[^>]+>", " ", body, flags=re.S)
+    title_w = re.findall(r"[\w-]{4,}", (iss.get("title") or "").lower())
+    counts = {}
+    for w in re.findall(r"[\w-]{4,}", body.lower())[:600]:
+        if w not in BRIEF_STOP and not w.isdigit():
+            counts[w] = counts.get(w, 0) + 1
+    for lab in iss.get("labels") or []:
+        name = lab.get("name") if isinstance(lab, dict) else lab
+        if name and name not in words:
+            words.append(str(name))
+    for w in sorted(counts, key=lambda k: -counts[k]):
+        if w not in title_w and w not in words:
+            words.append(w)
+        if len(words) >= n:
+            break
+    return words[:n]
+
+
+def brief(reg, limit=150, state="all", fmt="md"):
+    """Compact registry slice for executor briefs: open first, then closed (newest first)."""
+    issues = [i for i in reg.get("issues") or [] if state == "all" or i.get("state") == state]
+    issues.sort(key=lambda i: (i.get("state") != "open", -(i.get("number") or 0)))
+    rows = []
+    for i in issues[:limit]:
+        st = i.get("state") or "?"
+        if st == "closed":
+            st = "closed: исправлено" if i.get("fix_claimed") else f"closed: {i.get('state_reason') or 'закрыт'}"
+        rows.append({"ref": f"{i.get('repo')}#{i.get('number')}", "state": st, "title": (i.get("title") or "")[:110],
+                     "keywords": keywords(i), "fingerprints": len(i.get("fingerprints") or [])})
+    if fmt == "json":
+        return json.dumps({"total": len(issues), "shown": len(rows), "issues": rows}, ensure_ascii=False, indent=1)
+    lines = [f"- {r['ref']} [{r['state']}] {r['title']}" + (f" — {', '.join(r['keywords'])}" if r["keywords"] else "")
+             for r in rows]
+    if len(issues) > limit:
+        lines.append(f"- … ещё {len(issues) - limit} issues — полный реестр у оркестратора (registry.json)")
+    return "\n".join(lines) if lines else "- (реестр пуст)"
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("cmd", choices=["sync", "meta", "registry"])
-    ap.add_argument("repos", nargs="+", help="owner/repo или URL github.com/owner/repo")
+    ap.add_argument("cmd", choices=["sync", "meta", "registry", "brief"])
+    ap.add_argument("repos", nargs="+", help="owner/repo или URL github.com/owner/repo; для brief — путь к registry.json")
+    ap.add_argument("--limit", type=int, default=150, help="brief: сколько issues показать")
+    ap.add_argument("--state", choices=["all", "open", "closed"], default="all", help="brief: какие issues")
+    ap.add_argument("--format", choices=["md", "json"], default="md", help="brief: строки Markdown или JSON")
     ap.add_argument("--cache", default="qa-runs/.cache/issues")
     ap.add_argument("--full", action="store_true", help="перекачать всё, игнорируя кэш")
     ap.add_argument("--out")
     a = ap.parse_args()
+    if a.cmd == "brief":
+        text = brief(json.loads(Path(a.repos[0]).read_text(encoding="utf-8")), a.limit, a.state, a.format)
+        if a.out:
+            Path(a.out).parent.mkdir(parents=True, exist_ok=True)
+            Path(a.out).write_text(text + "\n", encoding="utf-8")
+            print(f"brief -> {a.out}")
+        else:
+            print(text)
+        return
     repos = [re.sub(r"^https?://github\.com/|\.git$|/$", "", r) for r in a.repos]
     if a.cmd == "sync":
         for r in repos:

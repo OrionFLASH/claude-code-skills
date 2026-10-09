@@ -4,7 +4,12 @@
 // Внешние ссылки проверяются только HEAD/GET-статусом, на них не переходим.
 // node links.js START_URL [--rules rules.json] [--max-pages 50] [--check-external] [--throttle 700] [--out links.json]
 //      [--frames all]  documents of <iframe src> within allowed_domains are crawled too (marked frameOf)
-const { parseArgs, loadRules, navAllowed, sleep, writeOut } = require('./lib');
+//      START_URL may be file:///… or a local path (references/local-files.md): local pages inside site.local_roots
+//      (without --rules: the folder of the start file) are read from disk; a missing local file is a broken link (404).
+const fs = require('fs');
+const path = require('path');
+const { fileURLToPath } = require('url');
+const { parseArgs, loadRules, navAllowed, sleep, writeOut, toUrl, realpathLoose } = require('./lib');
 
 const UA = 'Mozilla/5.0 site-qa-audit (passive crawl)';
 const attr = (tag, name) => { const m = tag.match(new RegExp(`\\b${name}\\s*=\\s*["']([^"']*)["']`, 'i')); return m ? m[1] : null; };
@@ -28,6 +33,32 @@ function meta(html) {
   };
 }
 
+const LINKABLE = /^(https?|file):/;
+const HTML_EXT = /\.(x?html?)$/i;
+
+// Local page (file://) from disk: status 200 / 404 like a server would answer; directories have no HTML to parse.
+function loadLocal(url) {
+  let p;
+  try { p = fileURLToPath(new URL(url)); } catch (e) { return { status: 0, finalUrl: url, html: '', error: e.message }; }
+  try {
+    const st = fs.statSync(p);
+    if (st.isDirectory()) return { status: 200, finalUrl: url, html: '', note: 'каталог' };
+    return { status: 200, finalUrl: url, html: HTML_EXT.test(p) ? fs.readFileSync(p, 'utf8') : '' };
+  } catch (e) { return { status: 404, finalUrl: url, html: '', error: e.code || e.message }; }
+}
+
+function implicitRules(start) {
+  const base = { deny_nav_hosts: [], deny_path_regex: '(?!)', blocked_origins: [] };
+  const empty = { forbidden_domains: [], forbidden_url_patterns: [], exclude_patterns: [] };
+  const u = new URL(start);
+  if (u.protocol === 'file:') {
+    let p = fileURLToPath(u);
+    if (!fs.existsSync(p) || fs.statSync(p).isFile()) p = path.dirname(p);
+    return { rules: { ...empty, allowed_domains: [], local_roots: [{ path: p, real: realpathLoose(p) }] }, base };
+  }
+  return { rules: { ...empty, allowed_domains: [u.hostname] }, base };
+}
+
 async function fetchStatus(url) {
   try {
     let r = await fetch(url, { method: 'HEAD', redirect: 'follow', headers: { 'user-agent': UA } });
@@ -38,10 +69,11 @@ async function fetchStatus(url) {
 
 (async () => {
   const args = parseArgs(process.argv.slice(2), { 'max-pages': '50', throttle: '700' });
-  const start = args._[0];
-  if (!start) { console.error('нужен START_URL'); process.exit(1); }
-  const rules = loadRules(args.rules) || { rules: { allowed_domains: [new URL(start).hostname], forbidden_domains: [], forbidden_url_patterns: [], exclude_patterns: [] },
-    base: { deny_nav_hosts: [], deny_path_regex: '(?!)', blocked_origins: [] } };
+  const start = toUrl(args._[0] || args.url);
+  if (!start || start === true) { console.error('нужен START_URL (http(s), file:///… или путь к файлу)'); process.exit(1); }
+  const rules = loadRules(args.rules) || implicitRules(start);
+  const startCheck = navAllowed(start, rules);
+  if (!startCheck.ok) { writeOut(args.out, { tool: 'links', start, crawled: 0, blocked: startCheck }); return; }
   const frameOf = new Map();
   const queue = [start], seen = new Set([start.split('#')[0]]), pages = [], linkSources = new Map(), external = new Map(), skipped = [];
   while (queue.length && pages.length < +args['max-pages']) {
@@ -49,16 +81,23 @@ async function fetchStatus(url) {
     let res, html = '';
     const t0 = Date.now();
     try {
-      res = await fetch(url, { redirect: 'follow', headers: { 'user-agent': UA } });
-      if (/text\/html/.test(res.headers.get('content-type') || '')) html = await res.text();
+      if (/^file:/i.test(url)) {
+        const l = loadLocal(url);
+        res = { status: l.status, url: l.finalUrl, local: true, error: l.error };
+        html = l.html;
+      } else {
+        res = await fetch(url, { redirect: 'follow', headers: { 'user-agent': UA } });
+        if (/text\/html/.test(res.headers.get('content-type') || '')) html = await res.text();
+      }
     } catch (e) { pages.push({ url, status: 0, error: String(e.cause && e.cause.code || e.message || e) }); continue; }
-    const page = { url, status: res.status, finalUrl: res.url, timeMs: Date.now() - t0, meta: html ? meta(html) : null, links: 0 };
+    const page = { url, status: res.status, finalUrl: res.url, timeMs: Date.now() - t0, meta: html ? meta(html) : null, links: 0,
+      ...(res.local ? { local: true } : {}), ...(res.error ? { error: res.error } : {}) };
     pages.push(page);
     if (args.frames === 'all') {
       page.frames = [];
       for (const m of html.matchAll(/<iframe\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi)) {
         let src; try { src = new URL(m[1], res.url).href; } catch { continue; }
-        if (!/^https?:/.test(src)) continue;
+        if (!LINKABLE.test(src)) continue;
         page.frames.push(src);
         const v = navAllowed(src, rules, 'subframe');
         const inside = v.ok && navAllowed(src, rules).ok;
@@ -69,7 +108,7 @@ async function fetchStatus(url) {
     for (const m of html.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["']/gi)) {
       let href;
       try { href = new URL(m[1], res.url).href.split('#')[0]; } catch { continue; }
-      if (!/^https?:/.test(href)) continue;
+      if (!LINKABLE.test(href)) continue;
       page.links++;
       if (!linkSources.has(href)) linkSources.set(href, new Set());
       linkSources.get(href).add(url);
@@ -78,7 +117,7 @@ async function fetchStatus(url) {
       else if (v.external) external.set(href, url);
       else skipped.push({ url: href, from: url, reason: v.reason });
     }
-    await sleep(+args.throttle);
+    if (!res.local) await sleep(+args.throttle);
   }
   // Статус внутренних ссылок, которые не попали в обход из-за лимита
   const broken = [];
@@ -104,5 +143,6 @@ async function fetchStatus(url) {
     duplicateTitles: dup('title'), duplicateDescriptions: dup('description'),
   };
   writeOut(args.out, { tool: 'links', start, crawled: pages.length, pages, broken, seo, external: [...external.keys()],
-    externalChecked, skipped, unvisited, note: 'Статический обход без JS: для SPA карту дополняет разведка в браузере' });
+    externalChecked, skipped, unvisited, note: 'Статический обход без JS: для SPA карту дополняет разведка в браузере' +
+      (/^file:/i.test(start) ? '; file://: страницы прочитаны с диска, SEO-поля (canonical, description) для локального приложения обычно не важны' : '') });
 })().catch(e => { console.error(e); process.exit((e && e.exitCode) || 1); });

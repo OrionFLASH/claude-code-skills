@@ -99,7 +99,10 @@ async function checkSite(origin) {
 
 (async () => {
   const args = parseArgs(process.argv.slice(2), { throttle: '800' });
-  const urls = urlsFromArgs(args);
+  const all = urlsFromArgs(args);
+  // file:// (local app, references/local-files.md): no HTTP, no headers — reported as not applicable
+  const notApplicable = all.filter(u => /^file:/i.test(u)).map(url => ({ url, reason: 'не применимо к file:// — нет HTTP-заголовков, robots.txt и sitemap' }));
+  const urls = all.filter(u => !/^file:/i.test(u));
   const origins = [...new Set(urls.map(u => new URL(u).origin))];
   const sites = [];
   for (const o of origins) { sites.push(await checkSite(o)); await sleep(+args.throttle); }
@@ -108,5 +111,5 @@ async function checkSite(origin) {
     try { pages.push(await checkPage(u)); } catch (e) { pages.push({ url: u, error: String(e.message || e) }); }
     await sleep(+args.throttle);
   }
-  writeOut(args.out, { tool: 'headers', sites, pages });
+  writeOut(args.out, { tool: 'headers', sites, pages, ...(notApplicable.length ? { notApplicable } : {}) });
 })().catch(e => { console.error(e); process.exit((e && e.exitCode) || 1); });

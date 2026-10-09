@@ -289,7 +289,7 @@ Select-String '"version"' <SKILL_DIR>\.claude-plugin\plugin.json
 
 Если в `scripts/node/package.json` сменилась версия `playwright` — `npx playwright install chromium webkit firefox` ещё раз. После обновления — `check_env` и перезапуск Claude Code.
 
-Результаты прогонов, память о сайтах (`qa-runs/.site-context/`) и кэш issues лежат в папке результатов, а не в папке скила, — обновление их не затрагивает.
+Результаты прогонов, память о сайтах (`qa-runs/.site-context/`) и кэш issues лежат в папке результатов, а не в папке скила, — обновление их не затрагивает. **Идущий прогон** обновление тоже не ломает: с 1.4.0 скил копируется в папку прогона (`<RUN_DIR>/skill`, `skill_snapshot.py`), и исполнители работают с копией; новая версия действует со следующего прогона. Копия берёт `node_modules` жёсткими ссылками из установленной папки — поэтому `npm install` в новой папке версии нужен **до** первого прогона на ней.
 
 **Откат:** клон — `git checkout site-qa-audit/v<версия>` (вернуться — `git checkout main`); копия — вернуть папку `.bak`; плагин — удалить (`claude plugin uninstall site-qa-audit@claude-code-skills`) и поставить нужную версию из клона способом 2.
 
@@ -329,8 +329,8 @@ Windows — `%USERPROFILE%\.claude\settings.json`; в JSON обратный сл
 |------------|-----------|--------------|
 | `SITE_QA_OUTPUT_DIR` | папка результатов: `<путь>/qa-runs/<дата>-<хост>/` (раздел выше) | `<папка запуска>/qa-runs/` |
 | `SITE_QA_AUDIT_DIR` | **постоянный путь скила (`SKILL_DIR`)** для `check_env`, run-config и заданий исполнителей. Нужен, если скил стоит не плагином или путь плагина меняется при обновлении (папка версии). Должен указывать на папку с `SKILL.md` | не задана: `scripts/skill_dir.py` ищет сам — установленный плагин (`installPath`), новейшая версия в кэше плагина `~/.claude/plugins/cache/claude-code-skills/site-qa-audit/<версия>/`, `~/.claude/skills/site-qa-audit`; рабочая копия репозитория — только если ничего не установлено |
-| `SITE_QA_HEADLESS` | `1` — браузер эмулированных устройств и `legal_guest.js` без окна (фоновый режим) | окно **видно** (вы видите, что делает тест) |
-| `SITE_QA_SLOWMO` | замедление действий в видимом окне, мс | `250` |
+| `SITE_QA_HEADLESS` | `1` — браузерные скрипты скила без окна (фоновый режим). Значение по умолчанию для прогонов: **`run-config.yaml → browser.headed`** конкретного прогона главнее (`browser_mode.py set <RUN_DIR> --headed\|--headless` — переключить посреди прогона), флаг команды `--headed`/`--headless` — ещё главнее | окно **видно** (вы видите, что делает тест) |
+| `SITE_QA_SLOWMO` | замедление действий в видимом окне, мс (`browser.slowmo` прогона главнее) | `250` |
 | `SITE_QA_PYTHON` | команда Python для node-скриптов (мост к `url_guard.py`), если `python3` не подходит (Windows: `python` или `py`) | `python3` (Windows — `python`) |
 
 Пример (macOS / Linux):
@@ -339,7 +339,7 @@ Windows — `%USERPROFILE%\.claude\settings.json`; в JSON обратный сл
 {
   "env": {
     "SITE_QA_OUTPUT_DIR": "/Users/<имя>/qa-results",
-    "SITE_QA_AUDIT_DIR": "/Users/<имя>/.claude/plugins/cache/claude-code-skills/site-qa-audit/1.3.0",
+    "SITE_QA_AUDIT_DIR": "/Users/<имя>/.claude/plugins/cache/claude-code-skills/site-qa-audit/1.4.0",
     "SITE_QA_HEADLESS": "0",
     "SITE_QA_SLOWMO": "250"
   }
@@ -366,6 +366,8 @@ Windows — `%USERPROFILE%\.claude\settings.json`; в JSON обратный сл
 | Скил запустился, хотя вы не просили аудит | ответить «Нет, это другое» — скил ничего не создаст |
 | `url_guard.py` / node-скрипты возвращают код 4 «guard недоступен» | так и задумано (fail closed): нет `--config`/`rules.json`, битый конфиг или Python недоступен — исправить и повторить; переходы и клики при этом не выполняются |
 | В заданиях исполнителей путь скила «пропал» (`No such file`) | путь плагина меняется при обновлении; взять актуальный из `check_env` (строка `SKILL_DIR`) или `skill_dir.py`, при необходимости задать `SITE_QA_AUDIT_DIR` |
-| Окно браузера мешает / не видно, что делает тест | `SITE_QA_HEADLESS=1` скрывает окно, `SITE_QA_SLOWMO=500` замедляет действия в видимом окне |
+| Окно браузера мешает / не видно, что делает тест | для текущего прогона: `python3 <SKILL_DIR>/scripts/browser_mode.py set <RUN_DIR> --headless` (или `--headed --slowmo 500`) — действует на следующие запуски скриптов и сессии `playwright-cli`; для всех прогонов: `SITE_QA_HEADLESS=1` / `SITE_QA_SLOWMO=500` |
+| `playwright-cli`: «Access to "file:" protocol is blocked» | локальное приложение: открывать сессию с `--config <RUN_DIR>/playwright-cli.json` (его пишут `local_app.py copy --update-config` и `browser_mode.py show`) — `references/local-files.md` |
+| `skill_snapshot.py`: «в копии нет node_modules» | `npm install` в установленной папке скила (`<installPath>/scripts/node`), затем `skill_snapshot.py <RUN_DIR> --force` |
 
 Подробности — [README.md](README.md) (параметры, примеры, ограничения) и [SKILL.md](SKILL.md) (порядок работы).

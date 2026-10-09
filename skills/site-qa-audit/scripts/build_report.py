@@ -236,7 +236,14 @@ def build_report(run):
         L.append(f"- Перепроверено заявленных исправлений: {len(run.rechecks)} (" +
                  ", ".join(f"{k} {v}" for k, v in sorted(rs.items())) + ").")
     nc = (run.data.get("not_checked") or []) if isinstance(run.data, dict) else []
-    L.append(f"- Не проверено пунктов: {len(nc)}." + (" Есть побочные эффекты — см. раздел ниже." if run.side_effects else ""))
+    L.append(f"- Не проверено пунктов: {len(nc)}." + (" Есть побочные эффекты — см. раздел ниже." if run.side_effects else "")
+             + (f" Вторая волна: `thread_coverage.py again {run.dir}`." if nc else ""))
+    skipped = [f["id"] for f in fs if f.get("dup_check") == "skipped"]
+    if skipped:
+        L.append(f"- Сверку с известными issues исполнитель не делал у {len(skipped)} находок ({', '.join(skipped[:8])}"
+                 f"{'…' if len(skipped) > 8 else ''}) — " + ("сверены fingerprint.py match (matches.json)."
+                                                             if (run.dir / "matches.json").exists() else
+                                                             "нужна сверка fingerprint.py match."))
     L += ["", "## Статистика", "", "| Severity | Всего | " + " | ".join(STATUSES) + " |",
           "|---|---|" + "---|" * len(STATUSES)]
     for s in SEVERITIES:
@@ -250,6 +257,30 @@ def build_report(run):
     for d, items in sorted(byd.items(), key=lambda x: -len(x[1])):
         top = min(items, key=lambda f: SEVERITIES.index(f.get("severity")) if f.get("severity") in SEVERITIES else 9)
         L.append(f"| {d} | {len(items)} | {cell(top.get('title'), 100)} |")
+    cov = coverage_lines(run)
+    if cov:
+        L += ["", "## Охват по потокам", "", "Метрики — автоматически (thread_coverage.py): время от задания до результата, переходы и "
+              "действия, проверенные url_guard (--trace). Подробно — `coverage/<поток>.md`.", ""] + cov
+    variants = [v for v in run.config.get("variants") or [] if v]
+    if variants:
+        L += ["", "## Варианты данных и стенды", "", "| Вариант | Находок | Не проверено |", "|---|---|---|"]
+        for v in variants:
+            vid = v.get("id") if isinstance(v, dict) else str(v)
+            L.append(f"| {cell(vid, 60)} | {sum(1 for f in fs if f.get('variant') == vid)} | "
+                     f"{sum(1 for x in nc if x.get('variant') == vid)} |")
+        no_var = sum(1 for f in fs if not f.get("variant"))
+        if no_var:
+            L.append(f"| (без варианта) | {no_var} | |")
+    shots = [(f["id"], s) for f in fs for s in (f.get("screenshots") or []) if s.endswith("-annotated.png")] or \
+        [(f["id"], s) for f in fs for s in (f.get("screenshots") or [])]
+    if shots:
+        sheets = sorted(str(x.relative_to(run.dir)) for x in (run.dir / "screenshots").glob("contact*.png")) \
+            if (run.dir / "screenshots").is_dir() else []
+        L += ["", "## Скриншоты находок", "",
+              "; ".join(f"{i}: [{Path(s).name}]({s})" for i, s in shots[:40]) + ("; …" if len(shots) > 40 else "") + "."]
+        L.append("Контактный лист: " + (", ".join(f"[{x}]({x})" for x in sheets) if sheets else
+                                        f"`node <SKILL_DIR>/scripts/node/shot.js sheet --out {run.dir}/screenshots/contact.png "
+                                        f"{run.dir}/screenshots/*-annotated.png`") + ".")
     L += ["", "## Находки", "", "| ID | Severity | Статус | Заголовок | URL | Куда опубликовано |", "|---|---|---|---|---|---|"]
     for f in fs:
         pub = ", ".join(f"{p.get('repo')}#{p.get('number')}" if p.get("number") else f"{p.get('kind')}" for p in f.get("published") or [])
@@ -257,9 +288,9 @@ def build_report(run):
                  f"{cell(f.get('url'), 80)} | {pub or '—'} |")
     if run.rechecks:
         L += ["", "## Перепроверка заявленных исправлений", ""] + recheck_table(run)
-    L += ["", "## Что не проверено и почему", "", "| Что | Причина |", "|---|---|"]
-    L += [f"| {cell(x.get('what'))} | {cell(x.get('reason'))}{' (' + x['rule'] + ')' if x.get('rule') else ''} |" for x in nc] \
-        or ["| — | — |"]
+    L += ["", "## Что не проверено и почему", "", "| Что | Причина | Категория | Поток |", "|---|---|---|---|"]
+    L += [f"| {cell(x.get('what'))} | {cell(x.get('reason'))}{' (' + x['rule'] + ')' if x.get('rule') else ''} | "
+          f"{x.get('category') or ''} | {x.get('thread') or ''} |" for x in nc] or ["| — | — | — | — |"]
     if run.blocked:
         L += ["", "## Сработавшие запреты", "", "| Правило | Сколько раз | Пример |", "|---|---|---|"]
         g = defaultdict(list)
@@ -275,6 +306,16 @@ def build_report(run):
         L += ["", "## Публикация", ""] + publish_table(run)
     L += ["", f"<!-- site-qa-audit:run={r.get('id', '')} -->"]
     return "\n".join(L).rstrip() + "\n"
+
+
+def coverage_lines(run):
+    try:
+        sys.path.insert(0, str(HERE))
+        import thread_coverage as coverage  # noqa: E402
+        return coverage.summary_lines(run.dir)
+    except Exception as ex:  # noqa: BLE001 — the report is built anyway
+        sys.stderr.write(f"build_report: охват по потокам не собран ({ex})\n")
+        return []
 
 
 def build_summary(run):

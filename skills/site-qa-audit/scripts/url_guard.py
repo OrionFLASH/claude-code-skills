@@ -3,6 +3,8 @@
 
 Команды (все печатают JSON, код выхода 0 = allow, 2 = confirm, 3 = deny, 4 = guard недоступен):
   url_guard.py nav URL --config run-config.yaml [--read-only] [--log <RUN_DIR>/logs/read-only.jsonl]
+               [--trace <RUN_DIR>/logs/guard-<qa-id>.jsonl]  (у nav / resource / action: каждое решение — строка
+               журнала потока; по нему thread_coverage.py считает время, переходы, проверенные действия и элементы)
                                                        переход на страницу; --read-only — только чтение страницы
                                                        (без кликов и отправок): снимает запрет путей покупки/доната
                                                        и rules.read_only_urls, но не OAuth, выход, удаление аккаунта,
@@ -16,18 +18,26 @@
 
 Базовые запреты зашиты в код и не отключаются конфигом.
 
+Локальные файлы (file://, references/local-files.md): переход и загрузка разрешены только внутри каталогов
+site.local_roots (абсолютный путь или file:// URL; также «file:///…» в allowed_domains и «file» в allowed_domains —
+каталоги file://-адресов из start_urls). Запрещено всегда: «..» в пути, выход за каталог, симлинк внутри каталога,
+file:// с хостом (сетевой путь). Базовые запреты путей (/checkout, /logout…) проверяются по пути ОТ каталога.
+
 Fail closed: любая ошибка (нет --config или файла, ошибка разбора YAML, неверный регэксп в правилах, неверные
-аргументы, внутренняя ошибка) -> JSON {"decision": "unavailable", ...} и код 4. Код 4, любой код кроме 0/2/3,
-«No such file» или пустой вывод = СТОП: переход или действие не выполнять (references/safety-rules.md §3, §4).
+аргументы, относительный или слишком широкий local_roots, внутренняя ошибка) -> JSON {"decision": "unavailable", ...}
+и код 4. Код 4, любой код кроме 0/2/3, «No such file» или пустой вывод = СТОП: переход или действие не выполнять
+(references/safety-rules.md §3, §4).
 """
 import argparse
 import fnmatch
 import json
+import os
 import re
 import sys
 import unicodedata
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
+from urllib.request import url2pathname
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "shared"))
 import miniyaml  # noqa: E402  (вендорится из shared/scripts)
@@ -144,10 +154,118 @@ def load_config(path):
     return cfg
 
 
+class GuardUnavailable(Exception):
+    """Guard cannot decide (bad config, bad rule, bad input): the caller must stop."""
+
+
+# ---- Local files (file://) ----
+FILE_WORDS = ("file", "file:", "file://")
+
+
+def is_file_entry(s):
+    return str(s).strip().lower().startswith("file:") or str(s).strip().lower() in FILE_WORDS
+
+
+def file_path_of(url):
+    """file:// URL -> normalized absolute OS path. ValueError(reason): host (network path), NUL, «..», not absolute."""
+    parts = urlsplit(str(url))
+    if parts.scheme.lower() != "file":
+        raise ValueError("не file://")
+    if (parts.netloc or "").lower() not in ("", "localhost"):
+        raise ValueError(f"file:// с хостом «{parts.netloc}» — сетевой путь, не локальный файл")
+    decoded = unquote(parts.path or "")
+    if "\x00" in decoded:
+        raise ValueError("NUL в пути")
+    if ".." in decoded.replace("\\", "/").split("/"):
+        raise ValueError("«..» в пути — выход вверх по каталогам")
+    p = url2pathname(parts.path or "")
+    if not p or not os.path.isabs(p):
+        raise ValueError("путь не абсолютный")
+    return os.path.normpath(p)
+
+
+def _too_broad(p):
+    p = os.path.normcase(os.path.normpath(p))
+    home = os.path.normcase(os.path.normpath(os.path.expanduser("~")))
+    return p == home or os.path.dirname(p) == p  # «/», «C:\», the home folder itself
+
+
+def local_roots_of(cfg):
+    """Directories where file:// is allowed: [{"path": lexical, "real": realpath}]. GuardUnavailable on a bad entry."""
+    site = cfg.get("site") or {}
+    entries = site.get("local_roots") or []
+    if not isinstance(entries, list):
+        raise GuardUnavailable("site.local_roots должен быть списком")
+    entries = list(entries)
+    keyword = False
+    for a in site.get("allowed_domains") or []:
+        s = str(a).strip().lower()
+        if s in FILE_WORDS:
+            keyword = True
+        elif s.startswith("file:"):
+            entries.append(a)
+    if keyword:  # «file» in allowed_domains: the folders of the file:// start URLs
+        entries += [u for u in site.get("start_urls") or [] if str(u).strip().lower().startswith("file:")]
+    roots = []
+    for e in entries:
+        s = os.path.expanduser(str(e).strip())
+        if s.lower().startswith("file:"):
+            try:
+                p = file_path_of(s)
+            except ValueError as ex:
+                raise GuardUnavailable(f"local_roots: {e!r}: {ex}")
+        else:
+            if not os.path.isabs(s):
+                raise GuardUnavailable(f"local_roots: путь должен быть абсолютным: {e!r}")
+            if ".." in s.replace("\\", "/").split("/"):
+                raise GuardUnavailable(f"local_roots: «..» в пути: {e!r}")
+            p = os.path.normpath(s)
+        if os.path.isfile(p):  # a start file -> its folder (the app needs its assets)
+            p = os.path.dirname(p)
+        if _too_broad(p):
+            raise GuardUnavailable(f"local_roots: слишком широкий каталог {p!r} (корень диска или домашняя папка) — "
+                                   "укажите папку приложения")
+        if p not in [r["path"] for r in roots]:
+            roots.append({"path": p, "real": os.path.realpath(p)})
+    return roots
+
+
+def _under(p, base):
+    pc, bc = os.path.normcase(p), os.path.normcase(base)
+    return pc == bc or pc.startswith(bc.rstrip("\\/") + os.sep)
+
+
+def file_verdict(url, roots):
+    """-> {"ok": True, "rel": "/sub/page.html"} or {"ok": False, "reason", "rule"} for a file:// URL."""
+    try:
+        p = file_path_of(url)
+    except ValueError as ex:
+        return {"ok": False, "reason": f"file: {ex}", "rule": "base:file-path"}
+    if not roots:
+        return {"ok": False, "reason": "file:// не разрешён: нет site.local_roots (или allowed_domains: [file] "
+                                       "с file:// в start_urls)", "rule": "base:file-no-roots"}
+    for r in roots:
+        for base in (r["path"], r["real"]):
+            if not _under(p, base):
+                continue
+            rel = os.path.relpath(p, base)
+            expected = os.path.normpath(os.path.join(r["real"], rel))
+            real = os.path.realpath(p)
+            if os.path.normcase(real) != os.path.normcase(expected):
+                return {"ok": False, "reason": f"симлинк внутри каталога ({p} -> {real}) — не открывается",
+                        "rule": "base:file-symlink"}
+            if not os.path.isdir(r["path"]) and not os.path.isdir(r["real"]):
+                return {"ok": False, "reason": f"каталог local_roots не найден: {r['path']}", "rule": "base:file-root-missing"}
+            return {"ok": True, "rel": "/" + ("" if rel == "." else rel.replace(os.sep, "/"))}
+    return {"ok": False, "reason": "локальный файл вне local_roots — не открывается", "rule": "base:file-outside-roots"}
+
+
 def rules_of(cfg):
     r = cfg.get("rules") or {}
     return {
-        "allowed_domains": (cfg.get("site") or {}).get("allowed_domains") or [],
+        # file entries ("file", "file:///…") are local roots, never host masks
+        "allowed_domains": [a for a in (cfg.get("site") or {}).get("allowed_domains") or [] if not is_file_entry(a)],
+        "local_roots": local_roots_of(cfg),
         "forbidden_domains": r.get("forbidden_domains") or [],
         "forbidden_url_patterns": r.get("forbidden_url_patterns") or [],
         "exclude_patterns": (cfg.get("scope") or {}).get("exclude_patterns") or [],
@@ -159,10 +277,6 @@ def rules_of(cfg):
         # даже если они попадают под forbidden_url_patterns / exclude_patterns (страницы входа, покупки).
         "read_only_urls": r.get("read_only_urls") or [],
     }
-
-
-class GuardUnavailable(Exception):
-    """Guard cannot decide (bad config, bad rule, bad input): the caller must stop."""
 
 
 def validate_rules(cfg):
@@ -198,28 +312,39 @@ def check_url(url, cfg, kind="nav", read_only=False):
     OAuth, logout, account deletion, hosts outside allowed_domains."""
     rules = rules_of(cfg)
     parts = urlsplit(url)
+    scheme = parts.scheme.lower()
     host, path = (parts.hostname or "").lower(), parts.path or "/"
     full = url if not parts.query else url
     ro = read_only and kind == "nav"
     lifted = []
-    if parts.scheme in ("javascript", "data", "blob", "about", "chrome", "file"):
-        if kind == "nav" and parts.scheme in ("javascript", "file", "chrome"):
-            return result(DENY, kind, url, f"схема {parts.scheme}: не переходить", "base:scheme")
-        return result(ALLOW, kind, url, "служебная схема", None)
-    if parts.scheme in ("mailto", "tel", "sms"):
-        return result(DENY, kind, url, f"{parts.scheme}: открывает внешнее приложение — только зафиксировать", "base:scheme")
-    for pat in rules["forbidden_domains"]:
-        if hostpath_matches(host, path, pat):
-            return result(DENY, kind, url, f"домен запрещён пользователем: {pat}", f"user:forbidden_domains:{pat}")
-    if kind == "resource":
-        for origin in BASE_BLOCKED_ORIGINS:
-            if url.lower().startswith(origin + "/") or url.lower() == origin:
-                return result(DENY, kind, url, f"базовая блокировка origin {origin}", "base:blocked-origin")
-        return result(ALLOW, kind, url, "загрузка сторонних ресурсов разрешена", None)
-    # nav
-    for pat in BASE_DENY_NAV_HOSTS:
-        if hostpath_matches(host, path, pat):
-            return result(DENY, kind, url, f"внешний вход/оплата/донат ({pat}) — базовый запрет", "base:nav-host")
+    local = scheme == "file"
+    if local:
+        # Local files: only inside site.local_roots; path rules below apply to the path FROM the root folder.
+        fv = file_verdict(url, rules["local_roots"])
+        if not fv["ok"]:
+            return result(DENY, kind, url, fv["reason"], fv["rule"])
+        if kind == "resource":
+            return result(ALLOW, kind, url, "локальный файл в пределах local_roots", None)
+        host, path = "", fv["rel"]
+    else:
+        if scheme in ("javascript", "data", "blob", "about", "chrome"):
+            if kind == "nav" and scheme in ("javascript", "chrome"):
+                return result(DENY, kind, url, f"схема {scheme}: не переходить", "base:scheme")
+            return result(ALLOW, kind, url, "служебная схема", None)
+        if scheme in ("mailto", "tel", "sms"):
+            return result(DENY, kind, url, f"{scheme}: открывает внешнее приложение — только зафиксировать", "base:scheme")
+        for pat in rules["forbidden_domains"]:
+            if hostpath_matches(host, path, pat):
+                return result(DENY, kind, url, f"домен запрещён пользователем: {pat}", f"user:forbidden_domains:{pat}")
+        if kind == "resource":
+            for origin in BASE_BLOCKED_ORIGINS:
+                if url.lower().startswith(origin + "/") or url.lower() == origin:
+                    return result(DENY, kind, url, f"базовая блокировка origin {origin}", "base:blocked-origin")
+            return result(ALLOW, kind, url, "загрузка сторонних ресурсов разрешена", None)
+        # nav
+        for pat in BASE_DENY_NAV_HOSTS:
+            if hostpath_matches(host, path, pat):
+                return result(DENY, kind, url, f"внешний вход/оплата/донат ({pat}) — базовый запрет", "base:nav-host")
     path_q = path + ("?" + parts.query if parts.query else "")
     if BASE_DENY_PATH_RX.search(path_q):
         if ro and READ_ONLY_PATH_RX.search(path_q) and not NEVER_READ_ONLY_PATH_RX.search(path_q):
@@ -240,18 +365,19 @@ def check_url(url, cfg, kind="nav", read_only=False):
                 continue
             return result(DENY, kind, url, f"исключено из охвата: /{pat}/", f"user:exclude_patterns:{pat}")
     allowed = rules["allowed_domains"]
-    if kind == "nav" and not allowed:  # fail closed: без списка разрешённых доменов переход не выполняется
-        return result(DENY, kind, url, "site.allowed_domains не задан — без списка доменов переход не разрешён",
-                      "base:no-allowlist")
-    if allowed and not any(host_matches(host, p) for p in allowed):
-        return result(DENY, kind, url, f"хост {host} вне allowed_domains — внешняя страница, не проверялась",
-                      "base:outside-allowlist")
+    if not local:
+        if kind == "nav" and not allowed:  # fail closed: без списка разрешённых доменов переход не выполняется
+            return result(DENY, kind, url, "site.allowed_domains не задан — без списка доменов переход не разрешён",
+                          "base:no-allowlist")
+        if allowed and not any(host_matches(host, p) for p in allowed):
+            return result(DENY, kind, url, f"хост {host} вне allowed_domains — внешняя страница, не проверялась",
+                          "base:outside-allowlist")
     if lifted:
         res = result(ALLOW, kind, url, "только чтение: открыть и прочитать, НИЧЕГО не нажимать и не отправлять "
                      f"(снят запрет {', '.join(lifted)})", "read-only:" + lifted[0])
         res["read_only"] = True
         return res
-    return result(ALLOW, kind, url, "в пределах разрешённых доменов", None)
+    return result(ALLOW, kind, url, "в пределах local_roots" if local else "в пределах разрешённых доменов", None)
 
 
 def _user_rule_hits(rule, text_n, role, selector, url, context_n):
@@ -328,8 +454,23 @@ def blocked_origins(cfg):
     return ";".join(dict.fromkeys(origins))
 
 
+def browser_of(cfg):
+    """run-config browser.headed / browser.slowmo -> rules.json → browser (node scripts: lib.js browserMode).
+    headed: true | false | null (null — SITE_QA_HEADLESS or the visible default); slowmo: ms or null."""
+    b = cfg.get("browser") or {}
+    if not isinstance(b, dict):
+        b = {}
+    headed = b.get("headed") if isinstance(b.get("headed"), bool) else None
+    try:
+        slowmo = int(b.get("slowmo")) if b.get("slowmo") is not None and int(b.get("slowmo")) >= 0 else None
+    except (TypeError, ValueError):
+        slowmo = None
+    return {"headed": headed, "slowmo": slowmo}
+
+
 def export(cfg):
     return {
+        "browser": browser_of(cfg),
         "rules": rules_of(cfg),
         "base": {
             "deny_nav_hosts": BASE_DENY_NAV_HOSTS,
@@ -340,6 +481,58 @@ def export(cfg):
         },
         "throttle_ms": (cfg.get("parallel") or {}).get("throttle_ms", 1500),
     }
+
+
+def file_selftest_cases():
+    """file:// cases on a temporary folder: app/ (root), outside/, a symlink app/evil -> outside/."""
+    import tempfile
+    from pathlib import Path as P
+    tmp = tempfile.mkdtemp(prefix="url-guard-")
+    try:
+        app, out = P(tmp) / "app", P(tmp) / "outside"
+        (app / "sub").mkdir(parents=True)
+        out.mkdir()
+        for f in (app / "index.html", app / "sub" / "page.html", out / "x.html"):
+            f.write_text("<p>x</p>", encoding="utf-8")
+        symlink = True
+        try:
+            os.symlink(str(out), str(app / "evil"))
+        except (OSError, NotImplementedError):
+            symlink = False  # no symlink privilege (Windows): the case is skipped
+        u = (app / "index.html").as_uri()
+        root = app.as_uri()
+        cfg_k = {"site": {"start_urls": [u], "allowed_domains": ["file"]}}
+        cfg_r = {"site": {"local_roots": [str(app)], "allowed_domains": []},
+                 "rules": {"forbidden_url_patterns": ["/sub/forbidden"]}}
+        cfg_u = {"site": {"allowed_domains": [root + "/"]}}
+        cases = [
+            (check_url(u, cfg_k), ALLOW),
+            (check_url((app / "sub" / "page.html").as_uri() + "#/route", cfg_k), ALLOW),
+            (check_url((out / "x.html").as_uri(), cfg_k), DENY),
+            (check_url(root + "/sub/../../outside/x.html", cfg_k), DENY),
+            (check_url(root + "/sub/%2e%2e/%2e%2e/outside/x.html", cfg_k), DENY),
+            (check_url("file://server/share/app/index.html", cfg_k), DENY),
+            (check_url(u, {"site": {"allowed_domains": ["example.com"]}}), DENY),
+            (check_url((app / "sub" / "page.html").as_uri(), cfg_r), ALLOW),
+            (check_url((app / "sub" / "forbidden.html").as_uri(), cfg_r), DENY),
+            (check_url(u, cfg_u), ALLOW),
+            (check_url((app / "a.js").as_uri(), cfg_k, "resource"), ALLOW),
+            (check_url((out / "x.html").as_uri(), cfg_k, "resource"), DENY),
+            (check_url("https://example.com/", cfg_k), DENY),
+        ]
+        if symlink:
+            cases.append((check_url((app / "evil" / "x.html").as_uri(), cfg_k), DENY))
+        for bad in ({"site": {"local_roots": ["relative/dir"]}}, {"site": {"local_roots": ["/"]}},
+                    {"site": {"local_roots": [os.path.expanduser("~")]}}):
+            try:
+                validate_rules(bad)
+                cases.append(({"decision": ALLOW, "target": bad}, DENY))
+            except GuardUnavailable:
+                cases.append(({"decision": DENY}, DENY))
+        return cases
+    finally:
+        import shutil
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def selftest():
@@ -407,7 +600,7 @@ def selftest():
         (check_url("https://ads.example.net/donate", cfg, read_only=True), DENY),
         # fail closed: a broken user regex makes the guard unavailable
         ({"decision": DENY if bad_regex_detected else ALLOW}, DENY),
-    ]
+    ] + file_selftest_cases()
     failed = [(c, exp) for c, exp in cases if c["decision"] != exp]
     for c, exp in failed:
         print(f"FAIL ожидалось {exp}: {json.dumps(c, ensure_ascii=False)}")
@@ -453,6 +646,7 @@ def main():
     ap.add_argument("--read-only", action="store_true",
                     help="nav: страница только для чтения, без кликов и отправок (safety-rules.md §3.13)")
     ap.add_argument("--log", help="nav --read-only: дописать «прочитано без действий» в этот JSONL")
+    ap.add_argument("--trace", help="журнал решений потока (JSONL, logs/guard-<qa-id>.jsonl) — метрики thread_coverage.py")
     ap.add_argument("--out")
     a = ap.parse_args()
     if a.command == "selftest":
@@ -492,8 +686,32 @@ def main():
         else:
             print(json.dumps(data, ensure_ascii=False, indent=2))
         return
+    if a.trace:
+        trace(a.trace, a.command, res, a)
     print(json.dumps(res, ensure_ascii=False))
     sys.exit(EXIT[res["decision"]])
+
+
+def trace(path, command, res, a):
+    """One line per decision for the thread metrics (thread_coverage.py). No context text, no query values (may be secret).
+    A failed write never changes the decision."""
+    def clean(u):
+        if not u:
+            return u
+        p = urlsplit(u)
+        return p._replace(query="…" if p.query else "").geturl()
+    entry = {"type": command, "decision": res["decision"], "rule": res.get("rule")}
+    if command == "action":
+        entry.update({"text": (a.text or "")[:120], "name": (a.name or "")[:120], "role": a.role, "selector": a.selector,
+                      "url": clean(a.url)})
+    else:
+        entry["url"] = clean(a.target)
+        if res.get("read_only"):
+            entry["read_only"] = True
+    try:
+        append_log(path, entry)
+    except OSError as ex:
+        sys.stderr.write(f"url_guard: журнал --trace не записан ({ex}) — решение не изменилось\n")
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@
 """Parse a free-form user request into a draft run-config.yaml (to be confirmed by the user).
 
   intake.py from-text [--text "…" | --file request.txt | -] [--output-dir DIR] [--out run-config.yaml] [--json]
+                      [--autopilot [--journal RUN_DIR]]
       Extracts: start URLs and allowed domains, GitHub repositories with roles and publication settings
       (disclosure, cross links, closed_claims), devices and browsers, auth mode, account states,
       depth, mode, directions, prohibitions (→ rules.forbidden_actions / require_confirmation_actions),
@@ -9,15 +10,25 @@
       explicit permission to commit the results (git.allow_commit_results; default false → qa-runs/ in .gitignore).
       Everything not recognised is listed under "needs confirmation".
       The draft is NOT final: show the summary to the user and wait for "старт" (references/intake.md).
+      Data variants and stands (several stands / data sets / roles named) -> variants[] and a note to include each in
+      the coverage.
+      --autopilot (or «автопилот», «без вопросов», "--autopilot" in the request): no survey — what is missing gets a
+      reasonable default, every such choice is listed in `decisions` (YAML: «# Решение автопилота: …»), with
+      --journal RUN_DIR also written to journal.md (journal.py decide --auto). Safety is never relaxed: rules,
+      dry-run without an explicit permission to publish, confirm-actions are not performed. A missing start URL stays
+      a blocker (one question).
 
 Exit codes: 0 ok, 2 empty input.
 """
 import argparse
 import json
+import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 from urllib.parse import urlsplit
+from urllib.request import url2pathname
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "shared"))
 import miniyaml  # noqa: E402
@@ -66,6 +77,9 @@ QUOTE_RX = re.compile(r"«([^«»]{1,80})»|“([^”]{1,80})”|\"([^\"]{1,80})
 REPO_URL = re.compile(r"https?://github\.com/([\w.-]+/[\w.-]+?)(?:\.git)?(?=[/\s,;.)»]|$)")
 REPO_BARE = re.compile(r"(?<![\w/.@-])([A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9_.-]+)(?![\w/])")
 URL_RX = re.compile(r"https?://[^\s,;)»\"']+")
+# Local app (references/local-files.md): file:///… URLs and absolute paths to .html files
+FILE_URL_RX = re.compile(r"file:///[^\s,;)»\"']+", re.I)
+LOCAL_PATH_RX = re.compile(r"(?<![\w/:.])((?:[A-Za-z]:\\|~/|/)(?:[^\s,;)»\"'<>|]+[/\\])*[^\s,;)»\"'<>|/\\]+\.x?html?)\b")
 SIDE_EFFECT = re.compile(r"(загруз\w* (файл|сохранени|сейв)|рейтинг|публичн|рассылк|upload|leaderboard)", re.I)
 MAX_WORKERS = 4  # parallel browser threads, references/parallelism.md
 WORD_NUM = {"один": 1, "одном": 1, "два": 2, "двух": 2, "три": 3, "трёх": 3, "трех": 3, "четыре": 4, "четырёх": 4,
@@ -89,6 +103,23 @@ def strip_www(h):
     return h[4:] if h.startswith("www.") else h
 
 
+VARIANTS_RX = re.compile(r"стенд|окружени[ея] (тест|пред|прод)|\bstag(e|ing)\b|pre-?prod|пре-?прод|\buat\b|"
+                         r"набор\w* данных|вариант\w* данных|тестов\w+ данн|боев\w+ данн|test data|data sets?", re.I)
+AUTOPILOT_RX = re.compile(r"--autopilot|автопилот|\bautopilot\b|без (лишних )?вопросов|не (задавай|задавая) вопрос|"
+                          r"не спрашивай|без опроса", re.I)
+
+
+def local_start_urls(text):
+    """file:///… URLs and absolute paths to .html files in the request -> file:// URLs (~ is expanded)."""
+    out = [u.rstrip(".") for u in FILE_URL_RX.findall(text)]
+    rest = FILE_URL_RX.sub(" ", URL_RX.sub(" ", text))
+    for m in LOCAL_PATH_RX.finditer(rest):
+        p = os.path.expanduser(m.group(1))
+        if os.path.isabs(p):
+            out.append(Path(p).as_uri())
+    return list(dict.fromkeys(out))
+
+
 def parse(text, output_dir=None):
     low = text.lower()
     notes, missing = [], []
@@ -105,13 +136,23 @@ def parse(text, output_dir=None):
                 if not re.search(r"\.(com|ru|org|net|io|top|html?)\b", cand, re.I) and not re.fullmatch(r"\d+/\d+", cand):
                     repos.setdefault(cand, None)
     site_urls = [u.rstrip(".") for u in URL_RX.findall(text) if "github.com" not in urlsplit(u).netloc.lower()]
-    start_urls = list(dict.fromkeys(site_urls))
-    hosts = list(dict.fromkeys(strip_www(urlsplit(u).hostname) for u in start_urls if urlsplit(u).hostname))
+    local_urls = local_start_urls(text)
+    start_urls = list(dict.fromkeys(site_urls + local_urls))
+    hosts = list(dict.fromkeys(strip_www(urlsplit(u).hostname) for u in site_urls if urlsplit(u).hostname))
     strict = bool(re.search(r"(строго|только) (этот|один) (хост|домен)|не выход\w* за (пределы )?(домен|хост|сайт)", low))
     allowed = []
     for h in hosts:
         allowed += [h] if strict else [h, f"*.{h}"]
     cfg["site"] = {"start_urls": start_urls, "allowed_domains": allowed, "third_party_resources": []}
+    if local_urls:
+        roots = []
+        for u in local_urls:
+            d = os.path.dirname(url2pathname(urlsplit(u).path))
+            if d not in roots:
+                roots.append(d)
+        cfg["site"]["local_roots"] = roots
+        notes.append("локальное приложение (file://): переходы и загрузка только внутри " + ", ".join(roots) +
+                     "; лучше тестировать копию в <RUN_DIR>/app (local_app.py copy, references/local-files.md)")
     if not start_urls:
         missing.append("site.start_urls — стартовый URL")
 
@@ -178,6 +219,15 @@ def parse(text, output_dir=None):
         cfg["mode"] = "live"
     if re.search(r"english|на английском", low):
         cfg["language"] = "en"
+    # browser window (browser_mode.py): only an explicit wish is written; null = SITE_QA_HEADLESS or visible
+    headed = None
+    if re.search(r"(с |в )?(открыт\w*|видим\w*) окн|окн\w* (браузера )?(открыт|видн)|\bheaded\b|покажи браузер|"
+                 r"хочу видеть (браузер|что делает)|show (the )?browser", low):
+        headed = True
+    elif re.search(r"без окна|в фоне|фонов\w* режим|скрыт\w* (окн|браузер)|\bheadless\b|не показывай браузер", low):
+        headed = False
+    slow = re.search(r"(замедл\w*|slow-?mo)\D{0,12}(\d{2,5})?", low)
+    cfg["browser"] = {"headed": headed, "slowmo": int(slow.group(2)) if slow and slow.group(2) else (500 if slow else None)}
 
     # repositories with roles and publication settings
     repo_list = []
@@ -250,9 +300,76 @@ def parse(text, output_dir=None):
         notes.append("общая сессия входа — параллельные браузерные потоки не используются (max_workers: 1)"
                      + (f"; запрошено {asked}" if asked and asked > 1 else ""))
     cfg["parallel"] = {"max_workers": workers, "throttle_ms": 1500}
+    # data variants and stands (feedback: other stands were outside the audit and hid a high defect)
+    cfg["variants"] = []
+    if VARIANTS_RX.search(low):
+        if len(site_urls) > 1 and len(hosts) > 1:
+            cfg["variants"] = [{"id": h, "kind": "stand", "ref": u} for h, u in
+                               zip(hosts, [next(x for x in site_urls if strip_www(urlsplit(x).hostname) == h) for h in hosts])]
+        notes.append("названы стенды / варианты данных — перечислить их в variants и включить каждый в охват "
+                     "(хотя бы smoke на каждом; поле variant у находок)")
     if not output_dir:
         missing.append("output_dir — OUTPUT_ROOT (SITE_QA_OUTPUT_DIR; иначе <cwd>, результаты в <cwd>/qa-runs/)")
     return cfg, notes, missing
+
+
+def use_run_copies(cfg, run_dir):
+    """The draft goes into a run folder that already has the copies (skill_snapshot.py, local_app.py): point the
+    config at them — otherwise the draft would silently bring back the installed skill and the original app."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import qa_snapshot  # noqa: E402
+    out = []
+    snap = Path(run_dir) / "skill"
+    meta = qa_snapshot.read_meta(snap)
+    if meta and (snap / "SKILL.md").is_file() and (snap / "scripts" / "url_guard.py").is_file():
+        cfg["skill_dir"], cfg["skill_source"] = str(snap), meta.get("from")
+        out.append(f"skill_dir — копия скила в прогоне ({snap}), источник {meta.get('from')}")
+    app = Path(run_dir) / "app"
+    ameta = qa_snapshot.read_meta(app)
+    if ameta and ameta.get("kind") == "app" and ameta.get("from"):
+        import local_app  # noqa: E402
+        site = cfg.setdefault("site", {})
+        urls = local_app.remap(site.get("start_urls") or [], ameta["from"], app)
+        if urls != (site.get("start_urls") or []) or site.get("local_roots"):
+            site["start_urls"] = urls
+            site["local_roots"] = [str(app)]
+            out.append(f"локальное приложение — копия в прогоне ({app}); оригинал {ameta['from']} не разрешён")
+    return out
+
+
+def autopilot_defaults(cfg, notes, missing, text):
+    """Fill what is missing with reasonable values; every choice -> a decision line. Safety is never relaxed."""
+    decisions = []
+    low = text.lower()
+    if not cfg.get("output_dir"):
+        env = os.environ.get("SITE_QA_OUTPUT_DIR")
+        cwd = Path(os.getcwd()).resolve()
+        bad_cwd = cwd == Path.home().resolve() or ((cwd / "tools" / "validate.sh").is_file()
+                                                  and (cwd / ".claude-plugin" / "marketplace.json").is_file())
+        if env or not bad_cwd:
+            cfg["output_dir"] = os.path.abspath(env or str(cwd))
+            decisions.append(f"output_dir = {cfg['output_dir']} ({'SITE_QA_OUTPUT_DIR' if env else 'папка запуска'}; "
+                             "в запросе не назван)")
+            missing[:] = [m for m in missing if not m.startswith("output_dir")]
+        else:
+            notes.append("автопилот: папка запуска — домашняя папка или репозиторий скилов, туда писать нельзя: "
+                         "один вопрос «куда сохранять результаты» (или SITE_QA_OUTPUT_DIR)")
+    if "направления не названы — взяты все" in notes:
+        decisions.append("направления: все (в запросе не названы)")
+    if "устройства не названы — по матрице глубины" in notes:
+        decisions.append("устройства: по матрице глубины (depth-matrix.md)")
+    if not re.search(r"smoke|быстр\w* (проверк|прогон)|поверхностн|\bdeep\b|глубок|тщательн|standard", low):
+        decisions.append(f"глубина: {cfg.get('depth')} (по умолчанию)")
+    if not WORKERS_RX.search(low):
+        decisions.append(f"потоков: {cfg['parallel']['max_workers']} (по умолчанию)")
+    decisions.append(f"режим: {cfg.get('mode')}" + (" — публикация только после «да» на сводную таблицу" if cfg.get("mode") == "live"
+                                                    else " — черновики, без публикации (разрешения публиковать в запросе нет)"))
+    if not cfg.get("variants"):
+        decisions.append("варианты данных и стендов: один (не названы) — риск: другие стенды и наборы данных не проверены, "
+                         "сказать об этом в отчёте")
+    decisions.append("подтверждение намерения, опрос и ожидание «старт» пропущены (автопилот); запреты, confirm-действия, "
+                     "dry-run и fail closed — без изменений")
+    return decisions
 
 
 def main():
@@ -265,6 +382,8 @@ def main():
     f.add_argument("--output-dir")
     f.add_argument("--out")
     f.add_argument("--json", action="store_true", help="печатать JSON вместо YAML")
+    f.add_argument("--autopilot", action="store_true", help="без опроса: значения по умолчанию, решения — в decisions")
+    f.add_argument("--journal", metavar="RUN_DIR", help="автопилот: записать решения в RUN_DIR/journal.md")
     a = ap.parse_args()
     if a.text is not None:
         text = a.text
@@ -278,12 +397,30 @@ def main():
         sys.stderr.write("intake: пустой запрос — нечего разбирать\n")
         sys.exit(2)
     cfg, notes, missing = parse(text, a.output_dir)
+    run_dir = Path(a.out).parent if a.out else (Path(a.journal) if a.journal else None)
+    if run_dir:
+        notes += use_run_copies(cfg, run_dir)
+    decisions = []
+    if a.autopilot or AUTOPILOT_RX.search(text):
+        cfg["autopilot"] = True
+        decisions = autopilot_defaults(cfg, notes, missing, text)
+        if a.journal:
+            jp = Path(__file__).resolve().parent / "journal.py"
+            subprocess.run([sys.executable, str(jp), "init", a.journal], capture_output=True)
+            for d in decisions:
+                subprocess.run([sys.executable, str(jp), "decide", a.journal, d, "--auto"], capture_output=True)
+    else:
+        cfg["autopilot"] = False
     if a.json:
-        print(json.dumps({"config": cfg, "notes": notes, "missing": missing}, ensure_ascii=False, indent=1))
+        print(json.dumps({"config": cfg, "notes": notes, "missing": missing, "decisions": decisions},
+                         ensure_ascii=False, indent=1))
         return
     head = ["# run-config.yaml — ЧЕРНОВИК из intake.py from-text. Показать пользователю и подтвердить перед «старт».",
             "# Секреты сюда не пишутся — только имена переменных окружения."]
+    if cfg["autopilot"]:
+        head[0] = "# run-config.yaml — АВТОПИЛОТ (intake.py from-text): без опроса, решения ниже записаны в журнал."
     head += [f"# Нужно уточнить: {m}" for m in missing] + [f"# Проверить: {x}" for x in notes]
+    head += [f"# Решение автопилота: {d}" for d in decisions]
     out = "\n".join(head) + "\n\n" + miniyaml.dump(cfg) + "\n"
     if a.out:
         Path(a.out).parent.mkdir(parents=True, exist_ok=True)
@@ -293,6 +430,8 @@ def main():
             print(f"  нужно уточнить: {m}")
         for x in notes:
             print(f"  проверить: {x}")
+        for d in decisions:
+            print(f"  решение автопилота: {d}")
     else:
         print(out, end="")
 

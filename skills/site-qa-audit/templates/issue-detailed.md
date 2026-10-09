@@ -74,6 +74,9 @@
 ## Предложение
 {{suggestion}}
 
+## Как проверить
+{{verify_md}}
+
 ## Связанные issues
 {{related_links}}
 

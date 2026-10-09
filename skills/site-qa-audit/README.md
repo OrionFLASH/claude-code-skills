@@ -1,12 +1,12 @@
 # site-qa-audit
 
-Полный QA-аудит любого сайта через браузер — без макета и исходного кода. Скил проходит сайт как пользователь и как инструменты (axe, Lighthouse, анализ заголовков и ссылок, детекторы перекрытий и достижимости), сверяет находки с issues в указанных GitHub-репозиториях, перепроверяет заявленные исправления и публикует результаты по заданным правилам — или складывает черновики (dry-run).
+Полный QA-аудит любого сайта или локального веб-приложения (`file://`, без сервера) через браузер — без макета и исходного кода. Скил проходит сайт как пользователь и как инструменты (axe, Lighthouse, анализ заголовков и ссылок, детекторы перекрытий и достижимости), сверяет находки с issues в указанных GitHub-репозиториях, перепроверяет заявленные исправления и публикует результаты по заданным правилам — или складывает черновики (dry-run).
 
 Внутри скила нет конкретных сайтов, репозиториев, логинов и токенов: всё передаётся на входе.
 
 **Установка и обновление** (macOS, Windows, промпты для Claude Code) — [INSTALL.md](INSTALL.md).
 
-**Запуск.** Командой `/site-qa-audit` или обычной просьбой протестировать, проверить, найти баги на сайте, в веб-приложении, интерфейсе (вёрстка, адаптивность, доступность, скорость, SEO), в том числе с URL. Если скил подхвачен по смыслу запроса, он сначала спрашивает: «Похоже, вы хотите протестировать <что понял>. Запустить QA-аудит?» — при «Нет, это другое» ничего не создаёт. На разработку сайта и написание кода тестов не срабатывает.
+**Запуск.** Командой `/site-qa-audit` или обычной просьбой протестировать, проверить, найти баги на сайте, в веб-приложении, интерфейсе (вёрстка, адаптивность, доступность, скорость, SEO), в том числе с URL. Если скил подхвачен по смыслу запроса, он сначала спрашивает: «Похоже, вы хотите протестировать <что понял>. Запустить QA-аудит?» — при «Нет, это другое» ничего не создаёт. На разработку сайта и написание кода тестов не срабатывает. **Автопилот** — `/site-qa-audit` с подробной задачей и словом «автопилот» / «без вопросов»: без опроса и «старт», решения по умолчанию записываются в журнал, запреты и dry-run не ослабляются.
 
 ## Что проверяется
 | Направление | Кратко |
@@ -24,22 +24,25 @@
 | `product` | user stories с критериями приёмки, предложения, редизайн с приоритетом эффект/усилия |
 | `legal-ui` (по запросу) | что сайт сохраняет у гостя до согласия, сторонние сервисы, cookie-баннер и его кнопки, согласия при входе, документы, сведения об операторе, возрастная маркировка — **только факты**; нормы права — со второй проверкой и пометкой «проверить юристом» |
 
-**Главные гарантии 1.3.0.** Защита не открывается при сбое (код 4 «guard недоступен» = стоп), один путь скила на прогон (`SKILL_DIR`), состояние входа — только cookie проверяемого сайта, телефон — с настоящей эмуляцией касаний (`pointer: coarse`), каждая находка перепроверяется независимо до публикации (`repro` + `recheck.py`), исполнители возвращают находки текстом (блок `qa-findings`) и не плодят вкладки.
+**Главные гарантии.** Защита не открывается при сбое (код 4 «guard недоступен» = стоп), скил на весь прогон — копия в папке прогона (`<RUN_DIR>/skill`: обновление плагина посреди прогона не ломает исполнителей), состояние входа — только cookie проверяемого сайта, телефон — с настоящей эмуляцией касаний (`pointer: coarse`), каждая находка перепроверяется независимо до публикации (`repro` + `recheck.py`), исполнители возвращают находки текстом (блок `qa-findings`, массив с `dup_check`) и не плодят вкладки.
+
+**Что нового в 1.4.0.** Локальные приложения: `file://` и каталоги на диске (`site.local_roots`; `..`, симлинки и соседние папки — запрет), все детекторы принимают `--url file:///…`, копия приложения в прогоне (`local_app.py`). Окно браузера — одна настройка на прогон (`browser.headed`, `browser_mode.py set` посреди прогона). Задание исполнителю целиком одной командой (`brief.py`: правила, срез реестра issues, формат результата, лимит времени), одно место правды для результатов потоков (`findings/<поток>.json`, `coverage/<поток>.md`), метрики потоков автоматически и вторая волна по «не проверено» (`thread_coverage.py again`). Варианты данных и стенды в охвате, автопилот. Один issue на первопричину (`render_draft.py group --map`), блок «Как проверить», заготовка регрессионного теста (`e2e_stub.py`), скриншоты в приватный репозиторий без браузера (`publish_shots.py`), независимое ревью диффа после доработок (`references/fix-cycle.md`).
 
 ## Входные параметры (опрос)
 Если параметр не передан в запросе, скил спросит его с вариантами ответа (подробно — `references/intake.md`).
 
 | # | Параметр | По умолчанию |
 |---|----------|--------------|
-| 1 | Стартовые URL | — (обязательно) |
+| 1 | Стартовые URL (`https://…`, `file:///…` или путь к HTML-файлу на диске) | — (обязательно) |
 | 1a | Что тестируем (сценарии, раздел, форма, адаптив, доступность, скорость, SEO) и что считать успехом (`goal`) | основные сценарии; список проблем с приоритетами |
 | 2 | Разрешённые домены для навигации; куда не переходить (разделы, URL, поддомены) | домен сайта и поддомены; сторонние ресурсы (CDN, тайлы, API, шрифты) грузятся, переходы на чужие страницы — нет |
 | 3 | Авторизация: нет / тестовый аккаунт (env) / ручной вход / `manual-cdp` (пользователь уже вошёл в своём Chrome, подключение по CDP без очистки cookies) | нет |
+| 2a | Варианты данных и стенды (тестовый / предпромышленный / боевой стенд, наборы данных, роли) — каждый входит в охват (`variants`) | один |
 | 3a | Платные уровни и состояния аккаунта (гость / без Pro / с Pro), можно ли переключать — **заранее**; план проходится в каждом состоянии (`auth.paid_tiers`, `auth.account_states`) | только текущее |
 | 4 | Охват: весь сайт / раздел / список URL / текущий экран | весь сайт |
 | 5 | Направления | все |
 | 6 | Глубина: smoke / standard / deep | standard (лимит страниц 50) |
-| 7 | Устройства и браузеры | по глубине (`references/depth-matrix.md`) |
+| 7 | Устройства и браузеры; окно браузера видно или в фоне (`browser.headed`, можно поменять посреди прогона) | по глубине (`references/depth-matrix.md`); окно видно |
 | 8 | Репозитории: URL, роли (`check`, `write-new`, `copies`, `comment`), стиль, метки, подтверждение, скриншоты (`commit` / `web-upload` / `none`), раскрытие (`disclosure`, `marker`), ссылки между репозиториями (`cross_links`), недоработка в закрытом issue (`closed_claims`), шкала серьёзности (`severity_map`) | нет |
 | 9 | Запреты пользователя (свободный текст + чек-лист: покупки, оплата, регистрация, отправка форм, удаление, настройки аккаунта, рассылки, внешние ссылки…) | только базовые |
 | 10 | Плагины: все установленные / выбрать / только свои чек-листы | все установленные |
@@ -53,7 +56,7 @@
 
 Свободный запрос можно сразу разобрать в черновик конфига: `scripts/intake.py from-text` (черновик показывается на подтверждение).
 
-Результаты — в `<OUTPUT_ROOT>/qa-runs/<YYYY-MM-DD>-<host>/` (`<OUTPUT_ROOT>` — путь из запроса, иначе переменная `SITE_QA_OUTPUT_DIR`, иначе папка запуска Claude Code; в репозиторий скилов не пишется): `run-config.yaml`, `findings.json`, `report.md`, `summary.md`, `journal.md`, `claims-plan.md`, `rechecks.json`, `side_effects.md`, `screenshots/`, `drafts/`, `raw/`, `logs/`. Память о сайте (назначение, роли, сценарии, термины, источники) — `<OUTPUT_ROOT>/qa-runs/.site-context/<host>/context.md`: при следующем прогоне скил показывает её и спрашивает «как есть / обновить / изучить заново». Если `qa-runs/` оказалась внутри git-репозитория, скил сразу, до первой записи, добавляет её в `.gitignore` этого репозитория — без вопроса, если вы в запросе явно не разрешили класть результаты в репозиторий («коммить результаты», `git.allow_commit_results`); уже закоммиченные результаты не удаляет, а спрашивает про `git rm -r --cached`. «Другая папка» для итогов (`report_destinations: folder`) получает только `summary.md`, `report.md`, `findings.json` и скриншоты находок.
+Результаты — в `<OUTPUT_ROOT>/qa-runs/<YYYY-MM-DD>-<host>/` (`<OUTPUT_ROOT>` — путь из запроса, иначе переменная `SITE_QA_OUTPUT_DIR`, иначе папка запуска Claude Code; в репозиторий скилов не пишется): `run-config.yaml`, `findings.json`, `run.json`, `report.md`, `summary.md`, `journal.md`, `claims-plan.md`, `rechecks.json`, `side_effects.md`, `skill/` (копия скила), `app/` (копия локального приложения), `briefs/`, `findings/` и `coverage/` (результаты и охват потоков), `waves/` (вторая волна), `screenshots/`, `drafts/`, `raw/`, `logs/`. Память о сайте (назначение, роли, сценарии, термины, источники) — `<OUTPUT_ROOT>/qa-runs/.site-context/<host>/context.md`: при следующем прогоне скил показывает её и спрашивает «как есть / обновить / изучить заново». Если `qa-runs/` оказалась внутри git-репозитория, скил сразу, до первой записи, добавляет её в `.gitignore` этого репозитория — без вопроса, если вы в запросе явно не разрешили класть результаты в репозиторий («коммить результаты», `git.allow_commit_results`); уже закоммиченные результаты не удаляет, а спрашивает про `git rm -r --cached`. «Другая папка» для итогов (`report_destinations: folder`) получает только `summary.md`, `report.md`, `findings.json` и скриншоты находок.
 
 ## Примеры вызова
 ```text
@@ -69,13 +72,21 @@ Find bugs on https://example.org, standard depth, English report.
 Проверь юридически значимые элементы https://example.com для гостя: cookie-баннер, согласия, документы,
 на русском, английском и немецком. Страницы входа и оплаты — только прочитать.
 Протестируй https://app.example.com без Pro и с Pro и заводи находки сразу в репозиторий owner/feedback.
+/site-qa-audit автопилот: проверь офлайн-редактор file:///abs/path/app/index.html на копии, 4 потока,
+с открытым окном; стенды — тестовые и боевые данные; не нажимай «Удалить».
 ```
 
 ## Команды (основные)
 Все пути — абсолютные; `<SKILL_DIR>` — папка скила, `<RUN_DIR>` — папка прогона. Подробности — в указанных `references/`.
 ```bash
-# путь установленного скила для run-config и заданий исполнителей (setup.md)
+# путь установленного скила и его копия в прогоне — SKILL_DIR для run-config и заданий (setup.md, run-files.md)
 python3 <SKILL_DIR>/scripts/skill_dir.py                       # --json — все варианты, --check PATH — проверка
+python3 <SKILL_DIR>/scripts/skill_snapshot.py <RUN_DIR> --update-config
+# локальное приложение: копия в прогоне и детекторы по file:// (local-files.md)
+python3 <SKILL_DIR>/scripts/local_app.py copy /abs/path/to/app <RUN_DIR> --update-config
+node <SKILL_DIR>/scripts/node/occlusion.js --url file:///abs/path/app/index.html --frames all --rules <RUN_DIR>/rules.json
+# окно браузера на весь прогон (devices-auth.md)
+python3 <SKILL_DIR>/scripts/browser_mode.py set <RUN_DIR> --headed --slowmo 400
 # свободный запрос → черновик run-config.yaml (intake.md)
 python3 <SKILL_DIR>/scripts/intake.py from-text --file request.txt --output-dir <OUTPUT_ROOT> --out <RUN_DIR>/run-config.yaml
 # журнал прогона для продолжения после обрыва (run-files.md)
@@ -113,15 +124,23 @@ node <SKILL_DIR>/scripts/node/shot.js --cdp http://127.0.0.1:9222 --page-match e
 node <SKILL_DIR>/scripts/node/publish_web.mjs --repo owner/repo --title "<заголовок>" --body-file <RUN_DIR>/drafts/owner__repo/01.md --shot <RUN_DIR>/screenshots/F-001-annotated.png --cdp http://127.0.0.1:9222
 node <SKILL_DIR>/scripts/node/comment_web.mjs --repo owner/repo --number 42 --body-file <RUN_DIR>/drafts/owner__repo/42-comment.md --shot <RUN_DIR>/screenshots/F-007-annotated.png --cdp http://127.0.0.1:9222
 node <SKILL_DIR>/scripts/node/publish_web.mjs --attach-to 12 --repo owner/repo --shots-dir <RUN_DIR>/screenshots   # в существующий issue
-# находки исполнителя из блока qa-findings его последнего сообщения (parallelism.md)
+# задание исполнителю, его результат, охват и вторая волна (parallelism.md)
+python3 <SKILL_DIR>/scripts/brief.py <RUN_DIR> --thread qa-ux --directions ux,product --minutes 25
 python3 <SKILL_DIR>/scripts/ingest_findings.py <RUN_DIR> --from <RUN_DIR>/raw/qa-ux-message.md --thread qa-ux
+python3 <SKILL_DIR>/scripts/validate_findings.py --array <RUN_DIR>/findings/qa-ux.json --run <RUN_DIR>/run.json
+python3 <SKILL_DIR>/scripts/thread_coverage.py summary <RUN_DIR>
+python3 <SKILL_DIR>/scripts/thread_coverage.py again <RUN_DIR> --minutes 25
 # независимая перепроверка и допуск к публикации; правовые нормы — вторая проверка (parallelism.md, legal-ui.md)
 python3 <SKILL_DIR>/scripts/recheck.py run <RUN_DIR>
 python3 <SKILL_DIR>/scripts/recheck.py set <RUN_DIR> --id F-004 --status confirmed --by "qa-verify: Chrome 1440×900, шаги 1–3"
 python3 <SKILL_DIR>/scripts/recheck.py legal <RUN_DIR> --id F-007 --by "второй исполнитель qa-legal" --result confirmed
 python3 <SKILL_DIR>/scripts/recheck.py gate <RUN_DIR>
-# мелкие находки по теме — один issue; прямая публикация (repo-sync.md)
+# один issue на первопричину; мелкие находки по теме; заготовка теста; скриншоты без браузера (repo-sync.md)
+python3 <SKILL_DIR>/scripts/render_draft.py suggest-groups <RUN_DIR>/findings.json --out <RUN_DIR>/groups.yaml
+python3 <SKILL_DIR>/scripts/render_draft.py group <RUN_DIR>/findings.json --map <RUN_DIR>/groups.yaml --run-dir <RUN_DIR>
 python3 <SKILL_DIR>/scripts/render_draft.py group <RUN_DIR>/findings.json --ids F-003,F-007,F-009 --out <RUN_DIR>/drafts/owner__repo/group.md
+python3 <SKILL_DIR>/scripts/e2e_stub.py <RUN_DIR>/findings.json --id F-001 --out <RUN_DIR>/drafts/e2e/F-001.spec.ts
+python3 <SKILL_DIR>/scripts/publish_shots.py plan <RUN_DIR> --repo owner/repo     # push … --confirm-push — после «да»
 python3 <SKILL_DIR>/scripts/direct_publish.py check <RUN_DIR> --id F-001 --repo owner/repo
 python3 <SKILL_DIR>/scripts/direct_publish.py record <RUN_DIR> --id F-001 --repo owner/repo --number 12 --url https://github.com/owner/repo/issues/12
 # вкладки прогона: одна на профиль устройства, уборка только своих (parallelism.md)
@@ -166,11 +185,13 @@ node <SKILL_DIR>/scripts/node/device_context.js state-rm --out <RUN_DIR>/logs/au
 - Playwright MCP нельзя делить между параллельными субагентами; параллельный браузер — только через `playwright-cli`, не больше 4 потоков (на опыте проверено 2).
 - `--allowed-origins`/`--blocked-origins` Playwright MCP — не граница безопасности; основная защита — проверка `url_guard` перед каждым действием. Она не заменяет здравый смысл исполнителя.
 - Капча, 2FA, вход через внешние аккаунты — только ручной вход пользователя.
-- gh не прикладывает картинки к issue: скриншоты коммитятся в свой репозиторий (`commit`), загружаются через веб-форму GitHub в браузере пользователя (`web-upload`, нужен вход пользователя и Chrome с CDP-портом; интерфейс GitHub может измениться — тогда скрипт останавливается) или остаются локально.
+- gh не прикладывает картинки к issue: скриншоты загружаются в репозиторий с правом push через API в отдельную ветку (`publish_shots.py`, без браузера; в публичном репозитории они станут публичными), через веб-форму GitHub в браузере пользователя (`web-upload`, нужен вход пользователя и Chrome с CDP-портом; интерфейс GitHub может измениться — тогда скрипт останавливается) или остаются локально (контактный лист в сводке).
+- `file://`: Playwright MCP и playwright-cli по умолчанию блокируют локальные файлы — скил даёт playwright-cli разрешение файлом `<RUN_DIR>/playwright-cli.json` (граница — `url_guard.py` перед каждым переходом), MCP-поток для локального приложения заменяется node-скриптами; `headers.js` и `lighthouse.js` для `file://` не применимы.
+- Метрики потоков считаются по журналу проверок guard (`--trace`): действия, сделанные без проверки guard, в них не попадут.
 - `guard.js` применяет правила проверяемого сайта; к браузеру GitHub при `web-upload` он не применяется — там защита: замок хоста, только кнопка «Comment», никогда Close/Reopen, явное `--confirm-publish`.
 - `manual-cdp`: работа идёт в браузере пользователя — параллельные потоки запрещены, cookies не очищаются, файл `logs/auth-state.json` — секрет и удаляется в конце.
 - Детекторы перекрытий и достижимости находят кандидатов; итоговую находку подтверждает исполнитель по скриншоту. В мобильном WebKit жесты недоступны — достижимость проверяется эмуляцией того же устройства в Chromium.
-- Новые возможности 1.1.0–1.3.0 проверены на локальных фикстурах (`tests/`), не на реальных сайтах и не на github.com.
+- Новые возможности 1.1.0–1.4.0 проверены на локальных фикстурах (`tests/`, в том числе приложение на `file://`), не на реальных сайтах и не на github.com (`publish_shots.py` — на поддельном gh).
 - `legal-ui` фиксирует факты, а не даёт юридическое заключение: нормы права — «возможно применимо», вторая проверка другим исполнителем и юристом обязательна.
 - `recheck.py` запускает только скрипты скила; многошаговые сценарии перепроверяет отдельный исполнитель (`recheck.py set`).
 - `rtl.js` и `legal_guest.js` дают кандидатов и факты для ручной проверки по скриншоту.
@@ -183,15 +204,17 @@ SKILL.md                порядок работы
 INSTALL.md              установка и обновление (macOS, Windows), промпты для Claude Code
 references/             setup, intake, safety-rules, depth-matrix, parallelism, plugins-map, repo-sync,
                         severity, environment-notes, screenshots, claims, run-files, browser-guard,
-                        side-effects, layout-detectors, devices-auth, web-upload, checklists/ (12 направлений)
+                        side-effects, layout-detectors, devices-auth, web-upload, local-files, fix-cycle,
+                        checklists/ (12 направлений)
 templates/              run-config.example.yaml, finding.schema.json, issue-detailed.md,
                         issue-comment.md, user-story.md, run-report.md, site-context.md
-scripts/                check_env, skill_dir, url_guard, intake, journal, fetch_issues, read_templates, claims,
-                        fingerprint, render_draft, validate_findings, build_report, gitignore_helper, export_results,
-                        ingest_findings, recheck, direct_publish, tabs, nav_lock, snap_mcp,
+scripts/                check_env, skill_dir, skill_snapshot, local_app, browser_mode, url_guard, intake, journal,
+                        fetch_issues, read_templates, claims, fingerprint, render_draft, e2e_stub, publish_shots,
+                        validate_findings, build_report, gitignore_helper, export_results, brief, coverage,
+                        ingest_findings, recheck, direct_publish, tabs, runcfg, nav_lock, snap_mcp,
                         snap_cdp, node/ (a11y, lighthouse, headers, links, probe, annotate, shot, guard,
                         invariants, occlusion, reachability, targets, legal_guest, rtl, repro, device_context,
                         frames, publish_web, comment_web), shared/ (вендоренные модули)
-tests/                  unit.sh (офлайн + наборы test_stream_a, test_v12, test_v121, test_v130, test_stream_b/c,
-                        test_v130_browser), фикстуры, сценарий dry-run
+tests/                  unit.sh (офлайн + наборы test_stream_a, test_v12, test_v121, test_v130, test_v140,
+                        test_stream_b/c, test_v130_browser, test_v140_browser — file://), фикстуры, сценарий dry-run
 ```

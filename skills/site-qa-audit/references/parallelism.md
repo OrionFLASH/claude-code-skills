@@ -62,6 +62,25 @@
 ## Находки — блоком в последнем сообщении (S-5)
 Субагенту запись файлов может быть запрещена («subagents should return findings as text») — поэтому исполнитель **не пишет** `findings.json`, `report.md` и другие отчёты. Он возвращает находки в последнем сообщении блоком ```` ```qa-findings ```` (формат — `python3 <SKILL_DIR>/scripts/ingest_findings.py example`), а оркестратор сохраняет сообщение и выполняет `python3 <SKILL_DIR>/scripts/ingest_findings.py <RUN_DIR> --from <файл сообщения> --thread <qa-id>`: проверка по схеме, id `F-NNN`, `not_checked` в findings.json, вопросы — в `questions.json`, само сообщение — в `raw/messages/`. Ошибка схемы — код 1, ничего не записано (вернуть исполнителю или `--partial`). Скриншоты исполнитель по-прежнему делает скриптами (`shot.js`) в `<RUN_DIR>/screenshots/<qa-id>-*.png` — их пишет скрипт, а не инструмент записи.
 
+**Один формат результата.** В блоке `findings` — **массив** находок без `id` и `fingerprint` (может быть пустым); у каждой — `repro` и `dup_check` (`done` — сверено со срезом реестра из задания, `skipped` — не сверялось); рядом `checked` (что проверено), `not_checked` (что нет, почему, `category`: `time` / `forbidden` / `auth` / `environment` / `data` / `other`), `questions`, по желанию `metrics`. Исполнитель проверяет блок до отправки: `python3 <SKILL_DIR>/scripts/validate_findings.py --array -` (JSON блока на stdin); оркестратор — файлы: `validate_findings.py --array <RUN_DIR>/findings/<qa-id>.json --run <RUN_DIR>/run.json`.
+
+**Одно место правды.** После `ingest_findings.py` результат потока — в файлах, пересказ в сообщении не нужен и не используется:
+| Файл | Что |
+|------|-----|
+| `findings/<qa-id>.json` | массив находок потока (с присвоенными `F-NNN`) |
+| `coverage/<qa-id>.json`, `coverage/<qa-id>.md` | проверено / не проверено / вопросы и **метрики потока** (`thread_coverage.py`, ниже) |
+| `run.json` | сведения о прогоне (схема `run`): то же, что `findings.json → run` |
+| `findings.json` | рабочий файл прогона: все находки, `not_checked` (без повторов) |
+Повторное уведомление с тем же сообщением распознаётся по хэшу (`raw/messages/index.json`): «уже принято», ничего не меняется (код 0; `--force` — принять снова, дубли по заголовку и адресу всё равно пропускаются). Находка без `dup_check` получает `skipped` и предупреждение — такие сверяет `fingerprint.py match` (`repo-sync.md` §2).
+
+## Метрики потока и лимит времени
+- **Делить работу так, чтобы поток укладывался в 20–30 минут** (`brief.py --minutes`): на опыте потоки шли 25–45 минут, и сложные сценарии оставались «не проверено». Больше страниц или направлений — больше потоков или вторая волна, а не один длинный поток.
+- Метрики считаются **автоматически** — исполнитель их не пересказывает: `brief.py` регистрирует поток (`threads.json`, время начала), исполнитель вызывает `url_guard.py nav/action … --trace <RUN_DIR>/logs/guard-<qa-id>.jsonl` (строка на каждое решение; без значений query и текста контекста), `ingest_findings.py` фиксирует время результата. `python3 <SKILL_DIR>/scripts/coverage.py build <RUN_DIR>` → в `coverage/<qa-id>.md`: время (от задания до результата; ⚠ — больше лимита), переходы (уникальные страницы), проверенные действия (уникальные элементы), запреты и confirm, находки по severity; `thread_coverage.py summary <RUN_DIR>` — таблица потоков (`coverage/summary.md`, раздел «Охват по потокам» в report.md и summary.md).
+- **Ход потока без чтения стенограммы** — та же команда до результата: `thread_coverage.py build <RUN_DIR> --thread qa-ux` показывает, сколько минут идёт поток, сколько страниц открыто и действий проверено по журналу guard; поток стоит на месте дольше 10 минут — спросить исполнителя.
+
+## Вторая волна по «не проверено»
+`python3 <SKILL_DIR>/scripts/coverage.py again <RUN_DIR> [--minutes 25] [--per-item 5] [--threads N]` — одной командой: собирает «не проверено» всех потоков (`findings.json` и `coverage/*.json`, без повторов), раскладывает по категориям, пункты под запретом (`forbidden`) откладывает до решения пользователя (`--include-forbidden` — после «разрешить»), остальное делит на потоки (не больше `parallel.max_workers`, максимум 4) так, чтобы каждый укладывался в `--minutes`, и пишет `waves/<n>/plan.md`, `plan.json`, `waves/<n>/<поток>.json`; в журнал — todo по потокам. Дальше для каждого потока: `brief.py <RUN_DIR> --thread qa-w2-1 --items <RUN_DIR>/waves/2/qa-w2-1.json --minutes 25` и обычный цикл (исполнитель → `ingest_findings.py` → `thread_coverage.py build`). Не влезло — `later` в плане, следующая волна той же командой.
+
 ## Независимая перепроверка (S-9) — обязательна до публикации
 1. У каждой находки — поле `repro`: как перезапустить измерение одной командой (`{url, js}` — выражение «дефект есть»; `{url, selector, assert}` — проверка рамки элемента; `{argv}` — команда скрипта скила). Без `repro` находка публикуется только после ручной независимой проверки.
 2. Оркестратор (не исполнитель, нашедший дефект) запускает `python3 <SKILL_DIR>/scripts/recheck.py run <RUN_DIR>` — каждая находка воспроизводится **дважды**; результат — `recheck` в находке (`confirmed`, `flaky`, `not-reproduced`, `error`, `refused`). Запускаются только скрипты скила.
@@ -70,24 +89,43 @@
 5. Правовые и финансовые утверждения — вторая проверка другим исполнителем: `recheck.py legal … --result confirmed|corrected|rejected` (`checklists/legal-ui.md`).
 
 ## Задание субагенту (шаблон)
+Готовое задание целиком собирает `brief.py` (подставляет значения из run-config, блок правил §4 дословно, срез реестра, формат результата, окно браузера, лимит времени) и регистрирует поток в `<RUN_DIR>/threads.json` — время потока считается от этой минуты:
+```bash
+python3 <SKILL_DIR>/scripts/brief.py <RUN_DIR> --thread qa-ux --directions ux,product --pages "главная, каталог" \
+  --devices pixel7,desktop --minutes 25 --out <RUN_DIR>/briefs/qa-ux.md
+```
+Текст файла передать исполнителю целиком. Вручную — тот же шаблон, `{{…}}` заменить значениями:
 ```text
-Ты — исполнитель site-qa-audit, поток <qa-id>, направления: <list>.
-SKILL_DIR: <SKILL_DIR> (путь из run-config.yaml → skill_dir). ДО ПЕРВОГО ДЕЙСТВИЯ:
-  python3 <SKILL_DIR>/scripts/skill_dir.py --check <SKILL_DIR> && python3 <SKILL_DIR>/scripts/url_guard.py selftest
+Ты — исполнитель site-qa-audit, поток {{THREAD}}, направления: {{DIRECTIONS}}.
+SKILL_DIR: {{SKILL_DIR}} (путь из run-config.yaml → skill_dir — копия скила в прогоне). ДО ПЕРВОГО ДЕЙСТВИЯ:
+  python3 {{SKILL_DIR}}/scripts/skill_dir.py --check {{SKILL_DIR}} && python3 {{SKILL_DIR}}/scripts/url_guard.py selftest
   ошибка, «No such file» или код ≠ 0 — СТОП, ничего не открывать, вернуть «SKILL_DIR недоступен: <вывод>».
-Браузер: ТОЛЬКО `playwright-cli -s=<qa-id> …` (Bash). Playwright MCP НЕ использовать. Вкладки — по реестру tabs.py
+Браузер: ТОЛЬКО `playwright-cli -s={{THREAD}} …` (Bash). Playwright MCP НЕ использовать. Вкладки — по реестру tabs.py
 (одна на профиль устройства); close-all / kill-all и чужие сессии — НИКОГДА.
-Конфиг: <RUN_DIR>/run-config.yaml. Страницы: <list or file>. Ширины/браузеры: <…>.
-Контекст сайта (роли, сценарии, термины, «задумано так»): <OUTPUT_ROOT>/qa-runs/.site-context/<host>/context.md — прочитать до начала.
-Чек-листы: <SKILL_DIR>/references/checklists/<direction>.md — раздел(ы) <Smoke|Standard|Deep>.
-Усилители (методики): <skills from plugins-map> — используй как источник проверок, действия выполняй сам под правилами.
-<БЛОК ПРАВИЛ из safety-rules.md §4, дословно, с RULES_TABLE>
-Выход: файлы находок и отчёты НЕ писать. Скриншоты — скриптами в <RUN_DIR>/screenshots/<qa-id>-*.png.
-В ПОСЛЕДНЕМ сообщении — блок ```qa-findings``` (формат: ingest_findings.py example): находки по
-templates/finding.schema.json без id и fingerprint, у каждой repro (команда/JS/селектор+URL для перезапуска),
-not_checked — что не проверено и почему, questions — вопросы (confirm-действия, «баг или задумано»: не решай сам).
+Сессию открывать: playwright-cli -s={{THREAD}} open <URL> --config {{RUN_DIR}}/playwright-cli.json (окно: {{WINDOW}};
+режим меняет только оркестратор — browser_mode.py; попросит — закрыть свою сессию и открыть заново).
+Журнал проверок: к КАЖДОМУ url_guard.py nav/action добавлять --trace {{RUN_DIR}}/logs/guard-{{THREAD}}.jsonl
+(по нему считаются время, страницы и проверенные элементы потока).
+Конфиг: {{RUN_DIR}}/run-config.yaml. Страницы: {{PAGES}}. Устройства и браузеры: {{DEVICES}}.
+Варианты данных и стенды: {{VARIANTS}} (у находки — поле variant).
+Время: {{MINUTES}}. Не успеваешь — закончи текущую проверку, остальное верни в not_checked с category: time.
+Задачи: {{ITEMS}}
+Контекст сайта (роли, сценарии, термины, «задумано так»): {{CONTEXT}} — прочитать до начала.
+Чек-листы: {{CHECKLISTS}} — раздел(ы) {{DEPTH}}.
+Усилители (методики): {{ENHANCERS}} — используй как источник проверок, действия выполняй сам под правилами.
+Известные issues — НЕ дублировать; повтор закрытого «исправлено» — регрессия (dup_of):
+{{REGISTRY}}
+{{RULES_BLOCK}}
+Выход: файлы находок и отчёты НЕ писать. Скриншоты — скриптами в {{RUN_DIR}}/screenshots/{{THREAD}}-*.png.
+В ПОСЛЕДНЕМ сообщении — один блок ```qa-findings``` (формат ниже): findings — МАССИВ находок по
+templates/finding.schema.json без id и fingerprint; у каждой repro (команда/JS/селектор+URL для перезапуска) и
+dup_check (done — сверено со срезом выше, skipped — не сверялось); checked — что проверено; not_checked — что не
+проверено, почему и category; questions — вопросы (confirm-действия, «баг или задумано»: не решай сам).
+Проверить блок перед отправкой: python3 {{SKILL_DIR}}/scripts/validate_findings.py --array - (JSON блока на stdin).
 Правовые нормы — только как «возможно применимо», в legal.norms; вывода о нарушении не делать.
-В конце: tabs.py cleanup <RUN_DIR> --owner <qa-id> и playwright-cli -s=<qa-id> close (только свою сессию).
+Пересказывать находки текстом не нужно: оркестратор сохранит блок в findings/{{THREAD}}.json и coverage/{{THREAD}}.md.
+В конце: tabs.py cleanup {{RUN_DIR}} --owner {{THREAD}} и playwright-cli -s={{THREAD}} close (только свою сессию).
+{{FORMAT}}
 ```
 
 ## Темп и нагрузка на сайт

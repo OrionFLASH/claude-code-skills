@@ -22,7 +22,7 @@
 //   node guard.js check --url URL --selector "text=Поддержать" --rules rules.json [--log blocked.jsonl]
 const path = require('path');
 const { execFile } = require('child_process');
-const { parseArgs, loadRules, navAllowed, resourceBlocked, appendJsonl, sleep, GuardUnavailableError, launchOptions } = require('./lib');
+const { parseArgs, loadRules, navAllowed, resourceBlocked, appendJsonl, sleep, GuardUnavailableError, launchOptions, toUrl } = require('./lib');
 const { locate } = require('./frames');
 
 const SCRIPTS_DIR = path.join(__dirname, '..');
@@ -51,7 +51,7 @@ const bridgeDir = () => process.env.SITE_QA_GUARD_PY_DIR || SCRIPTS_DIR;
 function cfgFromRules(rules) {
   const r = (rules && rules.rules) || {};
   return {
-    site: { allowed_domains: r.allowed_domains || [] },
+    site: { allowed_domains: r.allowed_domains || [], local_roots: (r.local_roots || []).map(x => (x && x.path) || x) },
     scope: { exclude_patterns: r.exclude_patterns || [] },
     rules: {
       forbidden_domains: r.forbidden_domains || [], forbidden_url_patterns: r.forbidden_url_patterns || [],
@@ -327,6 +327,7 @@ module.exports = { guardContext, guardedPage, checkAction, checkUrl, loadGuardRu
 if (require.main === module) {
   (async () => {
     const a = parseArgs(process.argv.slice(2));
+    a.url = toUrl(a.url);
     if (a._[0] !== 'check' || !a.url || !a.selector) {
       console.error('node guard.js check --url URL --selector SEL --rules rules.json [--log blocked.jsonl] [--browser chromium]');
       process.exit(1);

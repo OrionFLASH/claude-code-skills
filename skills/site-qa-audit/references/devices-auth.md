@@ -18,7 +18,14 @@
 
 Также принимаются любое имя из `playwright.devices`, **`WxH` — десктопное окно** этого размера (без касаний, `pointer: fine`) и **`WxH@mobile` — телефон** этого размера (`isMobile`, `hasTouch`, мобильный UA). Устройства Apple по умолчанию запускаются **отдельным WebKit**; `--browser chromium` — эмуляция в Chromium (нужна для `reachability.js`: в мобильном WebKit нет колеса и CDP-жестов).
 
-Окно браузера по умолчанию **видимое**; `SITE_QA_HEADLESS=1` — скрыть, `SITE_QA_SLOWMO=<мс>` — замедлить действия в видимом окне (по умолчанию 250). Тесты скила ставят `SITE_QA_HEADLESS=1` сами.
+## Окно браузера
+Одно место на весь прогон — `run-config.yaml → browser` (`headed: true|false|null`, `slowmo: <мс>|null`), его видят все браузерные скрипты скила через `rules.json`. Переключить **посреди прогона** (например, пользователь попросил «проводи тесты с открытым окном») — одна команда, без сообщений исполнителям:
+```bash
+python3 <SKILL_DIR>/scripts/browser_mode.py set <RUN_DIR> --headed --slowmo 400   # или --headless / --default
+python3 <SKILL_DIR>/scripts/browser_mode.py show <RUN_DIR>                         # что действует и откуда
+playwright-cli -s=qa-ux open <URL> $(python3 <SKILL_DIR>/scripts/browser_mode.py show <RUN_DIR> --cli)
+```
+Порядок (первое заданное): флаг команды `--headed` / `--headless` / `--slowmo <мс>` (любой браузерный node-скрипт) → `run-config.yaml → browser` → `SITE_QA_HEADLESS=1` (скрыть) и `SITE_QA_SLOWMO=<мс>` → по умолчанию окно **видно**, замедление 250 мс. Следующий запуск любого node-скрипта берёт новый режим сам; уже открытые сессии `playwright-cli` — после переоткрытия своей сессии; Playwright MCP настраивается при запуске (`--headless`) и не переключается. Служебные запуски (`guard.js check`, `device_context.js media`, рендер аннотаций) всегда без окна. Тесты скила ставят `SITE_QA_HEADLESS=1` сами.
 
 ## Эмуляция касаний: `pointer: coarse` (обязательная проверка)
 Многие сайты включают крупные цели нажатия и мобильную раскладку только при `@media (pointer: coarse)` / `(hover: none)`. Окно шириной телефона без эмуляции касаний показывает **десктопную** раскладку — измерения на нём дают ложные находки («кнопка 15×12 px»).

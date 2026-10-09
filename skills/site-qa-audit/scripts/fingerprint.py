@@ -6,27 +6,66 @@
   fingerprint.py match findings.json registry.json [--out matches.json]
                                                   кандидаты совпадений с issues (точные по маркеру и нечёткие)
   fingerprint.py one --direction D --check C --url U [--element E]   отпечаток одной находки
+  --config run-config.yaml (у любой команды; по умолчанию run-config.yaml рядом с findings.json) — каталоги
+  site.local_roots для адресов file://
 
 Отпечаток не зависит от формулировки заголовка: direction + check_id + шаблон URL + элемент.
+Адрес file:// — путь от каталога local_roots («file/<путь>»), не абсолютный: копия приложения в другой папке
+(другой прогон, другая машина) даёт тот же отпечаток. Без каталога — два последних элемента пути.
 Маркер в issue: <!-- site-qa-audit:fp=<fingerprint> -->
 """
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 MARKER_RX = re.compile(r"<!--\s*(?:site-qa-audit:fp=|qa-fp:)([0-9a-f]{12,40})\s*-->")  # skill or neutral marker
 STOP = set("the a an of to in on for and or is are not with без и в на не по для из к от что как при".split())
 
 
+LOCAL_ROOTS = []  # [{"path", "real"}] from run-config (set_roots); file:// URLs are made relative to them
+
+
+def set_roots(config_path):
+    """Local roots of the run (site.local_roots, allowed_domains: [file]) for file:// templates; silent if absent."""
+    global LOCAL_ROOTS
+    if not config_path or not Path(config_path).is_file():
+        return
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    sys.path.insert(0, str(Path(__file__).resolve().parent / "shared"))
+    try:
+        import miniyaml  # noqa: E402
+        import url_guard  # noqa: E402
+        LOCAL_ROOTS = url_guard.local_roots_of(miniyaml.load_file(str(config_path)) or {})
+    except Exception as ex:  # noqa: BLE001 — a fingerprint never fails because of the config; heuristic is used
+        sys.stderr.write(f"fingerprint: local_roots не прочитаны ({ex}) — для file:// два последних элемента пути\n")
+
+
+def local_rel(url):
+    """file:// URL -> path relative to a local root (or the last two path elements) without the leading slash."""
+    p = unquote(urlsplit(url).path or "")
+    for r in LOCAL_ROOTS:
+        for base in (r["path"], r["real"]):
+            b = base.replace("\\", "/").rstrip("/")
+            if p == b or p.startswith(b + "/") or p.lstrip("/").startswith(b.lstrip("/") + "/"):
+                return p.lstrip("/")[len(b.lstrip("/")):].lstrip("/")
+    return "/".join([s for s in p.split("/") if s][-2:])
+
+
 def url_template(url):
-    """https://Example.com/items/123?id=5#x -> example.com/items/:id  (query/fragment отбрасываются)."""
+    """https://Example.com/items/123?id=5#x -> example.com/items/:id  (query/fragment отбрасываются).
+    file:///…/app/sub/page.html -> file/sub/page.html (от каталога local_roots)."""
     if not url:
         return ""
     p = urlsplit(url)
+    if p.scheme.lower() == "file":
+        segs = [s.lower() for s in local_rel(url).split("/") if s]
+        frag = p.fragment if p.fragment.startswith("/") else ""
+        return "file/" + "/".join(segs) + (("#" + frag) if frag else "")
     segs = []
     for seg in (p.path or "/").split("/"):
         if not seg:
@@ -161,18 +200,24 @@ def cmd_match(findings_path, registry_path, out=None, threshold=0.35):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("compute").add_argument("findings")
-    sub.add_parser("dedupe").add_argument("findings")
+    for name in ("compute", "dedupe"):
+        c = sub.add_parser(name)
+        c.add_argument("findings")
+        c.add_argument("--config", help="run-config.yaml (local_roots для file://); по умолчанию рядом с findings.json")
     m = sub.add_parser("match")
     m.add_argument("findings")
     m.add_argument("registry")
     m.add_argument("--out")
     m.add_argument("--threshold", type=float, default=0.35)
+    m.add_argument("--config")
     o = sub.add_parser("one")
     for k in ("--direction", "--check", "--url"):
         o.add_argument(k, required=True)
     o.add_argument("--element", default="")
+    o.add_argument("--config")
     a = ap.parse_args()
+    cfg = a.config or (str(Path(a.findings).resolve().parent / "run-config.yaml") if getattr(a, "findings", None) else None)
+    set_roots(cfg)
     if a.cmd == "compute":
         cmd_compute(a.findings)
     elif a.cmd == "dedupe":

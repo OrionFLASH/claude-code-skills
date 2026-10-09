@@ -8,7 +8,11 @@ const { parseArgs, sleep, writeOut, urlsFromArgs } = require('./lib');
 
 (async () => {
   const args = parseArgs(process.argv.slice(2), { form: 'both', categories: 'performance,accessibility,best-practices,seo' });
-  const urls = urlsFromArgs(args);
+  const all = urlsFromArgs(args);
+  // file:// (local app): Lighthouse measures network loading of a site — not applicable, reported as such
+  const notApplicable = all.filter(u => /^file:/i.test(u)).map(url => ({ url, reason: 'не применимо к file:// — скорость загрузки по сети не измеряется' }));
+  const urls = all.filter(u => !/^file:/i.test(u));
+  if (!urls.length) { writeOut(args.out, { tool: 'lighthouse', results: [], notApplicable }); return; }
   const { default: lighthouse, desktopConfig } = await import('lighthouse');
   const chromeLauncher = await import('chrome-launcher');
   const chromePath = process.env.CHROME_PATH || require('playwright').chromium.executablePath();
@@ -44,5 +48,5 @@ const { parseArgs, sleep, writeOut, urlsFromArgs } = require('./lib');
       await sleep(1000);
     }
   } finally { await chrome.kill(); }
-  writeOut(args.out, { tool: 'lighthouse', version: require('lighthouse/package.json').version, results });
+  writeOut(args.out, { tool: 'lighthouse', version: require('lighthouse/package.json').version, results, ...(notApplicable.length ? { notApplicable } : {}) });
 })().catch(e => { console.error(e); process.exit((e && e.exitCode) || 1); });
