@@ -10,6 +10,7 @@ mode: dry-run                 # dry-run (черновики issues в drafts/) |
 publish_mode: batch           # batch — черновики и сводная таблица; direct — по запросу пользователя: каждая находка
                               # «воспроизвести дважды → дубли → issue» сразу (references/repo-sync.md §4a)
 language: ru                  # язык отчётов и issues
+lite: false                   # true — лёгкий (исследовательский) режим: один стенд, без матрицы (intake.md → «Лёгкий режим»)
 
 app:
   source: apk                 # apk | splits | apks | aab | installed
@@ -65,6 +66,14 @@ devices:                      # железо и вариации (depth-matrix.m
 
 matrix:
   mode: reduced               # reduced (основной профиль на всех API, остальные — на целевом) | full (все сочетания)
+  cells: []                   # свои ячейки со сценарием (depth-matrix.md → «Свои AVD, профиль 8 ГБ и свои ячейки»)
+  # Пример (devices.hardware может содержать и имя своего AVD: [qa-api34-pixel7-8gb-4c]):
+  #  - id: rec60
+  #    api: 34
+  #    hardware: phone-8gb      # phone-8gb | phone | … | имя своего AVD qa-…
+  #    scenario: запись 60 мин, экран выключен
+  #    manual_minutes: 10
+  #    background_minutes: 60   # фоновая задача: adb_helpers.py job … -- soak (long-runs.md)
 
 stands:
   create_avds: true           # создавать AVD qa-* (avd_manager.py); false — только подключённые устройства
@@ -102,9 +111,16 @@ repos: []
 #    labels: existing            # existing | create | inline | none
 #    extra_labels: [android]
 #    confirm_before_publish: true
-#    attachments: none           # none | commit (скриншоты коммитятся в ветку/папку, нужен push)
-#    attachments_base: null      # URL папки с закоммиченными вложениями
-#    disclosure: full            # full | none
+#    form: null                  # auto — их форма issue (.github/ISSUE_TEMPLATE, issue_forms.py) | путь к .yml | null
+#    steps: auto                 # auto | human — шаги действиями пользователя вместо команд adb
+#    attachments: none           # none | branch (скриншоты веткой до создания issues, attachments.py) | commit
+#    attachments_repo: null      # репозиторий картинок (по умолчанию этот же); нужен push
+#    attachments_branch: null    # например qa-screens
+#    attachments_dir: null       # например qa/2026-10-09
+#    attachments_base: null      # URL папки с вложениями (при branch собирается сам)
+#    disclosure: tool            # tool (по умолчанию: подпись и маркер скила) | none (без упоминания инструмента;
+#                                # в чужом трекере — предупреждение: может ввести мейнтейнеров в заблуждение)
+#    ours: false                 # true — свой репозиторий (без предупреждения при disclosure: none)
 #    cross_links: true
 #    marker: skill               # skill | neutral | none
 #    severity_map:
@@ -154,9 +170,19 @@ rules:
   #    exact: true              # только точный текст: «Allow» не задевает «Don’t allow»
   #    context: ["снимать фото", "take pictures"]
   require_confirmation_actions: []
+  preapproved_packages: []    # системные приложения «спросить», разрешённые на весь прогон после одного вопроса:
+                              # [com.google.android.documentsui] — выбор файла (import-file); deny не снимают
   preapproved_actions: []     # снимают только confirm, никогда deny; сюда же — «разрешить на эмуляторе» для действия
                               # с побочным эффектом, запрещённым пользователем (intake.md → «Запрет против сценария»)
   adb_require_confirmation: []  # регэкспы adb-команд, которые всегда спрашивать
+
+publish:                      # общие настройки публикации (repos[] главнее; repo-sync.md)
+  disclosure: tool            # tool (по умолчанию) | none — только по явной просьбе «без упоминания инструмента»
+  steps: auto                 # auto | human
+
+logcat:
+  noise_tags: []              # свои шумовые теги к стандартным (EGL_emulation, BufferPoolAccessor*…); «Префикс*»
+  keep_noise: false           # true — ничего не отбрасывать
 
 plugins:
   policy: all-installed       # all-installed | selected | own-only

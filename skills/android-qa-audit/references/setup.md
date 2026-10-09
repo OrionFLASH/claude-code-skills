@@ -12,7 +12,7 @@ python3 <SKILL_DIR>/scripts/check_env.py --fast --json <RUN_DIR>/env.json     # 
 | Компонент | Обязательно | Если нет |
 |-----------|-------------|----------|
 | Python 3.9+ | да | установить (только стандартная библиотека, pip не нужен) |
-| Android SDK: platform-tools (adb) | да | `INSTALL.md` → «Android SDK»; найден, но не в PATH — WARN: скил вызывает по полному пути, для терминала — строка для `~/.zshrc` / PowerShell |
+| Android SDK: platform-tools (adb) | да | `INSTALL.md` → «Android SDK»; найден, но не в PATH — **OK** (скил вызывает по полному пути), в примечании — строка для `~/.zshrc` / PowerShell для своего терминала |
 | build-tools (aapt2, apksigner) | да (разбор APK) | `sdkmanager "build-tools;35.0.0"` |
 | emulator + образ под ABI хоста + AVD или cmdline-tools | для эмуляторов | без них — только подключённые устройства; нет ни того, ни другого — FAIL «нет стенда» |
 | cmdline-tools (sdkmanager, avdmanager) | для создания AVD и загрузки образов | Android Studio → SDK Manager или `brew install --cask android-commandlinetools` |
@@ -22,6 +22,8 @@ python3 <SKILL_DIR>/scripts/check_env.py --fast --json <RUN_DIR>/env.json     # 
 | Устройства | — | `unauthorized` — подтвердить отладку на телефоне; `offline` — переподключить; `no permissions` — правила udev (Linux) |
 | bundletool | для AAB | `brew install bundletool` или jar + `BUNDLETOOL_JAR` |
 | scrcpy, Maestro, Appium, python uiautomator2 | нет | необязательные усилители (`plugins-map.md`) |
+| виртуальное аудиоустройство (BlackHole, Loopback, snd-aloop, VB-Cable) | нет | только для подачи звука путём 2 (`audio-input.md`); скил **только проверяет** и подсказывает — ставит и выбирает устройство пользователь; пути gRPC и «файл» работают без него |
+| Node.js 18+ и Playwright в `scripts/node` | нет | аннотации скриншотов (`screenshots.md`): `cd <SKILL_DIR>/scripts/node && npm install && npx playwright install chromium` — локально, с согласия; без них оригинал и spec сохраняются |
 | gh + вход | только для GitHub issues | `gh auth login` |
 | `ANDROID_QA_OUTPUT_DIR` | нет | без неё — `<cwd>/qa-runs/` (`intake.md` → «Папка прогона») |
 | Скилы-усилители | нет | работа по собственным чек-листам |

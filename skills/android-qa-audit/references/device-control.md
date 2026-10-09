@@ -6,40 +6,57 @@
 
 ## Цикл работы с интерфейсом
 Аналог «снимок страницы → действие → проверка» для браузера:
-1. `dump-ui` — дерево элементов активного окна (uiautomator): строки вида `[5] Button "Далее" id=btn_next @540,1500 (clickable)`, файл `raw/ui-<время>.xml` (замаскирован) и кандидаты находок (`a11y.missing-label`, `a11y.touch-target`, `visual.offscreen`, `visual.overlap`, `visual.text-ellipsized`). `--json raw/ui-<экран>.json` — все узлы с границами и `screen` (размер, поворот, источник). Размер экрана для `visual.offscreen` — по повороту **этого** дампа (`<hierarchy rotation="N">` + `wm size`), запасной путь — `dumpsys window displays` (`cur=WxH` — логический экран с системными панелями и вырезом); после `rotate landscape` границы сверяются с 2400×1080, а не с 1080×2400.
-2. Выбрать элемент по **тексту, id или contentDescription**, не по координатам: `tap --text "Далее"`, `tap --id btn_next`, `tap --desc "Закрыть"` (`--index N` при нескольких совпадениях, `--exact` — точное совпадение).
-3. Скрипт снова снимает дерево, находит элемент и проверяет его `guard.py` (текст, описание, id, класс, пакет, activity, тексты экрана как контекст). Затем нажатие, пауза `parallel.throttle_ms`, вывод `focus` — какой пакет и activity теперь на экране. Открылось чужое приложение → `left_app` в выводе и запись в `blocked.jsonl`: `key BACK`.
-4. `screenshot` (→ `screenshots/`) до и после важного шага; для находки — с понятным именем: `screenshot <RUN_DIR>/screenshots/F-003-profile-overlap.png`.
+1. `dump-ui` — дерево элементов активного окна (uiautomator): строки вида `[5] Button "Далее" id=btn_next @540,1500 (clickable)`, файл `raw/ui-<время>.xml` (замаскирован) и кандидаты находок (`a11y.missing-label`, `a11y.touch-target`, `visual.offscreen`, `visual.overlap`, `visual.text-ellipsized`). Подписи в списке обрезаны до 60 символов: **`dump-ui --texts`** — все тексты и contentDescription целиком, с границами и `box=x,y,w,h` (для `--mark`); `--grep "регэксп"` — только подходящие узлы. `--json raw/ui-<экран>.json` — все узлы с границами и `screen` (размер, поворот, источник). Размер экрана для `visual.offscreen` — по повороту **этого** дампа (`<hierarchy rotation="N">` + `wm size`), запасной путь — `dumpsys window displays` (`cur=WxH` — логический экран с системными панелями и вырезом); после `rotate landscape` границы сверяются с 2400×1080, а не с 1080×2400.
+2. Выбрать элемент по **тексту, id или contentDescription**, не по координатам: `tap --text "Далее"`, `tap --id btn_next`, `tap --desc "Закрыть"`. Совпадения ранжируются: точный текст раньше подстроки, кликабельный элемент (или внутри кликабельного) раньше простого текста, включённый раньше выключенного, короткий текст раньше абзаца, который лишь содержит слово (кнопка «Расшифровать», а не вопрос «…Расшифровать?» в диалоге). Несколько **равных** кандидатов в разных местах → код 2 и `ambiguous: N matches` со списком (`index`, текст, границы) — уточнить `--exact` / `--id` / `--desc` или выбрать `--index N`.
+3. Скрипт снова снимает дерево, находит элемент и проверяет его `guard.py` (текст, описание, id, класс, пакет, activity, тексты экрана как контекст). Затем нажатие, пауза `parallel.throttle_ms`, вывод `focus` — какой пакет и activity теперь на экране. Открылось чужое приложение → `left_app` в выводе и запись в `blocked.jsonl`: `key BACK`. **Проверить, что экран изменился**: `--expect-text "…"` (появился текст), `--expect-gone "…"` (пропал), `--expect-change` (дерево другое), ждать до `--wait` секунд; не выполнено → код 5, `"ok": false`, `expect.reason` (нажатие прошло, но ничего не произошло).
+4. `screenshot` (→ `screenshots/`) до и после важного шага; для находки — с понятным именем и сразу с разметкой: `screenshot <RUN_DIR>/screenshots/F-003-profile-overlap.png --mark "text=Сохранить|Подпись обрезана|error"` (`screenshots.md`).
 5. Если дерево пустое или элемента нет (игры, canvas, видео, `FLAG_SECURE`): смотреть скриншот; нажатие по координатам `tap X Y` — guard проверит элемент под точкой, а смысл кнопки на картинке исполнитель оценивает сам (`safety-rules.md` §1).
 
 ```bash
-S=<SKILL_DIR>/scripts; R=<RUN_DIR>; D="--serial emulator-5554 --run-dir $R"
-python3 $S/adb_helpers.py launch --cold $D               # запуск с остановкой процесса; TotalTime в выводе
-python3 $S/adb_helpers.py dump-ui $D
-python3 $S/adb_helpers.py tap --text "Каталог" $D
-python3 $S/adb_helpers.py text "test query" --into-id search_field $D
-python3 $S/adb_helpers.py key ENTER $D
-python3 $S/adb_helpers.py scroll down $D
-python3 $S/adb_helpers.py screenshot $D
-python3 $S/adb_helpers.py key BACK $D
+export QA_RUN_DIR=<RUN_DIR>                                   # папка прогона для обёртки qa
+<SKILL_DIR>/scripts/qa emulator-5554 launch --cold             # запуск с остановкой процесса; TotalTime, фокус окна
+<SKILL_DIR>/scripts/qa emulator-5554 dump-ui --texts
+<SKILL_DIR>/scripts/qa emulator-5554 tap --text "Каталог" --expect-change
+<SKILL_DIR>/scripts/qa emulator-5554 text "test query" --into-id search_field
+<SKILL_DIR>/scripts/qa emulator-5554 key ENTER
+<SKILL_DIR>/scripts/qa emulator-5554 scroll down               # changed: false — конец списка
+<SKILL_DIR>/scripts/qa emulator-5554 screenshot
+<SKILL_DIR>/scripts/qa emulator-5554 key BACK
 ```
+**Обёртка `qa`** (`scripts/qa`, Windows — `scripts\qa.ps1`): `qa <serial> <команда adb_helpers.py> [аргументы]` добавляет `--serial` и `--run-dir "$QA_RUN_DIR"`; `-` вместо serial — `ANDROID_SERIAL` или единственное устройство. Так примеры работают и в zsh, и в bash; переменные-команды вида «A равно python3 …» с вызовом `$A …` в zsh не делятся на слова — их не использовать. Полная форма: `python3 <SKILL_DIR>/scripts/adb_helpers.py <команда> … --serial emulator-5554 --run-dir <RUN_DIR>`.
+
+## Экраны без дерева элементов (бесконечная анимация)
+На экране с непрерывной анимацией (запись, таймер, эквалайзер) uiautomator отвечает «could not get idle state».
+- `dump-ui --retry 6` — больше попыток с нарастающей паузой; `--ignore-animations` — на время дампа масштаб анимаций 0 (`settings put global …` через guard — на реальном устройстве нужно согласие `full`), затем прежние значения; бесконечные `ValueAnimator` при этом останавливаются.
+- **`tap X Y --no-ui`** — нажатие без нового дерева: элемент под точкой берётся из **последнего снимка дерева** этого стенда (не старше 120 с и на той же activity) и проверяется guard как обычно; снимка нет — guard проверяет **пакет и экран** переднего плана (чужое приложение, запрещённый экран, системное приложение — как всегда), в выводе `element_checked: false` и `screenshot_before` — снимок до нажатия (посмотреть его до нажатия по смыслу, `safety-rules.md` §3 п. 1). Нажатие пишется в `logs/actions.jsonl`.
+- `tap` без `--no-ui` на таком экране — код 5 с подсказкой, ничего не нажато.
+- `--expect-text/--expect-gone/--expect-change` после `--no-ui` — только если следующий экран без анимации (их проверка снимает дерево); иначе — `screenshot` после нажатия или `soak --service` (сервис работает / остановлен).
+
+## Файлы и системный выбор файла
+| Команда | Что делает |
+|---------|-----------|
+| `push-media FILE [--folder Download] [--name N]` | файл → `/sdcard/<папка>/qa-<имя>` (только имена `qa-*`: их можно удалить) + медиасканер; `--remove N` — удалить свой файл |
+| `import-file --name qa-<имя> [--folder Download] [--retries 4] [--scroll 6]` | приложение уже открыло системный выбор файла (Documents UI): открыть список папок («Show roots» / «Показать корневые папки»), папку (Download / Загрузки, Music / Музыка…), найти файл по имени с повторами и прокруткой, нажать; кнопка «Выбрать / Select» — тоже. Выбор файла не открыт — код 4 |
+
+Выбор файла — системное приложение: каждое нажатие в нём guard отдаёт на подтверждение (код 2). **Одно `--confirmed` покрывает весь вызов `import-file`** (одно согласие на импорт, а не на каждое нажатие); `rules.preapproved_packages: [com.google.android.documentsui]` в run-config — согласие на весь прогон после одного вопроса пользователю («Разрешить работу с системным выбором файла на стендах прогона?»). Запреты (`deny`) это не снимает.
 
 ## Ввод текста
 `text "abc"` — через `adb shell input text` (пробелы передаются как `%s`). **Кириллица, emoji и другой не-ASCII через `adb input` не вводятся.** По умолчанию — отказ (код 4) с подсказкой, ничего не нажимается и не вводится. Варианты:
 | Вариант | Команда | Что получится |
 |---------|---------|---------------|
 | Латиница | `text "QA Тест" --translit` | вводится `QA Test`; в выводе `"translit": true` и `typed` — указать в шагах находки «введено латиницей»; emoji и неизвестные символы — отказ (4); секрет (`--env`) транслитерировать нельзя (2) |
-| ADBKeyBoard | `text "QA Тест" --adbkeyboard` | только на **эмуляторе скила** (`qa-*`) и только если ADBKeyBoard на нём уже установлен (`ime list -a`): `ime set` → `am broadcast ADB_INPUT_B64` → прежняя клавиатура возвращается; поставить ADBKeyBoard — стороннее приложение, только с согласия пользователя; реальное устройство и чужой AVD — отказ (4) |
+| Буфер обмена | `text "QA Тест" --clipboard` | **без установки чего-либо**: на эмуляторе скила, запущенном с `--mic-inject` (gRPC с токеном, `audio-input.md`), текст кладётся в буфер обмена эмулятора (`setClipboard`) и вставляется `KEYCODE_PASTE` в поле с фокусом (`--into-id` / `--into-text`); буфер эмулятора синхронизируется с хостом — **не для секретов** (`--env` → код 2) |
+| ADBKeyBoard | `text "QA Тест" --adbkeyboard` | только на **эмуляторе скила** (`qa-*`) и только если ADBKeyBoard на нём уже установлен (`ime status`): `ime set` → `am broadcast ADB_INPUT_B64` → прежняя клавиатура возвращается; поставить: `ime install-adbkeyboard --apk <ADBKeyboard.apk>` — APK даёт пользователь (скил не скачивает), стороннее приложение — код 2, повтор с `--confirmed` после «да»; реальное устройство и чужой AVD — отказ (4) |
 | Вручную | — | ввести в окне эмулятора (не headless) или проверить значения на экране, где они уже есть |
 
-Секреты — `text --env QA_PASSWORD`: значение берётся из переменной, не печатается и не пишется в журнал (с `--adbkeyboard` — тоже).
+Секреты — `text --env QA_PASSWORD`: значение берётся из переменной, не печатается и не пишется в журнал (с `--adbkeyboard` — тоже). Если в запросе есть проверки на кириллице (поиск по русскому тексту, названия папок), `intake.py` сразу подсказывает `--clipboard` или ADBKeyBoard.
 
 ## Приложение
 | Команда | Что делает |
 |---------|-----------|
 | `install APK… [--replace] [--downgrade] [--grant-all] [--allow-test]` | установка (split — несколько файлов); пакет сверяется с `app.package` |
 | `uninstall [PKG] [--keep-data]`, `clear [PKG]` | только тестируемое приложение |
-| `launch [PKG] [--activity A] [--cold]` | `am start -W`: `LaunchState`, `TotalTime`; без activity — launcher из `cmd package resolve-activity` |
+| `launch [PKG] [--activity A] [--cold] [--wait-focus 5]` | `am start -W` (ждёт первый кадр): `LaunchState`, `TotalTime`; затем до `--wait-focus` секунд ждёт, пока окно приложения получит фокус (`focused`, `focus_wait_ms`) — после заставки `dump-ui` и `tap` видят приложение; без activity — launcher из `cmd package resolve-activity` |
 | `stop [PKG]` | `am force-stop` |
 | `kill-bg [PKG]` | HOME → `am kill` → процесс убит в фоне (как системой при нехватке памяти); вернуться через `key APP_SWITCH` и нажатие на карточку или `launch` — проверить восстановление состояния |
 | `trim-memory LEVEL [PKG]` | `am send-trim-memory`: `RUNNING_LOW`, `RUNNING_CRITICAL`, `COMPLETE`… |
@@ -63,14 +80,18 @@ python3 $S/adb_helpers.py key BACK $D
 На реальном устройстве настройки устройства — только при согласии `full` (иначе код 2). После ячейки — вернуть всё (команды сброса в `device-matrix.json → variants.*.reset`).
 
 ## Разрешения и уведомления
-`permissions [PKG]` — runtime-разрешения и состояние; `grant PERM [PKG]` / `revoke PERM [PKG]` (короткое имя `CAMERA` или полное); `notifications [PKG]` — уведомления только этого приложения (замаскированы); `shade open|close` — шторка. Диалоги разрешений при первом запросе проверять нажатиями «Разрешить» / «Только сейчас» / «Запретить» — это системный интерфейс, guard их разрешает.
+`permissions [PKG]` — runtime-разрешения и состояние; `grant PERM [PKG]` / `revoke PERM [PKG]` (короткое имя `CAMERA` или полное); `shade open|close` — шторка. Диалоги разрешений при первом запросе проверять нажатиями «Разрешить» / «Только сейчас» / «Запретить» — это системный интерфейс, guard их разрешает.
+
+`notifications [PKG]` — **все активные** уведомления этого приложения (замаскированы), в том числе постоянные и foreground-сервиса: `id`, `channel`, `importance`, `category` (`progress`, `service`…), `flags`, `ongoing`, `foreground_service`, `title` / `text` / `sub_text` / `big_text`, `progress` / `progress_max` / `percent` / `indeterminate`, `actions` (тексты кнопок). Архив и история уведомлений не считаются. `foreground_services` — сервисы приложения на переднем плане (`dumpsys activity services`); есть сервис, а его уведомления в списке нет — `note`: проверить шторку глазами (`shade open` + `screenshot`).
 
 ## Журналы и падения
 | Команда | Что делает |
 |---------|-----------|
 | `logcat start [--out F] [--package P] [--all]` | фоновая запись `logcat -v threadtime -b main,system,crash` в `logs/logcat-<serial>.txt`; **по умолчанию только приложение** (`app.package` или `--package`): строки его процессов (PID, в т.ч. `pkg:service`; после перезапуска — новый PID по «Start proc» и опросу `ps`), строки с именем пакета (запуск, ANR, смерть процесса) и продолжения многострочных записей; фоновый шум (сервисы Google, система) не пишется. `--all` — весь журнал устройства |
-| `logcat stop` | остановить и **замаскировать** файл |
-| `logcat dump [--package P] [--all] [--lines N] [--out F]` | снимок журнала (замаскирован), по умолчанию с тем же фильтром по приложению; `--all` — весь |
+| `logcat stop [--summary]` | остановить и **замаскировать** файл; `--summary` — `logs/logcat-<serial>.summary.json` и вывод: строк по уровням, частые теги, различные ошибки (числа свёрнуты: «overflow at N ms» ×12), падения и ANR, сколько строк шума отброшено |
+| `logcat dump [--package P] [--all] [--lines N] [--out F] [--summary]` | снимок журнала (замаскирован), по умолчанию с тем же фильтром по приложению; `--all` — весь |
+
+**Шум эмулятора.** В фильтре по приложению строки уровней V/D/I с тегами графики и буферов эмулятора (`EGL_emulation` — `app_time_stats`, `BufferPoolAccessor*`, `HostConnection`, `eglCodecCommon`, `gralloc4`, `goldfish-*`…) отбрасываются и считаются (`noise_dropped`); W/E/F этих тегов остаются. Свои теги — `logcat.noise_tags: [Тег, Префикс*]` в run-config, всё оставить — `--keep-noise` или `logcat.keep_noise: true`.
 | `logcat clear` | `logcat -c` — на реальном устройстве нужно согласие `full` |
 | `crashes [PKG]` | FATAL EXCEPTION, ANR, нативные падения по **полному** журналу устройства и `dumpsys dropbox` → `raw/crashes-<serial>.json` (замаскировано). Падение приложения — только его процесс: «Process: <pkg>[:…]» или PID приложения («Start proc», `ps`); ANR — только «ANR in <pkg>». Падения других процессов — `other_processes` с `owner`: `tool` (UiAutomation от `dump-ui`, monkey, am), `system` (system_server, сервисы Google), `other-app`; `related_to_app` — процесс запущен для приложения (WebView) — проверить вручную. Это не находки приложения |
 
@@ -84,8 +105,12 @@ python3 $S/adb_helpers.py key BACK $D
 | `size [PKG]` | размер APK на устройстве, данные, кэш (`dumpsys diskstats`, приблизительно) | |
 | `monkey [PKG] --events 500 --seed 42 --throttle 300` | случайные нажатия только по этому пакету, `--pct-syskeys 0`; падение/ANR и строка для повтора | только свой эмулятор; есть аккаунты на устройстве — спросить |
 
+Каждый замер записывает **загрузку хоста** (`host`: эмуляторов рядом, load average, ядра); `start-time` при нескольких работающих эмуляторах пишет `note` — время искажено, замеры скорости — на свободном хосте (`long-runs.md` → «Замеры времени»). Долгие сценарии с метриками по таймеру — `soak`, фоном — `job` (`long-runs.md`); звук в микрофон — `mic-status` / `mic-inject` (`audio-input.md`).
+
+Общая опция **`--journal-done "<пункт>"`** — после успешной команды отметить пункт `journal.md` (`journal.py done`).
+
 ## Снимки и видео
-`screenshot [OUT]` (`exec-out screencap -p`), `screenrecord [OUT] --seconds 20` (до 180 с, во временный `/sdcard/qa-rec-*.mp4`, затем `pull` в `recordings/` и удаление с устройства). Экран с `FLAG_SECURE` снимается чёрным или с ошибкой — это защита приложения, не дефект. Скриншоты с персональными данными не публиковать.
+`screenshot [OUT] [--mark "x,y,w,h|подпись|вид"]…` (`exec-out screencap -p`; `--mark` — сразу аннотированная копия `-annotated.png` и spec, `screenshots.md`), `screenrecord [OUT] --seconds 20` (до 180 с, во временный `/sdcard/qa-rec-*.mp4`, затем `pull` в `recordings/` и удаление с устройства). Экран с `FLAG_SECURE` снимается чёрным или с ошибкой — это защита приложения, не дефект. Скриншоты с персональными данными не публиковать.
 
 ## Усилители
 Если установлены (`check_env` → `optional`): Maestro — сценарии YAML (`maestro test flow.yaml`), Appium с драйвером uiautomator2 — сложные жесты и ожидания, scrcpy — показать экран устройства пользователю. Их действия обходят guard: использовать только для чтения/наблюдения или на своём эмуляторе для сценариев, которые сначала проверены по правилам (`plugins-map.md`).

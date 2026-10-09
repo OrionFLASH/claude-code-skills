@@ -9,12 +9,19 @@ journal.md        журнал для продолжения               findi
 matches.json      сверка с issues                     report.md, summary.md
 apk/              копии APK/AAB + SHA256SUMS          screenshots/      снимки экрана (PNG)
 recordings/       видео (screenrecord)                 logs/             logcat-*.txt, actions.jsonl, blocked.jsonl, emulator-*.log
-raw/              ui-*.xml/json, metrics.jsonl, crashes-*.json, findings-<поток>.json, issues-*.json,
-                  messages/ (сообщения исполнителей с блоком qa-findings — ingest_findings.py)
+raw/              ui-*.xml/json, metrics.jsonl (с host — загрузкой хоста), crashes-*.json, findings-<поток>.json, issues-*.json,
+                  messages/ (сообщения исполнителей с блоком qa-findings — ingest_findings.py),
+                  soak-<tag>-<serial>.jsonl / .json (метрики и сводка долгого прогона), jobs/<id>.json (фоновые задачи),
+                  forms/<owner__repo>/ (их формы issue, issue_forms.py), known/ (документы «уже известно», known_docs.py),
+                  .ui-cache-<serial>.json (последнее дерево стенда для tap --no-ui)
+screenshots/      F-NNN-….png, F-NNN-….spec.json (разметка), F-NNN-…-annotated.png (screenshots.md); soak-*.png; before-tap-*.png
+logs/             … job-<id>.log (вывод фоновой задачи), logcat-<serial>.summary.json (logcat stop --summary)
 drafts/           черновики issues (dry-run)
 questions.json    вопросы исполнителей (ingest_findings.py)   published.json   прямая публикация (direct_publish.py)
 published/        тела опубликованных issues (прямая публикация, render_draft.py --body-only)
+attachments.json  вложения веткой: файлы, ссылки, проверка (attachments.py)
 ```
+Находку без ручного JSON добавляет `finding.py add <RUN_DIR> --title … --severity … --direction … --shot … --mark …` (схема проверяется до записи); `finding.py list` — список и непросмотренные аннотации.
 В `findings.json` у находки: `repro` (как перезапустить проверку), `recheck` (результат независимой перепроверки, `recheck.py`), `legal` (нормы и вторая проверка); в `stands.json` у эмулятора — `owner` (поток).
 Общее для прогонов: память о приложении `<OUTPUT_ROOT>/qa-runs/.app-context/<package>/`.
 
@@ -33,7 +40,7 @@ python3 <SKILL_DIR>/scripts/journal.py status <RUN_DIR>
 python3 <SKILL_DIR>/scripts/build_report.py report <RUN_DIR>
 python3 <SKILL_DIR>/scripts/build_report.py summary <RUN_DIR>
 ```
-`report.md`: шапка (приложение, версия, min/target, стенды, sha256 APK, время, папка), итог (severity, статусы, падения, не проверено, запреты; для `release-gate` — есть ли блокеры), статистика severity × статус, по направлениям, матрица стендов (находки по ячейкам), падения и ANR (из находок и `raw/crashes-*.json`), метрики (`raw/metrics.jsonl`), находки, пассивная проверка APK (кандидаты), что не проверено, сработавшие запреты (`logs/blocked.jsonl`), публикация. `summary.md` — шапка, итог, статистика, направления и ссылка на `report.md`. Итог в 3–5 строк дописать вручную по `goal.success` (образец — `templates/run-report.md`): `findings` — главные проблемы, `scenarios` — таблица «сценарий — прошёл / нет», `release-gate` — блокеры. Повторный `report` затирает ручные дополнения — дописывать после последней сборки.
+`report.md`: шапка (приложение, версия, min/target, стенды, sha256 APK, время, папка), итог (severity, статусы, падения, не проверено, запреты; для `release-gate` — есть ли блокеры), статистика severity × статус, по направлениям, матрица стендов (находки по ячейкам), падения и ANR (из находок и `raw/crashes-*.json`), метрики (`raw/metrics.jsonl`; замеры рядом с другими эмуляторами помечены ⚠), **длинные сценарии** (`raw/soak-*.json`: статус, длительность, итог, PSS, события, нагрузка хоста; недействительные — отдельно), находки, уже известное (`KNOWN` — документ и цитата), пассивная проверка APK (кандидаты), что не проверено, сработавшие запреты (`logs/blocked.jsonl`), публикация. `summary.md` — шапка, итог, статистика, направления и ссылка на `report.md`. Итог в 3–5 строк дописать вручную по `goal.success` (образец — `templates/run-report.md`): `findings` — главные проблемы, `scenarios` — таблица «сценарий — прошёл / нет», `release-gate` — блокеры. Повторный `report` затирает ручные дополнения — дописывать после последней сборки.
 
 ## Куда записаны итоги (`report_destinations`)
 1. `github` и `artifact` — сначала, чтобы получить ссылки. Перед выходом за пределы машины убрать локальные пути и находки с `evidence.sensitive`. `github` — по `repo-sync.md` §5 (в dry-run — черновик `drafts/<owner__repo>/summary.md`); `artifact` — если в сессии есть инструмент Artifact: страница из `report.md`, иначе «не опубликовано — инструмента нет».

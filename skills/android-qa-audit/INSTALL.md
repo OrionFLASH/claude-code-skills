@@ -1,6 +1,6 @@
 # Установка и обновление android-qa-audit
 
-Одна инструкция для macOS и Windows (и кратко Linux): окружение (Java, Android SDK, эмулятор, образы, ускорение), необязательные программы, сам скил, проверка, обновление и откат. Скил — Python 3.9+ без сторонних пакетов; Node и браузеры ему не нужны.
+Одна инструкция для macOS и Windows (и кратко Linux): окружение (Java, Android SDK, эмулятор, образы, ускорение), необязательные программы, сам скил, проверка, обновление и откат. Скил — Python 3.9+ без сторонних пакетов (gRPC эмулятора — тоже на стандартной библиотеке: `grpcio` и `protoc` не нужны). Node.js и Playwright нужны только для **аннотаций скриншотов** — локально в `<SKILL_DIR>/scripts/node` (ниже «Аннотации скриншотов»); без них всё остальное работает.
 
 Репозиторий: https://github.com/OrionFLASH/claude-code-skills (папка `skills/android-qa-audit`), маркетплейс `claude-code-skills`.
 
@@ -60,7 +60,9 @@ https://github.com/OrionFLASH/claude-code-skills (папка skills/android-qa-a
 2) Java, если нет JDK 17+: «Temurin 21 (Recommended)» / «Temurin 17» / «Уже есть - укажу JAVA_HOME».
 3) Образы систем (мультивыбор, по 1-2 ГБ каждый): «API 35 (Recommended)» / «API 34» / «API 30» / «API 26»
    (под нужный ABI); или «Не сейчас - скил предложит при прогоне».
-4) Необязательное (мультивыбор): «bundletool (AAB)» / «scrcpy (показ экрана)» / «Maestro» / «Appium + uiautomator2».
+4) Необязательное (мультивыбор): «bundletool (AAB)» / «scrcpy (показ экрана)» / «Maestro» / «Appium + uiautomator2»;
+   «Аннотации скриншотов: Node.js 18+ и локально npm install + npx playwright install chromium в <SKILL_DIR>/scripts/node».
+   Виртуальное аудиоустройство (BlackHole и т. п.) не ставь - только скажи, что оно нужно лишь для пути loopback.
 5) Способ установки скила: «Маркетплейс плагинов (Recommended)» / «Клон репозитория + tools/install.sh
    (macOS/Linux) или tools\install.ps1 (Windows)» / «Копия папки без git»; для кого: «Все проекты (~/.claude)» /
    «Только текущий проект (.claude)»; для клона - куда: «~/dev/claude-code-skills (Recommended)» / «Указать путь».
@@ -130,6 +132,8 @@ https://github.com/OrionFLASH/claude-code-skills (папка skills/android-qa-a
 - Копия: переименуй старую папку в android-qa-audit.bak-ГГГГММДД, скопируй новую (без __pycache__).
 
 ШАГ 3. ПРОВЕРКА: версия в plugin.json совпадает с последней; check_env; bash tests/unit.sh, если есть bash.
+Если раньше ставились аннотации скриншотов - в папке новой версии снова cd <SKILL_DIR>/scripts/node && npm install
+(после «да»), затем python3 <SKILL_DIR>/scripts/annotate_android.py check.
 
 ШАГ 4. ИТОГ: таблица (версия до и после, способ, дубли, check_env, тесты), что сделать вручную (перезапустить
 Claude Code), как откатить (в клоне - git checkout android-qa-audit/v<старая версия>; копия - вернуть .bak;
@@ -155,6 +159,9 @@ Claude Code), как откатить (в клоне - git checkout android-qa-a
 | scrcpy | нет — показ экрана устройства | `brew install scrcpy` | `winget install Genymobile.scrcpy` | `scrcpy --version` |
 | Maestro | нет — повторяемые сценарии | `curl -fsSL "https://get.maestro.mobile.dev" \| bash` | через WSL (документация Maestro) | `maestro --version` |
 | Appium + uiautomator2 | нет — сложные сценарии | Node 18+, `npm i -g appium && appium driver install uiautomator2` | то же | `appium --version` |
+| Node.js 18+ и Playwright (Chromium) в `scripts/node` | нет — аннотированные скриншоты | `brew install node`; затем локально: `cd <SKILL_DIR>/scripts/node && npm install && npx playwright install chromium` | `winget install OpenJS.NodeJS.LTS`; то же в PowerShell | `python3 <SKILL_DIR>/scripts/annotate_android.py check` |
+| Виртуальное аудиоустройство | нет — только подача звука путём loopback (`references/audio-input.md`) | BlackHole: `brew install --cask blackhole-2ch` (или Loopback); выбрать входом и выходом по умолчанию — вручную | VB-Audio Virtual Cable (сайт VB-Audio); воспроизведение — вручную | строка «виртуальное аудиоустройство» в `check_env` |
+| ADBKeyBoard (APK) | нет — ввод кириллицы клавиатурой (`text --adbkeyboard`) | APK скачивает пользователь (github.com/senzhk/ADBKeyBoard); поставить на свой эмулятор — `adb_helpers.py ime install-adbkeyboard --apk <файл> --confirmed` после согласия | то же | `adb_helpers.py ime status` |
 
 Ресурсы: эмулятор с 2 ГБ ОЗУ занимает ≈ 3 ГБ памяти хоста; 2 потока — от 16 ГБ ОЗУ, 4 — от 32 ГБ и 8 ядер. Диск: образ ≈ 3–6 ГБ, AVD ≈ 2–8 ГБ; держите свободными 15+ ГБ.
 
@@ -282,7 +289,22 @@ python <SKILL_DIR>\scripts\check_env.py --fast    # то же без обёрт�
 3. Новая папка версии — `installPath` из `claude plugin list --json` (`~/.claude/plugins/cache/claude-code-skills/android-qa-audit/<новая версия>/`): в заданиях исполнителей `<SKILL_DIR>` — этот путь, а не прежний (папка старой версии может исчезнуть).
 4. Перезапустить Claude Code (новая версия видна только в новой сессии).
 5. Проверить: `bash <installPath>/scripts/check_env.sh --fast` и `python3 <installPath>/scripts/guard.py selftest`; при желании `bash <installPath>/tests/unit.sh`.
-Node-зависимостей у скила нет; Android SDK, образы и AVD обновление не затрагивает.
+6. Аннотации скриншотов (если нужны): в папке новой версии ещё раз `cd <installPath>/scripts/node && npm install` (папка `node_modules` в новую версию не переносится), проверка — `python3 <installPath>/scripts/annotate_android.py check`.
+Android SDK, образы и AVD обновление не затрагивает.
+
+## Аннотации скриншотов (необязательно)
+Рамки, стрелки и подписи на скриншотах находок (`references/screenshots.md`) рисует `scripts/node/annotate.js` в Chromium через Playwright. Ставится **локально в папку скила** (ничего глобального, кроме самого Node.js), только с согласия пользователя:
+```bash
+cd <SKILL_DIR>/scripts/node && npm install && npx playwright install chromium
+python3 <SKILL_DIR>/scripts/annotate_android.py check        # {"ok": true, …}
+```
+Если Playwright уже стоит для site-qa-audit, можно не ставить второй раз: `ANDROID_QA_NODE_MODULES=<папка site-qa-audit>/scripts/node/node_modules` в `env` настроек Claude Code. Без Node.js: скриншоты и разметка (`*.spec.json`) сохраняются, рисование — «не поддерживается», остальное работает.
+
+## Звук в микрофон эмулятора (по необходимости)
+Ставить ничего не нужно: `avd_manager.py start <AVD> --mic-inject` запускает эмулятор с gRPC и токеном, `adb_helpers.py mic-inject --wav <файл>` подаёт звук (`references/audio-input.md`). Виртуальное аудиоустройство (BlackHole и др.) — только для пути loopback, ставит и выбирает пользователь сам; скил его не трогает. Короткая проверка: `adb_helpers.py mic-status --serial <serial> --run-dir <RUN_DIR>`.
+
+## Обёртка `qa` для zsh и bash
+`<SKILL_DIR>/scripts/qa <serial> <команда adb_helpers.py> …` (Windows — `qa.ps1`) добавляет `--serial` и `--run-dir "$QA_RUN_DIR"`. Удобно для своего терминала: `export QA_RUN_DIR=<RUN_DIR>` и `alias qa=<SKILL_DIR>/scripts/qa` в `~/.zshrc`.
 
 После обновления — `check_env` (новые требования) и перезапуск Claude Code. Результаты прогонов, память о приложениях (`qa-runs/.app-context/`) и AVD лежат вне папки скила — обновление их не затрагивает.
 
@@ -319,7 +341,7 @@ Windows — `%USERPROFILE%\.claude\settings.json` (обратный слэш в 
 | Два одинаковых скила | стоит и плагин, и папка/ссылка в `~/.claude/skills` — оставить один способ |
 | `guard.py` — код 4, `adb_helpers.py` — код 6 «guard недоступен» | так и задумано (fail closed): нет или битый `run-config.yaml` (`--config` / `<RUN_DIR>/run-config.yaml`), неверный регэксп в правилах — исправить и повторить; на устройстве при этом ничего не выполнено |
 | `avd_manager.py start` — код 3 «AVD уже запущен» | один стенд — один исполнитель: работать в уже запущенном эмуляторе (serial в сообщении), второй экземпляр — только `--read-only` |
-| `adb: command not found`, а check_env видит adb | adb не в PATH — скил работает и так; для терминала — «Переменные окружения» выше |
+| `adb: command not found`, а check_env видит adb | adb не в PATH — скил работает и так (в `check_env` это OK, не WARN); для терминала — «Переменные окружения» выше |
 | check_env: «Android SDK не найден» | задать `ANDROID_HOME` (в профиле и в `env` настроек Claude Code) или поставить SDK по разделу «Android SDK» |
 | `sdkmanager`: «Could not determine SDK root» / «JAVA_HOME is not set» | структура `<SDK>/cmdline-tools/latest/bin`; задать `JAVA_HOME` (JDK 17+) |
 | `sdkmanager`/`avdmanager`: «integer expression expected» | ранняя сборка Java (`-ea`) — безвредно (скил скрывает при успешной команде); рекомендуется JDK 17 или 21 (Temurin) |
@@ -339,7 +361,11 @@ Windows — `%USERPROFILE%\.claude\settings.json` (обратный слэш в 
 | `INSTALL_FAILED_DEPRECATED_SDK_VERSION` | targetSdk < 23 на Android 14+ — `adb install --bypass-low-target-sdk-block` вручную |
 | `INSTALL_FAILED_USER_RESTRICTED` (Xiaomi и др.) | включить «Установка через USB» в параметрах разработчика |
 | `INSTALL_FAILED_VERIFICATION_FAILURE` | установку заблокировал Play Protect — решение пользователя |
-| Кириллица не вводится | ограничение `adb input text`: `text … --translit` (латиницей), `text … --adbkeyboard` (ADBKeyBoard на эмуляторе скила, ставится с вашего согласия) или вручную в окне эмулятора |
+| Кириллица не вводится | ограничение `adb input text`: `text … --clipboard` (эмулятор, запущенный с `--mic-inject`; не для паролей), `text … --adbkeyboard` (ADBKeyBoard на эмуляторе скила: `ime install-adbkeyboard --apk …` с вашего согласия), `text … --translit` (латиницей) или вручную в окне эмулятора |
+| `mic-inject`: «token is invalid» / UNAUTHENTICATED | эмулятор запущен без `--mic-inject` (или из Android Studio — там JWT) — перезапустить `avd_manager.py start <AVD> --mic-inject`; токен консоли `~/.emulator_console_auth_token` для gRPC не подходит |
+| `mic-inject`: «не поддерживается: …» | так и задумано: в сообщении причина и следующий путь (gRPC → loopback → файл); файл — `mic-inject --via file` и импорт в приложении |
+| `dump-ui`: «could not get idle state» | экран с бесконечной анимацией: `dump-ui --retry 6 --ignore-animations`; нажатие — `tap X Y --no-ui` после скриншота |
+| `annotate_android.py`: «не поддерживается: нет модуля playwright» | «Аннотации скриншотов» выше; оригинал и spec сохранены |
 | Windows: `python3` открывает Microsoft Store | `python` или `py -3`; отключить псевдонимы в «Параметры → Приложения → Псевдонимы выполнения приложений» |
 | Windows: «выполнение сценариев отключено» | `powershell -ExecutionPolicy Bypass -File …` |
 | Windows: `tests/unit.sh` не запускается | нужен bash: Git Bash или WSL |

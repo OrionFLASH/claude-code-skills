@@ -52,7 +52,7 @@ python3 <SKILL_DIR>/scripts/avd_manager.py create --api 34 --profile small --ram
 ## Запуск, загрузка, остановка
 ```bash
 python3 <SKILL_DIR>/scripts/avd_manager.py start qa-api34-pixel7-2gb-4c --run-dir <RUN_DIR> [--headless] [--cold-boot] \
-        [--netspeed lte --netdelay lte] [--locale ru-RU] [--timezone Europe/Moscow] [--wipe-data]
+        [--netspeed lte --netdelay lte] [--locale ru-RU] [--timezone Europe/Moscow] [--wipe-data] [--mic-inject] [--extra-args "…"]
 python3 <SKILL_DIR>/scripts/avd_manager.py wait-boot emulator-5554 --unlock --run-dir <RUN_DIR> [--disable-animations]
 python3 <SKILL_DIR>/scripts/avd_manager.py snapshot save emulator-5554 qa-clean        # быстрый сброс к чистому состоянию
 python3 <SKILL_DIR>/scripts/avd_manager.py snapshot load emulator-5554 qa-clean
@@ -61,7 +61,20 @@ python3 <SKILL_DIR>/scripts/avd_manager.py stop emulator-5554 --run-dir <RUN_DIR
 - Порт выбирается свободный (5554, 5556, … до 5682; занятые и зарезервированные прогоном пропускаются); serial — `emulator-<порт>`.
 - Всегда `-no-snapshot-save` (состояние AVD между прогонами не копится) и `-no-metrics`; `--cold-boot` — без загрузки снимка; `--headless` — `-no-window -no-audio -gpu swiftshader_indirect` (на сервере, в фоне; скриншоты работают).
 - Язык системы и часовой пояс надёжнее всего задавать при запуске (`--locale`, `--timezone`): adb меняет язык только у приложения (API 33+).
-- `wait-boot` ждёт `sys.boot_completed=1`, конец анимации и готовность менеджера пакетов; если процесс эмулятора завершился — показывает хвост журнала `logs/emulator-<AVD>-<порт>.log` (нет ускорения, мало места, образ повреждён).
+- `wait-boot` ждёт `sys.boot_completed=1`, конец анимации и готовность менеджера пакетов, печатает `"ready": true` и строку «готов: <serial> загружен за N с»; если процесс эмулятора завершился — показывает хвост журнала `logs/emulator-<AVD>-<порт>.log` (нет ускорения, мало места, образ повреждён; замаскирован).
+- **`--mic-inject`** — для подачи звука в микрофон (`audio-input.md`): `-grpc <свободный порт 8554, 8556…> -grpc-use-token`, звук не выключается даже с `--headless`; порт — `stands.json → grpc_port`, токен эмулятор пишет в свой discovery-файл (скил его не печатает). `--keep-audio` — `--headless` без `-no-audio`.
+
+## Дополнительные флаги эмулятора (`--extra-args`)
+```bash
+python3 <SKILL_DIR>/scripts/avd_manager.py start qa-api34-pixel7-8gb-4c --extra-args "-camera-back virtualscene -prop debug.example=1" --run-dir <RUN_DIR>
+python3 <SKILL_DIR>/scripts/guard.py emulator-args "-allow-host-audio" --config <RUN_DIR>/run-config.yaml
+```
+Флаги одной строкой проверяет белый список `guard.py emulator-args` (то же делает `start` сам): запрещено — код 3, ничего не запущено; требует согласия — код 2, после «да» тот же вызов с `--confirmed`.
+| Решение | Флаги |
+|---------|-------|
+| разрешено | `-no-window`, `-no-audio`, `-no-boot-anim`, `-no-snapshot*`, `-netfast`, `-verbose`, `-show-kernel`, `-delay-adb`, `-no-sim`, `-prop имя=значение`, `-feature X`, `-memory MB`, `-cores N`, `-gpu M`, `-netspeed`, `-netdelay`, `-dns-server`, `-timezone`, `-change-locale`, `-screen`, `-camera-back/-camera-front emulated\|virtualscene\|none`, `-accel`, `-grpc <порт>` **только** вместе с `-grpc-use-token` или `-grpc-use-jwt` (+ `-grpc-tls-*`) |
+| спросить (`--confirmed`) | `-allow-host-audio` (эмулятор слышит микрофон хоста), `-camera-* webcamN` (камера хоста), `-http-proxy`, `-tcpdump` (файл — только в `<RUN_DIR>`) |
+| запрещено | `-grpc` без авторизации, `-writable-system`, `-qemu …`, `-selinux`, `-shell*`, образы и разделы (`-sysdir`, `-system`, `-kernel`, `-ramdisk`, `-data`, `-initdata`), `-avd`, `-port(s)`, `-wipe-data` и `-read-only` (для них — флаги `avd_manager.py`), любой флаг не из списка |
 - `stop` останавливает только эмуляторы, запущенные этим прогоном (`stands.json`), или свои `qa-*` с `--any-qa`. Эмуляторы пользователя — никогда.
 - **Один стенд — один исполнитель.** Уже запущенный AVD второй раз не запускается (`start` → код 3: работать в нём; второй экземпляр — только `--read-only` по решению оркестратора). `start … --owner wN` записывает поток-владельца в `stands.json`; `stop … --owner wN` для стенда другого потока → код 3. `adb kill-server` запрещён (`guard.py`): он обрывает все стенды всех потоков.
 

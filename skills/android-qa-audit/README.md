@@ -6,7 +6,9 @@ QA-тестирование Android-приложения — по APK, split APK
 
 **Установка, настройка Android SDK и обновление** (macOS, Windows, Linux, промпты для Claude Code) — [INSTALL.md](INSTALL.md).
 
-**Запуск.** Командой `/android-qa-audit` или обычной просьбой протестировать или проверить приложение, APK, Android-приложение, найти баги, проверить на разных версиях Android или на слабом телефоне, в том числе с путём к `.apk`. Если скил подхвачен по смыслу, он сначала спрашивает: «Похоже, вы хотите протестировать Android-приложение <что понял>. Запустить?» — при «Нет, это другое» ничего не создаёт. На разработку приложения, написание тестов Espresso/Appium и сайты (для них — `site-qa-audit`) не срабатывает.
+**Запуск.** Командой `/android-qa-audit`, названием скила в просьбе («используя скилл Android qa audit…») или обычной просьбой протестировать или проверить приложение, APK, Android-приложение, найти баги, проверить на разных версиях Android или на слабом телефоне, в том числе с путём к `.apk`. Если скил подхвачен по смыслу (не назван), он сначала спрашивает: «Похоже, вы хотите протестировать Android-приложение <что понял>. Запустить?» — при «Нет, это другое» ничего не создаёт. На разработку приложения, написание тестов Espresso/Appium и сайты (для них — `site-qa-audit`) не срабатывает. Исследовательский прогон, когда задача уже описана, — **лёгкий режим**: один вопрос «только неясное», затем сразу работа (`references/intake.md`).
+
+**Что нового в 1.2.0** (по отзыву реального прогона голосового приложения): звук в микрофон эмулятора (`mic-inject`: gRPC с токеном, loopback, файл), долгие сценарии с проверкой предусловий и фоновые задачи (`soak`, `job`), нажатия на экранах с бесконечной анимацией (`tap X Y --no-ui`), полные тексты экрана (`dump-ui --texts`), неоднозначные совпадения и проверка результата нажатия, уведомления с прогрессом, аннотированные скриншоты (`screenshot --mark`, `finding.py add`), публикация по их формам issue со скриншотами веткой и документами «уже известно», `disclosure: tool|none`, выбор файла в системном пикере (`import-file`), кириллица через буфер обмена, обёртка `qa` для zsh, переиспользование своих AVD в матрице.
 
 ## Что проверяется
 | Направление | Кратко |
@@ -85,7 +87,19 @@ python3 $S/recheck.py run $R --subst SERIAL=emulator-5554                  # rep
 python3 $S/recheck.py gate $R                                              # что можно публиковать (код 1 — не всё)
 python3 $S/direct_publish.py check $R --id F-001 --repo owner/repo         # publish_mode: direct — gate и дубли
 python3 $S/avd_manager.py start qa-api34-small-2gb-2c --owner w2 --run-dir $R   # стенд потока; повторный start того же AVD — 3
+# 1.2.0: звук в микрофон, долгие сценарии, экраны без дерева, аннотации, формы issue, вложения веткой
+python3 $S/avd_manager.py start qa-api34-pixel7-8gb-4c --mic-inject --run-dir $R   # gRPC с токеном (не печатается)
+python3 $S/adb_helpers.py mic-inject --wav $R/raw/speech-16k.wav --serial emulator-5554 --run-dir $R   # gRPC → loopback → файл
+python3 $S/adb_helpers.py job start --name rec30 --serial emulator-5556 --run-dir $R -- soak --minutes 30 --expect-text "Идёт запись" --stop-xy 540,2040 --expect-duration
+python3 $S/adb_helpers.py job status --run-dir $R                          # прогресс фоновых задач; invalid — предусловие не выполнено
+python3 $S/adb_helpers.py dump-ui --texts --serial emulator-5554 --run-dir $R   # все тексты целиком с границами
+python3 $S/adb_helpers.py tap 540 2040 --no-ui --serial emulator-5554 --run-dir $R   # экран с бесконечной анимацией
+python3 $S/finding.py add $R --title "…" --severity medium --direction visual-ui --shot $R/screenshots/x.png --mark "80,1440,920,120|Подпись обрезана|error"
+python3 $S/issue_forms.py fetch --repo owner/repo --out $R/raw/forms/owner__repo     # их формы issue (только чтение)
+python3 $S/render_draft.py all $R/findings.json --run-dir $R --repo owner/repo --form auto --human-steps
+python3 $S/attachments.py push $R --repo owner/repo --branch qa-screens --dir qa/run1 --yes    # скриншоты веткой — до issues
 ```
+Короткая форма для zsh и bash — обёртка `qa`: `export QA_RUN_DIR=<RUN_DIR>` и `<SKILL_DIR>/scripts/qa emulator-5554 tap --text "Далее"` (Windows — `qa.ps1`).
 
 **Fail closed.** `guard.py` отвечает кодом 4, `adb_helpers.py` — кодом 6, если guard не может решить (нет или битый `run-config.yaml`, неверное правило): на устройстве ничего не выполняется, исполнитель останавливается. `adb kill-server` запрещён (обрывает все стенды всех потоков).
 
@@ -104,32 +118,37 @@ python3 $S/avd_manager.py start qa-api34-small-2gb-2c --owner w2 --run-dir $R   
 | bundletool | AAB → APK |
 | gh + вход | сверка с issues и (после «да») публикация |
 | scrcpy, Maestro, Appium (uiautomator2) | показ экрана, повторяемые сценарии — необязательные усилители |
+| Node.js 18+ и Playwright в `scripts/node` (`npm install` локально) | аннотированные скриншоты (`annotate.js` — вендорная копия из site-qa-audit) |
+| виртуальное аудиоустройство (BlackHole / Loopback / snd-aloop / VB-Cable) | только для пути loopback подачи звука; скил его не ставит, только проверяет |
 | Скилы ui-ux-pro-max, laws-of-ux, ux-heuristics, ux-audit, ux-design-principles, qa-skills (resilience-audit, adversarial-audit — только пассивно) | методики для направлений, `references/plugins-map.md` |
 
 ## Ограничения
 - Только то, что видно через интерфейс и adb: причина дефекта — гипотеза, код не анализируется.
-- Кириллица и emoji через `adb input text` не вводятся: `text … --translit` (латиницей, с пометкой), `text … --adbkeyboard` (ADBKeyBoard на эмуляторе скила, ставится с согласия пользователя) или вручную в окне эмулятора.
+- Кириллица и emoji через `adb input text` не вводятся: `text … --clipboard` (буфер обмена эмулятора по gRPC, эмулятор с `--mic-inject`; не для секретов), `text … --adbkeyboard` (ADBKeyBoard на эмуляторе скила: `ime install-adbkeyboard --apk …` с согласия пользователя, APK даёт пользователь), `text … --translit` (латиницей, с пометкой) или вручную в окне эмулятора.
+- Звук в микрофон: путь gRPC — только свой эмулятор, запущенный с `--mic-inject`, файл WAV PCM; loopback — только если пользователь сам поставил и выбрал виртуальное устройство; иначе — импорт файла (живой микрофон тогда не проверяется). Клиент gRPC проверен только на поддельном сервере — живой прогон с эмулятором не выполнялся.
 - Новый скил виден только в новой сессии Claude Code (в текущей — «Unknown skill»); продолжить в той же сессии — прочитать `SKILL.md` и идти по шагам.
 - Экраны без дерева элементов (игры на canvas, видео, `FLAG_SECURE`) проверяются по скриншотам; нажатия по координатам — с оценкой смысла кнопки исполнителем.
 - Язык системы и часовой пояс надёжно меняются только перезапуском эмулятора (`--locale`, `--timezone`); язык приложения через adb — с API 33.
 - Ограничение скорости сети — только на эмуляторе; на реальном устройстве — только Wi-Fi/данные с согласия.
 - Образы старше API 24 под arm64 (Apple Silicon) обычно отсутствуют: нижняя граница minSdk проверяется на реальном устройстве или x86_64-хосте.
 - Подпись AAB проверяется только у собранных из него APK (bundletool подписывает отладочным ключом — подпись отличается от магазинной).
-- GitHub не принимает картинки через `gh`: вложения — коммитом в свой репозиторий или ссылками на локальные файлы.
+- GitHub не принимает картинки через `gh`: вложения — веткой в репозиторий до создания issues (`attachments.py`, ссылки `blob/…?raw=true`) или ссылками на локальные файлы.
 - Безопасность — только пассивная; это не пентест.
-- Версия 1.0.0 проверена офлайн и первым боевым прогоном на эмуляторе (smoke, API 34); 1.0.1 — исправления по нему, проверены офлайн (фейковые adb и SDK); 1.1.0 (fail closed, находки текстом, перепроверка, прямая публикация, стенды потоков) — только офлайн; статус «в разработке».
+- Версия 1.0.0 проверена офлайн и первым боевым прогоном на эмуляторе (smoke, API 34); 1.0.1 — исправления по нему, проверены офлайн (фейковые adb и SDK); 1.1.0 (fail closed, находки текстом, перепроверка, прямая публикация, стенды потоков) — только офлайн; 1.2.0 (микрофон, soak и job, экраны без дерева, аннотации, формы issue, вложения веткой) — офлайн на фейковых adb, SDK, gh, node и поддельном сервере gRPC; статус «в разработке».
 - Правовые утверждения (разрешения, персональные данные, реклама) — только факты и «возможно применимо»; вторая проверка другим исполнителем и юристом обязательна.
 
 ## Структура
 ```text
 SKILL.md                порядок работы
 INSTALL.md              установка и обновление, настройка Android SDK, промпты для Claude Code
-references/             setup, intake, safety-rules, stands, device-control, depth-matrix, parallelism,
-                        plugins-map, severity, repo-sync, run-files, checklists/ (11 направлений)
+references/             setup, intake, safety-rules, stands, device-control, audio-input, long-runs, screenshots,
+                        depth-matrix, parallelism, plugins-map, severity, repo-sync, run-files,
+                        checklists/ (11 направлений + audio-voice)
 templates/              run-config.example.yaml, finding.schema.json, issue-detailed.md, run-report.md, app-context.md
 scripts/                check_env (.py/.sh/.ps1), apk_info, avd_manager, adb_helpers, guard, masking, matrix, intake,
                         journal, fingerprint, validate_findings, render_draft, build_report, gitignore_helper,
-                        export_results, sdkutil,
+                        export_results, sdkutil, grpc_emu, mic, soak, annotate_android, finding, issue_forms,
+                        known_docs, attachments, qa (+ qa.ps1), node/ (annotate.js — копия из site-qa-audit),
                         shared/ (вендоренные модули репозитория)
-tests/                  unit.sh, helpers/ (фейковые adb и SDK, проверка примеров команд), fixtures/
+tests/                  unit.sh + v12.sh, helpers/ (фейковые adb, SDK, gh, node, сервер gRPC; проверка примеров), fixtures/
 ```

@@ -14,9 +14,27 @@ gh api repos/owner/repo/contents/CONTRIBUTING.md --jq .content | base64 --decode
 | `check` | чтение репозитория | без доступа — исключить репозиторий |
 | `write-new`, `copies`, `comment` | issues включены; право создавать issues (для приватного — доступ) | понизить до `check` или оставить только черновики |
 | метки `existing` | `triage`+ (иначе GitHub молча отбросит метки) | метки строкой в теле (`inline`) |
-| вложения `commit` | `push` в репозиторий | ссылки на локальные файлы прогона |
+| вложения `commit` / `branch` | `push` в репозиторий картинок (`attachments_repo`, может быть другим, своим) | ссылки на локальные файлы прогона |
 
-Их шаблон (`.md` или форма `.yml`) — заполнять их секции под их заголовками; свои поля (окружение, отпечаток) — в конец, в «Additional context» / «Дополнительно». Нет шаблона — `templates/issue-detailed.md`.
+### Их формы issue (`.github/ISSUE_TEMPLATE/*.yml`)
+```bash
+python3 <SKILL_DIR>/scripts/issue_forms.py fetch --repo owner/repo --out <RUN_DIR>/raw/forms/owner__repo
+python3 <SKILL_DIR>/scripts/issue_forms.py show <RUN_DIR>/raw/forms/owner__repo/bug.yml
+python3 <SKILL_DIR>/scripts/render_draft.py all <RUN_DIR>/findings.json --run-dir <RUN_DIR> --repo owner/repo --form auto --form-map <RUN_DIR>/raw/forms/owner__repo/map.json
+```
+- `fetch` — формы и Markdown-шаблоны репозитория (только чтение, `gh api`); `show` — поля (`id`, тип, обязательность, варианты) и из какого поля находки они заполнятся (`← steps`, `← severity`…).
+- `render_draft.py --form auto` — форма ошибки для находок и форма предложения для `proposal` / `suggestion` / `user-story`; тело **как из веб-формы**: `### <Название поля>` и значение, пустое — `_No response_`, флажки `- [X]` / `- [ ]`, поле с `render: shell` — блок кода; заголовок — с префиксом формы (`[Bug]: …`), метки — метки формы. Markdown-описание формы (`type: markdown`) в тело не попадает.
+- **Выпадающие списки — только точный текст варианта**: серьёзность находки подбирается по словам (`high` → «Высокая» / «Major» / «P1»), иначе — вопрос пользователю. Обязательное поле без значения и обязательный флажок («Я поискал среди открытых issues») скил сам не заполняет — колонка «Проверить» в `index.md`; ответы пользователя — `map.json` (`{"<id или название поля>": "<значение или точный вариант>", "<текст флажка>": true}`), затем `render_draft.py … --form-map map.json`.
+- Только Markdown-шаблон (`.md`) — заполнять его разделы под его заголовками; свои поля (окружение, отпечаток) — в конец, в «Additional context» / «Дополнительно». Нет ни форм, ни шаблона — `templates/issue-detailed.md`.
+
+### Уже известно: документы проекта
+Если у проекта есть документы «известные ограничения», «не ошибка», «задумано», FAQ (`context.sources: github` или ссылка пользователя) — до публикации сверить с ними находки:
+```bash
+python3 <SKILL_DIR>/scripts/known_docs.py fetch --repo owner/repo --path docs/KNOWN.md --path docs/FAQ.md --out <RUN_DIR>/raw/known
+python3 <SKILL_DIR>/scripts/known_docs.py check <RUN_DIR>/findings.json --doc <RUN_DIR>/raw/known
+python3 <SKILL_DIR>/scripts/known_docs.py set <RUN_DIR>/findings.json --id F-006 --doc <RUN_DIR>/raw/known/docs__KNOWN.md --quote "Размеры моделей указаны примерно"
+```
+`check` пишет в находки `known_candidates` с цитатой и пометкой, говорит ли абзац «задумано / известно / примерно». **Автоматически ничего не снимается**: агент читает цитату; если документ действительно описывает находку — `set` (статус `KNOWN`, документ, цитата): она не публикуется, в `report.md` — раздел «Уже известно». Сомнение — вопрос пользователю.
 
 ## 2. Выгрузка и отпечатки
 ```bash
@@ -49,7 +67,9 @@ python3 <SKILL_DIR>/scripts/render_draft.py detailed <RUN_DIR>/findings.json --i
 python3 <SKILL_DIR>/scripts/build_report.py publish-table <RUN_DIR>
 ```
 - Черновики: `<RUN_DIR>/drafts/<owner__repo>/NN-<статус>-<отпечаток>.md` (первая строка `TITLE:`), `….body.md` (тело для `--body-file`), `index.md` — заголовки, метки и команда `gh`, которой черновик **был бы** опубликован. Находки с `evidence.sensitive` в черновики не попадают (решение пользователя, `safety-rules.md` §6).
-- Настройки из `repos[]` (флаги главнее): `disclosure: none` — без подписи скила и маркера; `cross_links: false` — без ссылок на issues других репозиториев; `marker: skill|neutral|none`; `severity_map` — метка шкалы репозитория в заголовке; `labels: existing|create|inline|none`, `extra_labels`.
+- Настройки из `repos[]` (флаги главнее, затем `publish.*` run-config): `disclosure: tool|none` (ниже); `cross_links: false` — без ссылок на issues других репозиториев; `marker: skill|neutral|none` (только при `tool`); `severity_map` — метка шкалы репозитория в заголовке; `labels: existing|create|inline|none`, `extra_labels`; `form` — путь к форме или `auto`; `steps: human`; `attachments: branch` с `attachments_repo`, `attachments_branch`, `attachments_dir`; `ours: true` — свой репозиторий.
+- **Раскрытие (`disclosure`).** `tool` — **по умолчанию**: внизу «_Создано android-qa-audit…_», скрытый маркер отпечатка (повторный прогон находит свои issues точно), источник и id прогона в таблице. `none` — по явной просьбе пользователя («без упоминания скила / инструмента / Claude»): нет подписи, маркеров (в том числе скрытых), строк «Источник» и «Прогон», меток с именем инструмента; поиск дублей при повторном прогоне — только нечёткий. Для **чужого трекера** (`ours` не `true`) `render_draft.py` печатает и пишет в `index.md` предупреждение: публикация без пометки об автоматизации может ввести мейнтейнеров в заблуждение — показать его пользователю перед «да». Трейлеры коммитов Claude Code (`Co-Authored-By` и т. п.) `disclosure` не затрагивает: скил их не добавляет и не удаляет.
+- **Человеческие шаги** (`--human-steps`, `repos[].steps: human`, `publish.steps: human`): шаги с командами (`adb_helpers.py font-scale 2.0`, `kill-bg`, `network offline`, `tap --text "…"`) переписываются действиями пользователя («Настройки Android → Экран → Размер шрифта: максимальный», «Свернуть приложение… открыть из «Недавних»», «Включить режим полёта», «Нажать «…»»); команда без перевода остаётся как есть и попадает в «Проверить» — переписать вручную.
 - **Перед публикацией — независимая перепроверка** (`parallelism.md`): `recheck.py run <RUN_DIR> --subst SERIAL=<serial>` (каждая находка дважды по `repro`), многошаговые — другой исполнитель и `recheck.py set`, правовые нормы — `recheck.py legal`; `recheck.py gate <RUN_DIR>`. В сводной таблице колонка «Перепроверка»: без подтверждения — «НЕ публиковать до перепроверки».
 - **Публикация:** показать сводную таблицу (`publish-table`) → ждать «да» (можно частично: «всё, кроме 3 и 7») → по одному:
   ```bash
@@ -57,7 +77,20 @@ python3 <SKILL_DIR>/scripts/build_report.py publish-table <RUN_DIR>
   gh issue comment <N> -R owner/repo --body-file <файл>
   ```
   Тело — всегда через файл. Пауза 3 с между созданиями; ошибка лимита (403 secondary rate limit, 5xx) — пауза 60 с, до 3 повторов, затем остановиться, оставшееся — в черновиках. После каждой публикации — `published: [{repo, number, url, kind}]` в findings.json (защита от дублей при обрыве).
-- **Вложения:** `gh` не прикладывает картинки к issue. `attachments: none` (по умолчанию) — в теле «скриншот: `screenshots/…` (файл в папке прогона, приложу по запросу)»; `attachments: commit` (нужен `push`, свой репозиторий) — закоммитить скриншоты и видео в отдельную папку/ветку (`qa-runs/<дата>/` в репозитории — после «да»), затем `render_draft.py … --attachments-base https://github.com/owner/repo/blob/<ветка>/<папка>`. Перед публикацией проверить, что на скриншотах нет персональных данных. logcat — только выдержкой в теле (замаскирован, ≤ 40 строк).
+- **Вложения:** `gh` не прикладывает картинки к issue — они должны **уже лежать в репозитории**, когда issue создаётся. `attachments: none` (по умолчанию) — в теле «скриншот: `screenshots/…` (файл в папке прогона, приложу по запросу)». `attachments: branch` — **вложения веткой** (ниже). logcat — только выдержкой в теле (замаскирован, ≤ 40 строк). Перед публикацией проверить, что на скриншотах нет персональных данных.
+
+### Вложения веткой и порядок публикации со скриншотами
+```bash
+python3 <SKILL_DIR>/scripts/attachments.py plan <RUN_DIR> --repo owner/repo --branch qa-screens --dir qa/2026-10-09
+python3 <SKILL_DIR>/scripts/attachments.py push <RUN_DIR> --repo owner/repo --branch qa-screens --dir qa/2026-10-09 --yes
+python3 <SKILL_DIR>/scripts/attachments.py verify <RUN_DIR> --repo owner/repo --branch qa-screens --dir qa/2026-10-09
+python3 <SKILL_DIR>/scripts/render_draft.py all <RUN_DIR>/findings.json --run-dir <RUN_DIR> --repo owner/repo --attachments-base https://github.com/owner/repo/blob/qa-screens/qa/2026-10-09
+```
+1. **plan** (без сети): какие файлы (скриншоты публикуемых находок — аннотированные вместо оригиналов; `KNOWN`, дубли и `evidence.sensitive` пропускаются), куда, какими ссылками. Показать пользователю: репозиторий картинок (может быть свой приватный, а issues — в чужом: тогда у читателей issue должен быть доступ к картинкам), ветка, папка.
+2. **push --yes** — только после «да»: через GitHub contents API (`gh api`), без локального клона — рабочая копия и ветки пользователя не трогаются; нет ветки — создаётся от головы ветки по умолчанию; тот же файл повторно не загружается. Сообщение коммита — `--message` (при `disclosure: none` — без имени инструмента).
+3. **verify** — каждый файл есть в ветке (`attachments.json` → `ok`).
+4. Черновики с `--attachments-base` (или `repos[].attachments: branch` — база собирается сама): ссылки `https://github.com/<repo>/blob/<ветка>/<папка>/<файл>?raw=true` — открываются и в приватном репозитории у всех, у кого есть доступ (`raw.githubusercontent.com` — нет).
+5. Только потом — сводная таблица, «да» и `gh issue create … --body-file …` по одной (§4); массовую публикацию можно поручить субагенту с этим порядком и блоком правил.
 
 ## 4a. Прямая публикация (`publish_mode: direct`, только по запросу пользователя)
 Пользователь просит «сразу в репозиторий» — без накопления черновиков. Для каждой находки по очереди:
