@@ -19,8 +19,11 @@ atexit.register(shutil.rmtree, _TEST_HOME, ignore_errors=True)
 for _k in ("HOME", "USERPROFILE"):
     os.environ[_k] = _TEST_HOME
 for _k in ("TYPESAFE_API_KEY", "TYPESAFE_API_URL", "TYPESAFE_TRIAGE_HOME", "TYPESAFE_TRIAGE_PROJECTS", "TYPESAFE_TRIAGE_SECRETS",
-           "TYPESAFE_TRIAGE_DELEGATE_DOWN", "TYPESAFE_TRIAGE_ECONOMY", "TYPESAFE_TRIAGE", "TYPESAFE_TRIAGE_CHILD", "CLAUDE_CONFIG_DIR"):
+           "TYPESAFE_TRIAGE_DELEGATE_DOWN", "TYPESAFE_TRIAGE_ECONOMY", "TYPESAFE_TRIAGE", "TYPESAFE_TRIAGE_CHILD", "CLAUDE_CONFIG_DIR", "TYPESAFE_TRIAGE_CONFIRM"):
     os.environ.pop(_k, None)
+# 2.7.0: по умолчанию подтверждений нет; прежний набор тестов проверяет режим с подтверждениями (TYPESAFE_TRIAGE_CONFIRM=on),
+# а поведение по умолчанию — test_typesafe_routing.py (подменяет CONFIRM_TIERS/CONFIRM_EFFORTS пустыми)
+os.environ["TYPESAFE_TRIAGE_CONFIRM"] = "on"
 os.environ["PYTHONUTF8"] = "1"          # подпроцессы пишут и читают UTF-8 независимо от кодовой страницы (Windows: cp1251)
 os.environ["PYTHONIOENCODING"] = "utf-8"
 

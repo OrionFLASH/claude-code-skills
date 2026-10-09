@@ -41,6 +41,7 @@
 сессии — triage_session, локально из стенограммы); короткое продолжение с прежним решением — без заметки (журнал: quiet);
 --check проверяет регистрацию хука и имя скилла для Skill (triage_install); --batch (triage_batch); журнал решений и
 фактов в корне проекта и --fact (triage_projectlog, опция).
+2.7.0: haiku/fable/low/max без подтверждений по строгим критериям (TYPESAFE_TRIAGE_CONFIRM=on возвращает вопросы), причина повтора, рутина, источники (references/sources.md).
 2.6.0: делегирование вниз и экономный режим (опции), --report, --verify (SHA256SUMS), HTTP 451 = region, путь в начале запроса не команда, шире маскировка.
 2.5.0: маскировка секретов и персональных данных (triage_secrets): пароли RU/EN, seed-фразы, ключи, токены, карты, e-mail; critical не отправляется; TYPESAFE_TRIAGE_SECRETS=block|strict|mask, --scan.
 2.4.2: принудительный запуск триажа из запроса — /typesafe-triage <задача>, метка «triage:» / «!триаж opus/high», фраза «сделай триаж» (снимает пропуски хука; выбор модели не меняет).
@@ -145,29 +146,40 @@ SESSION_EFFORT_GAP = 2     # строка «/effort …» для основно�
 # ---------- уровни ----------
 TIERS = ["haiku", "sonnet", "opus", "fable"]
 AUTO_TIERS = ("sonnet", "opus")                     # запускаются без вопросов
-CONFIRM_TIERS = {"haiku": "sonnet", "fable": "opus"}  # только с подтверждения пользователя; значение — ближайший безопасный
+# 2.7.0: подтверждений по умолчанию нет — вместо вопроса строгие критерии (HAIKU_*, FABLE_*). TYPESAFE_TRIAGE_CONFIRM=on|haiku,fable
+# возвращает вопрос пользователю; значение — ближайший безопасный уровень без согласия.
+SAFE_TIERS = {"haiku": "sonnet", "fable": "opus"}   # ближайший уровень, достижимый без согласия / без ответа TypeSafe
+CONFIRM_TIERS = {k: v for k, v in {"haiku": "sonnet", "fable": "opus"}.items() if k in eff.confirm_names()}
 DEFAULT_TIER = "sonnet"     # если рекомендации нет совсем (пустой текст): модель по умолчанию
 
 # ---------- пороги (подбираются по triage_cases.json через --selftest, не «из головы» навсегда) ----------
 WEIGHTS = {"complexity": 0.30, "reasoning": 0.25, "ambiguity": 0.15, "risk": 0.20, "breadth": 0.10}
 LOAD_SONNET = 0.25          # нагрузка ниже — кандидат на haiku
 LOAD_OPUS = 0.60            # нагрузка от — opus
-LOAD_FABLE = 0.84           # нагрузка от — кандидат на fable (плюс уверенность и критичность)
+LOAD_FABLE = 0.88           # нагрузка от — кандидат на fable (плюс уверенность и критичность); 2.7.0: 0,84 → 0,88
 HEUR_RAISE = 0.4            # какая доля превышения «эвристика над TypeSafe» добавляется к нагрузке (вниз эвристика не тянет)
 CONF_ESCALATE = 0.5         # минимальная уверенность шкал ниже — шаг вверх (один, не выше opus)…
 ESC_MARGIN = 0.15           # …если нагрузка не дальше ESC_MARGIN от следующего порога (сомнение далеко от границы уровень не меняет)
 CONF_DOWNGRADE = 0.7        # для haiku уверенность должна быть не ниже, ЛИБО…
 HAIKU_UPPER_MAX = 0.15      # …вероятность верхней половины шкал (сложность, рассуждение, риск) не выше этого: «уверенно просто»
+                            # (живая проверка 2.7.0: у простых вопросов уверенность 0,5–0,7, зато верхняя половина почти пуста — И здесь отсекало всё)
+HAIKU_READ_RISK = 0.15      # 2.7.0: слова риска в тексте запрещают haiku, даже для чтения, если риск по TypeSafe выше этого
+HAIKU_MAX_STEPS = 2         # 2.7.0: haiku — не больше столько шагов в тексте …
+HAIKU_MAX_CHARS = 700       # … и столько знаков прозы: чёткое короткое ТЗ
 HAIKU_AMBIG_UPPER = 0.3     # для haiku вероятность «открытая, неясная задача» не выше
-CONF_FABLE = 0.7            # для fable уверенность должна быть не ниже
+CONF_FABLE = 0.8            # для fable уверенность должна быть не ниже (2.7.0: 0,7 → 0,8)
 FLAG_ON = 0.6               # порог «да» для флагов Noul
 HAIKU_FLAG_MIN = 0.8        # read_only/mechanical открывают haiku только при уверенном «да»
-HAIKU_RISK_MAX = 0.34       # риск для haiku — не выше «легко проверить и откатить»
-HAIKU_HEUR_MAX = 0.40       # эвристическая нагрузка выше — haiku запрещён
+HAIKU_RISK_MAX = 0.25       # риск для haiku — не выше «легко проверить и откатить» (2.7.0: 0,34 → 0,25)
+HAIKU_HEUR_MAX = 0.30       # эвристическая нагрузка выше — haiku запрещён (2.7.0: 0,40 → 0,30)
 PROTECT_FLAG = 0.5          # диагностика/незаметные ошибки/необратимость/новизна поднимают до sonnet уже при слабом «да»
 RISK_TOP = 0.9              # риск на верхнем уровне шкалы («критично/необратимо»)
 FABLE_FLAG_MIN = 0.8        # необратимость для fable — уверенное «да»
-FABLE_HEUR_MIN = 0.45       # fable — только если и текст говорит о тяжёлой задаче (или есть слова критичности)
+FABLE_HEUR_MIN = 0.45       # (прежний порог текста; с 2.7.0 для fable нужны слова критичности/долгого горизонта в тексте ИЛИ нагрузка текста от FABLE_HEUR_STRONG)
+FABLE_HEUR_STRONG = 0.60
+LOAD_FABLE_HORIZON = 0.85   # 2.7.0: при долгом горизонте (часы, вся кодовая база) достаточно такой нагрузки
+FABLE_HEAVY = 0.9           # 2.7.0: «предельная сложность»: сложность и рассуждение TypeSafe не ниже этого
+FABLE_HORIZON_MIN = 0.85    # … либо долгий горизонт (часы, вся кодовая база, глубокое исследование) при сложности и рассуждении не ниже этого
 CHAT_SKIP = 0.8             # «это просто реплика» уверенно и работы почти нет — заметку не добавляем
 H_LOAD_OPUS = 0.36          # без TypeSafe: эвристическая нагрузка от — opus, ниже — sonnet
 H_CRITICAL_OPUS = 2         # без TypeSafe: столько разных групп слов критичности — opus
@@ -185,6 +197,7 @@ EFFORT_CONF_AXES = ("reasoning", "shallow_cost", "planning")   # уверенн�
 AGENT_RULES = (
     "Работай по правилам CLAUDE.md репозитория: доработка только в отдельной ветке, в main не коммитить и не вливать "
     "без явного акцепта пользователя. Проверки (тесты, чтение результата, проверка на данных) обязательны. "
+    "Минимально достаточное изменение, без лишних абстракций; не отлаживай проверочную обвязку дольше самой задачи; факты бери из источника. "
     "Скилл typesafe-triage не применяй, других агентов на моделях haiku или fable не запускай. "
     "В конце кратко и по-русски доложи, что сделано и что проверено.")
 
@@ -542,12 +555,22 @@ def decide(m, h=None):
         why.append("haiku только для уверенного чтения/механики с низким риском → sonnet")
     if tier == 0 and min_conf < CONF_DOWNGRADE and upper > HAIKU_UPPER_MAX:
         tier, raised = 1, True
-        why.append("для haiku нужна уверенность ≥ %.1f (есть %.2f) или «верх шкал» ≤ %.2f (есть %.2f) → sonnet"
+        why.append("для haiku нужна уверенность ≥ %.2f (есть %.2f) или «верх шкал» ≤ %.2f (есть %.2f) → sonnet"
                    % (CONF_DOWNGRADE, min_conf, HAIKU_UPPER_MAX, upper))
-    if tier == 0 and h and ((h["critical"] and not reads) or load_h >= HAIKU_HEUR_MAX):
-        tier, raised = 1, True
-        why.append("текст: %s → не haiku" % ("слова риска: " + ", ".join(h["critical"]) if h["critical"] and not reads
-                                              else "заметный объём/шаги"))
+    if tier == 0 and h:
+        # 2.7.0: без вопроса пользователю haiku получает только чёткое короткое ТЗ без риска, диагностики, повторов и объёма
+        bad = []
+        if h["critical"] and (not reads or v["risk"] > HAIKU_READ_RISK):
+            bad.append("слова риска: " + ", ".join(h["critical"]))
+        if load_h >= HAIKU_HEUR_MAX:
+            bad.append("заметный объём/шаги")
+        if h["effort"]["diag"] or h["effort"]["retry"]:
+            bad.append("диагностика/повтор")
+        if h["steps"] > HAIKU_MAX_STEPS or max(h["prose_chars"], h["chars"]) > HAIKU_MAX_CHARS or h["has_logs"]:
+            bad.append("не короткое ТЗ")
+        if bad:
+            tier, raised = 1, True
+            why.append("текст: %s → не haiku" % "; ".join(bad))
     protect = [k for k in ("silent_errors", "needs_investigation", "irreversible", "novel_design") if v[k] >= PROTECT_FLAG]
     if tier < 1 and protect:
         tier = 1
@@ -562,19 +585,34 @@ def decide(m, h=None):
         why.append("нужна новая разработка/творчество в большой задаче → opus")
     next_cut = LOAD_SONNET if tier == 0 else LOAD_OPUS
     if min_conf < CONF_ESCALATE and tier < 2 and not raised and load >= next_cut - ESC_MARGIN:
-        tier += 1
-        why.append("низкая уверенность %.2f у границы уровня → шаг вверх" % min_conf)
+        if h and h.get("precise") and tier >= 1:       # 2.7.0 (R3): точная правка — рутина, сомнение TypeSafe не повод брать opus
+            why.append("точная правка/вопрос по коду: низкая уверенность %.2f не поднимает уровень" % min_conf)
+        else:
+            tier += 1
+            why.append("низкая уверенность %.2f у границы уровня → шаг вверх" % min_conf)
 
-    critical = v["risk"] >= RISK_TOP or v["irreversible"] >= FABLE_FLAG_MIN or (v["complexity"] >= 0.9 and v["reasoning"] >= 0.9)
-    text_agrees = h is None or bool(h["critical"]) or load_h >= FABLE_HEUR_MIN
-    if tier == 2 and load >= LOAD_FABLE and critical:
+    # 2.7.0: fable без вопроса пользователю — только безусловный случай. Нужны ВСЕ условия: предельная нагрузка и уверенность,
+    # два независимых признака критичности у TypeSafe ЛИБО предельная сложность+рассуждение ЛИБО долгий горизонт при такой же
+    # сложности, согласие текста (слова критичности/горизонта И нагрузка текста), нет кибер/био-тем (там fable перенаправляется
+    # на менее мощные модели), нет повтора. Любое сомнение → opus.
+    crit_n = sum(1 for x in (v["risk"] >= RISK_TOP, v["irreversible"] >= FABLE_FLAG_MIN, v["silent_errors"] >= FABLE_FLAG_MIN) if x)
+    heavy = v["complexity"] >= FABLE_HEAVY and v["reasoning"] >= FABLE_HEAVY
+    horizon_ok = bool(h and h.get("horizon")) and v["complexity"] >= FABLE_HORIZON_MIN and v["reasoning"] >= FABLE_HORIZON_MIN
+    critical = crit_n >= 2 or heavy or horizon_ok
+    text_agrees = h is None or bool(h["critical"] or h.get("horizon")) or load_h >= FABLE_HEUR_STRONG
+    if tier == 2 and (load >= LOAD_FABLE or (horizon_ok and load >= LOAD_FABLE_HORIZON)) and critical:
         if min_conf < CONF_FABLE:
             why.append("для fable нужна уверенность ≥ %.1f (есть %.2f) → opus" % (CONF_FABLE, min_conf))
         elif not text_agrees:
             why.append("текст не подтверждает предельную нагрузку → opus")
+        elif h and h.get("fable_avoid"):
+            why.append("кибер/био-тема (%s): такие запросы fable перенаправляет на менее мощные модели → opus" % ", ".join(h["fable_avoid"]))
+        elif h and h["effort"]["retry"]:
+            why.append("повтор после неудачи: сначала opus с большим effort → opus")
         else:
             tier = 3
-            why.append("критично/необратимо/предельно сложно при уверенности %.2f → fable (только с подтверждением)" % min_conf)
+            why.append("безусловно предельно сложно/критично при уверенности %.2f → fable%s" % (
+                min_conf, " (только с подтверждением)" if "fable" in CONFIRM_TIERS else ""))
     return TIERS[tier], why
 
 
@@ -608,7 +646,7 @@ def http_detail(e):
 
 
 def compact_signals(h):
-    keep = ("prose_chars", "items", "paths", "steps", "deep", "light", "critical", "has_code", "has_logs")
+    keep = ("prose_chars", "items", "paths", "steps", "deep", "light", "critical", "has_code", "has_logs", "horizon", "fable_avoid", "precise")
     out = {k: h[k] for k in keep}
     out["axes"] = {k: round(x, 2) for k, x in h["axes"].items()}
     e = h.get("effort")
@@ -728,13 +766,17 @@ def add_effort(r, m, h, task, env="auto", history=None, session=None, cwd=None, 
         env = eff.env_context(cwd)
     records = eff.read_history(LOG_PATH, session) if history is None else history
     pid = prompt_id(task)
-    retry_now = h["effort"]["retry"]
-    hist = eff.history_escalation(records, retry_now, pid)
+    kind = heur.retry_kind(task)                       # 2.7.0 (R2): «не знала» → модель, «не старалась» → effort
+    retry_now = h["effort"]["retry"] or bool(kind)
+    hist = eff.history_escalation(records, retry_now, pid, kind)
     r["retry"] = bool(hist[0])
     tier, why = r["model"], [r["reason"]] if r.get("reason") else []
+    if r["retry"] and tier == "haiku":                 # 2.7.0: после неудачи haiku не берём — без вопроса пользователю это слишком рискованно
+        tier = "sonnet"
+        why.append("повтор после неудачи → не haiku")
     if hist[1] and tier in ("haiku", "sonnet"):
         tier = TIERS[TIERS.index(tier) + 1]
-        why.append("история: повторы подряд → модель %s" % tier)
+        why.append("история: %s → модель %s" % ("причина «не знала»" if kind in ("knowledge", "both") else "повторы подряд", tier))
     tier, user_tier, note = eff.apply_tier_directive(tier, d)
     if note:
         why.append(note)
@@ -1103,6 +1145,9 @@ def hook_context(result, cur_effort=None):
     efb = result.get("effort_fallback") if result.get("effort_confirm") else result.get("effort") or eff.DEFAULT_EFFORT
     if kind == "self" and cur_effort and cur_effort in eff.EFFORTS and abs(eff.idx(cur_effort) - eff.idx(efb)) >= SESSION_EFFORT_GAP:
         lines.append("• Делаешь сам (effort сессии %s): одной строкой предложи пользователю «/effort %s»." % (cur_effort, efb))
+    if delegating and (a.get("agent") or {}).get("model") == "haiku":   # 2.7.0: haiku — без вопроса, но с ответственностью за качество
+        lines.append("• Haiku (без вопроса — только для точной простой задачи): дай точное ТЗ и способ проверки, ограничь объём; результат "
+                     "проверь сам (выборочно, тест или сверка) до отчёта пользователю; не вышло или сомнение — повтори на sonnet.")
     if delegating:
         lines.append("• Исполнителю: самодостаточный промпт (шаблон references/executor-prompt.md), скилл typesafe-triage ему не "
                      "применять; план SuperPowers — модели ролей из его Model Selection («most capable» = opus, «cheapest» = sonnet).")
@@ -1622,6 +1667,8 @@ def run_cases(heuristic_only=False, split="all", calibrate=False):
         part = "holdout" if is_holdout(task) else "train"
         if split != "all" and part != split:
             continue
+        if heuristic_only and c.get("live_only"):   # 2.7.0: кейсы, которые различает только TypeSafe (локальная эвристика грубее)
+            continue
         st = stats[part]
         if c["expect"] == "skip":
             got_skip = should_skip(task) or (not heuristic_only and triage(task, env={}, history=[]).get("skip"))
@@ -1643,7 +1690,7 @@ def run_cases(heuristic_only=False, split="all", calibrate=False):
         mr = _range(c, "tier_ok", "expect", TIERS)
         er = _range(c, "effort_ok", "effort", eff.EFFORTS)
         if heuristic_only:
-            mr = tuple(CONFIRM_TIERS.get(x, x) for x in mr) if r.get("model_source") != "user" else mr
+            mr = tuple(SAFE_TIERS.get(x, x) for x in mr) if r.get("model_source") != "user" else mr   # без TypeSafe haiku/fable недостижимы
             if er and r.get("effort_source") != "user":
                 lo, hi = eff.H_EFFORT_BAND
                 er = (eff.at_most(eff.at_least(er[0], lo), hi), eff.at_most(eff.at_least(er[1], lo), hi))

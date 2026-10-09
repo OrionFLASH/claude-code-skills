@@ -50,9 +50,9 @@
 
 Нет ключа, сеть, тайм-аут, пауза защиты, слишком большой вход → только по тексту: нагрузка текста ≥ `H_LOAD_OPUS 0.36`, или ≥ 2 групп слов критичности (`H_CRITICAL_OPUS`), или намерение «доказать» (`H_INTENT_ALONE_OPUS`), или одна группа риска при намерении не легче «проверить/сравнить» (`H_INTENT_OPUS 0.6`) → opus, иначе sonnet. Никогда haiku и fable. В результате `source: "heuristic"`, `confidence: "низкая"`, в заметке — «только эвристика, уверенность низкая».
 
-## 5. Подтверждение haiku / fable
+## 5. Подтверждение haiku / fable (с 2.7 — по желанию)
 
-`CONFIRM_TIERS = {"haiku": "sonnet", "fable": "opus"}`. Если подтверждать нужно и модель, и effort (low/max) — один `AskUserQuestion` с двумя вопросами (см. заметку и [effort.md](effort.md)); явный выбор модели в тексте запроса — уже согласие (`model_source: "user"`, `confirm: false`). В результате триажа: `confirm: true` и `fallback` — безопасная замена. Заметка хука требует `AskUserQuestion` перед запуском агента; `--run` без `--confirmed` понижает рекомендацию до замены, а явный `--tier haiku|fable` без `--confirmed` отклоняет (код 2); `build_agent_cmd` без `confirmed=True` бросает `ValueError`.
+С 2.7 вопроса по умолчанию нет: `CONFIRM_TIERS` пуст, а вместо согласия пользователя работают строгие критерии в `decide()` (haiku: `CONF_DOWNGRADE`/`HAIKU_UPPER_MAX`, `HAIKU_RISK_MAX 0.25`, `HAIKU_HEUR_MAX 0.30`, `HAIKU_MAX_STEPS`, `HAIKU_MAX_CHARS`, нет диагностики/повтора; fable: `LOAD_FABLE 0.88`, `CONF_FABLE 0.8`, два признака критичности или `FABLE_HEAVY 0.9` или долгий горизонт `LOAD_FABLE_HORIZON 0.85`, текст подтверждает, нет кибер/био-тем и повтора). Включить вопросы: `TYPESAFE_TRIAGE_CONFIRM=on` (или `haiku,fable,low,max`), тогда `CONFIRM_TIERS = {"haiku": "sonnet", "fable": "opus"}`. Если подтверждать нужно и модель, и effort (low/max) — один `AskUserQuestion` с двумя вопросами (см. заметку и [effort.md](effort.md)); явный выбор модели в тексте запроса — уже согласие (`model_source: "user"`, `confirm: false`). В результате триажа: `confirm: true` и `fallback` — безопасная замена. Заметка хука требует `AskUserQuestion` перед запуском агента; `--run` без `--confirmed` понижает рекомендацию до замены, а явный `--tier haiku|fable` без `--confirmed` отклоняет (код 2); `build_agent_cmd` без `confirmed=True` бросает `ValueError`.
 
 ## 6. Подбор порогов
 
