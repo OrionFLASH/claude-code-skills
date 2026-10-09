@@ -31,7 +31,9 @@ import runcfg  # noqa: E402
 import skill_dir  # noqa: E402
 
 INCLUDE = ("SKILL.md", "README.md", "INSTALL.md", "CHANGELOG.md", ".claude-plugin", "references", "templates", "scripts")
-EXCLUDE = qa_snapshot.DEFAULT_EXCLUDE + ("tests", "qa-runs", ".integration", "*.tmp")
+# Only the folders of INCLUDE are copied (tests/ of the skill is not among them); inside them nothing is dropped but
+# caches: node_modules must stay complete (some packages keep files in folders named tests/).
+EXCLUDE = qa_snapshot.DEFAULT_EXCLUDE + ("qa-runs", ".integration")
 NODE_MODULES = "scripts/node/node_modules"
 
 

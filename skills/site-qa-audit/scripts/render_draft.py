@@ -36,6 +36,7 @@ import json
 import re
 import sys
 from pathlib import Path
+from urllib.parse import quote
 
 TPL = Path(__file__).resolve().parent.parent / "templates"
 EMAIL = re.compile(r"\b([A-Za-z0-9._%+-])[A-Za-z0-9._%+-]*@([A-Za-z0-9])[A-Za-z0-9.-]*\.([A-Za-z]{2,})\b")
@@ -315,7 +316,7 @@ def render_group(items, run, title=None, kind="bug", rel_prefix="", screenshot_b
         shot = ""
         if shots:
             s = shots[0]
-            src = f"{screenshot_base.rstrip('/')}/{Path(s).name}?raw=true" if screenshot_base else f"{rel_prefix}{s}"
+            src = f"{screenshot_base.rstrip('/')}/{quote(Path(s).name)}?raw=true" if screenshot_base else f"{rel_prefix}{s}"
             shot = f"![{Path(s).stem}]({src})"
         where = f.get("url") or ""
         if f.get("element"):
@@ -409,7 +410,7 @@ def render_cause_group(g, items, run, rel_prefix="", screenshot_base=None, opts=
         shot = ""
         if shots:
             s0 = shots[0]
-            src = f"{screenshot_base.rstrip('/')}/{Path(s0).name}?raw=true" if screenshot_base else f"{rel_prefix}{s0}"
+            src = f"{screenshot_base.rstrip('/')}/{quote(Path(s0).name)}?raw=true" if screenshot_base else f"{rel_prefix}{s0}"
             shot = f"![{Path(s0).stem}]({src})"
         w = (f.get("url") or "") + (f" · `{cell(f['element'], 60)}`" if f.get("element") else "")
         env = ", ".join(x for x in ((f.get("environment") or {}).get("viewport"), f.get("platform"),
@@ -491,7 +492,7 @@ def render_detailed(f, run, related=None, screenshot_base=None, rel_prefix="", o
     if rel_prefix and not screenshot_base:
         v["screenshots_md"] = "\n".join(f"![{Path(s).stem}]({rel_prefix}{s})" for s in visible_shots(f.get("screenshots") or []))
     if screenshot_base:
-        v["screenshots_md"] = "\n".join(f"![{Path(s).stem}]({screenshot_base.rstrip('/')}/{Path(s).name}?raw=true)"
+        v["screenshots_md"] = "\n".join(f"![{Path(s).stem}]({screenshot_base.rstrip('/')}/{quote(Path(s).name)}?raw=true)"
                                         for s in visible_shots(f.get("screenshots") or []))
     links = (related or []) + [f"{m.get('repo')}#{m.get('number')}" for m in f.get("matches") or []]
     if not opts.cross_links:

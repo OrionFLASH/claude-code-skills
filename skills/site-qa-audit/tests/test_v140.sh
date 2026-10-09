@@ -445,6 +445,9 @@ check "publish_shots push: в основную ветку — 2; репозит�
   test \$('$PY' '$PS' push '$RS' --repo owner/priv --branch main --confirm-push >/dev/null 2>&1; echo \$?) = 2 &&
   test \$('$PY' '$PS' push '$RS' --repo owner/pub --confirm-push >/dev/null 2>&1; echo \$?) = 1 &&
   test \$('$PY' '$PS' plan '$RS' --repo owner/none >/dev/null 2>&1; echo \$?) = 3"
+check "ссылки на скриншоты с --screenshot-base: имя файла в URL экранируется (пробел -> %20), как в publish_shots" sh -c "
+  '$PY' -c \"import json,sys; d=json.load(open(sys.argv[1])); d['findings'][0]['screenshots']=['screenshots/my shot-annotated.png']; json.dump(d, open(sys.argv[2],'w'), ensure_ascii=False)\" '$FG' '$TMP/fg-space.json' &&
+  '$PY' '$RD' detailed '$TMP/fg-space.json' --id F-001 --screenshot-base https://github.com/owner/priv/blob/qa-screenshots/qa | grep -q 'qa/my%20shot-annotated.png?raw=true'"
 unset QA_GH_BIN FAKE_GH_STATE QA_GH_PAUSE
 
 echo "stream v1.4.0: PASS $pass, FAIL $fail"

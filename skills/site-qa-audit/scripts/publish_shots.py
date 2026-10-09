@@ -28,6 +28,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from urllib.parse import quote
 
 GH = os.environ.get("QA_GH_BIN") or "gh"
 
@@ -112,7 +113,8 @@ def push(run_dir, repo, branch, path, ids=None, confirm=False):
     files, _ = files_of(run_dir, ids)
     path = path.strip("/")
     base = f"https://github.com/{repo}/blob/{branch}/{path}"
-    rows = [{"id": i, "file": s, "target": f"{path}/{Path(s).name}", "url": f"{base}/{Path(s).name}?raw=true"} for i, s, _ in files]
+    rows = [{"id": i, "file": s, "target": f"{path}/{Path(s).name}", "url": f"{base}/{quote(Path(s).name)}?raw=true"}
+            for i, s, _ in files]
     res = dict(p, branch=branch, path=path, screenshot_base=base, uploads=rows, dry_run=not confirm)
     if not confirm:
         return 0, res
@@ -123,7 +125,8 @@ def push(run_dir, repo, branch, path, ids=None, confirm=False):
     done = []
     for (fid, rel, abs_path), row in zip(files, rows):
         data = abs_path.read_bytes()
-        cur = gh_api(f"repos/{repo}/contents/{row['target']}?ref={branch}", ok404=True)
+        api_path = f"repos/{repo}/contents/{quote(row['target'], safe='/')}"
+        cur = gh_api(f"{api_path}?ref={quote(branch, safe='')}", ok404=True)
         if cur and cur.get("sha") == blob_sha(data):
             done.append(dict(row, status="unchanged"))
             continue
@@ -131,7 +134,7 @@ def push(run_dir, repo, branch, path, ids=None, confirm=False):
                 "content": base64.b64encode(data).decode("ascii")}
         if cur and cur.get("sha"):
             body["sha"] = cur["sha"]
-        gh_api(f"repos/{repo}/contents/{row['target']}", "PUT", body)
+        gh_api(api_path, "PUT", body)
         done.append(dict(row, status="updated" if cur else "created"))
         time.sleep(float(os.environ.get("QA_GH_PAUSE", "0.5")))
     res["uploads"] = done
