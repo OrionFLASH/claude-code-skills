@@ -155,6 +155,7 @@ INSTALL.md              установка и обновление, настро
 references/             setup, intake, safety-rules, stands, device-control, audio-input, long-runs, screenshots,
                         depth-matrix, parallelism, plugins-map, severity, repo-sync, run-files,
                         checklists/ (11 направлений + audio-voice)
+hooks/                  hooks.json — хук плагина «принудительный запуск» (scripts/shared/qa_force.py)
 templates/              run-config.example.yaml, finding.schema.json, issue-detailed.md, run-report.md, app-context.md
 scripts/                check_env (.py/.sh/.ps1), apk_info, avd_manager, adb_helpers, guard, masking, matrix, intake,
                         journal, fingerprint, validate_findings, render_draft, build_report, gitignore_helper,

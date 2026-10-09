@@ -337,15 +337,16 @@ Windows — `%USERPROFILE%\.claude\settings.json`; в JSON обратный сл
 | `SITE_QA_HEADLESS` | `1` — браузерные скрипты скила без окна (фоновый режим). Значение по умолчанию для прогонов: **`run-config.yaml → browser.headed`** конкретного прогона главнее (`browser_mode.py set <RUN_DIR> --headed\|--headless` — переключить посреди прогона), флаг команды `--headed`/`--headless` — ещё главнее | окно **видно** (вы видите, что делает тест) |
 | `SITE_QA_SLOWMO` | замедление действий в видимом окне, мс (`browser.slowmo` прогона главнее) | `250` |
 | `SITE_QA_PYTHON` | команда Python для node-скриптов (мост к `url_guard.py`), если `python3` не подходит (Windows: `python` или `py`) | `python3` (Windows — `python`) |
+| `QA_GUARD_DEBUG` | любое значение — `guard.js` пишет в stderr ошибки перехвата запросов (отладка; в обычной работе не нужна) | не задана |
 | `SITE_QA_RUN_DIR`, `SITE_QA_OWNER` | папка прогона и имя потока для реестра вкладок `tabs.json`, если node-скрипт запускается без `--rules <RUN_DIR>/rules.json` / `--owner`; `SITE_QA_TABS=0` — не регистрировать | папка `--rules` (рядом `run-config.yaml`), владелец `node` |
 
-Пример (macOS / Linux):
+Пример (macOS / Linux; `<версия>` — из `claude plugin list`, после каждого обновления плагина путь меняется):
 
 ```json
 {
   "env": {
     "SITE_QA_OUTPUT_DIR": "/Users/<имя>/qa-results",
-    "SITE_QA_AUDIT_DIR": "/Users/<имя>/.claude/plugins/cache/claude-code-skills/site-qa-audit/1.5.0",
+    "SITE_QA_AUDIT_DIR": "/Users/<имя>/.claude/plugins/cache/claude-code-skills/site-qa-audit/<версия>",
     "SITE_QA_HEADLESS": "0",
     "SITE_QA_SLOWMO": "250"
   }

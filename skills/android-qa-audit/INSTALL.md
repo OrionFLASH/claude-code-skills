@@ -337,6 +337,18 @@ Windows — `%USERPROFILE%\.claude\settings.json` (обратный слэш в 
 ```
 После изменения перезапустите Claude Code; `check_env` покажет путь в строке `ANDROID_QA_OUTPUT_DIR`.
 
+## Переменные окружения скила
+
+| Переменная | Что делает | По умолчанию |
+|------------|-----------|--------------|
+| `ANDROID_QA_OUTPUT_DIR` | папка результатов (раздел выше) | `<папка запуска>/qa-runs/` |
+| `ANDROID_HOME`, `ANDROID_SDK_ROOT` | Android SDK (раздел «Переменные окружения» выше) | типовые папки SDK |
+| `QA_RUN_DIR` (или `ANDROID_QA_RUN_DIR`) | папка прогона: обёртка `qa` (`scripts/qa`, `qa.ps1`) добавляет `--run-dir` к каждой команде; вместо serial можно писать `-` — берётся `ANDROID_SERIAL` или единственное устройство | не задана |
+| `ANDROID_QA_EMU_RUNNING_DIR` | ещё одна папка, где искать файлы `pid_<pid>.ini` запущенных эмуляторов (gRPC `mic-inject`), если эмулятор пишет их не в стандартное место | стандартные папки ОС |
+| `SITE_QA_PYTHON`, `SITE_QA_HEADLESS`, `SITE_QA_SLOWMO` | node-скрипты (аннотации скриншотов): команда Python для моста к `guard.py`, окно браузера без интерфейса (`1`), замедление в мс | `python3` (Windows — `python`), окно видно, `250` |
+| `ANDROID_QA_STOP_FILE` | **задаёт сам скил** фоновой задаче (`job run`): файл запроса остановки `raw/jobs/<id>.stop`; вручную не задавать | — |
+| `ANDROID_QA_SLEEP_SCALE`, `ANDROID_QA_LOOPBACK`, `ANDROID_QA_PLAYER` | **только для тестов** (`tests/`): масштаб пауз UI, подмена звукового loopback и проигрывателя | не заданы |
+
 ## Частые проблемы
 
 | Симптом | Что сделать |

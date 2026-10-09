@@ -219,6 +219,7 @@ references/             setup, intake, safety-rules, depth-matrix, parallelism, 
                         severity, environment-notes, screenshots, claims, run-files, browser-guard,
                         side-effects, layout-detectors, devices-auth, web-upload, local-files, fix-cycle,
                         checklists/ (12 направлений)
+hooks/                  hooks.json — хук плагина «принудительный запуск» (scripts/shared/qa_force.py)
 templates/              run-config.example.yaml, finding.schema.json, issue-detailed.md,
                         issue-comment.md, user-story.md, run-report.md, site-context.md
 scripts/                check_env, skill_dir, skill_snapshot, local_app, browser_mode, url_guard, intake, journal,
