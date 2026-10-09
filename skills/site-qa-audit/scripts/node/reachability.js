@@ -3,14 +3,19 @@
 // For each visible interactive element whose box is not fully visible (viewport ∩ clipping ancestors):
 //   1) structure: user-scrollable ancestors (overflow auto/scroll and scrollHeight > clientHeight; document unless hidden);
 //   2) mouse wheel over the clipping container (repeated until the element is visible or nothing moves);
-//   3) touch/mouse gesture Input.synthesizeScrollGesture (Chromium only).
+//   3) touch/mouse gesture Input.synthesizeScrollGesture (Chromium only);
+//   4) mobile WebKit (no wheel, no CDP gesture in Playwright): the touch-scroll MODEL in the page — the user-scrollable
+//      box under the finger moves (scroll chaining, overscroll-behavior), touch-action on the path blocks it.
 // Verdict «достижим» if the wheel or the gesture brings it into view, else «недостижим».
 // Scroll positions are restored after every element (scrollTop assignment, which works even for overflow:hidden).
 //
 //   node reachability.js URL [URL...] [--sizes 720x450,863x360] [--device pixel7-landscape,iphone15-landscape]
 //        [--selector "#a" --selector "#b"] [--frames all|main] [--max 40] [--rules rules.json] [--setup setup.js]
-//        [--state auth-state.json | --cdp URL] [--out reachability.json]
+//        [--state auth-state.json | --cdp URL] [--webkit both|chromium|webkit] [--out reachability.json]
 // Default configurations when none given: 720x450 and pixel7-landscape (low windows and landscape are mandatory).
+// Mobile WebKit devices (iphone15, ipad…; no --browser): --webkit both (default) — the device emulated in Chromium
+// (real wheel and touch gesture) AND the same device in WebKit (its own layout; wheel null, gesture by the touch model,
+// gestureMethod: touch-model); chromium — only the emulation (as before 1.5.0); webkit — only WebKit.
 const fs = require('fs');
 const path = require('path');
 const { parseArgs, loadRules, writeOut, urlsFromArgs, multiArg } = require('./lib');
@@ -101,6 +106,37 @@ function installHelpers() {
       const sig = positions().map(p => p[1] + ',' + p[2]).join(';') + '|' + Math.round(b.top) + ',' + Math.round(b.left);
       return { visible: visibleFraction(el), top: b.top, left: b.left, bottom: b.bottom, right: b.right, vw, vh, pt, sig };
     },
+    // Touch-scroll MODEL (mobile WebKit: Playwright has neither a wheel nor a scroll gesture there). A finger at pt
+    // moves the innermost USER-scrollable box under it that can still move along the axis (overflow auto/scroll/overlay;
+    // the document unless html/body is overflow hidden/clip); at its edge the scroll chains to the parent unless
+    // overscroll-behavior is contain/none. touch-action on the path (none, or no pan along the axis) blocks the gesture.
+    touchScroll(pt, dx, dy) {
+      const axisY = Math.abs(dy) >= Math.abs(dx), d = axisY ? dy : dx;
+      if (!d) return { moved: false, blocked: 'нет направления' };
+      const pan = axisY ? 'pan-y' : 'pan-x';
+      const rootEls = [document.documentElement, document.body];
+      const rootUser = rootEls.every(n => !n || !/(hidden|clip)/.test(getComputedStyle(n)[axisY ? 'overflowY' : 'overflowX']));
+      const se = document.scrollingElement || document.documentElement;
+      const room = (n) => axisY ? (d > 0 ? n.scrollHeight - n.clientHeight - n.scrollTop : n.scrollTop)
+        : (d > 0 ? n.scrollWidth - n.clientWidth - n.scrollLeft : n.scrollLeft);
+      let n = document.elementFromPoint(pt[0], pt[1]);
+      for (; n && n.nodeType === 1; n = n.parentElement) {
+        const cs = getComputedStyle(n);
+        const ta = cs.touchAction || 'auto';
+        if (ta === 'none' || (ta !== 'auto' && ta !== 'manipulation' && !ta.includes(pan)))
+          return { moved: false, blocked: `touch-action: ${ta} (${n === document.body ? 'body' : n === document.documentElement ? 'html' : cssPath(n)})` };
+        if (rootEls.includes(n)) break;
+        const ov = axisY ? cs.overflowY : cs.overflowX;
+        const user = /(auto|scroll|overlay)/.test(ov) && (axisY ? n.scrollHeight > n.clientHeight + 1 : n.scrollWidth > n.clientWidth + 1);
+        if (!user) continue;
+        if (room(n) > 0.5) { n.scrollBy(axisY ? { top: d, behavior: 'instant' } : { left: d, behavior: 'instant' }); return { moved: true, by: cssPath(n) }; }
+        if (/(contain|none)/.test(axisY ? cs.overscrollBehaviorY : cs.overscrollBehaviorX))
+          return { moved: false, blocked: `overscroll-behavior: ${axisY ? cs.overscrollBehaviorY : cs.overscrollBehaviorX} (${cssPath(n)})` };
+      }
+      if (!rootUser) return { moved: false, blocked: 'документ не прокручивается пользователем (overflow: hidden у html/body)' };
+      if (room(se) > 0.5) { window.scrollBy(axisY ? { top: d, behavior: 'instant' } : { left: d, behavior: 'instant' }); return { moved: true, by: 'document' }; }
+      return { moved: false, blocked: 'прокручивать больше нечего' };
+    },
     save() { window.__qaReachSaved = positions(); },
     restore() {
       for (const n of [document.scrollingElement, ...document.querySelectorAll('*')]) if (n && (n.scrollTop || n.scrollLeft)) { n.scrollTop = 0; n.scrollLeft = 0; }
@@ -130,8 +166,9 @@ async function tryReach(frame, page, cdp, idx, offset, opts) {
     if (st.sig === last) { if (++still >= 2) break; } else { still = 0; last = st.sig; }
   }
   await frame.evaluate(() => window.__qaReach.restore());
-  // 2) synthesized scroll gesture (touch on touch devices) — only when the wheel did not help
-  if (res.wheel === true) res.gesture = 'skipped';
+  // 2) synthesized scroll gesture (touch on touch devices). A phone has no wheel: on touch configurations the gesture always runs and decides (touch-action: none blocks a
+  // finger, not a wheel); on desktop configurations the gesture runs only when the wheel did not help.
+  if (res.wheel === true && !opts.touch) res.gesture = 'skipped';
   else if (cdp) {
     res.gesture = false;
     let sg = st0;
@@ -145,10 +182,27 @@ async function tryReach(frame, page, cdp, idx, offset, opts) {
       sg = await frame.evaluate(j => window.__qaReach.state(j), idx);
       if (sg.visible >= 0.9) res.gesture = true;
     }
+    res.gestureMethod = 'cdp';
+    await frame.evaluate(() => window.__qaReach.restore());
+  } else if (opts.touchModel) {
+    // 3) no wheel and no CDP gesture (mobile WebKit): the touch-scroll model inside the page, finger at the same point
+    res.gesture = false; res.gestureMethod = 'touch-model';
+    let sg = st0;
+    for (let i = 0; i < opts.steps && !res.gesture; i++) {
+      const d = dist(sg);
+      const m = await frame.evaluate(([pt, dx, dy]) => window.__qaReach.touchScroll(pt, dx, dy), [sg.pt, dirX * Math.min(d.x, 800), dirY * Math.min(d.y, 800)]);
+      if (!m.moved) { res.gestureBlocked = m.blocked; break; }
+      await page.waitForTimeout(60);
+      sg = await frame.evaluate(j => window.__qaReach.state(j), idx);
+      if (sg.visible >= 0.9) res.gesture = true;
+    }
     await frame.evaluate(() => window.__qaReach.restore());
   }
   return res;
 }
+
+// Touch configurations: the gesture decides (the wheel only when no gesture could be tried); desktop: wheel or gesture.
+const isReachable = (r, touch) => (touch && r.gesture !== null && r.gesture !== undefined ? r.gesture === true : r.wheel === true || r.gesture === true);
 
 async function check(page, { frames = 'main', selectors = [], max = 40, steps = 12, touch = false, engine = 'chromium' } = {}) {
   let cdp = null;
@@ -164,13 +218,13 @@ async function check(page, { frames = 'main', selectors = [], max = 40, steps = 
       const prev = tested.get(key) || [];
       let r;
       if (prev.length >= 2 && prev.every(p => p.verdictKey === prev[0].verdictKey)) r = { ...prev[0].r, inferred: true };
-      else { r = await tryReach(f.frame, page, cdp, c.idx, f.offset, { steps, touch }); prev.push({ r, verdictKey: String(r.wheel === true || r.gesture === true) }); tested.set(key, prev); }
-      const reachable = r.wheel === true || r.gesture === true;
+      else { r = await tryReach(f.frame, page, cdp, c.idx, f.offset, { steps, touch, touchModel: touch && !cdp }); prev.push({ r, verdictKey: String(isReachable(r, touch)) }); tested.set(key, prev); }
+      const reachable = isReachable(r, touch);
       const untested = r.wheel === null && r.gesture === null;
       delete c.idx;
       c.box = [c.box[0] + Math.round(f.offset.x), c.box[1] + Math.round(f.offset.y), c.box[2], c.box[3]];
       out.push({ ...c, frame: f.depth ? f.url : null, inferred: r.inferred || undefined, wheel: r.wheel, gesture: r.gesture, gestureError: r.gestureError,
-        wheelError: r.wheelError, userScrollable: c.scrollers.some(s => s.user),
+        gestureMethod: r.gestureMethod, gestureBlocked: r.gestureBlocked, wheelError: r.wheelError, userScrollable: c.scrollers.some(s => s.user),
         verdict: reachable ? 'достижим' : untested ? 'не проверено' : 'недостижим' });
     }
     if (cands.length > max) out.push({ note: `ещё ${cands.length - max} элементов не проверено (--max ${max})`, frame: f.url });
@@ -193,10 +247,16 @@ if (require.main === module) {
     if (a.cdp) state = await captureState(a.cdp, rules && rules.rules.allowed_domains);
     const selectors = multiArg(process.argv.slice(2), 'selector');
     const runs = [];
-    for (const cfg of configs) {
-      // Mobile WebKit has neither mouse wheel nor CDP gestures: emulate the same device in Chromium.
-      if (cfg.engine === 'webkit' && cfg.options.isMobile && !a.browser) { cfg.engine = 'chromium'; cfg.engineNote = 'мобильный WebKit не поддерживает колесо и жест CDP — эмуляция устройства в Chromium'; }
-    }
+    // Mobile WebKit has neither mouse wheel nor CDP gestures in Playwright: emulate the same device in Chromium and
+    // (--webkit both, default) also check it in real WebKit with the touch-scroll model.
+    const wk = a.webkit && a.webkit !== true ? String(a.webkit) : 'both';
+    if (!['both', 'chromium', 'webkit'].includes(wk)) throw new Error('--webkit both|chromium|webkit');
+    configs = configs.flatMap(cfg => {
+      if (cfg.engine !== 'webkit' || !cfg.options.isMobile || a.browser) return [cfg];
+      const emu = { ...cfg, engine: 'chromium', engineNote: 'мобильный WebKit не поддерживает колесо и жест CDP — эмуляция устройства в Chromium' };
+      const real = { ...cfg, engineNote: 'WebKit: колесо и жест CDP недоступны в Playwright — жест касания проверен моделью (прокрутка пользовательских контейнеров под пальцем, touch-action, overscroll-behavior)' };
+      return wk === 'chromium' ? [emu] : wk === 'webkit' ? [real] : [emu, real];
+    });
     for (const url of urls) for (const cfg of configs) {
       let dev;
       try {
