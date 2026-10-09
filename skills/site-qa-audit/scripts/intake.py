@@ -313,6 +313,30 @@ def parse(text, output_dir=None):
     return cfg, notes, missing
 
 
+def use_run_copies(cfg, run_dir):
+    """The draft goes into a run folder that already has the copies (skill_snapshot.py, local_app.py): point the
+    config at them — otherwise the draft would silently bring back the installed skill and the original app."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import qa_snapshot  # noqa: E402
+    out = []
+    snap = Path(run_dir) / "skill"
+    meta = qa_snapshot.read_meta(snap)
+    if meta and (snap / "SKILL.md").is_file() and (snap / "scripts" / "url_guard.py").is_file():
+        cfg["skill_dir"], cfg["skill_source"] = str(snap), meta.get("from")
+        out.append(f"skill_dir — копия скила в прогоне ({snap}), источник {meta.get('from')}")
+    app = Path(run_dir) / "app"
+    ameta = qa_snapshot.read_meta(app)
+    if ameta and ameta.get("kind") == "app" and ameta.get("from"):
+        import local_app  # noqa: E402
+        site = cfg.setdefault("site", {})
+        urls = local_app.remap(site.get("start_urls") or [], ameta["from"], app)
+        if urls != (site.get("start_urls") or []) or site.get("local_roots"):
+            site["start_urls"] = urls
+            site["local_roots"] = [str(app)]
+            out.append(f"локальное приложение — копия в прогоне ({app}); оригинал {ameta['from']} не разрешён")
+    return out
+
+
 def autopilot_defaults(cfg, notes, missing, text):
     """Fill what is missing with reasonable values; every choice -> a decision line. Safety is never relaxed."""
     decisions = []
@@ -373,6 +397,9 @@ def main():
         sys.stderr.write("intake: пустой запрос — нечего разбирать\n")
         sys.exit(2)
     cfg, notes, missing = parse(text, a.output_dir)
+    run_dir = Path(a.out).parent if a.out else (Path(a.journal) if a.journal else None)
+    if run_dir:
+        notes += use_run_copies(cfg, run_dir)
     decisions = []
     if a.autopilot or AUTOPILOT_RX.search(text):
         cfg["autopilot"] = True

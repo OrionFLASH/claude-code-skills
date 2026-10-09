@@ -156,6 +156,13 @@ check "local_app copy: папка прогона внутри приложени
   mkdir -p '$TMP/proj/qa-runs/r1' && cp '$F/local-app/index.html' '$TMP/proj/' &&
   '$PY' '$LA' copy '$TMP/proj' '$TMP/proj/qa-runs/r1' >/dev/null && test -f '$TMP/proj/qa-runs/r1/app/index.html' && test ! -e '$TMP/proj/qa-runs/r1/app/qa-runs'"
 
+check "intake from-text в папку прогона с копиями: skill_dir — копия скила, start_urls и local_roots — копия приложения" sh -c "
+  '$PY' '$S/intake.py' from-text --text 'Проверь $(uri "$TMP/origapp")/sub/page.html' --out '$RUNA/rc-draft.yaml' > '$TMP/in-copy.out' &&
+  '$PY' -c \"import sys; sys.path.insert(0, sys.argv[1]); import miniyaml; c=miniyaml.load_file(sys.argv[2])['site']; assert c['local_roots']==[sys.argv[3]] and c['start_urls'][0].endswith('/run-app/app/sub/page.html'), c\" '$S/shared' '$RUNA/rc-draft.yaml' '$RUNA/app' &&
+  grep -q 'копия в прогоне' '$TMP/in-copy.out' &&
+  '$PY' '$S/intake.py' from-text --text 'Проверь https://example.com/' --out '$RUN/rc-draft.yaml' >/dev/null &&
+  '$PY' -c \"import sys; sys.path.insert(0, sys.argv[1]); import miniyaml; c=miniyaml.load_file(sys.argv[2]); assert c['skill_dir']==sys.argv[3], c['skill_dir']\" '$S/shared' '$RUN/rc-draft.yaml' '$RUN/skill'"
+
 # browser window: run-config browser.* -> rules.json -> node scripts; browser_mode.py show/set
 BM="$S/browser_mode.py"; RUNB="$TMP/run-browser"; mkdir -p "$RUNB"
 printf '# комментарий\nversion: 1\nsite:\n  allowed_domains: [example.com]\nparallel:\n  max_workers: 2\n' > "$RUNB/run-config.yaml"
