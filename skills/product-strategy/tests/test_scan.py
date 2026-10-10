@@ -221,6 +221,188 @@ def test_literal_prefilter_keeps_matches():
             assert not keys or any(k in text.lower() for k in keys), nm
 
 
+# ---------------------------------------------------------------- 1.1: git, цены, платформы, repo_facts
+
+FAKE_CHAT = "chat_id_SECRET_777000111"
+FILES2 = {
+    ".gitignore": "venv/\nbuild.nosync/\n*.log\nignored_dir/\n",
+    "README.md": "# Demo Bot\n\nРаботает на Windows, macOS и Linux. Покрыто 50 тестов.\n",
+    "pyproject.toml": "[project]\nname = 'demo'\nclassifiers = ['Operating System :: OS Independent']\n",
+    "src/shop/main.py": "# TODO: отслеживаемый\nprint('hi')\n",
+    "src/shop/store.py": ("PRICE_PRO = 390\nPRICE_TEAM = 990  # ₽/мес\nTRIAL_DAYS = 7\n"
+                          "SEED_PLANS = (\n    (\"free\", \"Бесплатно\", 0, 0, [\"7–30 дней\"]),\n"
+                          "    (\"pro_month\", \"Pro на месяц\", 390, 30, [\"Всё\"]),\n)\n"),
+    "src/shop/client.py": "import os\nimport fcntl\n\n\ndef lock(fh):\n    fcntl.flock(fh, fcntl.LOCK_EX)\n",
+    "src/shop/winonly.py": "try:\n    import msvcrt\nexcept ImportError:\n    msvcrt = None\n",
+    "src/web/pricing.js": "const PLANS = [{id: 'team', price: 1490, period: 'month'}];\nconst label = 'Pro — 490 ₽/мес';\n",
+    "tests/test_demo.py": "def test_a():\n    pass\n\n\ndef test_b():\n    pass\n\n\nasync def test_c():\n    pass\n",
+    "config.json": json.dumps({"chat_ids": [FAKE_CHAT]}),
+    ".env.example": "TOKEN=\n",
+    "venv/pyvenv.cfg": "home = /usr/bin\n",
+    "venv/lib/site.py": "# TODO: сторонний код\nimport fcntl\nPRICE_X = 5\n",
+    "android/build.nosync/x.cpp": "// TODO: сборка\n",
+    "ignored_dir/notes.py": "# TODO: игнорируется\n",
+    "app.log": "TODO log\n",
+}
+
+
+@pytest.fixture(scope="module")
+def repo2(tmp_path_factory):
+    if not shutil.which("git"):
+        pytest.skip("нет git")
+    repo = tmp_path_factory.mktemp("repo2")
+    for rel, text in FILES2.items():
+        p = repo / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(text, encoding="utf-8")
+    git(repo, "init", "-q")
+    git(repo, "add", "-A")
+    git(repo, "add", "-f", "venv/lib/site.py", "venv/pyvenv.cfg")     # закоммиченный venv — всё равно сторонний код
+    git(repo, "commit", "-q", "-m", "init")
+    (repo / "src" / "shop" / "new.py").write_text("# FIXME: новый, не в .gitignore\n", encoding="utf-8")
+    return repo
+
+
+def run_scan(repo, out, *extra):
+    r = subprocess.run([sys.executable, str(SCRIPTS / "repo_scan.py"), str(repo), str(out), *extra], capture_output=True, text=True, timeout=120)
+    assert r.returncode == 0, r.stderr
+    return json.loads((out / "data" / "repo-scan.json").read_text(encoding="utf-8")), (out / "research" / "repo-scan.md").read_text(encoding="utf-8"), r
+
+
+def test_git_mode_skips_vendor_and_ignored(repo2, tmp_path):
+    d, md, _ = run_scan(repo2, tmp_path)
+    sc = d["scan"]
+    assert sc["source"] == "git" and sc["truncated"] is False
+    assert sc["tracked"] >= 12 and sc["untracked"] == 1
+    assert any(x["path"] == "venv" and x["files"] == 2 for x in sc["skipped_dirs"])
+    blob = json.dumps(d, ensure_ascii=False)
+    assert "build.nosync" not in json.dumps(d["todo_top_files"]) and "ignored_dir" not in blob and "venv/lib" not in blob
+    assert d["todo_markers"] == 2                                           # main.py (отслеживаемый) + new.py (новый, не в .gitignore)
+    assert {t["file"] for t in d["todo_top_files"]} == {"src/shop/main.py", "src/shop/new.py"}
+    assert "Пропущенные папки" in md
+
+
+def test_walk_mode_gitignore_and_nosync(repo2, tmp_path):
+    d, _, _ = run_scan(repo2, tmp_path, "--no-git")
+    sc = d["scan"]
+    assert sc["source"] == "walk"
+    reasons = {x["path"]: x["reason"] for x in sc["skipped_dirs"]}
+    assert reasons.get("venv") in ("vendor", "venv") and reasons.get("android/build.nosync") == "nosync"
+    assert reasons.get("ignored_dir") == "gitignore" and sc["skipped"].get("gitignore", 0) >= 1    # app.log
+    assert d["todo_markers"] == 2
+
+
+def test_prices_and_trials(repo2, tmp_path):
+    d, md, _ = run_scan(repo2, tmp_path)
+    got = {(p["file"], p["value"], p["context"]) for p in d["prices"]}
+    assert ("src/shop/store.py", 390, "PRICE_PRO") in got
+    assert ("src/shop/store.py", 390, "SEED_PLANS[pro_month]") in got and ("src/shop/store.py", 0, "SEED_PLANS[free]") in got
+    assert ("src/web/pricing.js", 1490, "PLANS[team]") in got
+    lit = next(p for p in d["prices"] if p["value"] == 490)
+    assert lit["currency"] == "RUB" and lit["currency_from"] == "literal" and lit["period"] == "month"
+    pro = next(p for p in d["prices"] if p["context"] == "PRICE_PRO")
+    assert pro["currency"] == "RUB" and pro["line"] == 1
+    assert not any(p["file"].startswith("venv") for p in d["prices"])
+    assert any(t["days"] == 7 and t["file"] == "src/shop/store.py" for t in d["trials"])
+    assert "SEED_PLANS[pro_month]" in md and "PRICE_PRO = 390" not in md            # контекст — имя, не сырой код
+
+
+def test_platform_mismatch(repo2, tmp_path):
+    d, md, r = run_scan(repo2, tmp_path)
+    pc = d["platform_compat"]
+    assert "windows" in pc["declared"] and pc["mismatch"] is True
+    fc = [x for x in pc["unix_only"] if x["module"] == "fcntl"]
+    assert fc and fc[0]["file"] == "src/shop/client.py" and fc[0]["line"] == 2 and fc[0]["guarded"] is False
+    assert all(not x["file"].startswith("venv") for x in pc["unix_only"])
+    w = [x for x in pc["windows_only"] if x["module"] == "msvcrt"]
+    assert w and w[0]["guarded"] is True
+    assert "Несоответствие" in md and "платформы" in r.stderr
+
+
+def test_max_files_warns(repo2, tmp_path):
+    d, md, r = run_scan(repo2, tmp_path, "--max-files", "3")
+    assert d["scan"]["truncated"] is True and d["scan"]["files_seen"] == 3 and d["scan"]["files_not_visited"] > 0
+    assert "предупреждение" in r.stderr and "--max-files" in r.stderr
+    assert d["scan"]["warnings"] and "Предупреждение" in md
+
+
+def test_gitignore_matcher():
+    gi = repo_scan.GitIgnore("venv/\n/data/\n*.log\n!keep.log\n* 2.*\ndocs/**/draft\n# комментарий\n")
+    assert gi.ignored("venv", True) and gi.ignored("a/venv", True) and not gi.ignored("venv", False)
+    assert gi.ignored("data", True) and not gi.ignored("src/data", True)
+    assert gi.ignored("x/app.log", False) and not gi.ignored("keep.log", False)
+    assert gi.ignored("file 2.py", False) and not gi.ignored("file2.py", False)
+    assert gi.ignored("docs/a/b/draft", True) and gi.ignored("docs/draft", True)
+
+
+def test_price_helpers():
+    assert repo_scan.parse_amount("3 900") == 3900 and repo_scan.parse_amount("9,99") == 9.99
+    assert repo_scan.parse_amount("1,000.50") == 1000.5 and repo_scan.parse_amount("1,500") == 1500
+    assert repo_scan.billing_name("store.py") and repo_scan.billing_name("SubscriptionService.kt")
+    assert not repo_scan.billing_name("restore.py") and not repo_scan.billing_name("planner.py")
+    li = repo_scan.LineIndex("x = \"$1\"\ny = '$9.99/mo'\n")
+    prices, _ = repo_scan.find_prices("a.js", "pricing.js", ".js", li.text, li)
+    assert [p["value"] for p in prices] == [9.99]                                     # $1 — подстановка, не цена
+
+
+def test_platform_guard_detection():
+    text = ("import sys\nif sys.platform != 'win32':\n    import fcntl\nelse:\n    import msvcrt\n\n"
+            "def f():\n    if hasattr(os, 'fork'):\n        os.fork()\n    os.getuid()\n")
+    hits = {(k, m): g for k, m, _, g in repo_scan.platform_hits(text)}
+    assert hits[("unix", "fcntl")] is True and hits[("windows", "msvcrt")] is True
+    assert hits[("unix", "os.fork")] is True and hits[("unix", "os.getuid")] is False
+
+
+def run_facts(repo, out, *extra):
+    r = subprocess.run([sys.executable, str(SCRIPTS / "repo_facts.py"), str(repo), str(out), *extra], capture_output=True, text=True, timeout=120)
+    assert r.returncode == 0, r.stderr
+    return json.loads((out / "data" / "repo-facts.json").read_text(encoding="utf-8")), (out / "research" / "repo-facts.md").read_text(encoding="utf-8"), r
+
+
+def test_repo_facts_without_remote(repo2, tmp_path):
+    run_scan(repo2, tmp_path)
+    d, md, r = run_facts(repo2, tmp_path)
+    assert d["github"]["skipped"] and "GitHub" in d["github"]["skipped"] and d["visibility"] == "unknown"
+    assert d["issues"].get("skipped")
+    assert d["license"]["file"] is None and "лицензии нет" in d["license"]["note"]
+    names = {x["file"]: x["kind"] for x in d["tracked_secret_like"]}
+    assert names.get("config.json") == "secret-like" and names.get(".env.example") == "template"
+    assert d["tests"]["static"]["python_functions"] == 3 and d["tests"]["claim_values"] == [50] and d["tests"]["check_needed"] is True
+    assert "pytest --collect-only" in d["tests"]["recommendation"]
+    assert d["platform_compat"]["mismatch"] is True and any(p["value"] == 390 for p in d["prices"])
+    blob = json.dumps(d, ensure_ascii=False) + md + r.stdout
+    assert FAKE_CHAT not in blob                                                       # содержимое не читалось
+    assert "Распространение" in md and "Перед предложением открыть код" in md
+
+
+def test_repo_facts_without_gh(repo2, tmp_path):
+    repo = tmp_path / "r"
+    shutil.copytree(repo2, repo)
+    git(repo, "remote", "add", "origin", "https://github.com/owner/repo.git")
+    d, md, _ = run_facts(repo, tmp_path / "o", "--gh", "gh-definitely-missing")
+    assert d["repo"]["remote"] == "owner/repo" and "gh" in d["github"]["skipped"] and "gh" in d["issues"]["skipped"]
+    assert "не проверено" in md and "нет data/repo-scan.json" in " ".join(d["notes"])
+
+
+def test_issues_summary_when_disabled(repo2, tmp_path):
+    (tmp_path / "build").mkdir()
+    (tmp_path / "build" / "run-config.json").write_text(json.dumps({"scope": {"issues": False}}), encoding="utf-8")
+    r = subprocess.run([sys.executable, str(SCRIPTS / "issues_export.py"), str(repo2), str(tmp_path)], capture_output=True, text=True, timeout=60)
+    assert r.returncode == 0, r.stderr
+    d = json.loads((tmp_path / "data" / "issues-summary.json").read_text(encoding="utf-8"))
+    assert d["detailed"] is False and "подробный анализ выключен" in d["note"] and d["skipped"]
+    assert not (tmp_path / "data" / "issues.json").exists()
+
+
+def test_issue_counts_with_fake_gh(tmp_path):
+    fake = tmp_path / "gh"
+    fake.write_text("#!/bin/sh\necho '[{\"state\":\"OPEN\"},{\"state\":\"CLOSED\"},{\"state\":\"CLOSED\"}]'\n", encoding="utf-8")
+    fake.chmod(0o755)
+    c = issues_export.issue_counts(str(fake), "owner/repo", 5000)
+    assert c == {"open": 1, "closed": 2, "total": 3, "limit_reached": False}
+    assert issues_export.issue_counts(None, "owner/repo")["skipped"]
+
+
 # ---------------------------------------------------------------- issues_export
 
 def test_issues_export_skipped_without_remote(fixture_repo, tmp_path):

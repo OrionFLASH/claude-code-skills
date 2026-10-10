@@ -6,16 +6,20 @@
 
 Сверяются индексы, уверенность, RICE/ICE/WSJF, value_per_effort, risk_adjusted, composite (с допуском на округление),
 ранги (сортировка по round(composite, 9), затем id; перестановка внутри ничьей с разницей ≤ 1e-6 допускается),
-квадранты, приоритеты, MoSCoW и метки. Код выхода 0 — совпадает, 1 — есть расхождения или нет файлов.
-Только стандартная библиотека.
+квадранты, приоритеты, MoSCoW и метки; поля зависимостей (blocked_by, unlocks, dep_rank, dep_bonus, critical_path) и
+порядок критического пути data/critical-path.json — с учётом data/gap-audit-deps.json и разрыва циклов. Если в
+scores.json нет полей зависимостей (файл до 1.1), они не сверяются (сообщение). Код выхода 0 — совпадает, 1 — есть
+расхождения или нет файлов. Только стандартная библиотека.
 """
 import argparse
 import json
 import math
 import sys
+from collections import deque
 from pathlib import Path
 
 TIE_EPS = 1e-6
+DEP_DEFAULTS = {"unlock_bonus": 0.10, "decay": 0.5, "bonus_cap": 0.15, "critical_top_n": 20, "warn_top": 20, "warn_below": 60}
 TOL = {"value_index": 1e-3, "cost_index": 1e-3, "risk_index": 1e-3, "confidence_calc": 1e-3, "rice": 2e-3,
        "ice": 2e-3, "wsjf": 1e-3, "value_per_effort": 1e-3, "risk_adjusted": 1e-3, "composite": 2e-6}
 KNOWN_VALUE = ("reach", "impact", "acquisition", "activation", "conversion", "retention", "revenue", "virality",
@@ -192,6 +196,136 @@ def classify(rows, order, props, W):
         r["labels"] = lab
 
 
+def kosaraju(nodes, edges_out):
+    """Компоненты сильной связности (два прохода DFS, итеративно); возвращает словарь узел → номер компоненты."""
+    seen, finish = set(), []
+    for s0 in nodes:
+        if s0 in seen:
+            continue
+        seen.add(s0)
+        st = [(s0, 0)]
+        while st:
+            v, k = st.pop()
+            outs = edges_out.get(v, [])
+            if k < len(outs):
+                st.append((v, k + 1))
+                w = outs[k]
+                if w not in seen:
+                    seen.add(w)
+                    st.append((w, 0))
+            else:
+                finish.append(v)
+    rev = {v: [] for v in nodes}
+    for v in nodes:
+        for w in edges_out.get(v, []):
+            rev[w].append(v)
+    comp, cid = {}, 0
+    for s0 in reversed(finish):
+        if s0 in comp:
+            continue
+        todo = [s0]
+        comp[s0] = cid
+        while todo:
+            v = todo.pop()
+            for w in rev[v]:
+                if w not in comp:
+                    comp[w] = cid
+                    todo.append(w)
+        cid += 1
+    return comp
+
+
+def recompute_deps(props_l, rows, order, W, extra):
+    """Независимый расчёт полей зависимостей. Возвращает (по id {blocked_by, unlocks, dep_rank, dep_bonus,
+    critical_path}, порядок критического пути)."""
+    D = dict(DEP_DEFAULTS)
+    D.update(W.get("dependency") or {})
+    ids = [p["id"] for p in props_l]
+    pos = {i: rows[i]["rank"] for i in ids}
+    val = {i: rows[i]["composite"] for i in ids}
+    need = {i: set() for i in ids}
+    for p in props_l:
+        for d in (p.get("dependencies") if isinstance(p.get("dependencies"), list) else []):
+            if isinstance(d, str) and d != p["id"] and d in need:
+                need[p["id"]].add(d)
+    for i, lst in (extra or {}).items():
+        if i in need:
+            for d in (lst if isinstance(lst, list) else [lst]):
+                if isinstance(d, str) and d != i and d in need:
+                    need[i].add(d)
+    out_e = {i: sorted((j for j in ids if i in need[j]), key=lambda x: pos[x]) for i in ids}
+    comp = kosaraju(sorted(ids, key=lambda x: pos[x]), out_e)
+    size = {}
+    for i in ids:
+        size[comp[i]] = size.get(comp[i], 0) + 1
+    for j in ids:   # внутри компоненты оставить только «предпосылка выше по рангу»
+        if size[comp[j]] > 1:
+            need[j] = {i for i in need[j] if not (comp[i] == comp[j] and pos[i] > pos[j])}
+    kids = {i: [j for j in ids if i in need[j]] for i in ids}
+
+    def bfs(src, nxt):
+        dist = {src: 0}
+        q = deque([src])
+        while q:
+            v = q.popleft()
+            for w in nxt(v):
+                if w not in dist:
+                    dist[w] = dist[v] + 1
+                    q.append(w)
+        del dist[src]
+        return dist
+
+    up = {i: bfs(i, lambda v: need[v]) for i in ids}
+    down = {i: bfs(i, lambda v: kids[v]) for i in ids}
+    bonus = {}
+    for i in ids:
+        acc = 0.0
+        for j, d in down[i].items():
+            acc += val[j] * float(D["decay"]) ** (d - 1)
+        bonus[i] = min(float(D["bonus_cap"]), float(D["unlock_bonus"]) * acc)
+    sc = {i: val[i] + bonus[i] for i in ids}
+    inh = {i: max([sc[i]] + [sc[j] for j in down[i]]) for i in ids}
+    placed, seq = set(), []
+    while len(seq) < len(ids):
+        avail = [i for i in ids if i not in placed and need[i] <= placed]
+        if not avail:
+            break
+        pick = min(avail, key=lambda i: (-round(inh[i], 9), -round(sc[i], 9), pos[i]))
+        placed.add(pick)
+        seq.append(pick)
+    drank = {i: k + 1 for k, i in enumerate(seq)}
+    ntop = min(int(D["critical_top_n"]), len(ids))
+    top = order[:ntop]
+    area = set(top)
+    for i in top:
+        area.update(up[i])
+    memo = {}
+
+    def chain(v):
+        if v not in memo:
+            preds = [u for u in need[v] if u in area]
+            if preds:
+                u = min(preds, key=lambda x: (-round(chain(x)[0], 9), -chain(x)[1], pos[x]))
+                memo[v] = (val[v] + chain(u)[0], chain(u)[1] + 1, u)
+            else:
+                memo[v] = (val[v], 1, None)
+        return memo[v]
+
+    sys.setrecursionlimit(max(1000, 4 * len(ids) + 100))
+    ends = [v for v in top if chain(v)[1] >= 2]
+    path = []
+    if ends:
+        v = min(ends, key=lambda x: (-round(chain(x)[0], 9), -chain(x)[1], pos[x]))
+        while v is not None:
+            path.insert(0, v)
+            v = chain(v)[2]
+    res = {}
+    for i in ids:
+        res[i] = {"blocked_by": sorted(up[i], key=lambda x: pos[x]), "unlocks": sorted(down[i], key=lambda x: pos[x]),
+                  "dep_rank": drank.get(i), "dep_bonus": bonus[i], "critical_path": i in path}
+    return res, path
+
+
 def validate(out_dir, quiet=False):
     """Возвращает (ok, список сообщений)."""
     data = Path(out_dir) / "data"
@@ -242,6 +376,39 @@ def validate(out_dir, quiet=False):
     if [s.get("rank") for s in scores] != list(range(1, len(scores) + 1)):
         bad += 1
         msgs.append("ранги в scores.json не идут подряд 1..N в порядке файла")
+    if scores and all("dep_rank" in s for s in scores):
+        try:
+            extra = json.loads((data / "gap-audit-deps.json").read_text(encoding="utf-8"))
+        except (FileNotFoundError, json.JSONDecodeError):
+            extra = {}
+        deps, path = recompute_deps(list(props.values()), rows, order, W, extra if isinstance(extra, dict) else {})
+        for s in scores:
+            i = s.get("id")
+            if i not in deps:
+                continue
+            d = deps[i]
+            for key in ("blocked_by", "unlocks", "dep_rank", "critical_path"):
+                if s.get(key) != d[key]:
+                    bad += 1
+                    msgs.append("%s: %s в файле %s, пересчёт %s" % (i, key, s.get(key), d[key]))
+            if not is_num(s.get("dep_bonus")) or abs(s["dep_bonus"] - d["dep_bonus"]) > 2e-6:
+                bad += 1
+                msgs.append("%s: dep_bonus в файле %s, пересчёт %.6f" % (i, s.get("dep_bonus"), d["dep_bonus"]))
+        if sorted(s["dep_rank"] for s in scores) != list(range(1, len(scores) + 1)):
+            bad += 1
+            msgs.append("dep_rank не образует перестановку 1..N")
+        try:
+            cp = json.loads((data / "critical-path.json").read_text(encoding="utf-8"))
+            if cp.get("order") != path:
+                bad += 1
+                msgs.append("critical-path.json: порядок %s, пересчёт %s" % (cp.get("order"), path))
+        except FileNotFoundError:
+            bad += 1
+            msgs.append("нет data/critical-path.json")
+        msgs.append("зависимости: пересчитаны blocked_by/unlocks/dep_rank/critical_path; критический путь: %s"
+                    % (" → ".join(path) or "нет"))
+    elif scores:
+        msgs.append("поля зависимостей отсутствуют (scores.json до версии 1.1) — не проверялись")
     msgs.append("проверено строк: %d; сумма composite: пересчёт %.4f, файл %.4f"
                 % (len(scores), sum(r["composite"] for r in rows.values()), sum(s.get("composite", 0) for s in scores)))
     if bad:

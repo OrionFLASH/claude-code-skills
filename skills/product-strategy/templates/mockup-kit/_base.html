@@ -1,0 +1,59 @@
+<!doctype html>
+<!-- Стартовый экран макета. Скопируйте в mockups/concepts/Mxx-<slug>.html и замените содержимое.
+     data-viewport: 1440x900 (десктоп) или 390x844 (мобильный); data-proposals — P-id через запятую
+     (shoot_mockups.mjs добавит запись в data/mockups-index.json сам). Тёмная тема: data-theme="dark". -->
+<html lang="ru" data-viewport="1440x900" data-proposals="P000" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mxx — название концепта</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="_kit.css">
+</head>
+<body>
+<div class="ps-app">
+  <aside class="ps-rail">
+    <div class="ps-brand"><div class="ps-brand-mark">P</div><div><b>Продукт</b><span>подзаголовок</span></div></div>
+    <a class="ps-nav is-active" href="#">Обзор</a>
+    <a class="ps-nav" href="#">Раздел 2</a>
+    <a class="ps-nav" href="#">Раздел 3</a>
+    <div class="ps-nav-sep"></div>
+    <a class="ps-nav" href="#">Настройки</a>
+  </aside>
+  <main class="ps-main">
+    <div class="ps-topbar">
+      <div><h1>Заголовок экрана</h1><div class="ps-sub">Что пользователь здесь делает — одной фразой</div></div>
+      <div class="ps-row"><button class="ps-btn">Вторичное</button><button class="ps-btn is-primary">Главное действие</button></div>
+    </div>
+    <div class="ps-page">
+      <div class="ps-grid ps-g4 is-keep-2">
+        <div class="ps-card ps-kpi"><b>1 240</b><span>метрика 1</span><span class="ps-up">+8 % за 30 дней</span></div>
+        <div class="ps-card ps-kpi"><b>312</b><span>метрика 2</span><span class="ps-down">−3 %</span></div>
+        <div class="ps-card ps-kpi"><b>4,6 %</b><span>метрика 3</span><span class="ps-muted">без изменений</span></div>
+        <div class="ps-card ps-kpi"><b>18</b><span>метрика 4</span><span class="ps-up">+2</span></div>
+      </div>
+      <div class="ps-grid ps-g2">
+        <div class="ps-card is-accent ps-anchor">
+          <div class="ps-card-title"><h2>Новое: суть концепта</h2><span class="ps-badge">новое</span></div>
+          <p>Главный объект экрана — то, ради чего делается предложение. Реалистичные данные, без lorem ipsum.</p>
+          <div class="ps-segmented"><button class="is-active" aria-selected="true">Вариант A</button><button>Вариант B</button></div>
+          <div class="ps-row" style="margin-top:14px"><button class="ps-btn is-primary">Попробовать</button><button class="ps-btn is-ghost">Как это работает</button></div>
+          <div class="ps-tip is-floating" style="right:12px;bottom:-18px">Выноска: что изменилось и зачем</div>
+        </div>
+        <div class="ps-card">
+          <div class="ps-card-title"><h2>Существующее (как есть)</h2><a href="#">Все</a></div>
+          <div class="ps-table-wrap"><table class="ps-table">
+            <thead><tr><th>Объект</th><th class="is-num">Значение</th><th>Статус</th></tr></thead>
+            <tbody><tr><td>Строка 1</td><td class="is-num">2 338</td><td><span class="ps-badge is-success">растёт</span></td></tr>
+            <tr><td>Строка 2</td><td class="is-num">812</td><td><span class="ps-badge is-warning">тихий</span></td></tr></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+    <nav class="ps-bottom-nav"><a class="is-active" href="#"><span class="ps-ico">◉</span>Обзор</a><a href="#"><span class="ps-ico">▤</span>Раздел 2</a>
+      <a href="#"><span class="ps-ico">⌂</span>Раздел 3</a><a href="#"><span class="ps-ico">⚙</span>Ещё</a></nav>
+  </main>
+</div>
+<div class="ps-concept-badge">Концепт, не существующая функция · Продукт · ГГГГ-ММ-ДД</div>
+</body>
+</html>

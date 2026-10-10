@@ -7,27 +7,42 @@
 // реестра, экспорт CSV/JSON, модалку предложения из P-ссылки и «Показать в реестре», лайтбокс (открыть, вписать/1:1/2×,
 // Ctrl+колесо, стрелки, Esc, #lb=key), зоны (hotspots) референсов, слои (лайтбокс поверх модалки, Esc — верхний слой,
 // блокировка прокрутки), модалки Ганта/Kanban/узла схемы, поиск и фильтр конкурентов, scrollspy, тему, авторство,
-// отсутствие горизонтального переполнения на 390 px. Нет данных для проверки — она «skip» (не провал), если не
-// перечислена в --require (all — любая пропущенная проверка считается провалом).
+// отсутствие горизонтального переполнения на 390 px.
+// Геометрия (1440×900 и 390×844, Chromium и WebKit): раскрывает КАЖДУЮ строку реестра и меряет её — строка
+// display:table-row, высота < --max-row-height (2500 px), столбец значения dl.kv ≥ 120 px, секция ≥ 200 px, карточка в
+// видимой части реестра, ничего не торчит из карточки, нет заголовка-«сироты» внизу колонки; карточка в окне P-id —
+// те же правила; таблицы: на 1440 не шире рамки, последняя колонка не обрезана, на 390 — прокрутка внутри рамки;
+// Гант: подписи месяцев не обрезаны, ромбы вех внутри диаграммы; ширина документа ≤ ширины окна.
+// Контраст ≥ 4,5:1 (крупный текст ≥ 3:1) по computed color для бейджей, тегов, подписей, ссылок — в светлой, тёмной и
+// «авто» при тёмной системной теме. WebKit берётся из playwright или из кэша ~/Library/Caches/ms-playwright
+// (webkit-*); нет WebKit — проверка «skip» с пояснением (условие окружения, --require all его не требует).
+// Lite-страница (build_html.py --lite): картинки assets/ рядом со страницей существуют и грузятся; локальные файлы
+// разрешены только внутри папки страницы, всё прочее — «внешний запрос».
+// Нет данных для проверки — она «skip» (не провал), если не перечислена в --require (all — любая пропущенная проверка
+// данных считается провалом).
 //
-// Playwright ищется так: --node-dir, env PS_NODE_DIR, <OUT>/build/node, папка скрипта (<dir>/node_modules).
+// Playwright ищется так: --node-dir, env PS_NODE_DIR, <OUT>/build/node, ~/.cache/product-strategy/node, папка скрипта (<dir>/node_modules).
 // Ничего не ставится глобально. Коды выхода: 0 — всё прошло; 1 — есть провалы; 2 — неверные аргументы или нет файла;
 // 3 — нет playwright или браузера (подсказка, как поставить, — в stderr).
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const SKILL_DIR = path.resolve(SCRIPT_DIR, '..', '..');
-const USAGE = 'node smoke_html.mjs <index.html | OUT> [--node-dir <dir>] [--require all|a,b] [--shots <dir>] [--json] [--headed]';
+const USAGE = 'node smoke_html.mjs <index.html | OUT> [--node-dir <dir>] [--require all|a,b] [--engines chromium,webkit] '
+  + '[--max-row-height 2500] [--shots <dir>] [--json] [--headed]';
 
 function parseArgs(argv) {
-  const a = { target: null, nodeDir: null, require: [], shots: null, json: false, headed: false };
+  const a = { target: null, nodeDir: null, require: [], shots: null, json: false, headed: false, engines: ['chromium', 'webkit'], maxRowH: 2500 };
   for (let i = 0; i < argv.length; i++) {
     const x = argv[i];
     if (x === '--node-dir') a.nodeDir = argv[++i];
     else if (x === '--require') a.require = String(argv[++i] || '').split(',').map(s => s.trim()).filter(Boolean);
+    else if (x === '--engines') a.engines = String(argv[++i] || '').split(',').map(s => s.trim()).filter(Boolean);
+    else if (x === '--max-row-height') a.maxRowH = Number(argv[++i]) || 2500;
     else if (x === '--shots') a.shots = argv[++i];
     else if (x === '--json') a.json = true;
     else if (x === '--headed') a.headed = true;
@@ -52,7 +67,7 @@ function loadModule(name, dirs) {
   }
   return null;
 }
-const pw = loadModule('playwright', [args.nodeDir, process.env.PS_NODE_DIR, path.join(OUT, 'build', 'node'), SCRIPT_DIR]);
+const pw = loadModule('playwright', [args.nodeDir, process.env.PS_NODE_DIR, path.join(OUT, 'build', 'node'), path.join(process.env.HOME || process.env.USERPROFILE || '', '.cache', 'product-strategy', 'node'), SCRIPT_DIR]);
 if (!pw) {
   console.error('нет playwright: python3 ' + path.join(SKILL_DIR, 'scripts', 'check_env.py') + ' --install-node ' + OUT);
   process.exit(3);
@@ -68,10 +83,12 @@ try {
 }
 
 const URL_ = pathToFileURL(HTML).href;
+const PAGE_DIR = path.dirname(HTML);
 const errors = [], external = [];
+const localFiles = new Set();
 const checks = [];
 const counts = {};
-const SKIP = (reason) => ({ skip: reason });
+const SKIP = (reason, env) => ({ skip: reason, env: !!env });
 const OK = (detail) => ({ ok: true, detail });
 const FAIL = (detail) => ({ ok: false, detail });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -79,7 +96,34 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 function watch(page, tag) {
   page.on('pageerror', e => errors.push(tag + ' pageerror: ' + String(e.message || e).split('\n')[0]));
   page.on('console', m => { if (m.type() === 'error') errors.push(tag + ' console: ' + m.text().slice(0, 300)); });
-  page.on('request', r => { const u = r.url(); if (!/^(file|data|blob|about):/i.test(u)) external.push(tag + ' ' + u); });
+  page.on('request', r => {
+    const u = r.url();
+    if (/^(data|blob|about):/i.test(u)) return;
+    if (/^file:/i.test(u)) {           // локальные файлы — только внутри папки страницы (lite: assets/)
+      let p = null; try { p = fileURLToPath(u.split('#')[0]); } catch (e) { /* битый URL */ }
+      if (p && (p === HTML || p.startsWith(PAGE_DIR + path.sep))) { if (p !== HTML) localFiles.add(p); return; }
+      external.push(tag + ' файл вне папки страницы: ' + u); return;
+    }
+    external.push(tag + ' ' + u);
+  });
+  page.on('requestfailed', r => { const f = (r.failure() || {}).errorText || ''; if (!/abort|cancel/i.test(f)) errors.push(tag + ' requestfailed: ' + r.url().slice(0, 200) + ' ' + f); });
+}
+
+// WebKit: из playwright, иначе самый новый webkit-* из кэша Playwright (версия playwright может ждать другую ревизию)
+async function launchWebkit() {
+  try { return { browser: await pw.webkit.launch({ headless: !args.headed }), how: 'playwright' }; } catch (e) { /* кэш */ }
+  const bases = [process.env.PLAYWRIGHT_BROWSERS_PATH, path.join(os.homedir(), 'Library', 'Caches', 'ms-playwright'),
+    path.join(os.homedir(), '.cache', 'ms-playwright'), path.join(process.env.LOCALAPPDATA || '', 'ms-playwright')].filter(Boolean);
+  for (const base of bases) {
+    if (!fs.existsSync(base)) continue;
+    const cands = fs.readdirSync(base).filter(n => /^webkit-\d+$/.test(n)).sort((a, b) => +b.split('-')[1] - +a.split('-')[1]);
+    for (const c of cands) {
+      const exe = [path.join(base, c, 'pw_run.sh'), path.join(base, c, 'minibrowser-gtk', 'pw_run.sh'), path.join(base, c, 'Playwright.exe')].find(p => fs.existsSync(p));
+      if (!exe) continue;
+      try { return { browser: await pw.webkit.launch({ executablePath: exe, headless: !args.headed }), how: c }; } catch (e) { /* следующий */ }
+    }
+  }
+  return null;
 }
 
 async function closeLayers(page) {
@@ -96,7 +140,10 @@ async function check(page, name, fn) {
   try { res = await fn(); } catch (e) { res = FAIL(String((e && e.message) || e).split('\n')[0]); }
   try { await closeLayers(page); } catch (e) { /* страница могла закрыться */ }
   const status = res && res.skip ? 'skip' : res && res.ok ? 'pass' : 'fail';
-  checks.push({ name, status, detail: res ? (res.skip || res.detail || '') : '' });
+  const item = { name, status, detail: res ? (res.skip || res.detail || '') : '' };
+  if (res && res.env) item.env = true;    // пропуск из-за окружения (нет WebKit), а не из-за данных
+  if (res && res.data) item.data = res.data;
+  checks.push(item);
 }
 
 async function shot(page, name) {
@@ -219,7 +266,9 @@ await check(page, 'registry-sort', async () => {
   await row.locator('td').nth(2).click();
   const opened = await page.locator('#tb tr.detail').count();
   if (!opened) return FAIL('строка не раскрылась');
+  const disp = await page.evaluate(() => getComputedStyle(document.querySelector('#tb tr.detail')).display);
   await page.locator('#tb tr.row.open td').nth(2).click();
+  if (disp !== 'table-row') return FAIL('раскрытая строка display:' + disp + ' (должно быть table-row)');
   return OK(out.join(', ') + '; раскрытие строки');
 });
 await page.evaluate(() => document.getElementById('registry') && document.getElementById('registry').scrollIntoView({ behavior: 'instant' }));
@@ -542,14 +591,267 @@ await check(mpage, 'mobile-modal', async () => {
   return OK(`карточка ${w.r - w.l}px`);
 });
 
+// ---------------------------------------------------------------- геометрия: все раскрытые строки, окно P-id, таблицы, Гант
+const GEOM_VIEWS = [{ name: '1440', w: 1440, h: 900 }, { name: '390', w: 390, h: 844 }];
+const MIN_DD = 120, MIN_SEC = 200;
+
+// выполняется в странице (одним evaluate): раскрывает каждую строку реестра по очереди и меряет её
+async function geomInPage({ maxH, minDD, minSec, view }) {
+  const R = { view, rows: 0, heights: [], tallest: null, minDD: null, minSec: null, bad: [], modal: [], tables: 0, tableBad: [], gantt: null, ganttBad: [], pageW: 0, vw: innerWidth };
+  const vis = el => !!el && el.getClientRects().length > 0;
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  function card(cardEl, frame) {
+    const bad = [], fb = frame.getBoundingClientRect(), cb = cardEl.getBoundingClientRect(), fw = frame.clientWidth;
+    const dds = [...cardEl.querySelectorAll('dl.kv dd')].filter(vis).map(d => d.getBoundingClientRect().width);
+    const secs = [...cardEl.querySelectorAll(':scope > .dsec')].filter(vis).map(s => s.getBoundingClientRect().width);
+    const minD = dds.length ? Math.round(Math.min(...dds)) : null, minS = secs.length ? Math.round(Math.min(...secs)) : null;
+    if (minD != null && minD < minDD) bad.push('столбец значения ' + minD + ' px < ' + minDD);
+    if (minS != null && minS < minSec) bad.push('секция ' + minS + ' px < ' + minSec);
+    if (cb.left < fb.left - 1 || cb.right > fb.left + fw + 1) bad.push('карточка ' + Math.round(cb.width) + ' px вне видимых ' + fw + ' px');
+    // заголовок внизу колонки, а его текст — в следующей. Координаты — по Range первого текстового узла: WebKit для
+    // блоков внутри колонок отдаёт getBoundingClientRect в координатах первой колонки
+    const textLeft = el => { if (!el) return null; const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, { acceptNode: t => t.nodeValue.trim() ? 1 : 3 });
+      const t = w.nextNode(); if (!t) return null; const r = document.createRange(); r.selectNodeContents(t); const b = r.getClientRects()[0]; return b ? b.left : null; };
+    cardEl.querySelectorAll(':scope > .dsec > h4').forEach(h => {
+      const a = textLeft(h), f = textLeft(h.nextElementSibling);
+      if (a != null && f != null && Math.abs(f - a) > 60) bad.push('заголовок-сирота «' + h.textContent.trim() + '»');
+    });
+    let spill = 0;
+    cardEl.querySelectorAll('*').forEach(e => { const b = e.getBoundingClientRect(); if (b.width && b.height) spill = Math.max(spill, Math.round(b.right - cb.right - 2), Math.round(cb.left - b.left - 2)); });
+    if (spill > 0) bad.push('содержимое торчит из карточки на ' + spill + ' px');
+    return { bad, minD, minS };
+  }
+  const tb = document.getElementById('tb'), wrap = document.querySelector('.reg-wrap');
+  if (tb && wrap) {
+    wrap.scrollLeft = 0;
+    const ids = [...tb.querySelectorAll('tr.row')].map(tr => tr.getAttribute('data-id'));
+    const row = id => tb.querySelector('tr.row[data-id="' + CSS.escape(id) + '"]');
+    const hit = tr => tr.querySelector('td.c-title') || tr.cells[Math.min(2, tr.cells.length - 1)];
+    for (const id of ids) {
+      hit(row(id)).click();                                   // раскрыть (реестр перерисовывается)
+      const tr = row(id), det = tr && tr.nextElementSibling;
+      if (!det || !det.classList.contains('detail')) { R.bad.push(id + ': строка не раскрылась'); continue; }
+      const c = det.querySelector('div.detail');
+      const h = Math.round(det.getBoundingClientRect().height), disp = getComputedStyle(det).display;
+      if (c) c.querySelectorAll('details').forEach(d => { d.open = true; });   // свёрнутые секции (телефон) — ширины меряем раскрытыми
+      const m = c ? card(c, wrap) : { bad: ['нет карточки div.detail'], minD: null, minS: null };
+      if (disp !== 'table-row') m.bad.unshift('display ' + disp + ' (нужно table-row)');
+      if (h >= maxH) m.bad.unshift('высота ' + h + ' px ≥ ' + maxH);
+      R.heights.push(h);
+      if (!R.tallest || h > R.tallest.h) R.tallest = { id, h };
+      if (m.minD != null) R.minDD = R.minDD == null ? m.minD : Math.min(R.minDD, m.minD);
+      if (m.minS != null) R.minSec = R.minSec == null ? m.minS : Math.min(R.minSec, m.minS);
+      if (m.bad.length) R.bad.push(id + ': ' + m.bad.join(', '));
+      hit(row(id)).click();                                   // свернуть
+    }
+    R.rows = ids.length;
+    // карточка в окне P-id: первая и самая высокая строки
+    for (const id of [...new Set([ids[0], R.tallest && R.tallest.id].filter(Boolean))]) {
+      location.hash = '#p=' + id; await wait(80);
+      const c = document.querySelector('#pm.open #pmbody div.detail'), box = document.querySelector('#pm .mbox');
+      if (!c) { R.modal.push(id + ': окно не открылось'); continue; }
+      c.querySelectorAll('details').forEach(d => { d.open = true; });
+      const m = card(c, box);
+      if (m.bad.length) R.modal.push(id + ' (окно): ' + m.bad.join(', '));
+      const close = document.querySelector('#pm [data-close]'); if (close) close.click(); await wait(30);
+    }
+  }
+  // таблицы: раскрыть все <details>, на 1440 таблица не шире рамки, последняя колонка не обрезана, на 390 — прокрутка в рамке
+  document.querySelectorAll('main details').forEach(d => { d.open = true; });
+  for (const box of document.querySelectorAll('main .tbl')) {
+    const t = box.querySelector(':scope > table');
+    if (!t || !vis(box)) continue;
+    R.tables++;
+    let name = '', e = box;
+    while (e && !name) { let p = e.previousElementSibling; while (p && !name) { if (/^H[2-4]$/.test(p.tagName)) name = p.textContent.trim(); p = p.previousElementSibling; } e = e.parentElement; if (e && e.tagName === 'SECTION') { name = name || ((e.querySelector('h2') || {}).textContent || e.id || ''); break; } }
+    name = '«' + name.replace(/\s+/g, ' ').slice(0, 48) + '»';
+    const over = Math.round(t.getBoundingClientRect().width - box.clientWidth), ox = getComputedStyle(box).overflowX;
+    let cut = 0;
+    for (const r of t.rows) { const c = r.cells[r.cells.length - 1]; if (c && c.scrollWidth > c.clientWidth + 1) cut++; }
+    if (view === '1440' && over > 1) R.tableBad.push(name + ': шире рамки на ' + over + ' px (последняя колонка уходит за край)');
+    if (over > 1 && ox !== 'auto' && ox !== 'scroll') R.tableBad.push(name + ': обрезана без прокрутки');
+    if (cut) R.tableBad.push(name + ': в последней колонке обрезано ячеек: ' + cut);
+  }
+  // Гант: подписи месяцев не обрезаны, ромбы вех внутри диаграммы, рамка в пределах экрана
+  const g = document.querySelector('.gantt'), gin = g && g.querySelector('.gin');
+  if (g && gin && vis(g)) {
+    const gb = gin.getBoundingClientRect(), spans = [...g.querySelectorAll('.gscale span')], ms = [...g.querySelectorAll('.gms')];
+    const cutL = spans.filter(s => s.scrollWidth > s.clientWidth + 1).map(s => s.textContent.trim());
+    const outMs = ms.filter(m => { const b = m.getBoundingClientRect(); return b.right > gb.right + 0.5 || b.left < gb.left - 0.5; }).length;
+    const scrollOver = Math.round(g.scrollWidth - g.clientWidth - Math.max(0, gin.offsetWidth - g.clientWidth));
+    const boxOver = Math.round(g.getBoundingClientRect().right - document.documentElement.clientWidth);
+    R.gantt = { labels: spans.length, milestones: ms.length, scroll: g.scrollWidth > g.clientWidth + 1 };
+    if (cutL.length) R.ganttBad.push('подписи месяцев обрезаны: ' + cutL.slice(0, 5).join(', '));
+    if (outMs) R.ganttBad.push('ромбы вех за краем диаграммы: ' + outMs);
+    if (scrollOver > 1) R.ganttBad.push('содержимое шире диаграммы на ' + scrollOver + ' px');
+    if (boxOver > 1) R.ganttBad.push('рамка Ганта за правым краем экрана на ' + boxOver + ' px');
+  }
+  R.pageW = document.documentElement.scrollWidth;
+  return R;
+}
+
+async function geomShots(p, engine, v, r) {
+  if (!args.shots || !r.tallest) return;
+  fs.mkdirSync(args.shots, { recursive: true });
+  const id = r.tallest.id;
+  await p.evaluate(id => { const tr = document.querySelector('#tb tr.row[data-id="' + CSS.escape(id) + '"]'); (tr.querySelector('td.c-title') || tr.cells[2]).click();
+    document.getElementById('registry').scrollIntoView({ block: 'start', behavior: 'instant' });
+    const t = document.querySelector('#tb tr.row[data-id="' + CSS.escape(id) + '"]'), w = document.querySelector('.reg-wrap');
+    w.scrollTop = t.offsetTop - (w.querySelector('thead') || t).offsetHeight; window.scrollBy({ top: w.getBoundingClientRect().top - 60, behavior: 'instant' }); }, id);
+  await sleep(250);
+  await p.screenshot({ path: path.join(args.shots, `registry-open-${engine}-${v.name}-light.png`) }).catch(() => {});
+  await p.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark')); await sleep(150);
+  await p.screenshot({ path: path.join(args.shots, `registry-open-${engine}-${v.name}-dark.png`) }).catch(() => {});
+  await p.evaluate(() => { document.documentElement.removeAttribute('data-theme'); const g = document.querySelector('#gantt .gantt'); if (g) { g.scrollIntoView({ block: 'start', behavior: 'instant' }); window.scrollBy({ top: -70, behavior: 'instant' }); } }); await sleep(200);
+  if (await p.locator('#gantt').count()) await p.screenshot({ path: path.join(args.shots, `gantt-${engine}-${v.name}.png`) }).catch(() => {});
+}
+
+async function geometryPass(br, engine) {
+  for (const v of GEOM_VIEWS) {
+    await check(page, `geometry-${engine}-${v.name}`, async () => {
+      const c = await br.newContext({ viewport: { width: v.w, height: v.h }, deviceScaleFactor: 1 });
+      try {
+        const p = await c.newPage(); p.setDefaultTimeout(30000); watch(p, engine + '-' + v.name);
+        await p.goto(URL_, { waitUntil: 'load', timeout: 180000 }); await sleep(300);
+        const r = await p.evaluate(geomInPage, { maxH: args.maxRowH, minDD: MIN_DD, minSec: MIN_SEC, view: v.name });
+        await geomShots(p, engine, v, r);
+        if (!r.rows && !r.tables && !r.gantt) return SKIP('нет реестра, таблиц и Ганта');
+        const hs = r.heights.slice().sort((a, b) => a - b);
+        const data = { rows: r.rows, height: hs.length ? { min: hs[0], median: hs[Math.floor(hs.length / 2)], max: hs[hs.length - 1], maxId: r.tallest.id } : null,
+          minDD: r.minDD, minSection: r.minSec, tables: r.tables, gantt: r.gantt, pageWidth: r.pageW, viewport: r.vw };
+        const bad = [...r.bad, ...r.modal, ...r.tableBad, ...r.ganttBad];
+        if (r.pageW > r.vw) bad.push(`ширина документа ${r.pageW} > ${r.vw} (горизонтальная прокрутка страницы)`);
+        const sum = `строк ${r.rows}` + (data.height ? `, высота мин/мед/макс ${data.height.min}/${data.height.median}/${data.height.max} px (${data.height.maxId})` : '')
+          + (r.minDD != null ? `, столбец значения ≥ ${r.minDD} px` : '') + `, таблиц ${r.tables}` + (r.gantt ? `, Гант: подписей ${r.gantt.labels}, вех ${r.gantt.milestones}${r.gantt.scroll ? ', прокрутка в рамке' : ''}` : '')
+          + `, ширина ${r.pageW} ≤ ${r.vw}`;
+        const res = bad.length ? FAIL(`${bad.length} проблем: ` + bad.slice(0, 8).join('; ') + ' | ' + sum) : OK(sum);
+        res.data = data;
+        return res;
+      } finally { await c.close(); }
+    });
+  }
+}
+
+// ---------------------------------------------------------------- контраст ≥ 4,5:1 по computed color
+const CONTRAST_SELS = ['.b', '.tag', '.st', '.st-ok', '.st-bad', '.st-unk', '.ok', '.badge-concept', '.risk', '.kcount', '.muted', 'figcaption',
+  '.zoom', 'main a', 'nav.side a', 'summary', '.lblh', '.cmeta', '.count', '.eyebrow', '.kpi .n', '.kpi .l', '.kpi .s', 'dl.kv dt', '.dsec h4',
+  '.gid', '.kid', '.gscale span', 'table.cm td', 'th', '.hsn', '.facts dt', '.lead', '.untitled', '.missing', 'code'];
+function contrastInPage(sels) {
+  const parse = s => { const m = /rgba?\(([^)]+)\)/.exec(s || ''); if (!m) return null; const p = m[1].split(/[\s,/]+/).filter(Boolean).map(parseFloat); return [p[0], p[1], p[2], p.length > 3 ? p[3] : 1]; };
+  const lin = x => { x /= 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); };
+  const lum = c => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+  const over = (top, base) => [0, 1, 2].map(i => top[i] * top[3] + base[i] * (1 - top[3]));
+  const hex = c => '#' + c.map(x => Math.round(x).toString(16).padStart(2, '0')).join('');
+  function bgOf(el) {
+    const layers = [];
+    for (let e = el; e; e = e.parentElement) {
+      const cs = getComputedStyle(e);
+      if (cs.backgroundImage && cs.backgroundImage !== 'none') return null;   // градиент/картинка — не оцениваем
+      const c = parse(cs.backgroundColor);
+      if (c && c[3] > 0) { layers.push(c); if (c[3] >= 0.999) break; }
+    }
+    let base = [255, 255, 255];
+    for (let i = layers.length - 1; i >= 0; i--) base = layers[i][3] >= 0.999 ? layers[i].slice(0, 3) : over(layers[i], base);
+    return base;
+  }
+  let checked = 0; const fails = [], seen = new Set();
+  for (const sel of sels) {
+    let n = 0;
+    for (const el of document.querySelectorAll(sel)) {
+      if (n >= 300) break;
+      if (seen.has(el) || !el.getClientRects().length || el.closest('svg, .flowsvg, #lb')) continue;
+      const text = (el.textContent || '').replace(/\s+/g, ' ').trim();
+      if (!text) continue;
+      const cs = getComputedStyle(el);
+      if (cs.visibility === 'hidden' || +cs.opacity === 0) continue;
+      const bg = bgOf(el), fg0 = parse(cs.color);
+      if (!bg || !fg0) continue;
+      seen.add(el); n++; checked++;
+      const fg = fg0[3] < 1 ? over(fg0, bg) : fg0.slice(0, 3);
+      const L1 = lum(fg), L2 = lum(bg), ratio = (Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05);
+      const fs = parseFloat(cs.fontSize), fw = parseInt(cs.fontWeight, 10) || 400;
+      const need = fs >= 24 || (fs >= 18.66 && fw >= 700) ? 3 : 4.5;
+      if (ratio < need - 0.005) fails.push({ sel, text: text.slice(0, 32), ratio: Math.round(ratio * 100) / 100, need, fg: hex(fg), bg: hex(bg) });
+    }
+  }
+  return { checked, fails };
+}
+async function contrastPass(br) {
+  const c = await br.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1, colorScheme: 'light' });
+  const p = await c.newPage(); p.setDefaultTimeout(30000); watch(p, 'contrast');
+  await p.goto(URL_, { waitUntil: 'load', timeout: 180000 }); await sleep(300);
+  await p.evaluate(() => { const tr = document.querySelector('#tb tr.row'); if (tr) (tr.querySelector('td.c-title') || tr.cells[2]).click(); });
+  const modes = [['contrast-light', 'light', null], ['contrast-dark', 'dark', null], ['contrast-auto-dark', null, 'dark']];
+  for (const [name, attr, scheme] of modes) {
+    await check(page, name, async () => {
+      await p.emulateMedia({ colorScheme: scheme || 'light' });
+      await p.evaluate(a => { if (a) document.documentElement.setAttribute('data-theme', a); else document.documentElement.removeAttribute('data-theme'); }, attr);
+      await sleep(80);
+      const r = await p.evaluate(contrastInPage, CONTRAST_SELS);
+      if (!r.checked) return SKIP('нет текстовых элементов');
+      const uniq = []; const keys = new Set();
+      for (const f of r.fails) { const k = f.sel + '|' + f.fg + '|' + f.bg; if (!keys.has(k)) { keys.add(k); uniq.push(f); } }
+      if (uniq.length) return FAIL(`${r.fails.length} из ${r.checked} ниже порога: ` + uniq.slice(0, 8).map(f => `${f.sel} «${f.text}» ${f.ratio}:1 (${f.fg} на ${f.bg})`).join('; '));
+      return OK(`проверено элементов ${r.checked}, все ≥ 4,5:1 (крупный текст ≥ 3:1)`);
+    });
+  }
+  await c.close();
+}
+
+await geometryPass(browser, 'chromium');
+await contrastPass(browser);
+
+// ---------------------------------------------------------------- lite: картинки — файлы в assets/ рядом со страницей
+await check(page, 'lite-assets', async () => {
+  const urls = await page.evaluate(() => Object.values(JSON.parse((document.getElementById('d-img') || { textContent: '{}' }).textContent)).filter(u => typeof u === 'string' && !/^data:/.test(u)));
+  if (!urls.length) return SKIP('страница автономная (собрана без --lite)', true);
+  const outside = [], missing = [];
+  for (const u of urls) {
+    let rel = u; try { rel = decodeURIComponent(u.split('#')[0]); } catch (e) { /* как есть */ }
+    const p = path.resolve(PAGE_DIR, rel);
+    if (!p.startsWith(PAGE_DIR + path.sep)) outside.push(u); else if (!fs.existsSync(p)) missing.push(u);
+  }
+  if (outside.length) return FAIL('ссылки на картинки вне папки страницы: ' + outside.slice(0, 3).join(', '));
+  if (missing.length) return FAIL(`нет файлов (${missing.length} из ${urls.length}): ` + missing.slice(0, 3).join(', '));
+  const thumbs = await page.evaluate(() => Object.keys(JSON.parse((document.getElementById('d-thumb') || { textContent: '{}' }).textContent)).length);
+  const key = await page.evaluate(() => {
+    const m = JSON.parse(document.getElementById('d-img').textContent), al = JSON.parse((document.getElementById('d-alias') || { textContent: '{}' }).textContent);
+    const f = [...document.querySelectorAll('figure.lb[data-key]')].find(x => { const k = al[x.dataset.key] || x.dataset.key; return m[k] && !/^data:/.test(m[k]) && x.offsetParent; });
+    document.querySelectorAll('[data-smoke-lite]').forEach(x => x.removeAttribute('data-smoke-lite'));
+    if (f) f.setAttribute('data-smoke-lite', ''); return f ? f.dataset.key : null;
+  });
+  let info = '';
+  if (key) {
+    const fig = page.locator('figure.lb[data-smoke-lite]');
+    await fig.scrollIntoViewIfNeeded(); await sleep(400);
+    const prev = await page.evaluate(() => { const im = document.querySelector('figure.lb[data-smoke-lite] img'); return { src: (im.currentSrc || im.src || '').slice(0, 40), w: im.naturalWidth }; });
+    await fig.click(); await page.waitForSelector('#lb.open');
+    await page.waitForFunction(() => { const im = document.getElementById('lbimg'); return im.naturalWidth > 0 && !/^data:/.test(im.getAttribute('src') || ''); }, null, { timeout: 15000 });
+    const w = await page.evaluate(() => document.getElementById('lbimg').naturalWidth);
+    await page.keyboard.press('Escape');
+    if (!prev.w) return FAIL('превью не загрузилось: ' + prev.src);
+    info = `, превью «${key}» загружено, в лайтбоксе — полный файл ${w} px`;
+  }
+  return OK(`ссылок на assets/: ${urls.length}, все файлы на месте, миниатюр в странице: ${thumbs}${info}; локальных файлов запрошено: ${localFiles.size}`);
+});
+
+// ---------------------------------------------------------------- WebKit (Safari): та же геометрия
+let wk = null;
+if (args.engines.includes('webkit')) {
+  wk = await launchWebkit();
+  if (wk) await geometryPass(wk.browser, 'webkit');
+  else for (const v of GEOM_VIEWS) await check(page, `geometry-webkit-${v.name}`, async () => SKIP('WebKit не установлен в кэше Playwright: npx --prefix <node-dir> playwright install webkit', true));
+}
+
 // ---------------------------------------------------------------- итог
 checks.push({ name: 'console-errors', status: errors.length ? 'fail' : 'pass', detail: errors.length ? errors.slice(0, 5).join(' | ') : '0' });
 checks.push({ name: 'external-requests', status: external.length ? 'fail' : 'pass', detail: external.length ? external.slice(0, 5).join(' | ') : '0' });
 await browser.close();
+if (wk) await wk.browser.close();
 
 const reqAll = args.require.includes('all');
-for (const c of checks) {
-  if (c.status === 'skip' && (reqAll || args.require.includes(c.name))) { c.status = 'fail'; c.detail = 'обязательная проверка пропущена: ' + c.detail; }
+for (const c of checks) {   // --require all не требует проверок, пропущенных из-за окружения (нет WebKit, страница без --lite)
+  if (c.status === 'skip' && ((reqAll && !c.env) || args.require.includes(c.name))) { c.status = 'fail'; c.detail = 'обязательная проверка пропущена: ' + c.detail; }
 }
 const failed = checks.filter(c => c.status === 'fail');
 const result = { ok: failed.length === 0, file: HTML, counts, passed: checks.filter(c => c.status === 'pass').length,

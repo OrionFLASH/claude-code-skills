@@ -6,15 +6,23 @@ HEAD, при 400/403/405/501 — GET; пауза между запросами �
 требует перепроверки в браузере», мёртвыми не считаются. Пишет data/links-check.csv и обновляет
 status / date_checked в data/sources.json.
 
-  check_links.py <OUT> [--offline] [--timeout 10] [--per-host-delay 1.0] [--workers 8] [--strict]
+  check_links.py <OUT> [--offline] [--timeout 10] [--per-host-delay 1.0] [--workers 8] [--strict] [--json]
 
 --offline — без сети: только формат URL и дубли (для тестов и черновой проверки); sources.json не меняется.
---strict  — код выхода 1, если есть мёртвые ссылки или ссылки неверного формата.
+--strict  — код выхода 1, если есть мёртвые ссылки, ссылки неверного формата или записи sources.json без названия.
+--json    — печатать итог в виде JSON (проблемные URL, файлы, где они используются, записи без названия).
+
+Дополнения 1.1: URL, извлечённые из текста (research/strategy.md, research/specs/*.md) и не прошедшие проверку формата
+(плейсхолдеры «…», <…>, {…}, example.*, незакрытые скобки), только попадают в отчёт и НИКОГДА не записываются в sources.json;
+для каждого мёртвого/проблемного URL в отчёте и в колонке `files` links-check.csv перечислены файлы, где он используется
+(data/*.json, research/**/*.md, design-refs/*); записи sources.json, у которых title пуст, равен URL или начинается с http(s)://,
+выводятся отдельным списком.
 Только стандартная библиотека (certifi — по желанию).
 """
 import argparse
 import csv
 import json
+import re
 import socket
 import ssl
 import sys
@@ -32,7 +40,8 @@ UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML
 HEADERS = {"User-Agent": UA, "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
            "Accept-Language": "ru,en;q=0.8"}
 ANTIBOT = "анти-бот: требует перепроверки в браузере"
-FIELDS = ["url", "status", "verdict", "final_url", "checked", "origins"]
+FIELDS = ["url", "status", "verdict", "final_url", "checked", "origins", "files"]
+URL_RE = re.compile(r"https?://[^\s<>\]\"'`]+", re.I)
 _cert_warned = threading.Event()
 
 
@@ -52,6 +61,16 @@ def load_json(path, default):
     except (OSError, json.JSONDecodeError) as e:
         print("предупреждение: не удалось прочитать %s: %s" % (path, e), file=sys.stderr)
         return default
+
+
+def clean_text_url(raw):
+    """Срезает хвостовую пунктуацию и лишние «)» у URL, найденного в тексте."""
+    u = raw
+    while u and u[-1] in ".,;:!?»”*":
+        u = u[:-1]
+    while u.endswith(")") and u.count(")") > u.count("("):
+        u = u[:-1]
+    return u
 
 
 def collect(out):
@@ -77,12 +96,27 @@ def collect(out):
         add(c.get("url"), "competitors:%s" % c.get("slug", "?"))
         for u in c.get("sources") or []:
             add(u, "competitors:%s:sources" % c.get("slug", "?"))
+    for f in [out / "research" / "strategy.md"] + sorted((out / "research" / "specs").glob("*.md")):
+        if f.is_file():
+            try:
+                text = f.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            for m in URL_RE.finditer(text):
+                add(clean_text_url(m.group(0)), "text:%s" % f.relative_to(out).as_posix())
     return urls
 
 
-def format_problem(u):
+def format_problem(u, text_origin=False):
+    """Причина неверного формата или None. Плейсхолдеры «…», <…>, {…}, незакрытые скобки — всегда; example.* — для URL из текста."""
     if any(ch.isspace() for ch in u):
         return "неверный формат: пробел в URL"
+    if "…" in u or "..." in u:
+        return "неверный формат: плейсхолдер «…»"
+    if re.search(r"[<>{}]", u):
+        return "неверный формат: плейсхолдер <…> или {…}"
+    if u.count("(") > u.count(")"):
+        return "неверный формат: незакрытая скобка"
     try:
         parts = urlsplit(u)
     except ValueError as e:
@@ -91,7 +125,45 @@ def format_problem(u):
         return "неверный формат: схема не http(s)"
     if not parts.hostname or "." not in parts.hostname and parts.hostname != "localhost":
         return "неверный формат: нет домена"
+    if text_origin and re.fullmatch(r"(?:www\.)?example\.[a-z.]+", parts.hostname.lower()):
+        return "неверный формат: плейсхолдер example.*"
     return None
+
+
+def is_text_only(urls_origins):
+    """URL встречается только в текстах (origins все начинаются с «text:») — для него действуют правила плейсхолдеров example.*."""
+    return all(o.startswith("text:") for o in urls_origins)
+
+
+def title_problems(out):
+    """Записи sources.json без названия: пусто, равно URL или начинается с http(s):// → [(id, url, title)]."""
+    res = []
+    for s in load_json(out / "data" / "sources.json", []) or []:
+        if not isinstance(s, dict):
+            continue
+        t = (s.get("title") or "").strip()
+        u = (s.get("url") or "").strip()
+        if not t or t == u or t.rstrip("/") == u.rstrip("/") or t.lower().startswith(("http://", "https://")):
+            res.append((s.get("id", "?"), u, t))
+    return res
+
+
+def usage_files(out, bad_urls):
+    """URL → список файлов (относительно <OUT>), где он встречается: data/*.json, research/**/*.md, design-refs/*."""
+    files = sorted((out / "data").glob("*.json")) + sorted((out / "research").rglob("*.md")) + \
+        sorted(p for p in (out / "design-refs").glob("*") if p.suffix in (".json", ".md"))
+    res = {u: [] for u in bad_urls}
+    for f in files:
+        try:
+            if f.stat().st_size > 8 * 1024 * 1024:
+                continue
+            text = f.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        for u in bad_urls:
+            if u in text:
+                res[u].append(f.relative_to(out).as_posix())
+    return res
 
 
 def source_duplicates(out):
@@ -197,8 +269,12 @@ def main(argv=None):
     ap.add_argument("--timeout", type=float, default=10.0, help="таймаут запроса, с (по умолчанию 10)")
     ap.add_argument("--per-host-delay", type=float, default=1.0, help="пауза между запросами к одному хосту, с (по умолчанию 1.0)")
     ap.add_argument("--workers", type=int, default=8, help="параллельных хостов (по умолчанию 8)")
-    ap.add_argument("--strict", action="store_true", help="код 1 при мёртвых ссылках или неверном формате")
+    ap.add_argument("--strict", action="store_true", help="код 1 при мёртвых ссылках, неверном формате или записях sources.json без названия")
+    ap.add_argument("--json", action="store_true", help="печатать итог в JSON")
     a = ap.parse_args(argv)
+    real_stdout = sys.stdout
+    if a.json:
+        sys.stdout = sys.stderr          # человекочитаемый вывод — в stderr, в stdout только JSON
     out = Path(a.out).resolve()
     if not (out / "data").is_dir():
         print("ошибка: нет папки %s/data" % out, file=sys.stderr)
@@ -206,7 +282,7 @@ def main(argv=None):
     urls = collect(out)
     dups = source_duplicates(out)
     today = date.today().isoformat()
-    bad = {u: format_problem(u) for u in urls if format_problem(u)}
+    bad = {u: format_problem(u, is_text_only(urls[u])) for u in urls if format_problem(u, is_text_only(urls[u]))}
     to_check = [u for u in urls if u not in bad]
     if a.offline:
         results = {u: (None, "не проверялось (офлайн)", "") for u in to_check}
@@ -224,7 +300,12 @@ def main(argv=None):
         if u in dups:
             verdict += "; дубль в sources.json: " + ", ".join(dups[u])
         rows.append({"url": u, "status": "" if status is None else str(status), "verdict": verdict, "final_url": final if final and final != u else "",
-                     "checked": "" if a.offline else today, "origins": "; ".join(urls[u])})
+                     "checked": "" if a.offline else today, "origins": "; ".join(urls[u]), "files": ""})
+    problem = [r["url"] for r in rows if not r["verdict"].startswith(("ok", "не проверялось"))]
+    used = usage_files(out, problem) if problem else {}
+    for r in rows:
+        r["files"] = "; ".join(used.get(r["url"], []))
+    no_title = title_problems(out)
     path = out / "data" / "links-check.csv"
     with open(path, "w", encoding="utf-8", newline="") as f:
         w = csv.DictWriter(f, fieldnames=FIELDS)
@@ -241,7 +322,15 @@ def main(argv=None):
     for r in rows:
         if not r["verdict"].startswith(("ok", "не проверялось")):
             print("  %-4s %s — %s" % (r["status"] or "—", r["url"], r["verdict"]))
-    return 1 if a.strict and (dead or bad) else 0
+            if r["files"]:
+                print("       используется в: %s" % r["files"])
+    if no_title:
+        print("sources.json: записей без названия (title пуст или равен URL): %d — %s" % (len(no_title), ", ".join(i for i, _, _ in no_title[:15])))
+    if a.json:
+        print(json.dumps({"urls": len(rows), "dead": dead, "bad_format": len(bad), "duplicates": len(dups), "no_title": [{"id": i, "url": u, "title": t} for i, u, t in no_title],
+                          "problems": [{"url": r["url"], "status": r["status"], "verdict": r["verdict"], "files": r["files"].split("; ") if r["files"] else []}
+                                       for r in rows if not r["verdict"].startswith(("ok", "не проверялось"))]}, ensure_ascii=False, indent=2), file=real_stdout)
+    return 1 if a.strict and (dead or bad or no_title) else 0
 
 
 if __name__ == "__main__":
