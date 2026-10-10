@@ -235,6 +235,64 @@ def test_build_all_new_steps_and_statuses(tmp_path):
     assert (out / "research" / "methodology.md").is_file() and (out / "design-refs" / "README.generated.md").exists() or (out / "design-refs" / "README.md").exists()
 
 
+# ---------- режим «Отслеживание»: поиск стратегий, карточки, track ----------
+def _repo_with_strategies(tmp_path, n=1):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    for i in range(n):
+        out = repo / "strategy" / ("2026-10-1%d" % i)
+        assert run("make_demo.py", out, "--proposals", "50").returncode == 0
+        cfgp = out / "build" / "run-config.json"
+        cfg = json.loads(cfgp.read_text(encoding="utf-8"))
+        cfg["created"] = "2026-10-1%d" % i
+        cfg["output"]["inside_repo"] = True
+        cfgp.write_text(json.dumps(cfg, ensure_ascii=False), encoding="utf-8")
+        run("score.py", out)
+    return repo
+
+
+def test_detect_no_strategies_means_new(tmp_path):
+    r = run("intake.py", "detect", "--repo", tmp_path, "--json")
+    d = json.loads(r.stdout)
+    assert r.returncode == 0 and d["found"] == [] and d["cards"] == [] and d["auto"] is None
+
+
+def test_detect_one_strategy_gives_mode_card_and_auto(tmp_path):
+    repo = _repo_with_strategies(tmp_path, 1)
+    d = json.loads(run("intake.py", "detect", "--repo", repo, "--json").stdout)
+    assert len(d["found"]) == 1 and d["auto"]["recommended"] and d["auto"]["complete"] and d["auto"]["proposals"] == 50
+    assert [c["header"] for c in d["cards"]] == ["Режим"]
+    card = d["cards"][0]
+    assert 2 <= len(card["options"]) <= 4 and "(Recommended)" in card["options"][0]["label"] and len(card["header"]) <= 12
+
+
+def test_detect_several_strategies_asks_which_and_prefers_latest_complete(tmp_path):
+    repo = _repo_with_strategies(tmp_path, 3)
+    (repo / "strategy" / "2026-10-12" / "data" / "scores.json").unlink()            # самая свежая — неполная
+    d = json.loads(run("intake.py", "detect", "--repo", repo, "--json").stdout)
+    assert [c["header"] for c in d["cards"]] == ["Режим", "Стратегия"]
+    assert d["auto"]["created"] == "2026-10-11"                                       # свежая полная, а не просто свежая
+    assert len(d["cards"][1]["options"]) == 3 and "(Recommended)" in d["cards"][1]["options"][0]["label"]
+
+
+def test_track_writes_tracking_block_and_prints_out(tmp_path):
+    repo = _repo_with_strategies(tmp_path, 1)
+    r = run("intake.py", "track", "--repo", repo, "--mode", "update")
+    out = repo / "strategy" / "2026-10-10"
+    assert r.returncode == 0 and "OUT=%s" % out.resolve() in r.stdout
+    cfg = json.loads((out / "build" / "run-config.json").read_text(encoding="utf-8"))
+    assert cfg["tracking"]["mode"] == "update" and cfg["tracking"]["baseline"] == str(out.resolve())
+    assert run("intake.py", "track", "--repo", tmp_path / "none").returncode != 0           # нет стратегий — понятная ошибка
+
+
+def test_strategy_update_brief_is_self_contained():
+    text = (SCRIPTS.parent / "templates" / "briefs" / "strategy-update.md").read_text(encoding="utf-8")
+    for ph in ("{OUT}", "{DATE}", "{SKILL_DIR}", "{LANG}", "{MISSING_INPUTS}"):
+        assert ph in text
+    assert "/Users/" not in text and "assemble_strategy.py" in text and "revision.json" in text
+
+
 @pytest.mark.parametrize("name", ["SKILL.md", "INSTALL.md", "README.md", "references/data-contract.md", "references/intake.md",
                                   "references/tools.md"])
 def test_docs_exist_and_mention_scripts(name):
