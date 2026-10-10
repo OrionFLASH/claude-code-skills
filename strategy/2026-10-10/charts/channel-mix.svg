@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 405" width="980" height="405" role="img" font-family="system-ui, -apple-system, &#39;Segoe UI&#39;, Roboto, &#39;Helvetica Neue&#39;, Arial, sans-serif">
+<title>Каналы привлечения: «Каталоги и магазины приложений» — 33 % предложений и 45 % суммарного composite</title>
+<desc>Структура 12 предложений категории «Привлечение» по каналам: доля по числу и по сумме composite (вклад с учётом оценки). Канал определён по тегам и тексту предложения (эвристика по ключевым словам).</desc>
+<rect x="0" y="0" width="980" height="405" fill="#FFFFFF"/>
+<text x="24" y="42.0" font-size="18" font-weight="700" fill="#1F2328">Каналы привлечения: «Каталоги и магазины приложений» — 33 % предложений и 45 %</text>
+<text x="24" y="65.4" font-size="18" font-weight="700" fill="#1F2328">суммарного composite</text>
+<text x="24" y="102.4" font-size="13" fill="#57606A">Структура 12 предложений категории «Привлечение» по каналам: доля по числу и по сумме composite (вклад с учётом оценки). Канал</text>
+<text x="24" y="120.6" font-size="13" fill="#57606A">определён по тегам и тексту предложения (эвристика по ключевым словам).</text>
+<text x="24.0" y="161.7" font-size="12" fill="#1F2328" text-anchor="start">Каталоги и магазины приложений</text>
+<rect x="284.0" y="141.2" width="174.0" height="13.0" rx="2" fill="#0072B2"/>
+<text x="464.0" y="152.2" font-size="11" fill="#1F2328" text-anchor="start">33 % · 4 предложения</text>
+<rect x="284.0" y="157.2" width="234.4" height="13.0" rx="2" fill="#E69F00"/>
+<text x="524.4" y="168.2" font-size="11" fill="#1F2328" text-anchor="start">45 % composite</text>
+<text x="24.0" y="205.7" font-size="12" fill="#1F2328" text-anchor="start">SEO и поисковые страницы</text>
+<rect x="284.0" y="185.2" width="130.5" height="13.0" rx="2" fill="#0072B2"/>
+<text x="420.5" y="196.2" font-size="11" fill="#1F2328" text-anchor="start">25 % · 3 предложения</text>
+<rect x="284.0" y="201.2" width="113.7" height="13.0" rx="2" fill="#E69F00"/>
+<text x="403.7" y="212.2" font-size="11" fill="#1F2328" text-anchor="start">22 % composite</text>
+<text x="24.0" y="249.7" font-size="12" fill="#1F2328" text-anchor="start">Сообщества и форумы</text>
+<rect x="284.0" y="229.2" width="130.5" height="13.0" rx="2" fill="#0072B2"/>
+<text x="420.5" y="240.2" font-size="11" fill="#1F2328" text-anchor="start">25 % · 3 предложения</text>
+<rect x="284.0" y="245.2" width="110.5" height="13.0" rx="2" fill="#E69F00"/>
+<text x="400.5" y="256.2" font-size="11" fill="#1F2328" text-anchor="start">21 % composite</text>
+<text x="24.0" y="293.7" font-size="12" fill="#1F2328" text-anchor="start">События и конференции</text>
+<rect x="284.0" y="273.2" width="87.0" height="13.0" rx="2" fill="#0072B2"/>
+<text x="377.0" y="284.2" font-size="11" fill="#1F2328" text-anchor="start">17 % · 2 предложения</text>
+<rect x="284.0" y="289.2" width="63.4" height="13.0" rx="2" fill="#E69F00"/>
+<text x="353.4" y="300.2" font-size="11" fill="#1F2328" text-anchor="start">12 % composite</text>
+<line x1="284.0" y1="131.2" x2="284.0" y2="311.2" stroke="#9AA1A9" stroke-width="1"/>
+<rect x="284.0" y="326.2" width="12.0" height="12.0" rx="2" fill="#0072B2"/>
+<text x="302.0" y="335.2" font-size="12" fill="#1F2328" text-anchor="start">доля по числу предложений</text>
+<rect x="492.8" y="326.2" width="12.0" height="12.0" rx="2" fill="#E69F00"/>
+<text x="510.8" y="335.2" font-size="12" fill="#1F2328" text-anchor="start">доля по сумме composite</text>
+<text x="24" y="376.6" font-size="11" fill="#57606A">Источник: data/proposals.json (category=acquisition, tags, title, description), data/scores.json (composite)</text>
+</svg>

@@ -1,0 +1,6 @@
+!build/
+!data/
+!deliverables/
+build/node/
+*.tmp
+node_modules/

@@ -1,0 +1,1013 @@
+{
+  "currency": "RUB",
+  "currency_symbol": "₽",
+  "profile": "zero-budget-solo",
+  "revenue_model": "subscription",
+  "horizon_months": 6,
+  "scenarios": {
+    "pessimistic": {
+      "assumptions": {
+        "price_month": {
+          "value": 0.0,
+          "label": "допущение",
+          "note": "монетизация не нужна (выбор владельца): цена 0; модель считает усилия и внешних активированных, не выручку"
+        },
+        "price_one_time": {
+          "value": 930.0,
+          "label": "допущение",
+          "note": "цена разовой покупки (для revenue_model = one_time)"
+        },
+        "payment_fee": {
+          "value": 0.05,
+          "label": "допущение",
+          "note": "комиссия платёжного провайдера, доля"
+        },
+        "refund_rate": {
+          "value": 0.02,
+          "label": "допущение",
+          "note": "доля возвратов"
+        },
+        "gross_margin": {
+          "value": 0.85,
+          "label": "допущение",
+          "note": "валовая маржа после переменных затрат (хостинг, поддержка)"
+        },
+        "repeat_purchase_rate": {
+          "value": 0.0,
+          "label": "допущение",
+          "note": "доля повторных покупок (разовая модель)"
+        },
+        "ltv_cap_months": {
+          "value": 36,
+          "label": "допущение",
+          "note": "верхняя граница срока жизни клиента для LTV"
+        },
+        "visitors_month": {
+          "value": 60,
+          "label": "допущение",
+          "note": "посетителей репозитория в первый месяц [допущение]; факт: 36 просмотров / 1 уникальный за 14 дней (gh traffic, 2026-10-10), т.е. почти всё — владелец"
+        },
+        "traffic_growth": {
+          "value": 0.03,
+          "label": "допущение",
+          "note": "рост посетителей в месяц"
+        },
+        "visit_to_signup": {
+          "value": 0.03,
+          "label": "допущение",
+          "note": "посетитель → установка плагина [допущение]"
+        },
+        "signup_to_active": {
+          "value": 0.3,
+          "label": "допущение",
+          "note": "регистрация → активация (первое ценное действие)"
+        },
+        "retention_monthly": {
+          "value": 0.5,
+          "label": "допущение",
+          "note": "доля активных, оставшихся через месяц"
+        },
+        "active_to_paying": {
+          "value": 0.0,
+          "label": "допущение",
+          "note": "активированный → платящий"
+        },
+        "churn_monthly": {
+          "value": 0.1,
+          "label": "допущение",
+          "note": "отток платящих в месяц"
+        },
+        "referral_rate": {
+          "value": 0.005,
+          "label": "допущение",
+          "note": "приглашённых регистраций на активного в месяц"
+        },
+        "paid_share": {
+          "value": 0.0,
+          "label": "допущение",
+          "note": "профиль zero-budget-solo: платных каналов нет"
+        },
+        "cost_per_paid_signup": {
+          "value": 190.0,
+          "label": "допущение",
+          "note": "стоимость платной регистрации"
+        },
+        "fixed_cost_month": {
+          "value": 0.0,
+          "label": "допущение",
+          "note": "постоянные затраты в месяц (инфраструктура, сервисы)"
+        },
+        "revenue_model": {
+          "value": "subscription",
+          "label": "допущение",
+          "note": "subscription с ценой 0 — заглушка: выручка не моделируется (владелец: монетизация не нужна)"
+        }
+      },
+      "funnel": [
+        {
+          "stage": "acquisition",
+          "label": "Посетители",
+          "value": 388
+        },
+        {
+          "stage": "activation",
+          "label": "Активированные",
+          "value": 3.5
+        },
+        {
+          "stage": "retention",
+          "label": "Активные в месяц (среднее)",
+          "value": 1.0
+        },
+        {
+          "stage": "revenue",
+          "label": "Новые платящие",
+          "value": 0.0
+        },
+        {
+          "stage": "referral",
+          "label": "Регистрации по приглашениям",
+          "value": 0.0
+        }
+      ],
+      "monthly": [
+        {
+          "month": 1,
+          "visitors": 60,
+          "signups": 1.8,
+          "users": 0.5,
+          "paying": 0.0,
+          "new_paying": 0.0,
+          "revenue": 0.0,
+          "cost": 0.0,
+          "marketing": 0.0,
+          "cum_margin": 0.0,
+          "cum_cost": 0.0
+        },
+        {
+          "month": 2,
+          "visitors": 62,
+          "signups": 1.9,
+          "users": 0.8,
+          "paying": 0.0,
+          "new_paying": 0.0,
+          "revenue": 0.0,
+          "cost": 0.0,
+          "marketing": 0.0,
+          "cum_margin": 0.0,
+          "cum_cost": 0.0
+        },
+        {
+          "month": 3,
+          "visitors": 64,
+          "signups": 1.9,
+          "users": 1.0,
+          "paying": 0.0,
+          "new_paying": 0.0,
+          "revenue": 0.0,
+          "cost": 0.0,
+          "marketing": 0.0,
+          "cum_margin": 0.0,
+          "cum_cost": 0.0
+        },
+        {
+          "month": 4,
+          "visitors": 66,
+          "signups": 2.0,
+          "users": 1.1,
+          "paying": 0.0,
+          "new_paying": 0.0,
+          "revenue": 0.0,
+          "cost": 0.0,
+          "marketing": 0.0,
+          "cum_margin": 0.0,
+          "cum_cost": 0.0
+        },
+        {
+          "month": 5,
+          "visitors": 68,
+          "signups": 2.0,
+          "users": 1.2,
+          "paying": 0.0,
+          "new_paying": 0.0,
+          "revenue": 0.0,
+          "cost": 0.0,
+          "marketing": 0.0,
+          "cum_margin": 0.0,
+          "cum_cost": 0.0
+        },
+        {
+          "month": 6,
+          "visitors": 70,
+          "signups": 2.1,
+          "users": 1.2,
+          "paying": 0.0,
+          "new_paying": 0.0,
+          "revenue": 0.0,
+          "cost": 0.0,
+          "marketing": 0.0,
+          "cum_margin": 0.0,
+          "cum_cost": 0.0
+        }
+      ],
+      "cac": null,
+      "ltv": 0.0,
+      "ltv_cac": null,
+      "payback_months": null,
+      "breakeven_month": null,
+      "arpu": 0.0,
+      "arppu": 0.0,
+      "churn": 0.1,
+      "roi": "неприменимо (нулевой бюджет)",
+      "totals": {
+        "visitors": 388,
+        "signups": 11.7,
+        "activated": 3.5,
+        "new_paying": 0.0,
+        "net_revenue": 0.0,
+        "cost": 0.0,
+        "marketing": 0.0
+      },
+      "roi_note": "денежных вложений нет — затраты это время разработчика: solo.scenarios.pessimistic",
+      "cac_note": "неприменимо: платного привлечения нет; см. solo.scenarios.pessimistic.hours_per_activated"
+    },
+    "base": {
+      "assumptions": {
+        "price_month": {
+          "value": 0.0,
+          "label": "допущение",
+          "note": "монетизация не нужна (выбор владельца): цена 0; модель считает усилия и внешних активированных, не выручку"
+        },
+        "price_one_time": {
+          "value": 930.0,
+          "label": "допущение",
+          "note": "цена разовой покупки (для revenue_model = one_time)"
+        },
+        "payment_fee": {
+          "value": 0.05,
+          "label": "допущение",
+          "note": "комиссия платёжного провайдера, доля"
+        },
+        "refund_rate": {
+          "value": 0.02,
+          "label": "допущение",
+          "note": "доля возвратов"
+        },
+        "gross_margin": {
+          "value": 0.85,
+          "label": "допущение",
+          "note": "валовая маржа после переменных затрат (хостинг, поддержка)"
+        },
+        "repeat_purchase_rate": {
+          "value": 0.0,
+          "label": "допущение",
+          "note": "доля повторных покупок (разовая модель)"
+        },
+        "ltv_cap_months": {
+          "value": 36,
+          "label": "допущение",
+          "note": "верхняя граница срока жизни клиента для LTV"
+        },
+        "visitors_month": {
+          "value": 200,
+          "label": "допущение",
+          "note": "посетителей репозитория в первый месяц [допущение]; факт: 36 просмотров / 1 уникальный за 14 дней (gh traffic, 2026-10-10), т.е. почти всё — владелец"
+        },
+        "traffic_growth": {
+          "value": 0.06,
+          "label": "допущение",
+          "note": "рост посетителей в месяц"
+        },
+        "visit_to_signup": {
+          "value": 0.05,
+          "label": "допущение",
+          "note": "посетитель → установка плагина [допущение]"
+        },
+        "signup_to_active": {
+          "value": 0.4,
+          "label": "допущение",
+          "note": "регистрация → активация"
+        },
+        "retention_monthly": {
+          "value": 0.6,
+          "label": "допущение",
+          "note": "доля активных, оставшихся через месяц"
+        },
+        "active_to_paying": {
+          "value": 0.0,
+          "label": "допущение",
+          "note": "активированный → платящий"
+        },
+        "churn_monthly": {
+          "value": 0.06,
+          "label": "допущение",
+          "note": "отток платящих в месяц"
+        },
+        "referral_rate": {
+          "value": 0.01,
+          "label": "допущение",
+          "note": "приглашённых регистраций на активного в месяц"
+        },
+        "paid_share": {
+          "value": 0.0,
+          "label": "допущение",
+          "note": "профиль zero-budget-solo: платных каналов нет"
+        },
+        "cost_per_paid_signup": {
+          "value": 160.0,
+          "label": "допущение",
+          "note": "стоимость платной регистрации"
+        },
+        "fixed_cost_month": {
+          "value": 190.0,
+          "label": "допущение",
+          "note": "постоянные затраты в месяц"
+        },
+        "revenue_model": {
+          "value": "subscription",
+          "label": "допущение",
+          "note": "subscription с ценой 0 — заглушка: выручка не моделируется (владелец: монетизация не нужна)"
+        }
+      },
+      "funnel": [
+        {
+          "stage": "acquisition",
+          "label": "Посетители",
+          "value": 1395
+        },
+        {
+          "stage": "activation",
+          "label": "Активированные",
+          "value": 28.1
+        },
+        {
+          "stage": "retention",
+          "label": "Активные в месяц (среднее)",
+          "value": 8.7
+        },
+        {
+          "stage": "revenue",
+          "label": "Новые платящие",
+          "value": 0.0
+        },
+        {
+          "stage": "referral",
+          "label": "Регистрации по приглашениям",
+          "value": 0.5
+        }
+      ],
+      "monthly": [
+        {
+          "month": 1,
+          "visitors": 200,
+          "signups": 10.0,
+          "users": 4.0,
+          "paying": 0.0,
+          "new_paying": 0.0,
+          "revenue": 0.0,
+          "cost": 190.0,
+          "marketing": 0.0,
+          "cum_margin": 0.0,
+          "cum_cost": 190.0
+        },
+        {
+          "month": 2,
+          "visitors": 212,
+          "signups": 10.6,
+          "users": 6.7,
+          "paying": 0.0,
+          "new_paying": 0.0,
+          "revenue": 0.0,
+          "cost": 190.0,
+          "marketing": 0.0,
+          "cum_margin": 0.0,
+          "cum_cost": 380.0
+        },
+        {
+          "month": 3,
+          "visitors": 225,
+          "signups": 11.3,
+          "users": 8.5,
+          "paying": 0.0,
+          "new_paying": 0.0,
+          "revenue": 0.0,
+          "cost": 190.0,
+          "marketing": 0.0,
+          "cum_margin": 0.0,
+          "cum_cost": 570.0
+        },
+        {
+          "month": 4,
+          "visitors": 238,
+          "signups": 12.0,
+          "users": 9.9,
+          "paying": 0.0,
+          "new_paying": 0.0,
+          "revenue": 0.0,
+          "cost": 190.0,
+          "marketing": 0.0,
+          "cum_margin": 0.0,
+          "cum_cost": 760.0
+        },
+        {
+          "month": 5,
+          "visitors": 252,
+          "signups": 12.7,
+          "users": 11.0,
+          "paying": 0.0,
+          "new_paying": 0.0,
+          "revenue": 0.0,
+          "cost": 190.0,
+          "marketing": 0.0,
+          "cum_margin": 0.0,
+          "cum_cost": 950.0
+        },
+        {
+          "month": 6,
+          "visitors": 268,
+          "signups": 13.5,
+          "users": 12.0,
+          "paying": 0.0,
+          "new_paying": 0.0,
+          "revenue": 0.0,
+          "cost": 190.0,
+          "marketing": 0.0,
+          "cum_margin": 0.0,
+          "cum_cost": 1140.0
+        }
+      ],
+      "cac": null,
+      "ltv": 0.0,
+      "ltv_cac": null,
+      "payback_months": null,
+      "breakeven_month": null,
+      "arpu": 0.0,
+      "arppu": 0.0,
+      "churn": 0.06,
+      "roi": "неприменимо (нулевой бюджет)",
+      "totals": {
+        "visitors": 1395,
+        "signups": 70.2,
+        "activated": 28.1,
+        "new_paying": 0.0,
+        "net_revenue": 0.0,
+        "cost": 1140.0,
+        "marketing": 0.0
+      },
+      "roi_note": "денежных вложений нет — затраты это время разработчика: solo.scenarios.base",
+      "cac_note": "неприменимо: платного привлечения нет; см. solo.scenarios.base.hours_per_activated"
+    },
+    "optimistic": {
+      "assumptions": {
+        "price_month": {
+          "value": 0.0,
+          "label": "допущение",
+          "note": "монетизация не нужна (выбор владельца): цена 0; модель считает усилия и внешних активированных, не выручку"
+        },
+        "price_one_time": {
+          "value": 930.0,
+          "label": "допущение",
+          "note": "цена разовой покупки (для revenue_model = one_time)"
+        },
+        "payment_fee": {
+          "value": 0.05,
+          "label": "допущение",
+          "note": "комиссия платёжного провайдера, доля"
+        },
+        "refund_rate": {
+          "value": 0.02,
+          "label": "допущение",
+          "note": "доля возвратов"
+        },
+        "gross_margin": {
+          "value": 0.85,
+          "label": "допущение",
+          "note": "валовая маржа после переменных затрат (хостинг, поддержка)"
+        },
+        "repeat_purchase_rate": {
+          "value": 0.0,
+          "label": "допущение",
+          "note": "доля повторных покупок (разовая модель)"
+        },
+        "ltv_cap_months": {
+          "value": 36,
+          "label": "допущение",
+          "note": "верхняя граница срока жизни клиента для LTV"
+        },
+        "visitors_month": {
+          "value": 800,
+          "label": "допущение",
+          "note": "посетителей репозитория в первый месяц [допущение]; факт: 36 просмотров / 1 уникальный за 14 дней (gh traffic, 2026-10-10), т.е. почти всё — владелец"
+        },
+        "traffic_growth": {
+          "value": 0.1,
+          "label": "допущение",
+          "note": "рост посетителей в месяц"
+        },
+        "visit_to_signup": {
+          "value": 0.07,
+          "label": "допущение",
+          "note": "посетитель → установка плагина [допущение]"
+        },
+        "signup_to_active": {
+          "value": 0.55,
+          "label": "допущение",
+          "note": "регистрация → активация"
+        },
+        "retention_monthly": {
+          "value": 0.7,
+          "label": "допущение",
+          "note": "доля активных, оставшихся через месяц"
+        },
+        "active_to_paying": {
+          "value": 0.0,
+          "label": "допущение",
+          "note": "активированный → платящий"
+        },
+        "churn_monthly": {
+          "value": 0.04,
+          "label": "допущение",
+          "note": "отток платящих в месяц"
+        },
+        "referral_rate": {
+          "value": 0.02,
+          "label": "допущение",
+          "note": "приглашённых регистраций на активного в месяц"
+        },
+        "paid_share": {
+          "value": 0.0,
+          "label": "допущение",
+          "note": "профиль zero-budget-solo: платных каналов нет"
+        },
+        "cost_per_paid_signup": {
+          "value": 130.0,
+          "label": "допущение",
+          "note": "стоимость платной регистрации"
+        },
+        "fixed_cost_month": {
+          "value": 380.0,
+          "label": "допущение",
+          "note": "постоянные затраты в месяц"
+        },
+        "revenue_model": {
+          "value": "subscription",
+          "label": "допущение",
+          "note": "subscription с ценой 0 — заглушка: выручка не моделируется (владелец: монетизация не нужна)"
+        }
+      },
+      "funnel": [
+        {
+          "stage": "acquisition",
+          "label": "Посетители",
+          "value": 6172
+        },
+        {
+          "stage": "activation",
+          "label": "Активированные",
+          "value": 241.7
+        },
+        {
+          "stage": "retention",
+          "label": "Активные в месяц (среднее)",
+          "value": 83.7
+        },
+        {
+          "stage": "revenue",
+          "label": "Новые платящие",
+          "value": 0.0
+        },
+        {
+          "stage": "referral",
+          "label": "Регистрации по приглашениям",
+          "value": 10.0
+        }
+      ],
+      "monthly": [
+        {
+          "month": 1,
+          "visitors": 800,
+          "signups": 56.0,
+          "users": 30.8,
+          "paying": 0.0,
+          "new_paying": 0.0,
+          "revenue": 0.0,
+          "cost": 380.0,
+          "marketing": 0.0,
+          "cum_margin": 0.0,
+          "cum_cost": 380.0
+        },
+        {
+          "month": 2,
+          "visitors": 880,
+          "signups": 62.2,
+          "users": 55.8,
+          "paying": 0.0,
+          "new_paying": 0.0,
+          "revenue": 0.0,
+          "cost": 380.0,
+          "marketing": 0.0,
+          "cum_margin": 0.0,
+          "cum_cost": 760.0
+        },
+        {
+          "month": 3,
+          "visitors": 968,
+          "signups": 68.9,
+          "users": 76.9,
+          "paying": 0.0,
+          "new_paying": 0.0,
+          "revenue": 0.0,
+          "cost": 380.0,
+          "marketing": 0.0,
+          "cum_margin": 0.0,
+          "cum_cost": 1140.0
+        },
+        {
+          "month": 4,
+          "visitors": 1065,
+          "signups": 76.1,
+          "users": 95.7,
+          "paying": 0.0,
+          "new_paying": 0.0,
+          "revenue": 0.0,
+          "cost": 380.0,
+          "marketing": 0.0,
+          "cum_margin": 0.0,
+          "cum_cost": 1520.0
+        },
+        {
+          "month": 5,
+          "visitors": 1171,
+          "signups": 83.9,
+          "users": 113.1,
+          "paying": 0.0,
+          "new_paying": 0.0,
+          "revenue": 0.0,
+          "cost": 380.0,
+          "marketing": 0.0,
+          "cum_margin": 0.0,
+          "cum_cost": 1900.0
+        },
+        {
+          "month": 6,
+          "visitors": 1288,
+          "signups": 92.5,
+          "users": 130.0,
+          "paying": 0.0,
+          "new_paying": 0.0,
+          "revenue": 0.0,
+          "cost": 380.0,
+          "marketing": 0.0,
+          "cum_margin": 0.0,
+          "cum_cost": 2280.0
+        }
+      ],
+      "cac": null,
+      "ltv": 0.0,
+      "ltv_cac": null,
+      "payback_months": null,
+      "breakeven_month": null,
+      "arpu": 0.0,
+      "arppu": 0.0,
+      "churn": 0.04,
+      "roi": "неприменимо (нулевой бюджет)",
+      "totals": {
+        "visitors": 6172,
+        "signups": 439.5,
+        "activated": 241.7,
+        "new_paying": 0.0,
+        "net_revenue": 0.0,
+        "cost": 2280.0,
+        "marketing": 0.0
+      },
+      "roi_note": "денежных вложений нет — затраты это время разработчика: solo.scenarios.optimistic",
+      "cac_note": "неприменимо: платного привлечения нет; см. solo.scenarios.optimistic.hours_per_activated"
+    }
+  },
+  "notes": [
+    "Все входы — помеченные параметры из build/model-params.json; допущений: 57. Замените их фактами владельца.",
+    "Профиль zero-budget-solo: CAC и ROI неприменимы (нулевой бюджет), метрики усилий — в solo.",
+    "LTV для подписки ограничен 36 мес.; для разовой покупки — чистая цена × маржа × (1 + повторные покупки).",
+    "Формулы — в docstring scripts/model.py и references/scoring.md."
+  ],
+  "solo": {
+    "profile": "zero-budget-solo",
+    "params": {
+      "days_per_month": {
+        "value": 12,
+        "label": "допущение",
+        "note": "рабочих дней в месяц на проект на человека (личный проект — по вечерам и выходным)"
+      },
+      "hours_per_day": {
+        "value": 6,
+        "label": "допущение",
+        "note": "продуктивных часов в рабочий день"
+      },
+      "team_size": {
+        "value": 1,
+        "label": "факт",
+        "note": "run-config project.team_size"
+      },
+      "hourly_rate": {
+        "value": 1500,
+        "label": "допущение",
+        "note": "цена часа разработчика (упущенная ставка) — для «безубыточности по времени»"
+      },
+      "growth_time_share": {
+        "value": 0.3,
+        "label": "допущение",
+        "note": "доля ёмкости на привлечение и активацию (контент, сообщества, онбординг)"
+      },
+      "support_hours_per_paying_month": {
+        "value": 0.5,
+        "label": "допущение",
+        "note": "часов поддержки на платящего в месяц"
+      },
+      "support_hours_per_active_month": {
+        "value": 0.02,
+        "label": "допущение",
+        "note": "часов поддержки на активного (в т. ч. бесплатного) в месяц"
+      },
+      "support_capacity_alert": {
+        "value": 0.5,
+        "label": "допущение",
+        "note": "доля ёмкости на поддержку, после которой развитие останавливается"
+      }
+    },
+    "capacity_hours_month": 72.0,
+    "support": {
+      "net_margin_per_paying": 0.0,
+      "support_cost_per_paying": 750.0,
+      "margin_after_support": -750.0,
+      "support_eats_revenue": true,
+      "support_cost_per_active": 30.0,
+      "free_actives_per_paying": 0.0,
+      "basis": "на платящего в месяц"
+    },
+    "scenarios": {
+      "pessimistic": {
+        "hours_per_activated": 37.03,
+        "growth_hours": 129.6,
+        "dev_hours": 432.0,
+        "time_cost": 648000.0,
+        "revenue_per_hour": 0.0,
+        "time_breakeven_month": null,
+        "support_hours_total": 0.1,
+        "support_cost_total": 174.0,
+        "support_capacity_month": null,
+        "paying_new_total": 0.0,
+        "paying_end": 0.0,
+        "net_revenue_total": 0.0,
+        "monthly": [
+          {
+            "month": 1,
+            "cum_margin": 0.0,
+            "cum_time_cost": 108000.0,
+            "support_hours": 0.0
+          },
+          {
+            "month": 2,
+            "cum_margin": 0.0,
+            "cum_time_cost": 216000.0,
+            "support_hours": 0.0
+          },
+          {
+            "month": 3,
+            "cum_margin": 0.0,
+            "cum_time_cost": 324000.0,
+            "support_hours": 0.0
+          },
+          {
+            "month": 4,
+            "cum_margin": 0.0,
+            "cum_time_cost": 432000.0,
+            "support_hours": 0.0
+          },
+          {
+            "month": 5,
+            "cum_margin": 0.0,
+            "cum_time_cost": 540000.0,
+            "support_hours": 0.0
+          },
+          {
+            "month": 6,
+            "cum_margin": 0.0,
+            "cum_time_cost": 648000.0,
+            "support_hours": 0.0
+          }
+        ]
+      },
+      "base": {
+        "hours_per_activated": 4.61,
+        "growth_hours": 129.6,
+        "dev_hours": 432.0,
+        "time_cost": 648000.0,
+        "revenue_per_hour": -2.64,
+        "time_breakeven_month": null,
+        "support_hours_total": 1.0,
+        "support_cost_total": 1563.0,
+        "support_capacity_month": null,
+        "paying_new_total": 0.0,
+        "paying_end": 0.0,
+        "net_revenue_total": 0.0,
+        "monthly": [
+          {
+            "month": 1,
+            "cum_margin": 0.0,
+            "cum_time_cost": 108190.0,
+            "support_hours": 0.1
+          },
+          {
+            "month": 2,
+            "cum_margin": 0.0,
+            "cum_time_cost": 216380.0,
+            "support_hours": 0.1
+          },
+          {
+            "month": 3,
+            "cum_margin": 0.0,
+            "cum_time_cost": 324570.0,
+            "support_hours": 0.2
+          },
+          {
+            "month": 4,
+            "cum_margin": 0.0,
+            "cum_time_cost": 432760.0,
+            "support_hours": 0.2
+          },
+          {
+            "month": 5,
+            "cum_margin": 0.0,
+            "cum_time_cost": 540950.0,
+            "support_hours": 0.2
+          },
+          {
+            "month": 6,
+            "cum_margin": 0.0,
+            "cum_time_cost": 649140.0,
+            "support_hours": 0.2
+          }
+        ]
+      },
+      "optimistic": {
+        "hours_per_activated": 0.54,
+        "growth_hours": 129.6,
+        "dev_hours": 432.0,
+        "time_cost": 648000.0,
+        "revenue_per_hour": -5.28,
+        "time_breakeven_month": null,
+        "support_hours_total": 10.0,
+        "support_cost_total": 15069.0,
+        "support_capacity_month": null,
+        "paying_new_total": 0.0,
+        "paying_end": 0.0,
+        "net_revenue_total": 0.0,
+        "monthly": [
+          {
+            "month": 1,
+            "cum_margin": 0.0,
+            "cum_time_cost": 108380.0,
+            "support_hours": 0.6
+          },
+          {
+            "month": 2,
+            "cum_margin": 0.0,
+            "cum_time_cost": 216760.0,
+            "support_hours": 1.1
+          },
+          {
+            "month": 3,
+            "cum_margin": 0.0,
+            "cum_time_cost": 325140.0,
+            "support_hours": 1.5
+          },
+          {
+            "month": 4,
+            "cum_margin": 0.0,
+            "cum_time_cost": 433520.0,
+            "support_hours": 1.9
+          },
+          {
+            "month": 5,
+            "cum_margin": 0.0,
+            "cum_time_cost": 541900.0,
+            "support_hours": 2.3
+          },
+          {
+            "month": 6,
+            "cum_margin": 0.0,
+            "cum_time_cost": 650280.0,
+            "support_hours": 2.6
+          }
+        ]
+      }
+    },
+    "notes": [
+      "CAC неприменим: платного привлечения нет; стоимость роста — время разработчика (5 ч на активированного, базовый).",
+      "ROI неприменим: денежных вложений нет; смотрите безубыточность по времени и выручку на час.",
+      "Поддержка: 750.0 на платящего против 0.0 валовой выручки с него — съедает выручку."
+    ],
+    "capacity": {
+      "team_size": 1,
+      "days_per_month": 12,
+      "hours_per_day": 6,
+      "horizon_months": 6,
+      "dev_days_total": 72.0,
+      "support_days_base": 0.2,
+      "dev_days_available": 71.8,
+      "note": "ёмкость = людей × дней/мес × месяцев; минус поддержка базового сценария; всё — допущения solo.*",
+      "p0_p1": {
+        "count": 29,
+        "order_by": "dep_rank",
+        "effort_days_min_total": 52.2,
+        "effort_days_mid_total": 85.8,
+        "fits_count": 27,
+        "fits_ids": [
+          "P030",
+          "P029",
+          "P069",
+          "P042",
+          "P054",
+          "P018",
+          "P043",
+          "P019",
+          "P059",
+          "P070",
+          "P032",
+          "P033",
+          "P004",
+          "P060",
+          "P031",
+          "P035",
+          "P046",
+          "P024",
+          "P063",
+          "P001",
+          "P044",
+          "P017",
+          "P050",
+          "P028",
+          "P038",
+          "P049",
+          "P048"
+        ],
+        "not_fit_ids": [
+          "P068",
+          "P025"
+        ],
+        "utilization": 1.2
+      }
+    }
+  },
+  "capacity": {
+    "team_size": 1,
+    "days_per_month": 12,
+    "hours_per_day": 6,
+    "horizon_months": 6,
+    "dev_days_total": 72.0,
+    "support_days_base": 0.2,
+    "dev_days_available": 71.8,
+    "note": "ёмкость = людей × дней/мес × месяцев; минус поддержка базового сценария; всё — допущения solo.*",
+    "p0_p1": {
+      "count": 29,
+      "order_by": "dep_rank",
+      "effort_days_min_total": 52.2,
+      "effort_days_mid_total": 85.8,
+      "fits_count": 27,
+      "fits_ids": [
+        "P030",
+        "P029",
+        "P069",
+        "P042",
+        "P054",
+        "P018",
+        "P043",
+        "P019",
+        "P059",
+        "P070",
+        "P032",
+        "P033",
+        "P004",
+        "P060",
+        "P031",
+        "P035",
+        "P046",
+        "P024",
+        "P063",
+        "P001",
+        "P044",
+        "P017",
+        "P050",
+        "P028",
+        "P038",
+        "P049",
+        "P048"
+      ],
+      "not_fit_ids": [
+        "P068",
+        "P025"
+      ],
+      "utilization": 1.2
+    }
+  }
+}

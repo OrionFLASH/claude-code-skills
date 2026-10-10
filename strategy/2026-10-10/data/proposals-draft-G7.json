@@ -1,0 +1,679 @@
+[
+  {
+    "id": "G7-01",
+    "title": "Англоязычная витрина: README.en.md с тем же верхом, что у README-витрины",
+    "category": "localization",
+    "segment": "англоязычные разработчики, приходящие из Show HN, Product Hunt, официального каталога плагинов и awesome-списков",
+    "description": "Сделать README.en.md (или двуязычный верх README.md с переключателем RU/EN): фраза ценности, GIF по скилам, установка, требования и честные ограничения, ссылка на демо-примеры и явная пометка, что скилы задают вопросы и пишут отчёты на русском. Документация скилов (SKILL.md, INSTALL.md, README скилов) остаётся на русском — это решение владельца. В validate — предупреждение, если README.en.md старее README.md.",
+    "rationale": "README.md целиком на русском (README.md:1-117), а каналы трёх ставок и топа англоязычные: Show HN, Product Hunt, awesome-claude-code, официальный каталог (data/communities.json, language en). Конкуренты, с которыми нас сравнят на этих площадках, представлены на английском — 14 из 15 [факт: data/competitors.json, поле languages, 2026-10-10]. P052 переводит README скилов, но корневой README прямо исключает, P054 меняет только метаданные плагинов, P029 язык не задаёт. Без английского входа трафик P024, P018, P019, P025 и P050 попадает на страницу, которую аудитория не прочитает.",
+    "evidence": [
+      {
+        "kind": "repo",
+        "url": null,
+        "file": "README.md:3",
+        "title": "README: витрина только на русском",
+        "note": "Начинается с «Личная коллекция скилов»; английской версии нет.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "competitor",
+        "url": "https://github.com/garrytan/gstack",
+        "file": null,
+        "title": "gstack: README и установка на английском",
+        "note": "Главный конкурент по вниманию: англоязычный README, установка одной командой.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "competitor",
+        "url": "https://github.com/tzachbon/claude-model-router-hook",
+        "file": null,
+        "title": "claude-model-router-hook: англоязычный README",
+        "note": "Ближайший аналог триажа: README на английском, установка curl.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "research",
+        "url": null,
+        "file": "data/communities.json",
+        "title": "Каналы ставок англоязычные",
+        "note": "Hacker News, Product Hunt, awesome-claude-code, claude-plugins-official — language: en.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "B",
+    "current_feature": "нет: README.md на русском (README.md:1-117), README.en.md в корне отсутствует (ls, 2026-10-10); P052 исключает корневой README, P054 касается только plugin.json и marketplace.json",
+    "effect_kpi": [
+      {
+        "kpi": "доля клонов от просмотров README в недели EN-запусков (снимки P043)",
+        "direction": "up",
+        "range": "+1..3 п.п.",
+        "label": "допущение"
+      },
+      {
+        "kpi": "принятые заявки в англоязычные каталоги (P018, P019, P050)",
+        "direction": "up",
+        "range": "≥ 1 из 3",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Перевести верх README-витрины после P029",
+        "where": "README.en.md",
+        "how": "Машинный перевод + вычитка владельцем; SKILL.md и INSTALL.md не переводить",
+        "doc_url": null
+      },
+      {
+        "what": "Ссылки RU ⇄ EN в первой строке обоих файлов",
+        "where": "README.md, README.en.md",
+        "how": "Одна строка-переключатель",
+        "doc_url": null
+      },
+      {
+        "what": "Честная языковая пометка",
+        "where": "README.en.md → Limitations",
+        "how": "Вопросы и отчёты скилов на русском; английские отчёты — после P053",
+        "doc_url": null
+      },
+      {
+        "what": "Проверка свежести перевода",
+        "where": "tools/lib/skillsrepo.py",
+        "how": "Предупреждение, если версия или дата в шапке EN старее RU",
+        "doc_url": null
+      },
+      {
+        "what": "Ссылаться на README.en.md в заявках и постах",
+        "where": "заявки P018, P019, P050; пост P024 и P025",
+        "how": "Ссылка на EN-версию, а не на корень",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [
+      "P029"
+    ],
+    "effort_days": [
+      1,
+      2
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Время владельца; перевод встроенными средствами."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 1,
+      "reputation": 2,
+      "note": "Расхождение RU/EN версий; нельзя обещать английские отчёты, пока не сделан P053."
+    },
+    "time_to_first_result_days": 7,
+    "cheap_test": "Показать README.en.md двум англоязычным разработчикам: за минуту назовут ли они, что делает каждый скил и как его поставить.",
+    "scores": {
+      "value": 4,
+      "cost": 2,
+      "risk": 1,
+      "confidence": 3,
+      "reach": 4,
+      "acquisition": 3,
+      "seo": 2,
+      "activation": 2,
+      "conversion": 3,
+      "trust": 3,
+      "fit": 4,
+      "demand": 3
+    },
+    "kano": "must",
+    "horizon": "now",
+    "horizon_years": 0,
+    "tags": [
+      "i18n",
+      "readme",
+      "prerequisite"
+    ],
+    "mockup": null,
+    "source_group": "G7",
+    "merged_from": []
+  },
+  {
+    "id": "G7-02",
+    "title": "Статический хостинг демо на GitHub Pages: страница стратегии и индекс примеров",
+    "category": "conversion",
+    "segment": "посетители README и каталогов без установленного Claude Code",
+    "description": "Включить GitHub Pages (отдельная ветка gh-pages, чтобы не раздувать историю main, или папка /docs) и публиковать там HTML-страницу стратегии (облегчённая сборка с assets/) и индекс примеров. QA-пример site-qa-audit класть в репозиторий как Markdown со скриншотами — GitHub показывает его без хостинга. Индекс docs/examples/README.md в самом репозитории ведёт на Pages и служит точкой измерения (popular paths в снимках P043) без сторонней аналитики.",
+    "rationale": "P031 обещает просмотр без установки, но github.com показывает HTML-файл как исходный код: среди отображаемых типов есть Markdown, PDF, CSV, ноутбуки, а HTML нет. Pages на бесплатном плане доступен для публичного репозитория и публикует из ветки или папки /docs; лимит сайта 1 ГБ и мягкий лимит трафика 100 ГБ в месяц [факт: docs.github.com, 2026-10-10], коммерческий SaaS запрещён — демо некоммерческое. В реестре поставщика хостинга нет (data/gap-audit-facts.json, keyword_flags: хостинг — поставщиков нет). Pages сейчас выключен [факт: gh api repos/OrionFLASH/claude-code-skills → has_pages=false, 2026-10-10].",
+    "evidence": [
+      {
+        "kind": "docs",
+        "url": "https://docs.github.com/en/repositories/working-with-files/using-files/working-with-non-code-files",
+        "file": null,
+        "title": "GitHub: какие не-кодовые файлы отображаются",
+        "note": "Рендерятся Markdown, PDF, CSV, Jupyter, SVG; HTML в списке нет.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "docs",
+        "url": "https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-github-pages-site",
+        "file": null,
+        "title": "GitHub Pages: создание сайта",
+        "note": "На GitHub Free репозиторий должен быть публичным; публикация из /docs.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "docs",
+        "url": "https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits",
+        "file": null,
+        "title": "GitHub Pages: лимиты",
+        "note": "Сайт до 1 ГБ, мягкий лимит 100 ГБ в месяц, не для SaaS.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "repo",
+        "url": null,
+        "file": "skills/site-qa-audit/SKILL.md:94",
+        "title": "Отчёт site-qa-audit — Markdown",
+        "note": "Итог — report.md и summary.md; HTML-отчёта нет.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "repo",
+        "url": null,
+        "file": "docs/skill-handoff.md:5",
+        "title": "Размер самодостаточной страницы стратегии",
+        "note": "Образец krut: самодостаточная веб-страница 29 МБ.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "A",
+    "current_feature": "нет: has_pages=false (gh api, 2026-10-10), каталога docs/examples нет (ls docs: plans/, skill-handoff.md, universal-strategy-prompt.md); у site-qa-audit только report.md (skills/site-qa-audit/templates/run-report.md:1)",
+    "effect_kpi": [
+      {
+        "kpi": "просмотры docs/examples/README.md относительно просмотров README (popular paths, P043)",
+        "direction": "up",
+        "range": "≥ 10 %",
+        "label": "допущение"
+      },
+      {
+        "kpi": "доля посетителей, увидевших результат скила без установки",
+        "direction": "up",
+        "range": "+10..20 п.п.",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Выбрать источник Pages",
+        "where": "Settings → Pages",
+        "how": "Ветка gh-pages: страницы любого размера не попадают в историю main",
+        "doc_url": "https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-github-pages-site"
+      },
+      {
+        "what": "Собрать страницу стратегии облегчённой сборкой",
+        "where": "build_html.py --lite → deliverables/assets/",
+        "how": "Убрать абсолютные пути и ответы владельца, не предназначенные для публики",
+        "doc_url": null
+      },
+      {
+        "what": "Проверить скриншоты конкурентов",
+        "where": "competitors/shots/ на странице",
+        "how": "Оставить ссылки вместо чужих скриншотов, если права неясны",
+        "doc_url": null
+      },
+      {
+        "what": "Положить QA-пример Markdown-ом",
+        "where": "docs/examples/site-qa/",
+        "how": "report.md, summary.md, скриншоты находок; GitHub отображает без Pages",
+        "doc_url": null
+      },
+      {
+        "what": "Индекс примеров в репозитории",
+        "where": "docs/examples/README.md",
+        "how": "Ссылки на Pages и Markdown-примеры, пометка «пример»; эта страница видна в popular paths",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [],
+    "effort_days": [
+      0.5,
+      1.5
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Бесплатно для публичного репозитория."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 2,
+      "platform": 1,
+      "privacy": 2,
+      "tech": 1,
+      "reputation": 1,
+      "note": "Скриншоты конкурентов и ответы владельца на странице стратегии; тяжёлая самодостаточная страница раздувает историю git — облегчённая сборка или ветка gh-pages."
+    },
+    "time_to_first_result_days": 3,
+    "cheap_test": "Включить Pages на ветке gh-pages с одной страницей стратегии и открыть ссылку в приватном окне без входа в GitHub.",
+    "scores": {
+      "value": 3,
+      "cost": 1,
+      "risk": 2,
+      "confidence": 4,
+      "reach": 3,
+      "activation": 4,
+      "conversion": 3,
+      "trust": 3,
+      "fit": 4
+    },
+    "kano": "linear",
+    "horizon": "now",
+    "horizon_years": 0,
+    "tags": [
+      "hosting",
+      "demo",
+      "prerequisite"
+    ],
+    "mockup": null,
+    "source_group": "G7",
+    "merged_from": []
+  },
+  {
+    "id": "G7-03",
+    "title": "Открытый русскоязычный каталог скилов: приём сторонних плагинов в маркетплейс",
+    "category": "new_lines",
+    "segment": "авторы и пользователи русскоязычных скилов Claude Code",
+    "description": "Через 2+ года и только если северная звезда (P044) подтвердит внешний спрос: открыть маркетплейс для сторонних русскоязычных скилов — отдельный раздел marketplace.json со ссылками на чужие репозитории, правила приёма, обязательные проверки в CI (validate, claude plugin validate, контрольные суммы, секрет-скан) и ручное ревью хуков. Свои четыре скила остаются флагманами каталога.",
+    "rationale": "Русскоязычных скилов и каталога нет ни у одного из 15 изученных конкурентов [факт: research/market.md:13], а англоязычные каталоги собирают десятки тысяч звёзд — awesome-claude-code 55,4 тыс., agentic-awesome-skills 47,4 тыс. [факт: research/market.md:6]. Каталог — единственная доступная соло-проекту механика с сетевым эффектом. Спрос на русскоязычный каталог не подтверждён ничем, поэтому горизонт vision и условие P044.",
+    "evidence": [
+      {
+        "kind": "research",
+        "url": null,
+        "file": "research/market.md:13",
+        "title": "Пробел рынка: русскоязычные скилы",
+        "note": "Русскоязычные скилы и каталог — ни одного готового (0 из 15).",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "community",
+        "url": "https://github.com/hesreallyhim/awesome-claude-code",
+        "file": null,
+        "title": "awesome-claude-code: внимание к каталогам",
+        "note": "Англоязычный каталог, 55,4 тыс. звёзд на 2026-10-10.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "community",
+        "url": "https://github.com/sickn33/agentic-awesome-skills",
+        "file": null,
+        "title": "agentic-awesome-skills: каталог скилов",
+        "note": "Каталог скилов, 47,4 тыс. звёзд на 2026-10-10.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "research",
+        "url": null,
+        "file": null,
+        "title": "Цепочка рассуждения",
+        "note": "Пробел RU + внимание к EN-каталогам → вероятный, но непроверенный спрос; проверка — через P044.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "D",
+    "current_feature": "нет: marketplace.json перечисляет только 4 своих плагина (.claude-plugin/marketplace.json:10, :33, :58, :76); CONTRIBUTING и CI отсутствуют (ls, 2026-10-10)",
+    "effect_kpi": [
+      {
+        "kpi": "сторонние плагины в каталоге",
+        "direction": "up",
+        "range": "3..10 за год после запуска",
+        "label": "допущение"
+      },
+      {
+        "kpi": "уникальные посетители репозитория в месяц",
+        "direction": "up",
+        "range": "×2 к базе года",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Проверить спрос до работы",
+        "where": "Discussions (P035), снимки P043",
+        "how": "Не меньше 5 авторов готовы подать скил [допущение: порог владельца]",
+        "doc_url": null
+      },
+      {
+        "what": "Правила приёма и лицензионные условия",
+        "where": "CONTRIBUTING.md (P034), решение P042",
+        "how": "Чужие плагины — под своей лицензией, только по ссылке",
+        "doc_url": null
+      },
+      {
+        "what": "Обязательные проверки в CI",
+        "where": ".github/workflows/catalog.yml",
+        "how": "validate, claude plugin validate --strict, SHA256SUMS, секрет-скан",
+        "doc_url": null
+      },
+      {
+        "what": "Ручное ревью хуков и скриптов",
+        "where": "чек-лист в SECURITY.md (P067)",
+        "how": "Хуки, сеть, запись вне папки — отдельные пункты",
+        "doc_url": null
+      },
+      {
+        "what": "Пилот с 2–3 внешними плагинами",
+        "where": ".claude-plugin/marketplace.json",
+        "how": "Раздел community, отзыв за 24 ч",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [
+      "P034",
+      "P042",
+      "P044",
+      "P059",
+      "P067"
+    ],
+    "effort_days": [
+      15,
+      30
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Время владельца; модерация — регулярная нагрузка."
+    },
+    "risks": {
+      "legal": 2,
+      "ip": 2,
+      "platform": 2,
+      "privacy": 2,
+      "tech": 3,
+      "reputation": 3,
+      "note": "Чужие хуки запускаются на машинах пользователей; нужен быстрый отзыв плагина. Нагрузка на одного владельца."
+    },
+    "time_to_first_result_days": 180,
+    "cheap_test": "Спросить в Discussions, у кого есть русскоязычные скилы; не меньше 5 откликов — повод к пилоту с 2–3 плагинами.",
+    "scores": {
+      "value": 3,
+      "cost": 4,
+      "risk": 3,
+      "confidence": 2,
+      "reach": 3,
+      "acquisition": 3,
+      "moat": 4,
+      "revenue": 1,
+      "fit": 3,
+      "demand": 2
+    },
+    "kano": "delight",
+    "horizon": "vision",
+    "horizon_years": 2,
+    "tags": [
+      "ecosystem",
+      "vision",
+      "ru"
+    ],
+    "mockup": null,
+    "source_group": "G7",
+    "merged_from": []
+  },
+  {
+    "id": "G7-04",
+    "title": "MCP-интерфейс к детерминированным движкам QA: страховка от смены формата плагинов",
+    "category": "platform",
+    "segment": "пользователи других MCP-клиентов и сами скилы при смене формата плагинов Claude Code",
+    "description": "Выставить устойчивые части QA-скилов — отпечатки и дедупликацию находок, проверку находок по схеме, разбор форм Issues и черновики, сборку отчёта — как локальный MCP-сервер (stdio), который вызывают любые клиенты MCP. Скилы Claude Code остаются основным интерфейсом и вызывают те же движки; сервер — второй вход на случай изменения формата плагинов или ухода аудитории в другие агенты.",
+    "rationale": "Смена формата плагинов названа угрозой [факт: research/market.md:19], а QA-возможности конкуренты уже поставляют как MCP-серверы, доступные любой модели: Android-MCP (888 звёзд) [факт: data/competitors.json, 2026-10-10] и mcp-android-emulator. У нас движки — Python stdlib в shared/scripts, но вызываются только из SKILL.md. Одно ядро (P064) и версионированная схема находок (P065) — условия, без которых второй интерфейс удвоит поддержку.",
+    "evidence": [
+      {
+        "kind": "competitor",
+        "url": "https://github.com/CursorTouch/Android-MCP",
+        "file": null,
+        "title": "Android-MCP: QA-инструменты как MCP",
+        "note": "Инструменты подходят любой LLM или VLM; 888 звёзд.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "competitor",
+        "url": "https://github.com/Anjos2/mcp-android-emulator",
+        "file": null,
+        "title": "mcp-android-emulator",
+        "note": "Управление эмулятором Android как MCP-сервер (из поиска).",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "research",
+        "url": null,
+        "file": "research/market.md:19",
+        "title": "Угроза: скорость платформы",
+        "note": "Формат плагинов меняется; зависимость от внешнего сервиса.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "repo",
+        "url": null,
+        "file": "shared/scripts/qa_issueforms.py:299",
+        "title": "Движки доступны только как CLI",
+        "note": "Разбор форм Issues — подкоманды fetch/show, без MCP.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "B",
+    "current_feature": "нет: собственного MCP-сервера нет; Playwright MCP используется как клиент (skills/site-qa-audit/scripts/browser_mode.py:14), движки — CLI (shared/scripts/qa_issueforms.py:299, skills/site-qa-audit/scripts/fingerprint.py:207)",
+    "effect_kpi": [
+      {
+        "kpi": "клиенты MCP, в которых движки проверены",
+        "direction": "up",
+        "range": "2..3",
+        "label": "допущение"
+      },
+      {
+        "kpi": "время восстановления после ломающего изменения формата плагинов",
+        "direction": "down",
+        "range": "дни вместо недель",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Выбрать 4–5 функций ядра",
+        "where": "shared/scripts (после P064)",
+        "how": "Только детерминированные: fingerprint, validate, issueforms, report",
+        "doc_url": null
+      },
+      {
+        "what": "Минимальный MCP-сервер на stdio",
+        "where": "shared/mcp/server.py",
+        "how": "Схемы входа и выхода — из P065",
+        "doc_url": null
+      },
+      {
+        "what": "Скилы вызывают те же функции",
+        "where": "skills/*/scripts",
+        "how": "Один код, два интерфейса",
+        "doc_url": null
+      },
+      {
+        "what": "Проверка в двух клиентах",
+        "where": "tests/mcp/",
+        "how": "Claude Code и один сторонний клиент MCP",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [
+      "P064",
+      "P065"
+    ],
+    "effort_days": [
+      10,
+      20
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Время владельца."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 2,
+      "privacy": 1,
+      "tech": 3,
+      "reputation": 1,
+      "note": "Второй интерфейс увеличивает поддержку; делать только после единого ядра и схемы."
+    },
+    "time_to_first_result_days": 60,
+    "cheap_test": "Обернуть одну функцию (fingerprint.py match) в минимальный MCP-сервер и вызвать её из другого MCP-клиента.",
+    "scores": {
+      "value": 3,
+      "cost": 4,
+      "risk": 2,
+      "confidence": 2,
+      "reach": 2,
+      "acquisition": 2,
+      "moat": 3,
+      "virality": 1,
+      "revenue": 1,
+      "fit": 3
+    },
+    "kano": "linear",
+    "horizon": "vision",
+    "horizon_years": 2,
+    "tags": [
+      "platform",
+      "vision",
+      "portability"
+    ],
+    "mockup": null,
+    "source_group": "G7",
+    "merged_from": []
+  },
+  {
+    "id": "G7-05",
+    "title": "Мультиагентная поставка: установка в Codex, Cursor, Gemini CLI и матрица совместимости",
+    "category": "platform",
+    "segment": "разработчики, работающие в других агентах с поддержкой Agent Skills",
+    "description": "После P068 превратить переносимость в канал: `tools/install.sh --host codex|cursor|gemini` (и ps1), раздел README на каждый агент, ночная матрица совместимости в CI (скрипты и демо-прогоны без Claude Code), список того, что не работает вне Claude Code (хуки, вопросы пользователю). P068 готовит ядро и пробует один скил; здесь — установка, проверка и поддержка как процесс.",
+    "rationale": "Вне Claude Code работают 7 из 15 конкурентов [факт: research/competitors.md:51]; gstack ставится в Codex, Cursor и OpenCode флагом --host [факт: data/competitors.json, 2026-10-10]; формат Agent Skills поддерживают Cursor, Gemini CLI, Codex и Copilot. Без канала установки и регулярной проверки работа P068 не превращается в аудиторию.",
+    "evidence": [
+      {
+        "kind": "competitor",
+        "url": "https://github.com/garrytan/gstack",
+        "file": null,
+        "title": "gstack: кросс-агентная установка",
+        "note": "Установка в Codex, Cursor, OpenCode флагом --host.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "docs",
+        "url": "https://agentskills.io/home",
+        "file": null,
+        "title": "Agent Skills: поддерживающие агенты",
+        "note": "Формат поддерживают Cursor, Gemini CLI, Codex, Copilot и др.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "research",
+        "url": null,
+        "file": "research/competitors.md:51",
+        "title": "Матрица конкурентов",
+        "note": "Работает вне Claude Code — 7 из 15.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "B",
+    "current_feature": "нет: tools/install.sh ставит только в ~/.claude/skills (README.md:77); переносимое ядро — предмет P068 (горизонт later)",
+    "effect_kpi": [
+      {
+        "kpi": "агенты с проверенной установкой хотя бы одного скила",
+        "direction": "up",
+        "range": "2..3",
+        "label": "допущение"
+      },
+      {
+        "kpi": "доля внешних issues от пользователей других агентов",
+        "direction": "up",
+        "range": "10..30 %",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Флаг --host в установщике",
+        "where": "tools/install.sh, tools/install.ps1",
+        "how": "Пути скилов каждого агента",
+        "doc_url": null
+      },
+      {
+        "what": "Матрица совместимости",
+        "where": ".github/workflows/compat.yml",
+        "how": "Ночной прогон скриптов без Claude Code",
+        "doc_url": null
+      },
+      {
+        "what": "Раздел по каждому агенту",
+        "where": "README.md, README.en.md",
+        "how": "Что работает, что нет (хуки, вопросы)",
+        "doc_url": null
+      },
+      {
+        "what": "Канал обратной связи",
+        "where": "Discussions (P035)",
+        "how": "Метка агента в формах issues",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [
+      "P068"
+    ],
+    "effort_days": [
+      10,
+      20
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Время владельца; раннеры GitHub бесплатны для публичного репозитория."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 3,
+      "privacy": 1,
+      "tech": 3,
+      "reputation": 2,
+      "note": "У каждого агента свой формат и свои поломки; поддержка ложится на одного владельца."
+    },
+    "time_to_first_result_days": 90,
+    "cheap_test": "После P068 поставить product-strategy в один сторонний агент через install.sh --host и пройти демо-прогон make_demo.py → build_all.",
+    "scores": {
+      "value": 3,
+      "cost": 4,
+      "risk": 3,
+      "confidence": 2,
+      "reach": 3,
+      "acquisition": 3,
+      "moat": 2,
+      "virality": 2,
+      "revenue": 1,
+      "fit": 3
+    },
+    "kano": "linear",
+    "horizon": "vision",
+    "horizon_years": 2,
+    "tags": [
+      "portability",
+      "vision",
+      "distribution"
+    ],
+    "mockup": null,
+    "source_group": "G7",
+    "merged_from": []
+  }
+]

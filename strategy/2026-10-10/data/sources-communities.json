@@ -1,0 +1,290 @@
+[
+ {
+  "id": "SM001",
+  "url": "https://news.ycombinator.com/showhn.html",
+  "title": "Show HN Guidelines",
+  "date_checked": "2026-10-10",
+  "used_for": "правила Show HN",
+  "status": 200,
+  "note": "открыт"
+ },
+ {
+  "id": "SM002",
+  "url": "https://news.ycombinator.com/newsguidelines.html",
+  "title": "Hacker News Guidelines",
+  "date_checked": "2026-10-10",
+  "used_for": "самопродвижение, голосование",
+  "status": 200,
+  "note": "открыт"
+ },
+ {
+  "id": "SM003",
+  "url": "https://habr.com/ru/docs/help/rules/",
+  "title": "Хабр: правила",
+  "date_checked": "2026-10-10",
+  "used_for": "самопиар, ссылки",
+  "status": 200,
+  "note": "открыт"
+ },
+ {
+  "id": "SM004",
+  "url": "https://vc.ru/rules",
+  "title": "vc.ru: правила",
+  "date_checked": "2026-10-10",
+  "used_for": "самопромоция, коммерческие посты",
+  "status": 200,
+  "note": "открыт"
+ },
+ {
+  "id": "SM005",
+  "url": "https://www.producthunt.com/launch",
+  "title": "Product Hunt: launch guide",
+  "date_checked": "2026-10-10",
+  "used_for": "правила запуска",
+  "status": 200,
+  "note": "открыт"
+ },
+ {
+  "id": "SM006",
+  "url": "https://dev.to/terms",
+  "title": "DEV Community: Terms, раздел 11 Content Policy",
+  "date_checked": "2026-10-10",
+  "used_for": "промо-контент",
+  "status": 200,
+  "note": "открыт"
+ },
+ {
+  "id": "SM007",
+  "url": "https://lobste.rs/about",
+  "title": "Lobsters: about",
+  "date_checked": "2026-10-10",
+  "used_for": "самопродвижение <25%, инвайты, 70 дней",
+  "status": 200,
+  "note": "открыт"
+ },
+ {
+  "id": "SM008",
+  "url": "https://github.com/hesreallyhim/awesome-claude-code",
+  "title": "awesome-claude-code (репозиторий)",
+  "date_checked": "2026-10-10",
+  "used_for": "число звёзд 55.4k",
+  "status": 200,
+  "note": "открыт"
+ },
+ {
+  "id": "SM009",
+  "url": "https://raw.githubusercontent.com/hesreallyhim/awesome-claude-code/main/CONTRIBUTING.md",
+  "title": "awesome-claude-code: CONTRIBUTING",
+  "date_checked": "2026-10-10",
+  "used_for": "условия подачи (14 дней или 100 звёзд, форма)",
+  "status": 200,
+  "note": "открыт"
+ },
+ {
+  "id": "SM010",
+  "url": "https://github.com/anthropics/claude-plugins-official",
+  "title": "anthropics/claude-plugins-official",
+  "date_checked": "2026-10-10",
+  "used_for": "подача внешних плагинов через форму",
+  "status": 200,
+  "note": "открыт; звёзд 37.6k"
+ },
+ {
+  "id": "SM011",
+  "url": "https://claudemarketplaces.com/about",
+  "title": "claudemarketplaces.com: about",
+  "date_checked": "2026-10-10",
+  "used_for": "автоиндексация маркетплейсов, реклама платная",
+  "status": 200,
+  "note": "открыт"
+ },
+ {
+  "id": "SM012",
+  "url": "https://changelog.com/news/submit",
+  "title": "Changelog News: submit",
+  "date_checked": "2026-10-10",
+  "used_for": "что принимают",
+  "status": 200,
+  "note": "открыт"
+ },
+ {
+  "id": "SM013",
+  "url": "https://telegram.org/tos",
+  "title": "Telegram Terms of Service",
+  "date_checked": "2026-10-10",
+  "used_for": "спам, каналы",
+  "status": 200,
+  "note": "открыт"
+ },
+ {
+  "id": "SM014",
+  "url": "https://docs.github.com/en/site-policy/acceptable-use-policies/github-acceptable-use-policies",
+  "title": "GitHub Acceptable Use Policies",
+  "date_checked": "2026-10-10",
+  "used_for": "спам, накрутка звёзд, промо",
+  "status": 200,
+  "note": "открыт"
+ },
+ {
+  "id": "SM015",
+  "url": "https://pikabu.ru/information/rules",
+  "title": "Пикабу: Кодекс (правила публикации)",
+  "date_checked": "2026-10-10",
+  "used_for": "правила",
+  "status": null,
+  "note": "открыть не удалось (403); есть только пересказ в поиске, текст правил о ссылках не прочитан"
+ },
+ {
+  "id": "SM016",
+  "url": "https://pikabu.ru/information/adrules",
+  "title": "Пикабу: правила размещения рекламы",
+  "date_checked": "2026-10-10",
+  "used_for": "маркировка «Промо»",
+  "status": null,
+  "note": "открыть не удалось (403); пересказ из поиска"
+ },
+ {
+  "id": "SM017",
+  "url": "https://redlib.groet-infra.nl/r/ClaudeAI/comments/1sly3jm/built_with_claude_project_showcase_megathread/oq1cg2n/?context=3",
+  "title": "r/ClaudeAI: Built with Claude megathread (зеркало Reddit)",
+  "date_checked": "2026-10-10",
+  "used_for": "karma>=50 для showcase, мегатред",
+  "status": null,
+  "note": "только фрагмент из поиска; Rule 7 не прочитано; Reddit через WebFetch недоступен"
+ },
+ {
+  "id": "SM018",
+  "url": "https://hashnode.com/guidelines",
+  "title": "Hashnode: Community Guidelines",
+  "date_checked": "2026-10-10",
+  "used_for": "промо-посты",
+  "status": null,
+  "note": "не открыт напрямую (открытие вернуло ошибку профиля); пересказ из поиска"
+ },
+ {
+  "id": "SM019",
+  "url": "https://stackoverflow.com/help/promotion",
+  "title": "Stack Overflow: How to not be a spammer",
+  "date_checked": "2026-10-10",
+  "used_for": "раскрытие аффилиации",
+  "status": null,
+  "note": "WebFetch недоступен; пересказ из поиска"
+ },
+ {
+  "id": "SM020",
+  "url": "https://redlib.hackliberty.org/r/softwaretesting",
+  "title": "r/softwaretesting (зеркало Reddit)",
+  "date_checked": "2026-10-10",
+  "used_for": "пост модераторов о коммерческих инструментах (2024)",
+  "status": null,
+  "note": "фрагмент из поиска, не открыт"
+ },
+ {
+  "id": "SM021",
+  "url": "https://thehiveindex.com/communities/side-project/",
+  "title": "r/SideProject: сторонняя карточка",
+  "date_checked": "2026-10-10",
+  "used_for": "оценка размера (расходится)",
+  "status": null,
+  "note": "сторонний источник, не открыт"
+ },
+ {
+  "id": "SM022",
+  "url": "https://redlib.hbubli.cc/r/androiddev/s/w1T0bZ4NHD",
+  "title": "r/androiddev (зеркало Reddit, снимок 2023)",
+  "date_checked": "2026-10-10",
+  "used_for": "правило о промо-постах",
+  "status": null,
+  "note": "фрагмент из поиска, не открыт"
+ },
+ {
+  "id": "SM023",
+  "url": "https://www.unisender.com/ru/blog/tgstat-chto-ehto-za-servis-i-chem-on-polezen/",
+  "title": "Unisender: TGStat",
+  "date_checked": "2026-10-10",
+  "used_for": "каталог каналов, добавление",
+  "status": null,
+  "note": "сторонний пересказ, официальных правил не найдено"
+ },
+ {
+  "id": "SM024",
+  "url": "https://www.unisender.com/ru/blog/dzen-dlya-biznesa-glavnoe-o-ploschadke/",
+  "title": "Unisender: Дзен для бизнеса",
+  "date_checked": "2026-10-10",
+  "used_for": "упоминание продукта в статьях",
+  "status": null,
+  "note": "сторонний пересказ; официальных правил не найдено"
+ },
+ {
+  "id": "SM025",
+  "url": "https://qna.habr.com/q/1392000",
+  "title": "Habr Q&A: GitVerse импорт и форки",
+  "date_checked": "2026-10-10",
+  "used_for": "условия GitVerse",
+  "status": null,
+  "note": "фрагмент из поиска"
+ },
+ {
+  "id": "SM026",
+  "url": "https://infostart.ru/1c/articles/2058025/",
+  "title": "Infostart: GitFlic",
+  "date_checked": "2026-10-10",
+  "used_for": "публичные репозитории по запросу в поддержку",
+  "status": null,
+  "note": "фрагмент из поиска"
+ },
+ {
+  "id": "SM027",
+  "url": "https://thectoclub.com/nl/carriere/beste-softwaretestgemeenschappen/",
+  "title": "The CTO Club: сообщества тестировщиков",
+  "date_checked": "2026-10-10",
+  "used_for": "размер r/QualityAssurance >81 000 (сторонний)",
+  "status": null,
+  "note": "фрагмент из поиска"
+ },
+ {
+  "id": "SM028",
+  "url": "https://signup.tldr.tech/ai",
+  "title": "TLDR AI (страница подписки)",
+  "date_checked": "2026-10-10",
+  "used_for": "рассылка",
+  "status": null,
+  "note": "из поиска; правил подачи не найдено; платная реклама отдельно"
+ },
+ {
+  "id": "SM029",
+  "url": "https://artificial-intelligence-wiki.com/ai-research/ai-news-and-trends/ai-discord-servers-guide/",
+  "title": "Сторонний гид по Discord-серверам ИИ",
+  "date_checked": "2026-10-10",
+  "used_for": "существование официального сервера Anthropic",
+  "status": null,
+  "note": "сторонний, правил сервера не найдено"
+ },
+ {
+  "id": "SM030",
+  "url": "https://www.indiehackers.com/rules",
+  "title": "Indie Hackers: rules",
+  "date_checked": "2026-10-10",
+  "used_for": "правила сообщества",
+  "status": null,
+  "note": "открыть не удалось (403); не прочитано"
+ },
+ {
+  "id": "SM031",
+  "url": "https://vk.com/terms",
+  "title": "ВКонтакте: условия",
+  "date_checked": "2026-10-10",
+  "used_for": "правила",
+  "status": null,
+  "note": "WebFetch недоступен; не прочитано"
+ },
+ {
+  "id": "SM032",
+  "url": "https://www.reddit.com/r/ClaudeCode/",
+  "title": "r/ClaudeCode",
+  "date_checked": "2026-10-10",
+  "used_for": "страница сообщества",
+  "status": null,
+  "note": "не открыта (Reddit недоступен через WebFetch); существование сообщества — знание агента, не проверено в прогоне"
+ }
+]

@@ -1,0 +1,2808 @@
+{
+  "version": 1,
+  "date": "2026-10-10",
+  "product": "claude-code-skills (маркетплейс скилов для Claude Code)",
+  "profile": "zero-budget-solo",
+  "project": {
+    "goal": "auto",
+    "repo_visibility": "public",
+    "publish_code": "undecided",
+    "currency": "RUB",
+    "price_hint": null,
+    "traffic_hint": null,
+    "team_size": 1
+  },
+  "constraints": "",
+  "total": 68,
+  "top_n": 30,
+  "notes": [],
+  "top": [
+    {
+      "id": "P018",
+      "rank": 1,
+      "dep_rank": 3,
+      "title": "Подать плагины в официальный каталог anthropics/claude-plugins-official",
+      "category": "acquisition",
+      "priority": "P0",
+      "quadrant": "quick_win",
+      "evidence_class": "A",
+      "horizon": "now",
+      "effort_days": [
+        1,
+        3
+      ],
+      "description": "Владелец отправляет через форму приёма по одному плагину (начать с site-qa-audit и typesafe-triage), приложив README с демо, список проверок и описание мер безопасности.",
+      "current_feature": "нет: в официальный каталог не подавались (research/product-understanding.md:28; marketplace только свой .claude-plugin/marketplace.json)",
+      "tags": [
+        "catalog"
+      ],
+      "dependencies": [
+        "P029"
+      ],
+      "blocked_by": [
+        "P029",
+        "P030"
+      ],
+      "unlocks": [],
+      "critical_path": true
+    },
+    {
+      "id": "P029",
+      "rank": 2,
+      "dep_rank": 2,
+      "title": "Переделать README в витрину: ценность в одной фразе, GIF, установка в три строки",
+      "category": "conversion",
+      "priority": "P0",
+      "quadrant": "quick_win",
+      "evidence_class": "B",
+      "horizon": "now",
+      "effort_days": [
+        1,
+        3
+      ],
+      "description": "Верх README: фраза ценности, GIF/скриншот на скил, команды /plugin marketplace add и install, требования, ссылка на честные ограничения; таблицу и подробности — ниже.",
+      "current_feature": "нет: README без GIF/скриншота (README.md:1-17; research/product-understanding.md:32)",
+      "tags": [
+        "readme",
+        "conversion"
+      ],
+      "dependencies": [
+        "P030"
+      ],
+      "blocked_by": [
+        "P030"
+      ],
+      "unlocks": [
+        "P018",
+        "P019",
+        "P024",
+        "P050",
+        "P049",
+        "P048"
+      ],
+      "critical_path": true
+    },
+    {
+      "id": "P019",
+      "rank": 3,
+      "dep_rank": 4,
+      "title": "Подать по одному плагину в awesome-claude-code после 21.10.2026",
+      "category": "acquisition",
+      "priority": "P0",
+      "quadrant": "quick_win",
+      "evidence_class": "A",
+      "horizon": "now",
+      "effort_days": [
+        0.5,
+        1.5
+      ],
+      "description": "Владелец подаёт через веб-форму issue (человеком, не gh CLI и не PR) отдельную заявку на каждый плагин: сухое описание в одну строку без эмодзи и рекламы.",
+      "current_feature": "нет: в списке нас нет (research/communities.md:22)",
+      "tags": [
+        "catalog",
+        "awesome"
+      ],
+      "dependencies": [
+        "P029"
+      ],
+      "blocked_by": [
+        "P029",
+        "P030"
+      ],
+      "unlocks": [],
+      "critical_path": false
+    },
+    {
+      "id": "P032",
+      "rank": 4,
+      "dep_rank": 7,
+      "title": "Quickstart «первый результат за 5 минут» для каждого скила: промпт и ожидаемый вывод",
+      "category": "conversion",
+      "priority": "P0",
+      "quadrant": "quick_win",
+      "evidence_class": "B",
+      "horizon": "now",
+      "effort_days": [
+        2,
+        4
+      ],
+      "description": "На каждый скил — страница из трёх шагов: установка, готовый промпт (например, smoke по тренировочному сайту), что появится в папке результатов и сколько займёт.",
+      "current_feature": "частично: промпты в INSTALL.md и пример smoke (skills/site-qa-audit/README.md:69), общего quickstart нет",
+      "tags": [
+        "onboarding"
+      ],
+      "dependencies": [],
+      "blocked_by": [],
+      "unlocks": [
+        "P024",
+        "P051"
+      ],
+      "critical_path": false
+    },
+    {
+      "id": "P033",
+      "rank": 5,
+      "dep_rank": 8,
+      "title": "Блок «кому подходит, что потребуется, сколько стоит прогон, лицензия» на входе README",
+      "category": "conversion",
+      "priority": "P0",
+      "quadrant": "quick_win",
+      "evidence_class": "B",
+      "horizon": "now",
+      "effort_days": [
+        1,
+        2
+      ],
+      "description": "Короткая таблица в README: требования, примерная нагрузка (числа из прогонов, помеченные как оценка), лицензия NC и что она значит для компании, что скил не делает.",
+      "current_feature": "частично: лицензия описана внизу README (README.md:79-89), требований и стоимости наверху нет",
+      "tags": [
+        "trust"
+      ],
+      "dependencies": [],
+      "blocked_by": [],
+      "unlocks": [],
+      "critical_path": false
+    },
+    {
+      "id": "P043",
+      "rank": 6,
+      "dep_rank": 6,
+      "title": "Еженедельный снимок публичных сигналов GitHub в CSV: просмотры, клоны, источники, звёзды",
+      "category": "analytics",
+      "priority": "P0",
+      "quadrant": "quick_win",
+      "evidence_class": "A",
+      "horizon": "now",
+      "effort_days": [
+        1,
+        3
+      ],
+      "description": "Скрипт tools/stats_snapshot.py (gh api, только чтение) раз в неделю сохраняет в локальный CSV вне репозитория: views, clones, top referrers, popular paths, звёзды, форки, наблюдатели, загрузки релизов; запуск через /loop или routine (G3-05).",
+      "current_feature": "нет: в tools/ нет скрипта статистики (README.md:91–108); историю трафика GitHub не хранит дольше 14 дней",
+      "tags": [
+        "measurement",
+        "zero-budget"
+      ],
+      "dependencies": [],
+      "blocked_by": [],
+      "unlocks": [
+        "P044",
+        "P047"
+      ],
+      "critical_path": false
+    },
+    {
+      "id": "P059",
+      "rank": 7,
+      "dep_rank": 5,
+      "title": "CI в GitHub Actions: validate и тесты на Linux, macOS и Windows",
+      "category": "platform",
+      "priority": "P0",
+      "quadrant": "quick_win",
+      "evidence_class": "A",
+      "horizon": "now",
+      "effort_days": [
+        3,
+        7
+      ],
+      "description": "Добавить `.github/workflows/ci.yml`: на push и PR запускать `tools/validate.sh`, офлайн-наборы `tests/unit.sh` каждого скила и pytest для product-strategy и typesafe-triage на ubuntu, macos и windows (Git Bash). Браузерные и эмуляторные наборы — отдельным ручным job. Бейдж статуса в README (оформляет G2).",
+      "current_feature": "нет: каталога .github нет (ls -la .github — не найден, 2026-10-10); проверки — tools/validate.sh и tests/*.sh вручную",
+      "tags": [],
+      "dependencies": [],
+      "blocked_by": [],
+      "unlocks": [
+        "P067",
+        "P061",
+        "P064",
+        "P066"
+      ],
+      "critical_path": false
+    },
+    {
+      "id": "P030",
+      "rank": 8,
+      "dep_rank": 1,
+      "title": "Сделать GIF и ролики первой минуты из реальных прогонов существующими утилитами",
+      "category": "conversion",
+      "priority": "P0",
+      "quadrant": "quick_win",
+      "evidence_class": "C",
+      "horizon": "now",
+      "effort_days": [
+        2,
+        4
+      ],
+      "description": "Записать по одному короткому ролику на скил (сайт: находка → черновик issue; Android: сценарий на эмуляторе; триаж: заметка ДЕЙСТВИЕ; стратегия: страница) и собрать GIF до 1,5 МБ утилитой to_gif.",
+      "current_feature": "частично: инструмент есть (shared/scripts/qa_clips.py:12), готовых роликов в README нет",
+      "tags": [
+        "media"
+      ],
+      "dependencies": [],
+      "blocked_by": [],
+      "unlocks": [
+        "P029",
+        "P024",
+        "P025",
+        "P022",
+        "P026",
+        "P027"
+      ],
+      "critical_path": true
+    },
+    {
+      "id": "P060",
+      "rank": 9,
+      "dep_rank": 9,
+      "title": "Node-зависимости плагинов без ручного npm install после каждого обновления",
+      "category": "platform",
+      "priority": "P0",
+      "quadrant": "quick_win",
+      "evidence_class": "A",
+      "horizon": "now",
+      "effort_days": [
+        3,
+        6
+      ],
+      "description": "Привести плагины в вид, который Claude Code ставит сам: положить `package.json` и `package-lock.json` в корень плагина (или SessionStart-хук, ставящий пакеты в `${CLAUDE_PLUGIN_DATA}` и сравнивающий package.json), а скрипты брать `NODE_PATH` оттуда. Убрать из README строку «cd scripts/node && npm install после обновления». Версии playwright, axe-core, lighthouse уже зафиксированы lock-файлом.",
+      "current_feature": "нет: package.json лежит в skills/site-qa-audit/scripts/node/package.json, не в корне плагина; ручной шаг описан в README.md:44–45; корневого package.json у плагинов нет (ls, 2026-10-10)",
+      "tags": [],
+      "dependencies": [],
+      "blocked_by": [],
+      "unlocks": [
+        "P002"
+      ],
+      "critical_path": false
+    },
+    {
+      "id": "P046",
+      "rank": 10,
+      "dep_rank": 13,
+      "title": "Опросы спроса в Discussions: лицензия, переносимость, языки, приоритеты",
+      "category": "analytics",
+      "priority": "P0",
+      "quadrant": "quick_win",
+      "evidence_class": "A",
+      "horizon": "now",
+      "effort_days": [
+        1,
+        2
+      ],
+      "description": "Раз в месяц публиковать в Discussions опрос из 1 вопроса (лицензия: оставить NC / двойная / MIT; нужен ли запуск в Codex и Cursor; нужен ли английский; какой скил главный) и вопрос «как вы нашли проект» в теме знакомства; итоги записывать в стратегию.",
+      "current_feature": "нет: опросов и фейковых дверей нет; Discussions выключены (gh repo view, 2026-10-10)",
+      "tags": [
+        "survey",
+        "demand"
+      ],
+      "dependencies": [
+        "P035"
+      ],
+      "blocked_by": [
+        "P035"
+      ],
+      "unlocks": [],
+      "critical_path": false
+    },
+    {
+      "id": "P004",
+      "rank": 11,
+      "dep_rank": 10,
+      "title": "Дельта между прогонами: новые, исправленные и вернувшиеся находки",
+      "category": "product",
+      "priority": "P1",
+      "quadrant": "quick_win",
+      "evidence_class": "A",
+      "horizon": "now",
+      "effort_days": [
+        3,
+        6
+      ],
+      "description": "В build_report добавить сравнение с предыдущим прогоном той же цели по fingerprint: блок «Новые / Исправлено / Вернулось / Без изменений», строка дельты в summary (например «новых +3, исправлено −5»), метка REGRESSION для вернувшихся. Хранить `history.json` в папке результатов цели.",
+      "current_feature": "частично: fingerprint и метка REGRESSION есть для перепроверки исправлений (skills/site-qa-audit/references/severity.md, claims.md), сравнения двух прогонов цели нет (grep «между прогонами/previous […]",
+      "tags": [],
+      "dependencies": [],
+      "blocked_by": [],
+      "unlocks": [
+        "P011"
+      ],
+      "critical_path": false
+    },
+    {
+      "id": "P042",
+      "rank": 12,
+      "dep_rank": 11,
+      "title": "Решение по лицензии: NC, двойная лицензия или открытие части скилов — с оценкой рисков",
+      "category": "monetization",
+      "priority": "P1",
+      "quadrant": "quick_win",
+      "evidence_class": "B",
+      "horizon": "now",
+      "effort_days": [
+        2,
+        5
+      ],
+      "description": "Составить матрицу из трёх вариантов (оставить NC и явно предлагать коммерческую лицензию; двойная лицензия NC + коммерческая с ценой по запросу; открыть часть скилов под MIT/Apache) по критериям: допуск в каталоги и гранты, доверие компаний, риск форков, необратимость; решение принять после опроса G3-10 и проверки правил каталога.",
+      "current_feature": "частично: PolyForm NC уже выбрана, коммерческая лицензия предлагается через Issues (README.md:89); матрицы последствий и цены нет",
+      "tags": [
+        "license",
+        "decision"
+      ],
+      "dependencies": [],
+      "blocked_by": [],
+      "unlocks": [
+        "P056",
+        "P058"
+      ],
+      "critical_path": false
+    },
+    {
+      "id": "P024",
+      "rank": 13,
+      "dep_rank": 14,
+      "title": "Запуск в формате «покажи проект»: Show HN, затем Product Hunt",
+      "category": "acquisition",
+      "priority": "P1",
+      "quadrant": "big_bet",
+      "evidence_class": "B",
+      "horizon": "next",
+      "effort_days": [
+        2,
+        4
+      ],
+      "description": "После README-витрины и GIF владелец публикует один Show HN (site-qa-audit как главный) и отдельный запуск на Product Hunt, без просьб о голосах.",
+      "current_feature": "нет: запусков не было",
+      "tags": [
+        "launch"
+      ],
+      "dependencies": [
+        "P029",
+        "P030",
+        "P032"
+      ],
+      "blocked_by": [
+        "P029",
+        "P032",
+        "P030"
+      ],
+      "unlocks": [],
+      "critical_path": false
+    },
+    {
+      "id": "P001",
+      "rank": 14,
+      "dep_rank": 16,
+      "title": "Оценка объёма и стоимости прогона до старта и лимит бюджета",
+      "category": "product",
+      "priority": "P1",
+      "quadrant": "quick_win",
+      "evidence_class": "B",
+      "horizon": "now",
+      "effort_days": [
+        3,
+        6
+      ],
+      "description": "В опросе (intake) после выбора глубины показывать диапазон: число исполнителей/потоков, страниц или экранов, ориентировочный расход токенов и денег; хранить `budget.max_usd` и `budget.max_subagents` в run-config; при подходе к лимиту спрашивать «продолжить или сузить»; после прогона записывать факт в журнал и подстраивать коэффициенты оценки.",
+      "current_feature": "нет: в skills/site-qa-audit/references/depth-matrix.md и parallelism.md нет слов «стоимость/токен» (grep, 2026-10-10); у product-strategy есть таблица «Глубина → объём» без денег […]",
+      "tags": [],
+      "dependencies": [],
+      "blocked_by": [],
+      "unlocks": [],
+      "critical_path": false
+    },
+    {
+      "id": "P017",
+      "rank": 15,
+      "dep_rank": 18,
+      "title": "Заполнить метаданные репозитория: темы GitHub, описание, social preview",
+      "category": "acquisition",
+      "priority": "P1",
+      "quadrant": "filler",
+      "evidence_class": "A",
+      "horizon": "now",
+      "effort_days": [
+        0.2,
+        0.5
+      ],
+      "description": "Владелец добавляет в репозиторий OrionFLASH/claude-code-skills темы (claude-code, claude-code-plugin, agent-skills, qa, accessibility, android-testing), переписывает описание под ценность и грузит картинку social preview.",
+      "current_feature": "нет: темы пусты и описание личное (data/repo-facts.json:17; research/product-understanding.md:28)",
+      "tags": [
+        "github",
+        "seo"
+      ],
+      "dependencies": [],
+      "blocked_by": [],
+      "unlocks": [],
+      "critical_path": false
+    },
+    {
+      "id": "P050",
+      "rank": 16,
+      "dep_rank": 19,
+      "title": "Заявки в тематические awesome-списки смежных экосистем: Playwright, a11y, Android",
+      "category": "partnerships",
+      "priority": "P1",
+      "quadrant": "quick_win",
+      "evidence_class": "A",
+      "horizon": "later",
+      "effort_days": [
+        0.5,
+        2
+      ],
+      "description": "Владелец готовит по одной заявке в awesome-playwright (раздел AI & Agents) и в аналогичные списки по a11y и Android, предлагая site-qa-audit и android-qa-audit как примеры.",
+      "current_feature": "нет: в смежных списках нас нет",
+      "tags": [
+        "awesome"
+      ],
+      "dependencies": [
+        "P029",
+        "P031"
+      ],
+      "blocked_by": [
+        "P029",
+        "P030",
+        "P031"
+      ],
+      "unlocks": [],
+      "critical_path": false
+    },
+    {
+      "id": "P044",
+      "rank": 17,
+      "dep_rank": 20,
+      "title": "Северная звезда и контрольные точки 30/60/90 дней с порогами «продолжать/свернуть»",
+      "category": "analytics",
+      "priority": "P1",
+      "quadrant": "quick_win",
+      "evidence_class": "D",
+      "horizon": "now",
+      "effort_days": [
+        1,
+        2
+      ],
+      "description": "Зафиксировать метрику северной звезды (например, число внешних репозиториев и аккаунтов, которые поставили скил и вернулись во 2-ю неделю — по доступным прокси из G3-07 и G3-11), дерево входных метрик и пороги на 30/60/90 дней; при непроходе порога на 60-й день — режим «личный инструмент».",
+      "current_feature": "нет: файл north-star и пороги решений в репозитории отсутствуют; в strategy-outline.md:103 только шаблон раздела",
+      "tags": [
+        "north-star",
+        "decision"
+      ],
+      "dependencies": [
+        "P043"
+      ],
+      "blocked_by": [
+        "P043"
+      ],
+      "unlocks": [],
+      "critical_path": false
+    },
+    {
+      "id": "P063",
+      "rank": 18,
+      "dep_rank": 17,
+      "title": "Диета SKILL.md: критичные правила в первых 5 тыс. токенов, детали — в references",
+      "category": "platform",
+      "priority": "P1",
+      "quadrant": "big_bet",
+      "evidence_class": "A",
+      "horizon": "now",
+      "effort_days": [
+        4,
+        8
+      ],
+      "description": "Пересобрать `SKILL.md` четырёх скилов: в начало — запреты безопасности, порядок прогона и условия остановки (то, что нельзя терять), в конец — таблицы скриптов и редкие режимы переносить в `references/` с явными условиями чтения. Цель: критичное целиком в первых ≈5 000 токенов, общий размер тела ≤ 50 % текущего. Измерять размер скриптом в validate.",
+      "current_feature": "частично: детали уже вынесены в references/ (site: 21 файл), но SKILL.md остаётся длинным — site 37 862 знака, android 25 685, typesafe 26 369, product-strategy 14 551 (замер len, 2026-10-10); […]",
+      "tags": [],
+      "dependencies": [],
+      "blocked_by": [],
+      "unlocks": [
+        "P068"
+      ],
+      "critical_path": false
+    },
+    {
+      "id": "P028",
+      "rank": 19,
+      "dep_rank": 21,
+      "title": "Развести бренд с daymade/claude-code-skills: уникальное имя в выдаче и каталогах",
+      "category": "acquisition",
+      "priority": "P1",
+      "quadrant": "quick_win",
+      "evidence_class": "A",
+      "horizon": "now",
+      "effort_days": [
+        0.5,
+        2
+      ],
+      "description": "Проверить поиск по имени «claude-code-skills» и решить: добавить уникальный префикс/слоган (например, в описании и README), а переименование маркетплейса оформить отдельным решением с оценкой поломки install-команд.",
+      "current_feature": "нет: имя generic, уникального слогана нет (README.md:1-3)",
+      "tags": [
+        "brand"
+      ],
+      "dependencies": [],
+      "blocked_by": [],
+      "unlocks": [],
+      "critical_path": false
+    },
+    {
+      "id": "P031",
+      "rank": 20,
+      "dep_rank": 15,
+      "title": "Опубликовать демо-отчёты: пример QA-отчёта и страницы стратегии без установки",
+      "category": "conversion",
+      "priority": "P1",
+      "quadrant": "big_bet",
+      "evidence_class": "D",
+      "horizon": "now",
+      "effort_days": [
+        2,
+        5
+      ],
+      "description": "Положить в docs/examples обезличенные результаты: HTML-отчёт site-qa-audit по тренировочному сайту и страницу стратегии product-strategy (результат этого прогона по собственному репозиторию), с оговоркой «пример».",
+      "current_feature": "нет: примеров в репозитории нет (research/product-understanding.md:58)",
+      "tags": [
+        "demo"
+      ],
+      "dependencies": [],
+      "blocked_by": [],
+      "unlocks": [
+        "P050",
+        "P023"
+      ],
+      "critical_path": false
+    },
+    {
+      "id": "P035",
+      "rank": 21,
+      "dep_rank": 12,
+      "title": "Включить Discussions и публичную дорожную карту с ответом «вы просили — сделано»",
+      "category": "retention",
+      "priority": "P1",
+      "quadrant": "filler",
+      "evidence_class": "A",
+      "horizon": "now",
+      "effort_days": [
+        1,
+        2
+      ],
+      "description": "Включить Discussions в репозитории с категориями Q&A, Ideas, Show and tell, Announcements; закрепить обсуждение «Дорожная карта» (из стратегии), по каждому релизу отвечать в исходной теме «сделано в версии X».",
+      "current_feature": "нет: gh repo view → hasDiscussionsEnabled=false (2026-10-10); публичной дорожной карты нет (README.md не содержит раздела)",
+      "tags": [
+        "community"
+      ],
+      "dependencies": [],
+      "blocked_by": [],
+      "unlocks": [
+        "P046",
+        "P036"
+      ],
+      "critical_path": false
+    },
+    {
+      "id": "P038",
+      "rank": 22,
+      "dep_rank": 22,
+      "title": "Рецепты регулярного запуска скилов: loop.md и routines для еженедельного повтора",
+      "category": "retention",
+      "priority": "P1",
+      "quadrant": "quick_win",
+      "evidence_class": "A",
+      "horizon": "now",
+      "effort_days": [
+        2,
+        3
+      ],
+      "description": "Добавить в INSTALL.md каждого скила раздел «Регулярный запуск»: готовый .claude/loop.md и пример routine/Desktop-задачи (еженедельный smoke сайта с перепроверкой, ежемесячная проверка выполнения стратегии, недельный --report триажа), с оговоркой про 7-дневный срок /loop.",
+      "current_feature": "частично: упоминание /loop и schedule только в skills/product-strategy/SKILL.md:68; у site-qa-audit, android-qa-audit и typesafe-triage рецептов нет (grep по SKILL.md и README, 2026-10-10)",
+      "tags": [
+        "schedule",
+        "habit"
+      ],
+      "dependencies": [],
+      "blocked_by": [],
+      "unlocks": [],
+      "critical_path": false
+    },
+    {
+      "id": "P049",
+      "rank": 23,
+      "dep_rank": 23,
+      "title": "Договориться с TypeSafe о взаимной витрине: typesafe-triage как пример на Jev",
+      "category": "partnerships",
+      "priority": "P1",
+      "quadrant": "quick_win",
+      "evidence_class": "B",
+      "horizon": "next",
+      "effort_days": [
+        0.5,
+        2
+      ],
+      "description": "Владелец пишет команде TypeSafe с просьбой упомянуть typesafe-triage как пример применения System One в репозитории typesafe-ai/skills или в документации; взамен — ссылка и совместимость.",
+      "current_feature": "нет: упоминаний нет",
+      "tags": [
+        "partner"
+      ],
+      "dependencies": [
+        "P029"
+      ],
+      "blocked_by": [
+        "P029",
+        "P030"
+      ],
+      "unlocks": [],
+      "critical_path": false
+    },
+    {
+      "id": "P054",
+      "rank": 24,
+      "dep_rank": 25,
+      "title": "Английские описания и ключевые слова плагинов в plugin.json и marketplace.json",
+      "category": "localization",
+      "priority": "P1",
+      "quadrant": "filler",
+      "evidence_class": "A",
+      "horizon": "now",
+      "effort_days": [
+        0.5,
+        1
+      ],
+      "description": "Начать description каждого плагина с одной английской фразы (до 160 знаков), добавить английские ключевые слова (qa, a11y, android, model-routing) и displayName; русское описание оставить второй частью.",
+      "current_feature": "нет: английских фраз в description и keywords нет (.claude-plugin/marketplace.json:12–95); displayName не задан",
+      "tags": [
+        "i18n",
+        "metadata"
+      ],
+      "dependencies": [],
+      "blocked_by": [],
+      "unlocks": [],
+      "critical_path": false
+    },
+    {
+      "id": "P048",
+      "rank": 25,
+      "dep_rank": 26,
+      "title": "Листинг в реестре Tessl и skills.sh с публичными оценками качества и безопасности",
+      "category": "partnerships",
+      "priority": "P1",
+      "quadrant": "big_bet",
+      "evidence_class": "A",
+      "horizon": "next",
+      "effort_days": [
+        1,
+        4
+      ],
+      "description": "Проверить индексацию 4 скилов в Tessl и skills.sh, доработать SKILL.md по замечаниям оценки качества и приложить результат в README.",
+      "current_feature": "нет: внешних оценок нет (research/competitors.md:66)",
+      "tags": [
+        "registry"
+      ],
+      "dependencies": [
+        "P029"
+      ],
+      "blocked_by": [
+        "P029",
+        "P030"
+      ],
+      "unlocks": [],
+      "critical_path": false
+    },
+    {
+      "id": "P025",
+      "rank": 26,
+      "dep_rank": 28,
+      "title": "Пост «QA-находки → черновики issues» к GitHub Universe 28–29.10.2026",
+      "category": "acquisition",
+      "priority": "P1",
+      "quadrant": "big_bet",
+      "evidence_class": "B",
+      "horizon": "now",
+      "effort_days": [
+        2,
+        3
+      ],
+      "description": "Владелец публикует пост и демо (GIF) про то, чего нет ни у одного из 15 конкурентов: находки QA превращаются в черновики GitHub issues по формам репозитория, с перепроверкой.",
+      "current_feature": "есть сама функция (черновики issues по формам: README.md:14), публикаций нет",
+      "tags": [
+        "event",
+        "content"
+      ],
+      "dependencies": [
+        "P030"
+      ],
+      "blocked_by": [
+        "P030"
+      ],
+      "unlocks": [],
+      "critical_path": false
+    },
+    {
+      "id": "P067",
+      "rank": 27,
+      "dep_rank": 29,
+      "title": "Безопасность проекта: SECURITY.md, проверка зависимостей, контрольные суммы всех скилов",
+      "category": "platform",
+      "priority": "P1",
+      "quadrant": "filler",
+      "evidence_class": "A",
+      "horizon": "now",
+      "effort_days": [
+        2,
+        5
+      ],
+      "description": "Добавить SECURITY.md (канал сообщения об уязвимостях, поддерживаемые версии), включить Dependabot для npm lock-файлов и секрет-скан в CI, распространить `SHA256SUMS` с typesafe-triage на все скилы и проверку в validate. В README одна строка «что скрипты скилов делают на вашей машине» со ссылкой на guard и dry-run.",
+      "current_feature": "частично: SHA256SUMS и shared/scripts/skill_sums.py есть только у typesafe-triage (ls skills/*/SHA256SUMS, 2026-10-10); секрет-скан есть в validate (tools/lib/skillsrepo.py:221), SECURITY.md и […]",
+      "tags": [],
+      "dependencies": [
+        "P059"
+      ],
+      "blocked_by": [
+        "P059"
+      ],
+      "unlocks": [],
+      "critical_path": false
+    },
+    {
+      "id": "P068",
+      "rank": 28,
+      "dep_rank": 30,
+      "title": "Переносимое ядро: SKILL.md по Agent Skills и дымовой тест вне Claude Code",
+      "category": "platform",
+      "priority": "P2",
+      "quadrant": "big_bet",
+      "evidence_class": "A",
+      "horizon": "later",
+      "effort_days": [
+        10,
+        25
+      ],
+      "description": "Разделить, что в скилах специфично для Claude Code (хуки, `AskUserQuestion`, слэш-имена, Agent), а что переносимо (скрипты на stdlib, справочники, схемы). Привести SKILL.md к формату открытой спецификации, вынести Claude-специфику в явные «адаптеры», собрать дымовой тест: скрипты-проверки работают без Claude Code. Первый кандидат — product-strategy и хук-независимая часть typesafe-triage.",
+      "current_feature": "частично: скрипты на stdlib и Node, хуки и опросы привязаны к Claude Code (skills/*/hooks/hooks.json, SKILL.md:49 про AskUserQuestion/хук); проверок переносимости нет",
+      "tags": [],
+      "dependencies": [
+        "P061",
+        "P063"
+      ],
+      "blocked_by": [
+        "P059",
+        "P063",
+        "P061"
+      ],
+      "unlocks": [],
+      "critical_path": false
+    },
+    {
+      "id": "P002",
+      "rank": 29,
+      "dep_rank": 27,
+      "title": "Неинтерактивный режим site-qa-audit для CI: код возврата и JSON-итог",
+      "category": "product",
+      "priority": "P2",
+      "quadrant": "big_bet",
+      "evidence_class": "A",
+      "horizon": "next",
+      "effort_days": [
+        4,
+        8
+      ],
+      "description": "Документированный запуск `claude --bare -p --plugin-dir … '/site-qa-audit:site-qa-audit autopilot smoke <URL>'`; скил пишет `summary.json` (счётчики по серьёзности, путь к отчёту) и возвращает код 0/1/2 по порогу `--fail-on high`; обёртка `scripts/ci_run.sh|ps1` проверяет загрузку плагина по `plugin_errors` из события `system/init`. Публикация issues в этом режиме выключена.",
+      "current_feature": "частично: автопилот без вопросов есть (skills/site-qa-audit/SKILL.md:54); summary.json и кода возврата по серьёзности нет (grep fail-on/summary.json по SKILL.md, references, scripts — пусто, кроме […]",
+      "tags": [],
+      "dependencies": [
+        "P060"
+      ],
+      "blocked_by": [
+        "P060"
+      ],
+      "unlocks": [
+        "P011"
+      ],
+      "critical_path": false
+    },
+    {
+      "id": "P061",
+      "rank": 30,
+      "dep_rank": 24,
+      "title": "validate: claude plugin validate --strict, линтер SKILL.md и ночная проверка дрейфа",
+      "category": "platform",
+      "priority": "P2",
+      "quadrant": "filler",
+      "evidence_class": "A",
+      "horizon": "now",
+      "effort_days": [
+        2,
+        5
+      ],
+      "description": "Расширить `tools/validate.sh`: вызывать `claude plugin validate --strict` для каждого плагина и для маркетплейса (если CLI доступен), проверять SKILL.md по спецификации Agent Skills (name, лимит description 1024 знака, структура) и отсутствие `claude-` в именах плагинов. Ночной job в CI гоняет проверку против свежего Claude Code.",
+      "current_feature": "частично: tools/validate.sh и tools/lib/skillsrepo.py:243 проверяют frontmatter, README, CHANGELOG, plugin.json, секреты; вызова claude plugin validate и лимитов спецификации нет (grep, 2026-10-10)",
+      "tags": [],
+      "dependencies": [
+        "P059"
+      ],
+      "blocked_by": [
+        "P059"
+      ],
+      "unlocks": [
+        "P068"
+      ],
+      "critical_path": false
+    }
+  ],
+  "bets": {
+    "rule": "эвристика: лучшие по рангу из квадранта big_bet или с меткой strategic, затем лучшие по рангу",
+    "items": [
+      {
+        "id": "P024",
+        "rank": 13,
+        "dep_rank": 14,
+        "title": "Запуск в формате «покажи проект»: Show HN, затем Product Hunt",
+        "category": "acquisition",
+        "priority": "P1",
+        "quadrant": "big_bet",
+        "evidence_class": "B",
+        "horizon": "next",
+        "effort_days": [
+          2,
+          4
+        ],
+        "description": "После README-витрины и GIF владелец публикует один Show HN (site-qa-audit как главный) и отдельный запуск на Product Hunt, без просьб о голосах.",
+        "current_feature": "нет: запусков не было",
+        "tags": [
+          "launch"
+        ],
+        "dependencies": [
+          "P029",
+          "P030",
+          "P032"
+        ],
+        "blocked_by": [
+          "P029",
+          "P032",
+          "P030"
+        ],
+        "unlocks": [],
+        "critical_path": false,
+        "prerequisites": [
+          {
+            "id": "P029",
+            "rank": 2,
+            "dep_rank": 2,
+            "title": "Переделать README в витрину: ценность в одной фразе, GIF, установка в три строки",
+            "category": "conversion",
+            "priority": "P0",
+            "quadrant": "quick_win",
+            "evidence_class": "B",
+            "horizon": "now",
+            "depth": 1,
+            "in_top": true
+          },
+          {
+            "id": "P032",
+            "rank": 4,
+            "dep_rank": 7,
+            "title": "Quickstart «первый результат за 5 минут» для каждого скила: промпт и ожидаемый вывод",
+            "category": "conversion",
+            "priority": "P0",
+            "quadrant": "quick_win",
+            "evidence_class": "B",
+            "horizon": "now",
+            "depth": 1,
+            "in_top": true
+          },
+          {
+            "id": "P030",
+            "rank": 8,
+            "dep_rank": 1,
+            "title": "Сделать GIF и ролики первой минуты из реальных прогонов существующими утилитами",
+            "category": "conversion",
+            "priority": "P0",
+            "quadrant": "quick_win",
+            "evidence_class": "C",
+            "horizon": "now",
+            "depth": 1,
+            "in_top": true
+          }
+        ]
+      },
+      {
+        "id": "P063",
+        "rank": 18,
+        "dep_rank": 17,
+        "title": "Диета SKILL.md: критичные правила в первых 5 тыс. токенов, детали — в references",
+        "category": "platform",
+        "priority": "P1",
+        "quadrant": "big_bet",
+        "evidence_class": "A",
+        "horizon": "now",
+        "effort_days": [
+          4,
+          8
+        ],
+        "description": "Пересобрать `SKILL.md` четырёх скилов: в начало — запреты безопасности, порядок прогона и условия остановки (то, что нельзя терять), в конец — таблицы скриптов и редкие режимы переносить в `references/` с явными условиями чтения. Цель: критичное целиком в первых ≈5 000 токенов, общий размер тела ≤ 50 % текущего. Измерять размер скриптом в validate.",
+        "current_feature": "частично: детали уже вынесены в references/ (site: 21 файл), но SKILL.md остаётся длинным — site 37 862 знака, android 25 685, typesafe 26 369, product-strategy 14 551 (замер len, 2026-10-10); […]",
+        "tags": [],
+        "dependencies": [],
+        "blocked_by": [],
+        "unlocks": [
+          "P068"
+        ],
+        "critical_path": false,
+        "prerequisites": []
+      },
+      {
+        "id": "P031",
+        "rank": 20,
+        "dep_rank": 15,
+        "title": "Опубликовать демо-отчёты: пример QA-отчёта и страницы стратегии без установки",
+        "category": "conversion",
+        "priority": "P1",
+        "quadrant": "big_bet",
+        "evidence_class": "D",
+        "horizon": "now",
+        "effort_days": [
+          2,
+          5
+        ],
+        "description": "Положить в docs/examples обезличенные результаты: HTML-отчёт site-qa-audit по тренировочному сайту и страницу стратегии product-strategy (результат этого прогона по собственному репозиторию), с оговоркой «пример».",
+        "current_feature": "нет: примеров в репозитории нет (research/product-understanding.md:58)",
+        "tags": [
+          "demo"
+        ],
+        "dependencies": [],
+        "blocked_by": [],
+        "unlocks": [
+          "P050",
+          "P023"
+        ],
+        "critical_path": false,
+        "prerequisites": []
+      }
+    ]
+  },
+  "prerequisites": [
+    {
+      "id": "P018",
+      "rank": 1,
+      "title": "Подать плагины в официальный каталог anthropics/claude-plugins-official",
+      "transitive": [
+        {
+          "id": "P029",
+          "rank": 2,
+          "dep_rank": 2,
+          "title": "Переделать README в витрину: ценность в одной фразе, GIF, установка в три строки",
+          "category": "conversion",
+          "priority": "P0",
+          "quadrant": "quick_win",
+          "evidence_class": "B",
+          "horizon": "now",
+          "depth": 1,
+          "in_top": true
+        },
+        {
+          "id": "P030",
+          "rank": 8,
+          "dep_rank": 1,
+          "title": "Сделать GIF и ролики первой минуты из реальных прогонов существующими утилитами",
+          "category": "conversion",
+          "priority": "P0",
+          "quadrant": "quick_win",
+          "evidence_class": "C",
+          "horizon": "now",
+          "depth": 2,
+          "in_top": true
+        }
+      ]
+    },
+    {
+      "id": "P029",
+      "rank": 2,
+      "title": "Переделать README в витрину: ценность в одной фразе, GIF, установка в три строки",
+      "transitive": [
+        {
+          "id": "P030",
+          "rank": 8,
+          "dep_rank": 1,
+          "title": "Сделать GIF и ролики первой минуты из реальных прогонов существующими утилитами",
+          "category": "conversion",
+          "priority": "P0",
+          "quadrant": "quick_win",
+          "evidence_class": "C",
+          "horizon": "now",
+          "depth": 1,
+          "in_top": true
+        }
+      ]
+    },
+    {
+      "id": "P019",
+      "rank": 3,
+      "title": "Подать по одному плагину в awesome-claude-code после 21.10.2026",
+      "transitive": [
+        {
+          "id": "P029",
+          "rank": 2,
+          "dep_rank": 2,
+          "title": "Переделать README в витрину: ценность в одной фразе, GIF, установка в три строки",
+          "category": "conversion",
+          "priority": "P0",
+          "quadrant": "quick_win",
+          "evidence_class": "B",
+          "horizon": "now",
+          "depth": 1,
+          "in_top": true
+        },
+        {
+          "id": "P030",
+          "rank": 8,
+          "dep_rank": 1,
+          "title": "Сделать GIF и ролики первой минуты из реальных прогонов существующими утилитами",
+          "category": "conversion",
+          "priority": "P0",
+          "quadrant": "quick_win",
+          "evidence_class": "C",
+          "horizon": "now",
+          "depth": 2,
+          "in_top": true
+        }
+      ]
+    },
+    {
+      "id": "P046",
+      "rank": 10,
+      "title": "Опросы спроса в Discussions: лицензия, переносимость, языки, приоритеты",
+      "transitive": [
+        {
+          "id": "P035",
+          "rank": 21,
+          "dep_rank": 12,
+          "title": "Включить Discussions и публичную дорожную карту с ответом «вы просили — сделано»",
+          "category": "retention",
+          "priority": "P1",
+          "quadrant": "filler",
+          "evidence_class": "A",
+          "horizon": "now",
+          "depth": 1,
+          "in_top": true
+        }
+      ]
+    },
+    {
+      "id": "P024",
+      "rank": 13,
+      "title": "Запуск в формате «покажи проект»: Show HN, затем Product Hunt",
+      "transitive": [
+        {
+          "id": "P029",
+          "rank": 2,
+          "dep_rank": 2,
+          "title": "Переделать README в витрину: ценность в одной фразе, GIF, установка в три строки",
+          "category": "conversion",
+          "priority": "P0",
+          "quadrant": "quick_win",
+          "evidence_class": "B",
+          "horizon": "now",
+          "depth": 1,
+          "in_top": true
+        },
+        {
+          "id": "P032",
+          "rank": 4,
+          "dep_rank": 7,
+          "title": "Quickstart «первый результат за 5 минут» для каждого скила: промпт и ожидаемый вывод",
+          "category": "conversion",
+          "priority": "P0",
+          "quadrant": "quick_win",
+          "evidence_class": "B",
+          "horizon": "now",
+          "depth": 1,
+          "in_top": true
+        },
+        {
+          "id": "P030",
+          "rank": 8,
+          "dep_rank": 1,
+          "title": "Сделать GIF и ролики первой минуты из реальных прогонов существующими утилитами",
+          "category": "conversion",
+          "priority": "P0",
+          "quadrant": "quick_win",
+          "evidence_class": "C",
+          "horizon": "now",
+          "depth": 1,
+          "in_top": true
+        }
+      ]
+    },
+    {
+      "id": "P050",
+      "rank": 16,
+      "title": "Заявки в тематические awesome-списки смежных экосистем: Playwright, a11y, Android",
+      "transitive": [
+        {
+          "id": "P029",
+          "rank": 2,
+          "dep_rank": 2,
+          "title": "Переделать README в витрину: ценность в одной фразе, GIF, установка в три строки",
+          "category": "conversion",
+          "priority": "P0",
+          "quadrant": "quick_win",
+          "evidence_class": "B",
+          "horizon": "now",
+          "depth": 1,
+          "in_top": true
+        },
+        {
+          "id": "P031",
+          "rank": 20,
+          "dep_rank": 15,
+          "title": "Опубликовать демо-отчёты: пример QA-отчёта и страницы стратегии без установки",
+          "category": "conversion",
+          "priority": "P1",
+          "quadrant": "big_bet",
+          "evidence_class": "D",
+          "horizon": "now",
+          "depth": 1,
+          "in_top": true
+        },
+        {
+          "id": "P030",
+          "rank": 8,
+          "dep_rank": 1,
+          "title": "Сделать GIF и ролики первой минуты из реальных прогонов существующими утилитами",
+          "category": "conversion",
+          "priority": "P0",
+          "quadrant": "quick_win",
+          "evidence_class": "C",
+          "horizon": "now",
+          "depth": 2,
+          "in_top": true
+        }
+      ]
+    },
+    {
+      "id": "P044",
+      "rank": 17,
+      "title": "Северная звезда и контрольные точки 30/60/90 дней с порогами «продолжать/свернуть»",
+      "transitive": [
+        {
+          "id": "P043",
+          "rank": 6,
+          "dep_rank": 6,
+          "title": "Еженедельный снимок публичных сигналов GitHub в CSV: просмотры, клоны, источники, звёзды",
+          "category": "analytics",
+          "priority": "P0",
+          "quadrant": "quick_win",
+          "evidence_class": "A",
+          "horizon": "now",
+          "depth": 1,
+          "in_top": true
+        }
+      ]
+    },
+    {
+      "id": "P049",
+      "rank": 23,
+      "title": "Договориться с TypeSafe о взаимной витрине: typesafe-triage как пример на Jev",
+      "transitive": [
+        {
+          "id": "P029",
+          "rank": 2,
+          "dep_rank": 2,
+          "title": "Переделать README в витрину: ценность в одной фразе, GIF, установка в три строки",
+          "category": "conversion",
+          "priority": "P0",
+          "quadrant": "quick_win",
+          "evidence_class": "B",
+          "horizon": "now",
+          "depth": 1,
+          "in_top": true
+        },
+        {
+          "id": "P030",
+          "rank": 8,
+          "dep_rank": 1,
+          "title": "Сделать GIF и ролики первой минуты из реальных прогонов существующими утилитами",
+          "category": "conversion",
+          "priority": "P0",
+          "quadrant": "quick_win",
+          "evidence_class": "C",
+          "horizon": "now",
+          "depth": 2,
+          "in_top": true
+        }
+      ]
+    },
+    {
+      "id": "P048",
+      "rank": 25,
+      "title": "Листинг в реестре Tessl и skills.sh с публичными оценками качества и безопасности",
+      "transitive": [
+        {
+          "id": "P029",
+          "rank": 2,
+          "dep_rank": 2,
+          "title": "Переделать README в витрину: ценность в одной фразе, GIF, установка в три строки",
+          "category": "conversion",
+          "priority": "P0",
+          "quadrant": "quick_win",
+          "evidence_class": "B",
+          "horizon": "now",
+          "depth": 1,
+          "in_top": true
+        },
+        {
+          "id": "P030",
+          "rank": 8,
+          "dep_rank": 1,
+          "title": "Сделать GIF и ролики первой минуты из реальных прогонов существующими утилитами",
+          "category": "conversion",
+          "priority": "P0",
+          "quadrant": "quick_win",
+          "evidence_class": "C",
+          "horizon": "now",
+          "depth": 2,
+          "in_top": true
+        }
+      ]
+    },
+    {
+      "id": "P025",
+      "rank": 26,
+      "title": "Пост «QA-находки → черновики issues» к GitHub Universe 28–29.10.2026",
+      "transitive": [
+        {
+          "id": "P030",
+          "rank": 8,
+          "dep_rank": 1,
+          "title": "Сделать GIF и ролики первой минуты из реальных прогонов существующими утилитами",
+          "category": "conversion",
+          "priority": "P0",
+          "quadrant": "quick_win",
+          "evidence_class": "C",
+          "horizon": "now",
+          "depth": 1,
+          "in_top": true
+        }
+      ]
+    },
+    {
+      "id": "P067",
+      "rank": 27,
+      "title": "Безопасность проекта: SECURITY.md, проверка зависимостей, контрольные суммы всех скилов",
+      "transitive": [
+        {
+          "id": "P059",
+          "rank": 7,
+          "dep_rank": 5,
+          "title": "CI в GitHub Actions: validate и тесты на Linux, macOS и Windows",
+          "category": "platform",
+          "priority": "P0",
+          "quadrant": "quick_win",
+          "evidence_class": "A",
+          "horizon": "now",
+          "depth": 1,
+          "in_top": true
+        }
+      ]
+    },
+    {
+      "id": "P068",
+      "rank": 28,
+      "title": "Переносимое ядро: SKILL.md по Agent Skills и дымовой тест вне Claude Code",
+      "transitive": [
+        {
+          "id": "P063",
+          "rank": 18,
+          "dep_rank": 17,
+          "title": "Диета SKILL.md: критичные правила в первых 5 тыс. токенов, детали — в references",
+          "category": "platform",
+          "priority": "P1",
+          "quadrant": "big_bet",
+          "evidence_class": "A",
+          "horizon": "now",
+          "depth": 1,
+          "in_top": true
+        },
+        {
+          "id": "P061",
+          "rank": 30,
+          "dep_rank": 24,
+          "title": "validate: claude plugin validate --strict, линтер SKILL.md и ночная проверка дрейфа",
+          "category": "platform",
+          "priority": "P2",
+          "quadrant": "filler",
+          "evidence_class": "A",
+          "horizon": "now",
+          "depth": 1,
+          "in_top": true
+        },
+        {
+          "id": "P059",
+          "rank": 7,
+          "dep_rank": 5,
+          "title": "CI в GitHub Actions: validate и тесты на Linux, macOS и Windows",
+          "category": "platform",
+          "priority": "P0",
+          "quadrant": "quick_win",
+          "evidence_class": "A",
+          "horizon": "now",
+          "depth": 2,
+          "in_top": true
+        }
+      ]
+    },
+    {
+      "id": "P002",
+      "rank": 29,
+      "title": "Неинтерактивный режим site-qa-audit для CI: код возврата и JSON-итог",
+      "transitive": [
+        {
+          "id": "P060",
+          "rank": 9,
+          "dep_rank": 9,
+          "title": "Node-зависимости плагинов без ручного npm install после каждого обновления",
+          "category": "platform",
+          "priority": "P0",
+          "quadrant": "quick_win",
+          "evidence_class": "A",
+          "horizon": "now",
+          "depth": 1,
+          "in_top": true
+        }
+      ]
+    },
+    {
+      "id": "P061",
+      "rank": 30,
+      "title": "validate: claude plugin validate --strict, линтер SKILL.md и ночная проверка дрейфа",
+      "transitive": [
+        {
+          "id": "P059",
+          "rank": 7,
+          "dep_rank": 5,
+          "title": "CI в GitHub Actions: validate и тесты на Linux, macOS и Windows",
+          "category": "platform",
+          "priority": "P0",
+          "quadrant": "quick_win",
+          "evidence_class": "A",
+          "horizon": "now",
+          "depth": 1,
+          "in_top": true
+        }
+      ]
+    }
+  ],
+  "dependency_warnings": [],
+  "keyword_flags": [
+    {
+      "id": "P032",
+      "rank": 4,
+      "title": "Quickstart «первый результат за 5 минут» для каждого скила: промпт и ожидаемый вывод",
+      "families": [
+        {
+          "family": "install",
+          "label": "установка / релиз",
+          "words": [
+            "install",
+            "установ"
+          ],
+          "providers": [
+            {
+              "id": "P029",
+              "rank": 2,
+              "dep_rank": 2,
+              "title": "Переделать README в витрину: ценность в одной фразе, GIF, установка в три строки",
+              "category": "conversion",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "B",
+              "horizon": "now"
+            },
+            {
+              "id": "P060",
+              "rank": 9,
+              "dep_rank": 9,
+              "title": "Node-зависимости плагинов без ручного npm install после каждого обновления",
+              "category": "platform",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "A",
+              "horizon": "now"
+            },
+            {
+              "id": "P031",
+              "rank": 20,
+              "dep_rank": 15,
+              "title": "Опубликовать демо-отчёты: пример QA-отчёта и страницы стратегии без установки",
+              "category": "conversion",
+              "priority": "P1",
+              "quadrant": "big_bet",
+              "evidence_class": "D",
+              "horizon": "now"
+            },
+            {
+              "id": "P052",
+              "rank": 33,
+              "dep_rank": 33,
+              "title": "Английские INSTALL.md и README скилов: машинный перевод и контроль устаревания",
+              "category": "localization",
+              "priority": "P2",
+              "quadrant": "quick_win",
+              "evidence_class": "B",
+              "horizon": "next"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P033",
+      "rank": 5,
+      "title": "Блок «кому подходит, что потребуется, сколько стоит прогон, лицензия» на входе README",
+      "families": [
+        {
+          "family": "install",
+          "label": "установка / релиз",
+          "words": [
+            "установ"
+          ],
+          "providers": [
+            {
+              "id": "P029",
+              "rank": 2,
+              "dep_rank": 2,
+              "title": "Переделать README в витрину: ценность в одной фразе, GIF, установка в три строки",
+              "category": "conversion",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "B",
+              "horizon": "now"
+            },
+            {
+              "id": "P060",
+              "rank": 9,
+              "dep_rank": 9,
+              "title": "Node-зависимости плагинов без ручного npm install после каждого обновления",
+              "category": "platform",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "A",
+              "horizon": "now"
+            },
+            {
+              "id": "P031",
+              "rank": 20,
+              "dep_rank": 15,
+              "title": "Опубликовать демо-отчёты: пример QA-отчёта и страницы стратегии без установки",
+              "category": "conversion",
+              "priority": "P1",
+              "quadrant": "big_bet",
+              "evidence_class": "D",
+              "horizon": "now"
+            },
+            {
+              "id": "P052",
+              "rank": 33,
+              "dep_rank": 33,
+              "title": "Английские INSTALL.md и README скилов: машинный перевод и контроль устаревания",
+              "category": "localization",
+              "priority": "P2",
+              "quadrant": "quick_win",
+              "evidence_class": "B",
+              "horizon": "next"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P043",
+      "rank": 6,
+      "title": "Еженедельный снимок публичных сигналов GitHub в CSV: просмотры, клоны, источники, звёзды",
+      "families": [
+        {
+          "family": "api",
+          "label": "API / интеграция",
+          "words": [
+            "api"
+          ],
+          "providers": [
+            {
+              "id": "P016",
+              "rank": 57,
+              "dep_rank": 57,
+              "title": "android-qa-audit: сравнение двух сборок APK (разрешения, размер, SDK, старт)",
+              "category": "product",
+              "priority": "P3",
+              "quadrant": "filler",
+              "evidence_class": "D",
+              "horizon": "next"
+            }
+          ]
+        },
+        {
+          "family": "install",
+          "label": "установка / релиз",
+          "words": [
+            "release",
+            "релиз"
+          ],
+          "providers": [
+            {
+              "id": "P029",
+              "rank": 2,
+              "dep_rank": 2,
+              "title": "Переделать README в витрину: ценность в одной фразе, GIF, установка в три строки",
+              "category": "conversion",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "B",
+              "horizon": "now"
+            },
+            {
+              "id": "P060",
+              "rank": 9,
+              "dep_rank": 9,
+              "title": "Node-зависимости плагинов без ручного npm install после каждого обновления",
+              "category": "platform",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "A",
+              "horizon": "now"
+            },
+            {
+              "id": "P031",
+              "rank": 20,
+              "dep_rank": 15,
+              "title": "Опубликовать демо-отчёты: пример QA-отчёта и страницы стратегии без установки",
+              "category": "conversion",
+              "priority": "P1",
+              "quadrant": "big_bet",
+              "evidence_class": "D",
+              "horizon": "now"
+            },
+            {
+              "id": "P052",
+              "rank": 33,
+              "dep_rank": 33,
+              "title": "Английские INSTALL.md и README скилов: машинный перевод и контроль устаревания",
+              "category": "localization",
+              "priority": "P2",
+              "quadrant": "quick_win",
+              "evidence_class": "B",
+              "horizon": "next"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P059",
+      "rank": 7,
+      "title": "CI в GitHub Actions: validate и тесты на Linux, macOS и Windows",
+      "families": [
+        {
+          "family": "payment",
+          "label": "приём платежей",
+          "words": [
+            "checkout"
+          ],
+          "providers": []
+        }
+      ]
+    },
+    {
+      "id": "P030",
+      "rank": 8,
+      "title": "Сделать GIF и ролики первой минуты из реальных прогонов существующими утилитами",
+      "families": [
+        {
+          "family": "repo_open",
+          "label": "открытый репозиторий / исходный код",
+          "words": [
+            "репозитори"
+          ],
+          "providers": [
+            {
+              "id": "P043",
+              "rank": 6,
+              "dep_rank": 6,
+              "title": "Еженедельный снимок публичных сигналов GitHub в CSV: просмотры, клоны, источники, звёзды",
+              "category": "analytics",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "A",
+              "horizon": "now"
+            },
+            {
+              "id": "P059",
+              "rank": 7,
+              "dep_rank": 5,
+              "title": "CI в GitHub Actions: validate и тесты на Linux, macOS и Windows",
+              "category": "platform",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "A",
+              "horizon": "now"
+            },
+            {
+              "id": "P017",
+              "rank": 15,
+              "dep_rank": 18,
+              "title": "Заполнить метаданные репозитория: темы GitHub, описание, social preview",
+              "category": "acquisition",
+              "priority": "P1",
+              "quadrant": "filler",
+              "evidence_class": "A",
+              "horizon": "now"
+            },
+            {
+              "id": "P025",
+              "rank": 26,
+              "dep_rank": 28,
+              "title": "Пост «QA-находки → черновики issues» к GitHub Universe 28–29.10.2026",
+              "category": "acquisition",
+              "priority": "P1",
+              "quadrant": "big_bet",
+              "evidence_class": "B",
+              "horizon": "now"
+            },
+            {
+              "id": "P023",
+              "rank": 37,
+              "dep_rank": 37,
+              "title": "Кейс на vc.ru: стратегия роста по репозиторию — что нашлось у самого проекта",
+              "category": "acquisition",
+              "priority": "P2",
+              "quadrant": "big_bet",
+              "evidence_class": "B",
+              "horizon": "next"
+            }
+          ]
+        },
+        {
+          "family": "hosting",
+          "label": "хостинг / сервер",
+          "words": [
+            "хостинг"
+          ],
+          "providers": []
+        },
+        {
+          "family": "site",
+          "label": "сайт / посадочная страница",
+          "words": [
+            "сайт",
+            "сайта"
+          ],
+          "providers": [
+            {
+              "id": "P009",
+              "rank": 34,
+              "dep_rank": 34,
+              "title": "Пресеты run-config по типу сайта: лендинг, SaaS, магазин, блог, документация",
+              "category": "product",
+              "priority": "P2",
+              "quadrant": "quick_win",
+              "evidence_class": "D",
+              "horizon": "now"
+            },
+            {
+              "id": "P011",
+              "rank": 49,
+              "dep_rank": 49,
+              "title": "Расписание: периодический smoke-прогон сайта с дельтой и тревогой о регрессе",
+              "category": "product",
+              "priority": "P3",
+              "quadrant": "big_bet",
+              "evidence_class": "C",
+              "horizon": "later"
+            },
+            {
+              "id": "P058",
+              "rank": 65,
+              "dep_rank": 65,
+              "title": "Командная поставка: общий каталог результатов и сводка по нескольким сайтам и репозиториям",
+              "category": "new_lines",
+              "priority": "P3",
+              "quadrant": "big_bet",
+              "evidence_class": "C",
+              "horizon": "vision"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P004",
+      "rank": 11,
+      "title": "Дельта между прогонами: новые, исправленные и вернувшиеся находки",
+      "families": [
+        {
+          "family": "install",
+          "label": "установка / релиз",
+          "words": [
+            "пакет"
+          ],
+          "providers": [
+            {
+              "id": "P029",
+              "rank": 2,
+              "dep_rank": 2,
+              "title": "Переделать README в витрину: ценность в одной фразе, GIF, установка в три строки",
+              "category": "conversion",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "B",
+              "horizon": "now"
+            },
+            {
+              "id": "P060",
+              "rank": 9,
+              "dep_rank": 9,
+              "title": "Node-зависимости плагинов без ручного npm install после каждого обновления",
+              "category": "platform",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "A",
+              "horizon": "now"
+            },
+            {
+              "id": "P031",
+              "rank": 20,
+              "dep_rank": 15,
+              "title": "Опубликовать демо-отчёты: пример QA-отчёта и страницы стратегии без установки",
+              "category": "conversion",
+              "priority": "P1",
+              "quadrant": "big_bet",
+              "evidence_class": "D",
+              "horizon": "now"
+            },
+            {
+              "id": "P052",
+              "rank": 33,
+              "dep_rank": 33,
+              "title": "Английские INSTALL.md и README скилов: машинный перевод и контроль устаревания",
+              "category": "localization",
+              "priority": "P2",
+              "quadrant": "quick_win",
+              "evidence_class": "B",
+              "horizon": "next"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P042",
+      "rank": 12,
+      "title": "Решение по лицензии: NC, двойная лицензия или открытие части скилов — с оценкой рисков",
+      "families": [
+        {
+          "family": "repo_open",
+          "label": "открытый репозиторий / исходный код",
+          "words": [
+            "github",
+            "форк"
+          ],
+          "providers": [
+            {
+              "id": "P043",
+              "rank": 6,
+              "dep_rank": 6,
+              "title": "Еженедельный снимок публичных сигналов GitHub в CSV: просмотры, клоны, источники, звёзды",
+              "category": "analytics",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "A",
+              "horizon": "now"
+            },
+            {
+              "id": "P059",
+              "rank": 7,
+              "dep_rank": 5,
+              "title": "CI в GitHub Actions: validate и тесты на Linux, macOS и Windows",
+              "category": "platform",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "A",
+              "horizon": "now"
+            },
+            {
+              "id": "P017",
+              "rank": 15,
+              "dep_rank": 18,
+              "title": "Заполнить метаданные репозитория: темы GitHub, описание, social preview",
+              "category": "acquisition",
+              "priority": "P1",
+              "quadrant": "filler",
+              "evidence_class": "A",
+              "horizon": "now"
+            },
+            {
+              "id": "P025",
+              "rank": 26,
+              "dep_rank": 28,
+              "title": "Пост «QA-находки → черновики issues» к GitHub Universe 28–29.10.2026",
+              "category": "acquisition",
+              "priority": "P1",
+              "quadrant": "big_bet",
+              "evidence_class": "B",
+              "horizon": "now"
+            },
+            {
+              "id": "P023",
+              "rank": 37,
+              "dep_rank": 37,
+              "title": "Кейс на vc.ru: стратегия роста по репозиторию — что нашлось у самого проекта",
+              "category": "acquisition",
+              "priority": "P2",
+              "quadrant": "big_bet",
+              "evidence_class": "B",
+              "horizon": "next"
+            }
+          ]
+        },
+        {
+          "family": "install",
+          "label": "установка / релиз",
+          "words": [
+            "релиз"
+          ],
+          "providers": [
+            {
+              "id": "P029",
+              "rank": 2,
+              "dep_rank": 2,
+              "title": "Переделать README в витрину: ценность в одной фразе, GIF, установка в три строки",
+              "category": "conversion",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "B",
+              "horizon": "now"
+            },
+            {
+              "id": "P060",
+              "rank": 9,
+              "dep_rank": 9,
+              "title": "Node-зависимости плагинов без ручного npm install после каждого обновления",
+              "category": "platform",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "A",
+              "horizon": "now"
+            },
+            {
+              "id": "P031",
+              "rank": 20,
+              "dep_rank": 15,
+              "title": "Опубликовать демо-отчёты: пример QA-отчёта и страницы стратегии без установки",
+              "category": "conversion",
+              "priority": "P1",
+              "quadrant": "big_bet",
+              "evidence_class": "D",
+              "horizon": "now"
+            },
+            {
+              "id": "P052",
+              "rank": 33,
+              "dep_rank": 33,
+              "title": "Английские INSTALL.md и README скилов: машинный перевод и контроль устаревания",
+              "category": "localization",
+              "priority": "P2",
+              "quadrant": "quick_win",
+              "evidence_class": "B",
+              "horizon": "next"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P017",
+      "rank": 15,
+      "title": "Заполнить метаданные репозитория: темы GitHub, описание, social preview",
+      "families": [
+        {
+          "family": "install",
+          "label": "установка / релиз",
+          "words": [
+            "установ"
+          ],
+          "providers": [
+            {
+              "id": "P029",
+              "rank": 2,
+              "dep_rank": 2,
+              "title": "Переделать README в витрину: ценность в одной фразе, GIF, установка в три строки",
+              "category": "conversion",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "B",
+              "horizon": "now"
+            },
+            {
+              "id": "P060",
+              "rank": 9,
+              "dep_rank": 9,
+              "title": "Node-зависимости плагинов без ручного npm install после каждого обновления",
+              "category": "platform",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "A",
+              "horizon": "now"
+            },
+            {
+              "id": "P031",
+              "rank": 20,
+              "dep_rank": 15,
+              "title": "Опубликовать демо-отчёты: пример QA-отчёта и страницы стратегии без установки",
+              "category": "conversion",
+              "priority": "P1",
+              "quadrant": "big_bet",
+              "evidence_class": "D",
+              "horizon": "now"
+            },
+            {
+              "id": "P052",
+              "rank": 33,
+              "dep_rank": 33,
+              "title": "Английские INSTALL.md и README скилов: машинный перевод и контроль устаревания",
+              "category": "localization",
+              "priority": "P2",
+              "quadrant": "quick_win",
+              "evidence_class": "B",
+              "horizon": "next"
+            }
+          ]
+        },
+        {
+          "family": "site",
+          "label": "сайт / посадочная страница",
+          "words": [
+            "сайта"
+          ],
+          "providers": [
+            {
+              "id": "P009",
+              "rank": 34,
+              "dep_rank": 34,
+              "title": "Пресеты run-config по типу сайта: лендинг, SaaS, магазин, блог, документация",
+              "category": "product",
+              "priority": "P2",
+              "quadrant": "quick_win",
+              "evidence_class": "D",
+              "horizon": "now"
+            },
+            {
+              "id": "P011",
+              "rank": 49,
+              "dep_rank": 49,
+              "title": "Расписание: периодический smoke-прогон сайта с дельтой и тревогой о регрессе",
+              "category": "product",
+              "priority": "P3",
+              "quadrant": "big_bet",
+              "evidence_class": "C",
+              "horizon": "later"
+            },
+            {
+              "id": "P058",
+              "rank": 65,
+              "dep_rank": 65,
+              "title": "Командная поставка: общий каталог результатов и сводка по нескольким сайтам и репозиториям",
+              "category": "new_lines",
+              "priority": "P3",
+              "quadrant": "big_bet",
+              "evidence_class": "C",
+              "horizon": "vision"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P063",
+      "rank": 18,
+      "title": "Диета SKILL.md: критичные правила в первых 5 тыс. токенов, детали — в references",
+      "families": [
+        {
+          "family": "install",
+          "label": "установка / релиз",
+          "words": [
+            "релиз"
+          ],
+          "providers": [
+            {
+              "id": "P029",
+              "rank": 2,
+              "dep_rank": 2,
+              "title": "Переделать README в витрину: ценность в одной фразе, GIF, установка в три строки",
+              "category": "conversion",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "B",
+              "horizon": "now"
+            },
+            {
+              "id": "P060",
+              "rank": 9,
+              "dep_rank": 9,
+              "title": "Node-зависимости плагинов без ручного npm install после каждого обновления",
+              "category": "platform",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "A",
+              "horizon": "now"
+            },
+            {
+              "id": "P031",
+              "rank": 20,
+              "dep_rank": 15,
+              "title": "Опубликовать демо-отчёты: пример QA-отчёта и страницы стратегии без установки",
+              "category": "conversion",
+              "priority": "P1",
+              "quadrant": "big_bet",
+              "evidence_class": "D",
+              "horizon": "now"
+            },
+            {
+              "id": "P052",
+              "rank": 33,
+              "dep_rank": 33,
+              "title": "Английские INSTALL.md и README скилов: машинный перевод и контроль устаревания",
+              "category": "localization",
+              "priority": "P2",
+              "quadrant": "quick_win",
+              "evidence_class": "B",
+              "horizon": "next"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P028",
+      "rank": 19,
+      "title": "Развести бренд с daymade/claude-code-skills: уникальное имя в выдаче и каталогах",
+      "families": [
+        {
+          "family": "repo_open",
+          "label": "открытый репозиторий / исходный код",
+          "words": [
+            "github",
+            "репозитори"
+          ],
+          "providers": [
+            {
+              "id": "P043",
+              "rank": 6,
+              "dep_rank": 6,
+              "title": "Еженедельный снимок публичных сигналов GitHub в CSV: просмотры, клоны, источники, звёзды",
+              "category": "analytics",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "A",
+              "horizon": "now"
+            },
+            {
+              "id": "P059",
+              "rank": 7,
+              "dep_rank": 5,
+              "title": "CI в GitHub Actions: validate и тесты на Linux, macOS и Windows",
+              "category": "platform",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "A",
+              "horizon": "now"
+            },
+            {
+              "id": "P017",
+              "rank": 15,
+              "dep_rank": 18,
+              "title": "Заполнить метаданные репозитория: темы GitHub, описание, social preview",
+              "category": "acquisition",
+              "priority": "P1",
+              "quadrant": "filler",
+              "evidence_class": "A",
+              "horizon": "now"
+            },
+            {
+              "id": "P025",
+              "rank": 26,
+              "dep_rank": 28,
+              "title": "Пост «QA-находки → черновики issues» к GitHub Universe 28–29.10.2026",
+              "category": "acquisition",
+              "priority": "P1",
+              "quadrant": "big_bet",
+              "evidence_class": "B",
+              "horizon": "now"
+            },
+            {
+              "id": "P023",
+              "rank": 37,
+              "dep_rank": 37,
+              "title": "Кейс на vc.ru: стратегия роста по репозиторию — что нашлось у самого проекта",
+              "category": "acquisition",
+              "priority": "P2",
+              "quadrant": "big_bet",
+              "evidence_class": "B",
+              "horizon": "next"
+            }
+          ]
+        },
+        {
+          "family": "license",
+          "label": "лицензия",
+          "words": [
+            "mit"
+          ],
+          "providers": [
+            {
+              "id": "P033",
+              "rank": 5,
+              "dep_rank": 8,
+              "title": "Блок «кому подходит, что потребуется, сколько стоит прогон, лицензия» на входе README",
+              "category": "conversion",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "B",
+              "horizon": "now"
+            },
+            {
+              "id": "P046",
+              "rank": 10,
+              "dep_rank": 13,
+              "title": "Опросы спроса в Discussions: лицензия, переносимость, языки, приоритеты",
+              "category": "analytics",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "A",
+              "horizon": "now"
+            },
+            {
+              "id": "P042",
+              "rank": 12,
+              "dep_rank": 11,
+              "title": "Решение по лицензии: NC, двойная лицензия или открытие части скилов — с оценкой рисков",
+              "category": "monetization",
+              "priority": "P1",
+              "quadrant": "quick_win",
+              "evidence_class": "B",
+              "horizon": "now"
+            },
+            {
+              "id": "P041",
+              "rank": 41,
+              "dep_rank": 41,
+              "title": "Заявка в Claude for Open Source и реестр грантов с проверкой допустимости для NC-лицензии",
+              "category": "monetization",
+              "priority": "P2",
+              "quadrant": "filler",
+              "evidence_class": "A",
+              "horizon": "now"
+            }
+          ]
+        },
+        {
+          "family": "install",
+          "label": "установка / релиз",
+          "words": [
+            "install",
+            "установ"
+          ],
+          "providers": [
+            {
+              "id": "P029",
+              "rank": 2,
+              "dep_rank": 2,
+              "title": "Переделать README в витрину: ценность в одной фразе, GIF, установка в три строки",
+              "category": "conversion",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "B",
+              "horizon": "now"
+            },
+            {
+              "id": "P060",
+              "rank": 9,
+              "dep_rank": 9,
+              "title": "Node-зависимости плагинов без ручного npm install после каждого обновления",
+              "category": "platform",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "A",
+              "horizon": "now"
+            },
+            {
+              "id": "P031",
+              "rank": 20,
+              "dep_rank": 15,
+              "title": "Опубликовать демо-отчёты: пример QA-отчёта и страницы стратегии без установки",
+              "category": "conversion",
+              "priority": "P1",
+              "quadrant": "big_bet",
+              "evidence_class": "D",
+              "horizon": "now"
+            },
+            {
+              "id": "P052",
+              "rank": 33,
+              "dep_rank": 33,
+              "title": "Английские INSTALL.md и README скилов: машинный перевод и контроль устаревания",
+              "category": "localization",
+              "priority": "P2",
+              "quadrant": "quick_win",
+              "evidence_class": "B",
+              "horizon": "next"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P031",
+      "rank": 20,
+      "title": "Опубликовать демо-отчёты: пример QA-отчёта и страницы стратегии без установки",
+      "families": [
+        {
+          "family": "repo_open",
+          "label": "открытый репозиторий / исходный код",
+          "words": [
+            "репозитори"
+          ],
+          "providers": [
+            {
+              "id": "P043",
+              "rank": 6,
+              "dep_rank": 6,
+              "title": "Еженедельный снимок публичных сигналов GitHub в CSV: просмотры, клоны, источники, звёзды",
+              "category": "analytics",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "A",
+              "horizon": "now"
+            },
+            {
+              "id": "P059",
+              "rank": 7,
+              "dep_rank": 5,
+              "title": "CI в GitHub Actions: validate и тесты на Linux, macOS и Windows",
+              "category": "platform",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "A",
+              "horizon": "now"
+            },
+            {
+              "id": "P017",
+              "rank": 15,
+              "dep_rank": 18,
+              "title": "Заполнить метаданные репозитория: темы GitHub, описание, social preview",
+              "category": "acquisition",
+              "priority": "P1",
+              "quadrant": "filler",
+              "evidence_class": "A",
+              "horizon": "now"
+            },
+            {
+              "id": "P025",
+              "rank": 26,
+              "dep_rank": 28,
+              "title": "Пост «QA-находки → черновики issues» к GitHub Universe 28–29.10.2026",
+              "category": "acquisition",
+              "priority": "P1",
+              "quadrant": "big_bet",
+              "evidence_class": "B",
+              "horizon": "now"
+            },
+            {
+              "id": "P023",
+              "rank": 37,
+              "dep_rank": 37,
+              "title": "Кейс на vc.ru: стратегия роста по репозиторию — что нашлось у самого проекта",
+              "category": "acquisition",
+              "priority": "P2",
+              "quadrant": "big_bet",
+              "evidence_class": "B",
+              "horizon": "next"
+            }
+          ]
+        },
+        {
+          "family": "site",
+          "label": "сайт / посадочная страница",
+          "words": [
+            "сайт",
+            "сайта"
+          ],
+          "providers": [
+            {
+              "id": "P009",
+              "rank": 34,
+              "dep_rank": 34,
+              "title": "Пресеты run-config по типу сайта: лендинг, SaaS, магазин, блог, документация",
+              "category": "product",
+              "priority": "P2",
+              "quadrant": "quick_win",
+              "evidence_class": "D",
+              "horizon": "now"
+            },
+            {
+              "id": "P011",
+              "rank": 49,
+              "dep_rank": 49,
+              "title": "Расписание: периодический smoke-прогон сайта с дельтой и тревогой о регрессе",
+              "category": "product",
+              "priority": "P3",
+              "quadrant": "big_bet",
+              "evidence_class": "C",
+              "horizon": "later"
+            },
+            {
+              "id": "P058",
+              "rank": 65,
+              "dep_rank": 65,
+              "title": "Командная поставка: общий каталог результатов и сводка по нескольким сайтам и репозиториям",
+              "category": "new_lines",
+              "priority": "P3",
+              "quadrant": "big_bet",
+              "evidence_class": "C",
+              "horizon": "vision"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P035",
+      "rank": 21,
+      "title": "Включить Discussions и публичную дорожную карту с ответом «вы просили — сделано»",
+      "families": [
+        {
+          "family": "repo_open",
+          "label": "открытый репозиторий / исходный код",
+          "words": [
+            "репозитори"
+          ],
+          "providers": [
+            {
+              "id": "P043",
+              "rank": 6,
+              "dep_rank": 6,
+              "title": "Еженедельный снимок публичных сигналов GitHub в CSV: просмотры, клоны, источники, звёзды",
+              "category": "analytics",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "A",
+              "horizon": "now"
+            },
+            {
+              "id": "P059",
+              "rank": 7,
+              "dep_rank": 5,
+              "title": "CI в GitHub Actions: validate и тесты на Linux, macOS и Windows",
+              "category": "platform",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "A",
+              "horizon": "now"
+            },
+            {
+              "id": "P017",
+              "rank": 15,
+              "dep_rank": 18,
+              "title": "Заполнить метаданные репозитория: темы GitHub, описание, social preview",
+              "category": "acquisition",
+              "priority": "P1",
+              "quadrant": "filler",
+              "evidence_class": "A",
+              "horizon": "now"
+            },
+            {
+              "id": "P025",
+              "rank": 26,
+              "dep_rank": 28,
+              "title": "Пост «QA-находки → черновики issues» к GitHub Universe 28–29.10.2026",
+              "category": "acquisition",
+              "priority": "P1",
+              "quadrant": "big_bet",
+              "evidence_class": "B",
+              "horizon": "now"
+            },
+            {
+              "id": "P023",
+              "rank": 37,
+              "dep_rank": 37,
+              "title": "Кейс на vc.ru: стратегия роста по репозиторию — что нашлось у самого проекта",
+              "category": "acquisition",
+              "priority": "P2",
+              "quadrant": "big_bet",
+              "evidence_class": "B",
+              "horizon": "next"
+            }
+          ]
+        },
+        {
+          "family": "install",
+          "label": "установка / релиз",
+          "words": [
+            "релиз"
+          ],
+          "providers": [
+            {
+              "id": "P029",
+              "rank": 2,
+              "dep_rank": 2,
+              "title": "Переделать README в витрину: ценность в одной фразе, GIF, установка в три строки",
+              "category": "conversion",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "B",
+              "horizon": "now"
+            },
+            {
+              "id": "P060",
+              "rank": 9,
+              "dep_rank": 9,
+              "title": "Node-зависимости плагинов без ручного npm install после каждого обновления",
+              "category": "platform",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "A",
+              "horizon": "now"
+            },
+            {
+              "id": "P031",
+              "rank": 20,
+              "dep_rank": 15,
+              "title": "Опубликовать демо-отчёты: пример QA-отчёта и страницы стратегии без установки",
+              "category": "conversion",
+              "priority": "P1",
+              "quadrant": "big_bet",
+              "evidence_class": "D",
+              "horizon": "now"
+            },
+            {
+              "id": "P052",
+              "rank": 33,
+              "dep_rank": 33,
+              "title": "Английские INSTALL.md и README скилов: машинный перевод и контроль устаревания",
+              "category": "localization",
+              "priority": "P2",
+              "quadrant": "quick_win",
+              "evidence_class": "B",
+              "horizon": "next"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P038",
+      "rank": 22,
+      "title": "Рецепты регулярного запуска скилов: loop.md и routines для еженедельного повтора",
+      "families": [
+        {
+          "family": "hosting",
+          "label": "хостинг / сервер",
+          "words": [
+            "облак"
+          ],
+          "providers": []
+        },
+        {
+          "family": "install",
+          "label": "установка / релиз",
+          "words": [
+            "install"
+          ],
+          "providers": [
+            {
+              "id": "P029",
+              "rank": 2,
+              "dep_rank": 2,
+              "title": "Переделать README в витрину: ценность в одной фразе, GIF, установка в три строки",
+              "category": "conversion",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "B",
+              "horizon": "now"
+            },
+            {
+              "id": "P060",
+              "rank": 9,
+              "dep_rank": 9,
+              "title": "Node-зависимости плагинов без ручного npm install после каждого обновления",
+              "category": "platform",
+              "priority": "P0",
+              "quadrant": "quick_win",
+              "evidence_class": "A",
+              "horizon": "now"
+            },
+            {
+              "id": "P031",
+              "rank": 20,
+              "dep_rank": 15,
+              "title": "Опубликовать демо-отчёты: пример QA-отчёта и страницы стратегии без установки",
+              "category": "conversion",
+              "priority": "P1",
+              "quadrant": "big_bet",
+              "evidence_class": "D",
+              "horizon": "now"
+            },
+            {
+              "id": "P052",
+              "rank": 33,
+              "dep_rank": 33,
+              "title": "Английские INSTALL.md и README скилов: машинный перевод и контроль устаревания",
+              "category": "localization",
+              "priority": "P2",
+              "quadrant": "quick_win",
+              "evidence_class": "B",
+              "horizon": "next"
+            }
+          ]
+        },
+        {
+          "family": "site",
+          "label": "сайт / посадочная страница",
+          "words": [
+            "сайта"
+          ],
+          "providers": [
+            {
+              "id": "P009",
+              "rank": 34,
+              "dep_rank": 34,
+              "title": "Пресеты run-config по типу сайта: лендинг, SaaS, магазин, блог, документация",
+              "category": "product",
+              "priority": "P2",
+              "quadrant": "quick_win",
+              "evidence_class": "D",
+              "horizon": "now"
+            },
+            {
+              "id": "P011",
+              "rank": 49,
+              "dep_rank": 49,
+              "title": "Расписание: периодический smoke-прогон сайта с дельтой и тревогой о регрессе",
+              "category": "product",
+              "priority": "P3",
+              "quadrant": "big_bet",
+              "evidence_class": "C",
+              "horizon": "later"
+            },
+            {
+              "id": "P058",
+              "rank": 65,
+              "dep_rank": 65,
+              "title": "Командная поставка: общий каталог результатов и сводка по нескольким сайтам и репозиториям",
+              "category": "new_lines",
+              "priority": "P3",
+              "quadrant": "big_bet",
+              "evidence_class": "C",
+              "horizon": "vision"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "similar_pairs": [
+    {
+      "a": "P018",
+      "b": "P019",
+      "score": 0.229,
+      "kind": "пересечение",
+      "a_title": "Подать плагины в официальный каталог anthropics/claude-plugins-official",
+      "b_title": "Подать по одному плагину в awesome-claude-code после 21.10.2026",
+      "a_rank": 1,
+      "b_rank": 3
+    },
+    {
+      "a": "P068",
+      "b": "P061",
+      "score": 0.197,
+      "kind": "пересечение",
+      "a_title": "Переносимое ядро: SKILL.md по Agent Skills и дымовой тест вне Claude Code",
+      "b_title": "validate: claude plugin validate --strict, линтер SKILL.md и ночная проверка дрейфа",
+      "a_rank": 28,
+      "b_rank": 30
+    }
+  ],
+  "free_vs_paid": [],
+  "free_vs_paid_pairs": [],
+  "coverage": {
+    "categories": {
+      "product": {
+        "total": 16,
+        "in_top": 3,
+        "required": 15,
+        "na": false,
+        "optional": false,
+        "ok": true
+      },
+      "acquisition": {
+        "total": 12,
+        "in_top": 6,
+        "required": 10,
+        "na": false,
+        "optional": false,
+        "ok": true
+      },
+      "conversion": {
+        "total": 5,
+        "in_top": 5,
+        "required": 4,
+        "na": false,
+        "optional": false,
+        "ok": true
+      },
+      "retention": {
+        "total": 6,
+        "in_top": 2,
+        "required": 4,
+        "na": false,
+        "optional": false,
+        "ok": true
+      },
+      "monetization": {
+        "total": 3,
+        "in_top": 1,
+        "required": 0,
+        "na": false,
+        "optional": true,
+        "ok": true
+      },
+      "analytics": {
+        "total": 5,
+        "in_top": 3,
+        "required": 3,
+        "na": false,
+        "optional": false,
+        "ok": true
+      },
+      "partnerships": {
+        "total": 4,
+        "in_top": 3,
+        "required": 0,
+        "na": false,
+        "optional": true,
+        "ok": true
+      },
+      "localization": {
+        "total": 3,
+        "in_top": 1,
+        "required": 3,
+        "na": false,
+        "optional": false,
+        "ok": true
+      },
+      "new_lines": {
+        "total": 4,
+        "in_top": 0,
+        "required": 0,
+        "na": false,
+        "optional": true,
+        "ok": true
+      },
+      "platform": {
+        "total": 10,
+        "in_top": 6,
+        "required": 0,
+        "na": false,
+        "optional": false,
+        "ok": true
+      }
+    },
+    "missing_in_top": [
+      "new_lines"
+    ],
+    "below_minimum": [],
+    "evidence_classes": {
+      "all": {
+        "A": 28,
+        "B": 16,
+        "C": 14,
+        "D": 10
+      },
+      "top": {
+        "A": 19,
+        "B": 8,
+        "C": 1,
+        "D": 2
+      }
+    },
+    "ab_share": 0.6471,
+    "ab_external_share": 0.6471,
+    "ab_internal_share": 0.0,
+    "horizons_top": {
+      "now": 24,
+      "next": 4,
+      "later": 2
+    },
+    "top_d_class": [
+      "P044",
+      "P031"
+    ]
+  },
+  "critical_path": [
+    "P030",
+    "P029",
+    "P018"
+  ],
+  "cycles": [],
+  "unknown_dependencies": [],
+  "families": [
+    {
+      "key": "demo",
+      "label": "публичное демо",
+      "pattern": "демо|demo\\b|витрин|showcase|playground|песочниц"
+    },
+    {
+      "key": "repo_open",
+      "label": "открытый репозиторий / исходный код",
+      "pattern": "репозитори|open[ -]?source|открыт\\w* код|исходн\\w* код|github|\\boss\\b|форк"
+    },
+    {
+      "key": "hosting",
+      "label": "хостинг / сервер",
+      "pattern": "хостинг|hosting|захостит|сервер|server|deploy|разверн|развёрт|vps|cloud|облак"
+    },
+    {
+      "key": "license",
+      "label": "лицензия",
+      "pattern": "лиценз|license|\\bmit\\b|\\bgpl|apache 2|copyright"
+    },
+    {
+      "key": "api",
+      "label": "API / интеграция",
+      "pattern": "\\bapi\\b|\\bапи\\b|sdk|webhook|вебхук|эндпоинт|endpoint"
+    },
+    {
+      "key": "payment",
+      "label": "приём платежей",
+      "pattern": "платёж|платеж|оплат|payment|checkout|stripe|paddle|юkassa|юкасс|robokassa|самозанят|\\bчек(и|ов|ом)?\\b"
+    },
+    {
+      "key": "domain",
+      "label": "домен",
+      "pattern": "домен|domain|\\bdns\\b"
+    },
+    {
+      "key": "analytics",
+      "label": "продуктовая аналитика / измерения",
+      "pattern": "аналитик\\w* (продукт|воронк|использован|событ)|метрик|событи[йяе] |трекинг|tracking|telemetry|телеметр|analytics|utm|счётчик|счетчик|воронк"
+    },
+    {
+      "key": "install",
+      "label": "установка / релиз",
+      "pattern": "установ|install|релиз|release|пакет|pypi|homebrew|winget|portable|портатив"
+    },
+    {
+      "key": "site",
+      "label": "сайт / посадочная страница",
+      "pattern": "лендинг|landing|посадочн|сайт\\b|сайта|website|github pages|страниц\\w* (продукт|установ)"
+    },
+    {
+      "key": "i18n",
+      "label": "перевод интерфейса",
+      "pattern": "английск|english|перевод|i18n|локализ|translation"
+    }
+  ]
+}

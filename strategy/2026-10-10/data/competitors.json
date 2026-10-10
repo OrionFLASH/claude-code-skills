@@ -1,0 +1,1018 @@
+[
+  {
+    "slug": "claude-code-skills",
+    "name": "claude-code-skills (OrionFLASH)",
+    "url": "https://github.com/OrionFLASH/claude-code-skills",
+    "self": true,
+    "type": "direct",
+    "segment": "Плагины-скилы для Claude Code: QA сайтов и Android, триаж модели, стратегия продукта",
+    "price": "Бесплатно (PolyForm Noncommercial 1.0.0, не OSI)",
+    "monetization": "нет [факт: research/product-understanding.md, 2026-10-10]",
+    "languages": [
+      "ru"
+    ],
+    "audience": "QA/разработчик-одиночка, пользователь Claude Code, соло-основатель",
+    "freshness": "Репозиторий создан 2026-10-07, 181 коммит за 4 дня [факт: research/product-understanding.md, 2026-10-10]",
+    "traffic": null,
+    "features_labels": {
+      "plugin_marketplace_install": "Установка через маркетплейс плагинов Claude Code",
+      "web_qa_browser": "QA живого сайта через браузер",
+      "a11y_wcag22": "Проверка доступности (WCAG)",
+      "android_app_qa": "QA Android-приложения (эмулятор/adb)",
+      "findings_to_github_issues": "Находки → черновики GitHub issues",
+      "auto_fix_code": "Автоисправление найденного в коде",
+      "recheck_fixes": "Перепроверка исправлений",
+      "effort_auto_selection": "Автовыбор reasoning effort под задачу",
+      "model_selection_routing": "Автовыбор/маршрутизация модели",
+      "subagent_model_routing": "Выбор модели для субагентов",
+      "strategy_from_repo": "Стратегия/аудит продукта по репозиторию",
+      "roadmap_planning_docs": "Роадмап, спеки, PRD",
+      "strategy_progress_tracking": "Отслеживание выполнения стратегии",
+      "cross_agent_portable": "Работает вне Claude Code (Codex, Cursor и др.)",
+      "osi_license": "Лицензия OSI (MIT/Apache/ISC и т.п.)"
+    },
+    "features": {
+      "plugin_marketplace_install": true,
+      "web_qa_browser": true,
+      "a11y_wcag22": true,
+      "android_app_qa": true,
+      "findings_to_github_issues": true,
+      "auto_fix_code": false,
+      "recheck_fixes": true,
+      "effort_auto_selection": true,
+      "model_selection_routing": true,
+      "subagent_model_routing": true,
+      "strategy_from_repo": true,
+      "roadmap_planning_docs": true,
+      "strategy_progress_tracking": true,
+      "cross_agent_portable": false,
+      "osi_license": false
+    },
+    "better_than_us": [],
+    "we_better": [],
+    "best_solutions": [
+      "Единый маркетплейс из 4 процессных скилов с общими запретами безопасности и dry-run"
+    ],
+    "design_note": "Нет UI; документация INSTALL.md с вставляемыми промптами, без GIF/скриншотов.",
+    "complaints": [],
+    "adopt": [],
+    "avoid": [],
+    "verdict": "Наш продукт",
+    "verdict_long": "Это сам claude-code-skills: четыре процессных скила; внешних пользователей нет.",
+    "shot": null,
+    "shot_blocked": false,
+    "sources": [
+      "https://github.com/OrionFLASH/claude-code-skills"
+    ]
+  },
+  {
+    "slug": "gstack",
+    "name": "gstack (Garry Tan)",
+    "url": "https://github.com/garrytan/gstack",
+    "type": "direct",
+    "segment": "Набор из 23 slash-команд-скилов (роли CEO/QA/релиз-инженер) для Claude Code и других агентов",
+    "price": "Бесплатно, MIT; «No premium tier» [факт: github.com/garrytan/gstack, 2026-10-10]",
+    "monetization": "нет; опциональные API других сервисов платные",
+    "languages": [
+      "en"
+    ],
+    "audience": "Разработчики и основатели, использующие Claude Code и другие агенты",
+    "freshness": "Последний push 2026-10-10; 135 820 звёзд, 20,2 тыс. форков [факт: api.github.com/repos/garrytan/gstack, 2026-10-10]; создан 2026-03-11",
+    "traffic": null,
+    "features": {
+      "plugin_marketplace_install": false,
+      "web_qa_browser": true,
+      "a11y_wcag22": false,
+      "android_app_qa": false,
+      "findings_to_github_issues": false,
+      "auto_fix_code": true,
+      "recheck_fixes": true,
+      "effort_auto_selection": false,
+      "model_selection_routing": false,
+      "subagent_model_routing": false,
+      "strategy_from_repo": false,
+      "roadmap_planning_docs": false,
+      "strategy_progress_tracking": false,
+      "cross_agent_portable": true,
+      "osi_license": true
+    },
+    "better_than_us": [
+      "Огромное внимание аудитории: 135,8 тыс. звёзд против наших 0 [факт: api.github.com, 2026-10-10]",
+      "/qa чинит баги атомарными коммитами и пишет падающий регресс-тест до фикса [факт: github.com/garrytan/gstack]",
+      "Кросс-агентная установка (--host: Codex, Cursor, OpenCode) [факт: github.com/garrytan/gstack]",
+      "Лицензия MIT, доступна корпоративным пользователям"
+    ],
+    "we_better": [
+      "Режим /qa-only у них тоже есть, но нет черновиков GitHub issues в описании [факт: github.com/garrytan/gstack]",
+      "У нас нет зависимости от Bun и сборки; установка через маркетплейс плагинов [факт: README репозитория]",
+      "У нас выделены a11y WCAG 2.2, SEO, скорость, Android-QA — у gstack на странице не заявлены"
+    ],
+    "best_solutions": [
+      "Тарифы /qa: Quick/Standard/Exhaustive — понятный выбор глубины (claudemarketplaces.com)",
+      "Один репозиторий — единая «личность» продукта с узнаваемыми командами"
+    ],
+    "design_note": "Витринный README, сильный личный бренд автора; много ролей в одном наборе.",
+    "complaints": [
+      "Windows/Git Bash: 8 из первых открытых issues — поломки хуков и setup (#3110, #3088, #3082) [факт: github.com/garrytan/gstack/issues, 2026-10-10]",
+      "Issue #3102: /design-review и /ship отправляют код в Codex без запроса [факт: там же]",
+      "Критика «это просто промпты в текстовом файле» [факт: benzatine.com]"
+    ],
+    "adopt": [
+      "Подать скил с тремя уровнями глубины прогона (быстро/стандарт/полно)",
+      "Строить регресс-тест перед фиксом в режиме исправления",
+      "Описание установки для нескольких агентов"
+    ],
+    "avoid": [
+      "Не раздувать набор ролей без явной ценности: сторонние обзоры называют его перекрывающимся и тяжёлым для входа",
+      "Не отправлять код во внешние сервисы без согласия"
+    ],
+    "verdict": "Главная угроза по вниманию",
+    "verdict_long": "gstack забирает внимание аудитории Claude Code (135,8 тыс. звёзд) и пересекается по QA сайтов; но он fix-ориентирован, не покрывает Android, a11y-матрицу и черновики issues в явном виде.",
+    "shot": null,
+    "shot_blocked": false,
+    "sources": [
+      "https://github.com/garrytan/gstack",
+      "https://api.github.com/repos/garrytan/gstack",
+      "https://github.com/garrytan/gstack/issues",
+      "https://claudemarketplaces.com/skills/garrytan/gstack/qa",
+      "https://benzatine.com/news-room/garry-tans-ai-journey-love-and-controversy-surrounding-his-claude-code-release"
+    ]
+  },
+  {
+    "slug": "accesslint-audit",
+    "name": "accesslint-audit (sickn33/agentic-awesome-skills)",
+    "url": "https://github.com/sickn33/agentic-awesome-skills",
+    "type": "direct",
+    "segment": "Скил аудита и исправления WCAG 2.2 для кода и живых страниц, часть каталога из 2 400+ скилов",
+    "price": "Бесплатно, MIT [факт: claudeskills.info, 2026-10-10]",
+    "monetization": "нет",
+    "languages": [
+      "en"
+    ],
+    "audience": "Разработчики фронтенда, QA по доступности",
+    "freshness": "Скил обновлён 2026-07-27; репозиторий 47,4 тыс. звёзд, релиз V19.3.0 [факт: claudeskills.info; github.com/sickn33/agentic-awesome-skills, 2026-10-10]",
+    "traffic": null,
+    "features": {
+      "plugin_marketplace_install": true,
+      "web_qa_browser": true,
+      "a11y_wcag22": true,
+      "android_app_qa": false,
+      "findings_to_github_issues": false,
+      "auto_fix_code": true,
+      "recheck_fixes": true,
+      "effort_auto_selection": false,
+      "model_selection_routing": false,
+      "subagent_model_routing": false,
+      "strategy_from_repo": false,
+      "roadmap_planning_docs": false,
+      "strategy_progress_tracking": false,
+      "cross_agent_portable": true,
+      "osi_license": true
+    },
+    "better_than_us": [
+      "Режимы report и fix в одном скиле, спрашивает намерение, если неясно [факт: claudeskills.info]",
+      "Прямой live-DOM аудит через CDP с запасными путями (browser MCP, HTML-строка) [факт: claudeskills.info]",
+      "Каталог распространяется на Codex, Cursor, Gemini, Kiro и др. [факт: github.com/sickn33/agentic-awesome-skills]",
+      "Охват аудитории: 47,4 тыс. звёзд у репозитория"
+    ],
+    "we_better": [
+      "У нас a11y — лишь одно из 10 направлений, но в связке с функциональностью, SEO и скоростью в одном прогоне [факт: research/product-understanding.md]",
+      "У нас черновики issues и перепроверка исправлений как часть процесса"
+    ],
+    "best_solutions": [
+      "Выбор режима «отчёт или правка» с вопросом при неясности",
+      "Резервные пути при отсутствии браузера"
+    ],
+    "design_note": "Минималистичная карточка в каталоге: одна команда установки.",
+    "complaints": [
+      "Жалоб на сам скил не найдено; общая жалоба на токенные затраты скилов: около 23 тыс. токенов за сессию у одного разработчика [факт: aiweekly.co]"
+    ],
+    "adopt": [
+      "Явные режимы report/fix и вопрос при неясном намерении",
+      "Запасные пути аудита без браузера"
+    ],
+    "avoid": [
+      "Не копировать масштаб каталога (2 400+ скилов): ценность в узком качестве"
+    ],
+    "verdict": "Прямой аналог a11y-части",
+    "verdict_long": "Закрывает ту же задачу WCAG 2.2 бесплатно и под MIT; опасен как «первый результат поиска» по a11y-скилам, но не покрывает Android и issues.",
+    "shot": null,
+    "shot_blocked": false,
+    "sources": [
+      "https://claudeskills.info/skills/sickn33/agentic-awesome-skills/accesslint-audit/",
+      "https://github.com/sickn33/agentic-awesome-skills"
+    ]
+  },
+  {
+    "slug": "deventually-a11y-plugin",
+    "name": "a11y-plugin (deventually)",
+    "url": "https://github.com/deventually/a11y-plugin",
+    "type": "direct",
+    "segment": "Плагин Claude Code для аудита и исправления WCAG 2.2 (A/AA/AAA)",
+    "price": "Бесплатно; лицензия не указана («as-is») [факт: github.com/deventually/a11y-plugin, 2026-10-10]",
+    "monetization": "нет",
+    "languages": [
+      "en"
+    ],
+    "audience": "Фронтенд-разработчики",
+    "freshness": "Создан и последний push 2026-03-31; 0 звёзд [факт: api.github.com/repos/deventually/a11y-plugin, 2026-10-10]",
+    "traffic": null,
+    "features": {
+      "plugin_marketplace_install": true,
+      "web_qa_browser": false,
+      "a11y_wcag22": true,
+      "android_app_qa": false,
+      "findings_to_github_issues": false,
+      "auto_fix_code": true,
+      "recheck_fixes": false,
+      "effort_auto_selection": false,
+      "model_selection_routing": false,
+      "subagent_model_routing": false,
+      "strategy_from_repo": false,
+      "roadmap_planning_docs": false,
+      "strategy_progress_tracking": false,
+      "cross_agent_portable": false,
+      "osi_license": false
+    },
+    "better_than_us": [
+      "71 детерминированная проверка в 9 категориях, кэш и история аудитов с дельтой [факт: github.com/deventually/a11y-plugin]",
+      "Команды /a11y-audit, /a11y-fix, /a11y-test с golden-тестами [факт: claudepluginhub.com]",
+      "Файлы .vue/.jsx/.svelte/.astro анализируются статически"
+    ],
+    "we_better": [
+      "Мы проверяем живое приложение, а не только исходники; у нас QA шире a11y",
+      "У нас лицензия объявлена явно (у них не указана)"
+    ],
+    "best_solutions": [
+      "Детерминированные проверки с golden-тестами для воспроизводимости",
+      "Инкрементальный кэш и дельта между аудитами"
+    ],
+    "design_note": "Минималистичный README, команды по префиксу.",
+    "complaints": [
+      "Жалоб не найдено: 0 звёзд, 0 issues [факт: api.github.com, 2026-10-10]"
+    ],
+    "adopt": [
+      "Дельта-отчёты между запусками (что исправлено, что нового)"
+    ],
+    "avoid": [
+      "Не оставлять репозиторий без лицензии"
+    ],
+    "verdict": "Нишевый: только a11y в коде",
+    "verdict_long": "Сопоставим с нами по масштабу (0 звёзд), но a11y-проверки по коду; полезен как образец детерминированных тестов.",
+    "shot": null,
+    "shot_blocked": false,
+    "sources": [
+      "https://www.claudepluginhub.com/marketplaces/deventually-a11y-wcag22",
+      "https://github.com/deventually/a11y-plugin",
+      "https://api.github.com/repos/deventually/a11y-plugin"
+    ]
+  },
+  {
+    "slug": "openai-android-emulator-qa",
+    "name": "android-emulator-qa (openai/plugins)",
+    "url": "https://github.com/openai/plugins",
+    "type": "direct",
+    "segment": "Скил QA Android-фич на эмуляторе через adb (UI-дерево, скриншоты, logcat)",
+    "price": "Бесплатно; лицензия на странице не указана [факт: tessl.io, 2026-10-10]",
+    "monetization": "нет",
+    "languages": [
+      "en"
+    ],
+    "audience": "Android-разработчики, использующие Codex и другие агенты",
+    "freshness": "Репозиторий openai/plugins: push 2026-10-08, 7 375 звёзд [факт: api.github.com/repos/openai/plugins, 2026-10-10]; скил обновлён «12 дней назад» [факт: tessl.io]",
+    "traffic": null,
+    "features": {
+      "plugin_marketplace_install": false,
+      "web_qa_browser": false,
+      "a11y_wcag22": false,
+      "android_app_qa": true,
+      "findings_to_github_issues": false,
+      "auto_fix_code": false,
+      "recheck_fixes": false,
+      "effort_auto_selection": false,
+      "model_selection_routing": false,
+      "subagent_model_routing": false,
+      "strategy_from_repo": false,
+      "roadmap_planning_docs": false,
+      "strategy_progress_tracking": false,
+      "cross_agent_portable": true,
+      "osi_license": false
+    },
+    "better_than_us": [
+      "Оценка качества 93%, проверка Snyk пройдена [факт: tessl.io]",
+      "Бренд OpenAI и 7,4 тыс. звёзд у репозитория",
+      "Короткий предсказуемый процесс: список устройств, установка через Gradle, запуск, adb-ввод, logcat [факт: tessl.io]",
+      "Правило «координаты — из UI-дерева, а не из скриншотов»"
+    ],
+    "we_better": [
+      "У нас матрица версий Android × железо × настройки, до 4 стендов, soak-сценарии, голос в микрофон эмулятора [факт: research/product-understanding.md]",
+      "Работает по APK/AAB без исходников (у них — сборка через Gradle)"
+    ],
+    "best_solutions": [
+      "Компактный UI-summary перед чтением полного XML",
+      "Правило выбора координат по UI-дереву"
+    ],
+    "design_note": "Страница реестра: краткое описание шагов.",
+    "complaints": [
+      "Жалоб не найдено; данные только из агрегаторов"
+    ],
+    "adopt": [
+      "Сжатая сводка UI-дерева для экономии токенов",
+      "Публикация оценки качества/сканов в карточках реестров"
+    ],
+    "avoid": [
+      "Не ограничиваться одним стендом без матрицы"
+    ],
+    "verdict": "Ориентир по простоте входа",
+    "verdict_long": "Закрывает ядро нашего android-qa-audit проще и под брендом OpenAI, но без матрицы стендов и работы по APK.",
+    "shot": null,
+    "shot_blocked": false,
+    "sources": [
+      "https://skillselion.com/skills/openai/plugins/android-emulator-qa",
+      "https://tessl.io/registry/skills/github/openai/plugins/android-emulator-qa",
+      "https://github.com/openai/plugins",
+      "https://api.github.com/repos/openai/plugins"
+    ]
+  },
+  {
+    "slug": "firecrawl-workflows",
+    "name": "firecrawl-workflows (Firecrawl)",
+    "url": "https://github.com/firecrawl/firecrawl-workflows",
+    "type": "direct",
+    "segment": "16 workflow-скилов Firecrawl, включая QA-отчёты, SEO-аудиты и исследования",
+    "price": "Скилы бесплатны (ISC); требования к ключу/тарифу Firecrawl на странице репозитория не указаны [факт: github.com/firecrawl/firecrawl-workflows, 2026-10-10]",
+    "monetization": "платформа Firecrawl (скилы — канал привлечения) [ДОПУЩЕНИЕ]",
+    "languages": [
+      "en"
+    ],
+    "audience": "Разработчики и маркетологи, работающие через агента",
+    "freshness": "189 звёзд; дата коммита на странице не показана [факт: github.com/firecrawl/firecrawl-workflows, 2026-10-10]",
+    "traffic": null,
+    "features": {
+      "plugin_marketplace_install": false,
+      "web_qa_browser": true,
+      "a11y_wcag22": false,
+      "android_app_qa": false,
+      "findings_to_github_issues": false,
+      "auto_fix_code": false,
+      "recheck_fixes": false,
+      "effort_auto_selection": false,
+      "model_selection_routing": false,
+      "subagent_model_routing": false,
+      "strategy_from_repo": false,
+      "roadmap_planning_docs": false,
+      "strategy_progress_tracking": false,
+      "cross_agent_portable": true,
+      "osi_license": true
+    },
+    "better_than_us": [
+      "QA-отчёт — один из готовых «результат-ориентированных» workflow-скилов, ставится одной командой npx skills add [факт: github.com/firecrawl/firecrawl-workflows]",
+      "Бренд платформы Firecrawl как канал распространения",
+      "Кросс-агентная установка через общий CLI skills"
+    ],
+    "we_better": [
+      "Мы не требуем внешней платформы для обхода сайта (работа через браузер агента)",
+      "У нас a11y, SEO и перепроверка в одном прогоне"
+    ],
+    "best_solutions": [
+      "Установка одной командой для каталога скилов"
+    ],
+    "design_note": "Страница-каталог с перечнем результатов.",
+    "complaints": [
+      "Страница описания firecrawl-qa вернула 429, подробности QA не проверены [факт: claudemarketplaces.com]"
+    ],
+    "adopt": [
+      "Формулировать скилы как «результат» (QA-отчёт), а не «процесс»"
+    ],
+    "avoid": [
+      "Не привязывать QA к платному сервису"
+    ],
+    "verdict": "Нишевый: QA как отчёт Firecrawl",
+    "verdict_long": "Конкурирует по запросу «claude code QA», но QA — лишь один из 16 workflow-скилов платформы; подробности работы не проверены.",
+    "shot": null,
+    "shot_blocked": false,
+    "sources": [
+      "https://github.com/firecrawl/firecrawl-workflows",
+      "https://claudemarketplaces.com/skills/firecrawl/firecrawl-workflows/firecrawl-qa"
+    ]
+  },
+  {
+    "slug": "opentestai-testers-ai",
+    "name": "OpenTestAI Claude Skills (testers.ai)",
+    "url": "https://testers.ai/claude.html",
+    "type": "direct",
+    "segment": "SKILL.md с 31 «виртуальным тестировщиком»: баги, персоны, генерация тестов",
+    "price": "не опубликовано; называются «open source», лицензия не указана [факт: testers.ai/claude.html, 2026-10-10]",
+    "monetization": "не опубликовано",
+    "languages": [
+      "en"
+    ],
+    "audience": "Тестировщики и продакт-менеджеры, работающие в Claude",
+    "freshness": "дата не показана на странице",
+    "traffic": null,
+    "features": {
+      "plugin_marketplace_install": false,
+      "web_qa_browser": true,
+      "a11y_wcag22": true,
+      "android_app_qa": false,
+      "findings_to_github_issues": false,
+      "auto_fix_code": false,
+      "recheck_fixes": false,
+      "effort_auto_selection": false,
+      "model_selection_routing": false,
+      "subagent_model_routing": false,
+      "strategy_from_repo": false,
+      "roadmap_planning_docs": false,
+      "strategy_progress_tracking": false,
+      "cross_agent_portable": false,
+      "osi_license": false
+    },
+    "better_than_us": [
+      "Анализ скриншотов, сетевых логов, консоли и DOM/доступности в одном скиле [факт: testers.ai/claude.html]",
+      "Персонные отзывы и генерация тест-кейсов в комплекте"
+    ],
+    "we_better": [
+      "У нас есть сверка с issues, перепроверка и черновики issues",
+      "Установка через маркетплейс плагинов, а не загрузка файла вручную"
+    ],
+    "best_solutions": [
+      "Режим «персоны» для UX-обратной связи"
+    ],
+    "design_note": "Лендинг с описанием режимов.",
+    "complaints": [
+      "Жалоб не найдено; требует Claude Desktop для Claude Code [факт: testers.ai/claude.html]"
+    ],
+    "adopt": [
+      "Режим персон как короткий проход UX"
+    ],
+    "avoid": [
+      "Не требовать ручной загрузки файла скила"
+    ],
+    "verdict": "Слабая угроза, мало данных",
+    "verdict_long": "Прямой по задаче «баг-детекция», но без данных о свежести, лицензии и цене.",
+    "shot": null,
+    "shot_blocked": false,
+    "sources": [
+      "https://testers.ai/claude.html"
+    ]
+  },
+  {
+    "slug": "claude-model-router-hook",
+    "name": "claude-model-router-hook (tzachbon)",
+    "url": "https://github.com/tzachbon/claude-model-router-hook",
+    "type": "direct",
+    "segment": "Хуки Claude Code: классификация промпта, рекомендация модели и effort, маршрутизация субагентов",
+    "price": "Бесплатно, MIT [факт: github.com/tzachbon/claude-model-router-hook, 2026-10-10]",
+    "monetization": "нет",
+    "languages": [
+      "en"
+    ],
+    "audience": "Пользователи Claude Code, экономящие токены",
+    "freshness": "Создан 2026-03-07, последний push 2026-09-02, 102 звезды [факт: api.github.com/repos/tzachbon/claude-model-router-hook, 2026-10-10]",
+    "traffic": null,
+    "features": {
+      "plugin_marketplace_install": true,
+      "web_qa_browser": false,
+      "a11y_wcag22": false,
+      "android_app_qa": false,
+      "findings_to_github_issues": false,
+      "auto_fix_code": false,
+      "recheck_fixes": false,
+      "effort_auto_selection": true,
+      "model_selection_routing": true,
+      "subagent_model_routing": true,
+      "strategy_from_repo": false,
+      "roadmap_planning_docs": false,
+      "strategy_progress_tracking": false,
+      "cross_agent_portable": false,
+      "osi_license": true
+    },
+    "better_than_us": [
+      "Лицензия MIT и установка одной curl-командой, закреплённой на коммите [факт: github.com/tzachbon/claude-model-router-hook]",
+      "102 звезды против наших 0",
+      "Только Python 3 и Claude Code, без внешнего сервиса и ключа",
+      "Fail-open: при ошибке промпт не меняется"
+    ],
+    "we_better": [
+      "У нас есть четвёртый уровень fable, действие «спросить», журнал фактов, квоты и маскировка секретов [факт: research/product-understanding.md]",
+      "Классификация через TypeSafe (Jev) вместе с локальными сигналами"
+    ],
+    "best_solutions": [
+      "Локальные эвристики + необязательный фоллбэк",
+      "Явный выход из маршрутизации префиксом ~ или <"
+    ],
+    "design_note": "README-руководство с режимами предупреждения и автопереключения.",
+    "complaints": [
+      "Основной сеанс обычно нельзя переключить на лету: документированное поведение — предупреждение или настройка на следующий сеанс [факт: wavect.io, 2026-10-07]",
+      "Смена модели ломает кэш промпта и может свести экономию к нулю [факт: wavect.io; github.com/anthropics/claude-code/issues/43326]"
+    ],
+    "adopt": [
+      "Установка одной командой с закреплением коммита",
+      "Демпфирование пограничных классификаций",
+      "Префикс-отключатель маршрутизации"
+    ],
+    "avoid": [
+      "Не обещать экономию без измерений: переключение моделей сбрасывает кэш"
+    ],
+    "verdict": "Главная угроза для triage",
+    "verdict_long": "Прямой конкурент typesafe-triage: бесплатный, MIT, с аудиторией; у нас глубже (4 модели, квоты, журнал), но входной порог выше.",
+    "shot": null,
+    "shot_blocked": false,
+    "sources": [
+      "https://github.com/tzachbon/claude-model-router-hook",
+      "https://api.github.com/repos/tzachbon/claude-model-router-hook",
+      "https://wavect.io/blog/claude-model-router-hooks-vs-proxy/",
+      "https://github.com/anthropics/claude-code/issues/43326"
+    ]
+  },
+  {
+    "slug": "knowledge-work-product-management",
+    "name": "product-management plugin (anthropics/knowledge-work-plugins)",
+    "url": "https://github.com/anthropics/knowledge-work-plugins",
+    "type": "direct",
+    "segment": "Официальный плагин Anthropic: спецификации, роадмапы, синтез исследований, обновления для заинтересованных сторон",
+    "price": "Репозиторий бесплатный (Apache-2.0); условия тарифа Claude на странице не указаны [факт: github.com/anthropics/knowledge-work-plugins, 2026-10-10]",
+    "monetization": "платформа Claude",
+    "languages": [
+      "en"
+    ],
+    "audience": "Продакт-менеджеры в Claude Cowork и Claude Code",
+    "freshness": "Push 2026-10-10, создан 2026-01-23, 28 704 звезды [факт: api.github.com/repos/anthropics/knowledge-work-plugins, 2026-10-10]",
+    "traffic": null,
+    "features": {
+      "plugin_marketplace_install": true,
+      "web_qa_browser": false,
+      "a11y_wcag22": false,
+      "android_app_qa": false,
+      "findings_to_github_issues": false,
+      "auto_fix_code": false,
+      "recheck_fixes": false,
+      "effort_auto_selection": false,
+      "model_selection_routing": false,
+      "subagent_model_routing": false,
+      "strategy_from_repo": false,
+      "roadmap_planning_docs": true,
+      "strategy_progress_tracking": false,
+      "cross_agent_portable": false,
+      "osi_license": true
+    },
+    "better_than_us": [
+      "Бренд Anthropic и 28,7 тыс. звёзд",
+      "Коннекторы к Slack, Linear, Asana, Jira, Notion, Amplitude, Pendo [факт: github.com/anthropics/knowledge-work-plugins]",
+      "Лицензия Apache-2.0, пригодна для компаний"
+    ],
+    "we_better": [
+      "Мы строим стратегию по коду, коммитам и issues с реестром 50–200 предложений и оценками RICE/ICE/WSJF",
+      "У нас отслеживание выполнения стратегии по репозиторию и экспорт XLSX/PPTX/PDF [факт: research/product-understanding.md]"
+    ],
+    "best_solutions": [
+      "Коннекторы к трекерам задач"
+    ],
+    "design_note": "Единая структура плагинов по функциям работы.",
+    "complaints": [
+      "Жалоб не найдено; страница не перечисляет отдельные скилы роадмапа [факт: github.com/anthropics/knowledge-work-plugins]"
+    ],
+    "adopt": [
+      "Коннекторы к внешним трекерам (Linear/Jira) для отслеживания"
+    ],
+    "avoid": [
+      "Не конкурировать с официальным набором в универсальных шаблонах PM"
+    ],
+    "verdict": "Ориентир по доверию и охвату",
+    "verdict_long": "Официальный набор Anthropic закрывает общие PM-задачи; наша ниша — стратегия, привязанная к репозиторию и проверяемая по коду.",
+    "shot": null,
+    "shot_blocked": false,
+    "sources": [
+      "https://github.com/anthropics/knowledge-work-plugins",
+      "https://api.github.com/repos/anthropics/knowledge-work-plugins"
+    ]
+  },
+  {
+    "slug": "codebase-audit-and-roadmap",
+    "name": "codebase-audit-and-roadmap (S3YED/appie-kit)",
+    "url": "https://claudskills.com/skills/codebase-audit-and-roadmap/",
+    "type": "direct",
+    "segment": "Скил: аудит кодовой базы → инвентарь функций, разбор пробелов, PRD плана",
+    "price": "Бесплатная ручная установка; ClaudSkills Pro $9/мес или $149 пожизненно за одноклик-установку [факт: claudskills.com, 2026-10-10]",
+    "monetization": "платная витрина-каталог (ClaudSkills Pro)",
+    "languages": [
+      "en"
+    ],
+    "audience": "Разработчики, оформляющие PRD",
+    "freshness": "Скил обновлён 2026-06-28; оценка безопасности A на 2026-09-28; звёзды не указаны [факт: claudskills.com, 2026-10-10]",
+    "traffic": null,
+    "features": {
+      "plugin_marketplace_install": false,
+      "web_qa_browser": false,
+      "a11y_wcag22": false,
+      "android_app_qa": false,
+      "findings_to_github_issues": false,
+      "auto_fix_code": false,
+      "recheck_fixes": false,
+      "effort_auto_selection": false,
+      "model_selection_routing": false,
+      "subagent_model_routing": false,
+      "strategy_from_repo": true,
+      "roadmap_planning_docs": true,
+      "strategy_progress_tracking": false,
+      "cross_agent_portable": false,
+      "osi_license": true
+    },
+    "better_than_us": [
+      "Установка копированием одного SKILL.md без зависимостей [факт: claudskills.com]",
+      "Лицензия MIT, сканирование безопасности класса A [факт: claudskills.com]"
+    ],
+    "we_better": [
+      "У нас глубокая стратегия с рынком, конкурентами, сообществами, оценками и отслеживанием, а не один PRD",
+      "Экспорт в XLSX/PPTX/PDF и интерактивная страница"
+    ],
+    "best_solutions": [
+      "Один файл, один результат — быстрый старт"
+    ],
+    "design_note": "Карточка каталога без визуальных примеров.",
+    "complaints": [
+      "Жалоб не найдено"
+    ],
+    "adopt": [
+      "Лёгкий режим «быстрый аудит → PRD за один проход»"
+    ],
+    "avoid": [
+      "Не ограничиваться PRD без доказательной базы"
+    ],
+    "verdict": "Лёгкий аналог product-strategy",
+    "verdict_long": "Закрывает урезанную версию нашей задачи за один проход; угроза мала, но показывает ожидание «быстро и бесплатно».",
+    "shot": null,
+    "shot_blocked": false,
+    "sources": [
+      "https://claudskills.com/skills/codebase-audit-and-roadmap/"
+    ]
+  },
+  {
+    "slug": "android-mcp-cursortouch",
+    "name": "Android-MCP (CursorTouch)",
+    "url": "https://github.com/CursorTouch/Android-MCP",
+    "type": "indirect",
+    "segment": "MCP-сервер управления Android через adb и Accessibility API",
+    "price": "Бесплатно, MIT [факт: github.com/CursorTouch/Android-MCP, 2026-10-10]",
+    "monetization": "нет",
+    "languages": [
+      "en"
+    ],
+    "audience": "Разработчики агентов и QA на Android 10+",
+    "freshness": "Создан 2025-06-11, push 2026-10-07, 888 звёзд [факт: api.github.com/repos/CursorTouch/Android-MCP, 2026-10-10]",
+    "traffic": null,
+    "features": {
+      "plugin_marketplace_install": false,
+      "web_qa_browser": false,
+      "a11y_wcag22": false,
+      "android_app_qa": true,
+      "findings_to_github_issues": false,
+      "auto_fix_code": false,
+      "recheck_fixes": false,
+      "effort_auto_selection": false,
+      "model_selection_routing": false,
+      "subagent_model_routing": false,
+      "strategy_from_repo": false,
+      "roadmap_planning_docs": false,
+      "strategy_progress_tracking": false,
+      "cross_agent_portable": true,
+      "osi_license": true
+    },
+    "better_than_us": [
+      "Инструменты State/Click/Swipe/Type/Shell подходят любой LLM или VLM [факт: github.com/CursorTouch/Android-MCP]",
+      "Опция SCREENSHOT_QUANTIZED экономит токены",
+      "888 звёзд"
+    ],
+    "we_better": [
+      "У нас готовый QA-процесс (матрица, находки, отчёты), а не набор инструментов",
+      "Работа в рамках скила без отдельного MCP-сервера"
+    ],
+    "best_solutions": [
+      "Квантованные скриншоты для экономии токенов"
+    ],
+    "design_note": "Технический README.",
+    "complaints": [
+      "Жалоб не найдено; задержка между действиями 2–4 с [факт: github.com/CursorTouch/Android-MCP]"
+    ],
+    "adopt": [
+      "Опция снижения токенов при скриншотах"
+    ],
+    "avoid": [
+      "Не оставлять QA на уровне «набор инструментов»"
+    ],
+    "verdict": "Инструмент, а не процесс",
+    "verdict_long": "Строительный блок для QA-агентов; конкурирует как способ управлять устройством, но не как готовый процесс.",
+    "shot": null,
+    "shot_blocked": false,
+    "sources": [
+      "https://github.com/CursorTouch/Android-MCP",
+      "https://api.github.com/repos/CursorTouch/Android-MCP"
+    ]
+  },
+  {
+    "slug": "claude-code-router",
+    "name": "Claude Code Router (musistudio)",
+    "url": "https://github.com/musistudio/claude-code-router",
+    "type": "indirect",
+    "segment": "Локальный шлюз к API моделей с правилами маршрутизации для Claude Code, Codex и др.",
+    "price": "Бесплатно, MIT; пожертвования (Ko-fi, PayPal, Alipay, WeChat Pay) [факт: github.com/musistudio/claude-code-router, 2026-10-10]",
+    "monetization": "пожертвования",
+    "languages": [
+      "en"
+    ],
+    "audience": "Пользователи, которым нужны другие провайдеры и модели",
+    "freshness": "Создан 2025-02-25, push 2026-10-10, 37 613 звёзд, 1 135 открытых issue/PR [факт: api.github.com/repos/musistudio/claude-code-router, 2026-10-10]",
+    "traffic": null,
+    "features": {
+      "plugin_marketplace_install": false,
+      "web_qa_browser": false,
+      "a11y_wcag22": false,
+      "android_app_qa": false,
+      "findings_to_github_issues": false,
+      "auto_fix_code": false,
+      "recheck_fixes": false,
+      "effort_auto_selection": false,
+      "model_selection_routing": true,
+      "subagent_model_routing": false,
+      "strategy_from_repo": false,
+      "roadmap_planning_docs": false,
+      "strategy_progress_tracking": false,
+      "cross_agent_portable": true,
+      "osi_license": true
+    },
+    "better_than_us": [
+      "37,6 тыс. звёзд; десктоп-приложение и UI [факт: github.com/musistudio/claude-code-router]",
+      "Маршрутизация по условиям, ретраи, цепочки фолбэков, пул ключей"
+    ],
+    "we_better": [
+      "Мы решаем иную задачу: выбор уровня модели Claude и effort под задачу, без подмены провайдера",
+      "Не требуем отдельного локального сервера и ключей сторонних провайдеров"
+    ],
+    "best_solutions": [
+      "Цепочки фолбэков моделей"
+    ],
+    "design_note": "Управляющий UI на порту 3458.",
+    "complaints": [
+      "Частые исправления: ошибка 404 из-за устаревшей модели по умолчанию, проблемы Keychain на macOS (v3.0.10, v3.0.18) [факт: newreleases.io, 2026-10-10]",
+      "Wavect: маршрутизация через прокси меняет путь запросов и место вывода [факт: wavect.io]"
+    ],
+    "adopt": [
+      "Понятная визуализация правил маршрутизации"
+    ],
+    "avoid": [
+      "Не подменять провайдера: это иной риск для доверия"
+    ],
+    "verdict": "Другой слой: шлюз к API",
+    "verdict_long": "Смежный продукт для запроса «model routing claude»: пользователь может принять его за аналог triage.",
+    "shot": null,
+    "shot_blocked": false,
+    "sources": [
+      "https://github.com/musistudio/claude-code-router",
+      "https://api.github.com/repos/musistudio/claude-code-router",
+      "https://newreleases.io/project/github/musistudio/claude-code-router/release/v3.0.10",
+      "https://wavect.io/blog/claude-model-router-hooks-vs-proxy/"
+    ]
+  },
+  {
+    "slug": "playwright-test-agents",
+    "name": "Playwright Test Agents (Microsoft)",
+    "url": "https://playwright.dev/docs/test-agents",
+    "type": "indirect",
+    "segment": "Три встроенных агента Playwright: planner, generator, healer; генерируют субагентов Claude Code",
+    "price": "Лицензия на странице не указана; Playwright — открытый проект [ДОПУЩЕНИЕ: Apache-2.0 по общеизвестным данным]",
+    "monetization": "нет",
+    "languages": [
+      "en"
+    ],
+    "audience": "QA-инженеры и разработчики, пишущие E2E-тесты",
+    "freshness": "Дата не показана на странице",
+    "traffic": null,
+    "features": {
+      "plugin_marketplace_install": false,
+      "web_qa_browser": true,
+      "a11y_wcag22": false,
+      "android_app_qa": false,
+      "findings_to_github_issues": false,
+      "auto_fix_code": true,
+      "recheck_fixes": true,
+      "effort_auto_selection": false,
+      "model_selection_routing": false,
+      "subagent_model_routing": false,
+      "strategy_from_repo": false,
+      "roadmap_planning_docs": false,
+      "strategy_progress_tracking": false,
+      "cross_agent_portable": true,
+      "osi_license": true
+    },
+    "better_than_us": [
+      "Planner/generator/healer создают и чинят настоящие автотесты, которые остаются в репозитории [факт: playwright.dev/docs/test-agents]",
+      "Одна команда npx playwright init-agents --loop=claude",
+      "Поддержка loop для vscode, claude, codex, opencode"
+    ],
+    "we_better": [
+      "Мы работаем без исходников и без написания тестов: аудит по живому сайту с отчётом",
+      "У нас a11y, SEO, скорость и находки → issues"
+    ],
+    "best_solutions": [
+      "Цикл «план → тест → починка» с гардрейлами"
+    ],
+    "design_note": "Документация Playwright, чёткая структура.",
+    "complaints": [
+      "Жалоб не найдено; требует Playwright и настройки проекта"
+    ],
+    "adopt": [
+      "Цикл исправления с гардрейлами остановки"
+    ],
+    "avoid": [
+      "Не привязывать QA к наличию тест-проекта"
+    ],
+    "verdict": "Ориентир по качеству тестов",
+    "verdict_long": "Косвенный: решает ту же проблему через генерацию автотестов; сильный бренд и стабильность.",
+    "shot": null,
+    "shot_blocked": false,
+    "sources": [
+      "https://playwright.dev/docs/test-agents"
+    ]
+  },
+  {
+    "slug": "qa-tech",
+    "name": "QA.tech",
+    "url": "https://qa.tech/pricing",
+    "type": "indirect",
+    "segment": "Платформа AI-агентов для E2E-тестирования web и mobile",
+    "price": "Тарифы Starter/Growth/Enterprise без цен, «Talk to us» [факт: qa.tech/pricing, 2026-10-10]",
+    "monetization": "SaaS-подписка",
+    "languages": [
+      "не указано"
+    ],
+    "audience": "B2B SaaS-команды",
+    "freshness": "Дата не показана на странице",
+    "traffic": null,
+    "features": {
+      "plugin_marketplace_install": false,
+      "web_qa_browser": true,
+      "a11y_wcag22": false,
+      "android_app_qa": true,
+      "findings_to_github_issues": false,
+      "auto_fix_code": false,
+      "recheck_fixes": false,
+      "effort_auto_selection": false,
+      "model_selection_routing": false,
+      "subagent_model_routing": false,
+      "strategy_from_repo": false,
+      "roadmap_planning_docs": false,
+      "strategy_progress_tracking": false,
+      "cross_agent_portable": false,
+      "osi_license": false
+    },
+    "better_than_us": [
+      "Бот постит отчёты в GitHub в PR, интеграции CI/CD, SOC 2 Type 2 [факт: qa.tech/pricing]",
+      "Параллельные прогоны и управляемая инфраструктура",
+      "Поддержка mobile, API, i18n"
+    ],
+    "we_better": [
+      "Бесплатно и локально, без передачи кода и приложения сервису",
+      "Прозрачная работа: всё в репозитории и файлах прогона"
+    ],
+    "best_solutions": [
+      "PR-бот с отчётом"
+    ],
+    "design_note": "Корпоративный лендинг, акцент на доверие.",
+    "complaints": [
+      "Жалоб не найдено"
+    ],
+    "adopt": [
+      "Отчёт в PR как отдельный сценарий"
+    ],
+    "avoid": [
+      "Не скрывать цены"
+    ],
+    "verdict": "Платный ориентир, B2B",
+    "verdict_long": "Другой сегмент (команды с бюджетом), но задаёт ожидания по CI, PR-отчётам и комплаенсу.",
+    "shot": null,
+    "shot_blocked": false,
+    "sources": [
+      "https://qa.tech/pricing"
+    ]
+  },
+  {
+    "slug": "claude-plugins-official",
+    "name": "claude-plugins-official (Anthropic)",
+    "url": "https://github.com/anthropics/claude-plugins-official",
+    "type": "indirect",
+    "segment": "Официальный каталог плагинов Claude Code с формой подачи внешних плагинов",
+    "price": "Бесплатно, Apache-2.0",
+    "monetization": "нет",
+    "languages": [
+      "en"
+    ],
+    "audience": "Все пользователи Claude Code",
+    "freshness": "37,6 тыс. звёзд; 4 379 коммитов [факт: github.com/anthropics/claude-plugins-official, 2026-10-10]",
+    "traffic": null,
+    "features": {
+      "plugin_marketplace_install": true,
+      "web_qa_browser": false,
+      "a11y_wcag22": false,
+      "android_app_qa": false,
+      "findings_to_github_issues": false,
+      "auto_fix_code": false,
+      "recheck_fixes": false,
+      "effort_auto_selection": false,
+      "model_selection_routing": false,
+      "subagent_model_routing": false,
+      "strategy_from_repo": false,
+      "roadmap_planning_docs": false,
+      "strategy_progress_tracking": false,
+      "cross_agent_portable": false,
+      "osi_license": true
+    },
+    "better_than_us": [
+      "Встроенная в /plugin витрина «Discover» и главный канал доверия [факт: github.com/anthropics/claude-plugins-official]",
+      "Установка по имени одной командой"
+    ],
+    "we_better": [
+      "Нам не нужна проверка каталога для работы своего маркетплейса"
+    ],
+    "best_solutions": [
+      "Витрина в /plugin > Discover"
+    ],
+    "design_note": "README с правилами каталога.",
+    "complaints": [
+      "Жалоб не найдено; Anthropic предупреждает, что не контролирует содержимое плагинов [факт: github.com/anthropics/claude-plugins-official]"
+    ],
+    "adopt": [
+      "Подать скилы через форму каталога"
+    ],
+    "avoid": [
+      "Не нарушать неизменяемость имён плагинов"
+    ],
+    "verdict": "Канал дистрибуции, не конкурент",
+    "verdict_long": "Прежде всего канал: попадание в каталог — главный рычаг видимости.",
+    "shot": null,
+    "shot_blocked": false,
+    "sources": [
+      "https://github.com/anthropics/claude-plugins-official"
+    ]
+  },
+  {
+    "slug": "claude-code-native-model-config",
+    "name": "Claude Code: встроенный выбор модели и effort",
+    "url": "https://code.claude.com/docs/en/model-config",
+    "type": "substitute",
+    "segment": "Алиасы /model, /effort, opusplan, model в субагентах, CLAUDE_CODE_SUBAGENT_MODEL",
+    "price": "Входит в Claude Code",
+    "monetization": "нет",
+    "languages": [
+      "en"
+    ],
+    "audience": "Все пользователи Claude Code",
+    "freshness": "Страница документации открыта 2026-10-10",
+    "traffic": null,
+    "features": {
+      "plugin_marketplace_install": false,
+      "web_qa_browser": false,
+      "a11y_wcag22": false,
+      "android_app_qa": false,
+      "findings_to_github_issues": false,
+      "auto_fix_code": false,
+      "recheck_fixes": false,
+      "effort_auto_selection": false,
+      "model_selection_routing": false,
+      "subagent_model_routing": true,
+      "strategy_from_repo": false,
+      "roadmap_planning_docs": false,
+      "strategy_progress_tracking": false,
+      "cross_agent_portable": false,
+      "osi_license": false
+    },
+    "better_than_us": [
+      "Нулевая установка: /model, /effort, frontmatter effort у скила и субагента [факт: code.claude.com/docs/en/model-config]",
+      "opusplan: Opus в плане, Sonnet в исполнении",
+      "Fallback-цепочки моделей"
+    ],
+    "we_better": [
+      "Нативно модель не меняется автоматически по задаче; у нас автоматический выбор [факт: code.claude.com/docs/en/model-config; github.com/anthropics/claude-code/issues/43326]"
+    ],
+    "best_solutions": [
+      "Настройка effort в frontmatter скила"
+    ],
+    "design_note": "Документация с таблицами алиасов.",
+    "complaints": [
+      "Открытый запрос #43326 (40 👍): нет автоматического выбора модели и effort; хук не меняет модель сеанса [факт: github.com/anthropics/claude-code/issues/43326]"
+    ],
+    "adopt": [
+      "Использовать effort в frontmatter скилов"
+    ],
+    "avoid": [
+      "Не дублировать нативные алиасы"
+    ],
+    "verdict": "Базовый заменитель triage",
+    "verdict_long": "Риск: Anthropic может встроить автовыбор; пока запрос открыт, это наша ниша.",
+    "shot": null,
+    "shot_blocked": false,
+    "sources": [
+      "https://code.claude.com/docs/en/model-config",
+      "https://github.com/anthropics/claude-code/issues/43326"
+    ]
+  }
+]

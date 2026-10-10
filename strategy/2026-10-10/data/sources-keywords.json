@@ -1,0 +1,164 @@
+[
+ {
+  "id": "SK001",
+  "url": "https://agentskills.io/",
+  "title": "Agent Skills — открытый формат (agentskills.io)",
+  "date_checked": "2026-10-10",
+  "used_for": "стандарт скилов; кластер «Что такое скилы»",
+  "status": null,
+  "note": "получено из результатов поиска; страница не открывалась"
+ },
+ {
+  "id": "SK002",
+  "url": "https://code.claude.com/docs/en/subagents",
+  "title": "Документация Claude Code: субагенты",
+  "date_checked": "2026-10-10",
+  "used_for": "кластер «Выбор модели и effort»",
+  "status": null,
+  "note": "получено из результатов поиска; страница не открывалась"
+ },
+ {
+  "id": "SK003",
+  "url": "https://docs.humanlayer.com/reference/subagent-models",
+  "title": "HumanLayer: модели и effort субагентов",
+  "date_checked": "2026-10-10",
+  "used_for": "формулировки про effort",
+  "status": null,
+  "note": "получено из результатов поиска; страница не открывалась"
+ },
+ {
+  "id": "SK004",
+  "url": "https://claudemarketplaces.com/skills/daymade/claude-code-skills/marketplace-dev",
+  "title": "claudemarketplaces: marketplace-dev",
+  "date_checked": "2026-10-10",
+  "used_for": "каталоги плагинов, конкуренция",
+  "status": null,
+  "note": "получено из результатов поиска; страница не открывалась"
+ },
+ {
+  "id": "SK005",
+  "url": "https://skills.joseconti.com/",
+  "title": "skills.joseconti.com — маркетплейс одного автора",
+  "date_checked": "2026-10-10",
+  "used_for": "каталоги плагинов",
+  "status": null,
+  "note": "получено из результатов поиска; страница не открывалась"
+ },
+ {
+  "id": "SK006",
+  "url": "https://www.vibeindex.ai/marketplaces/jeremylongshore/claude-code-plugins-plus-skills",
+  "title": "vibeindex: claude-code-plugins-plus-skills",
+  "date_checked": "2026-10-10",
+  "used_for": "каталоги плагинов",
+  "status": null,
+  "note": "получено из результатов поиска; страница не открывалась"
+ },
+ {
+  "id": "SK007",
+  "url": "https://claudeskills.info/skills/fugazi/test-automation-skills-agents/a11y-playwright-testing/",
+  "title": "claudeskills.info: a11y-playwright-testing",
+  "date_checked": "2026-10-10",
+  "used_for": "QA/a11y выдача",
+  "status": null,
+  "note": "получено из результатов поиска; страница не открывалась"
+ },
+ {
+  "id": "SK008",
+  "url": "https://claudeskills.info/skills/sickn33/agentic-awesome-skills/accesslint-audit/",
+  "title": "claudeskills.info: accesslint-audit",
+  "date_checked": "2026-10-10",
+  "used_for": "QA/a11y выдача",
+  "status": null,
+  "note": "получено из результатов поиска; страница не открывалась"
+ },
+ {
+  "id": "SK009",
+  "url": "https://github.com/Anjos2/mcp-android-emulator",
+  "title": "GitHub: mcp-android-emulator",
+  "date_checked": "2026-10-10",
+  "used_for": "Android QA выдача",
+  "status": null,
+  "note": "получено из результатов поиска; страница не открывалась"
+ },
+ {
+  "id": "SK010",
+  "url": "https://www.skills.sh/smithery/ai/android-emulator-qa",
+  "title": "skills.sh: Android Emulator QA",
+  "date_checked": "2026-10-10",
+  "used_for": "Android QA выдача",
+  "status": null,
+  "note": "получено из результатов поиска; страница не открывалась"
+ },
+ {
+  "id": "SK011",
+  "url": "https://dtf.ru/top_rating/4130214-reyting-neyrosetey-dlya-audita-sayta",
+  "title": "DTF: рейтинг нейросетей для аудита сайта",
+  "date_checked": "2026-10-10",
+  "used_for": "RU QA/аудит выдача",
+  "status": null,
+  "note": "получено из результатов поиска; страница не открывалась"
+ },
+ {
+  "id": "SK012",
+  "url": "https://habr.com/en/articles/993174",
+  "title": "Хабр: что такое Skills и как применять",
+  "date_checked": "2026-10-10",
+  "used_for": "RU скилы выдача",
+  "status": null,
+  "note": "получено из результатов поиска; страница не открывалась"
+ },
+ {
+  "id": "SK013",
+  "url": "https://habr.com/en/articles/1011524",
+  "title": "Хабр: гайд Anthropic по скилам (перевод)",
+  "date_checked": "2026-10-10",
+  "used_for": "RU скилы выдача",
+  "status": null,
+  "note": "получено из результатов поиска; страница не открывалась"
+ },
+ {
+  "id": "SK014",
+  "url": "https://www.datacamp.com/ru/tutorial/how-to-build-claude-code-plugins",
+  "title": "DataCamp RU: плагины Claude Code",
+  "date_checked": "2026-10-10",
+  "used_for": "RU плагины выдача",
+  "status": null,
+  "note": "получено из результатов поиска; страница не открывалась"
+ },
+ {
+  "id": "SK015",
+  "url": "https://claudemarketplaces.com/skills/phuryn/pm-skills/product-strategy",
+  "title": "claudemarketplaces: product-strategy",
+  "date_checked": "2026-10-10",
+  "used_for": "стратегия: выдача",
+  "status": null,
+  "note": "получено из результатов поиска; страница не открывалась"
+ },
+ {
+  "id": "SK016",
+  "url": "https://github.com/GetBindu/awesome-claude-code-and-skills",
+  "title": "GitHub: awesome-claude-code-and-skills",
+  "date_checked": "2026-10-10",
+  "used_for": "awesome-списки",
+  "status": null,
+  "note": "получено из результатов поиска; страница не открывалась"
+ },
+ {
+  "id": "SK017",
+  "url": "https://designrevision.com/blog/awesome-claude-code-skills",
+  "title": "designrevision: Awesome Claude Code Skills",
+  "date_checked": "2026-10-10",
+  "used_for": "awesome-списки",
+  "status": null,
+  "note": "получено из результатов поиска; страница не открывалась"
+ },
+ {
+  "id": "SK018",
+  "url": "https://systemprompt.io/guides/claude-code-cost-optimisation",
+  "title": "systemprompt: Claude Code cost optimisation",
+  "date_checked": "2026-10-10",
+  "used_for": "выбор модели выдача",
+  "status": null,
+  "note": "получено из результатов поиска; страница не открывалась"
+ }
+]

@@ -1,0 +1,346 @@
+[
+  {
+    "id": "SC001",
+    "url": "https://github.com/OrionFLASH/claude-code-skills",
+    "title": "GitHub - OrionFLASH/claude-code-skills",
+    "date_checked": "2026-10-10",
+    "used_for": "карточка нашего продукта (self)",
+    "status": 200
+  },
+  {
+    "id": "SC002",
+    "url": "https://github.com/tzachbon/claude-model-router-hook",
+    "title": "GitHub - tzachbon/claude-model-router-hook",
+    "date_checked": "2026-10-10",
+    "used_for": "карточка claude-model-router-hook: функции, лицензия, установка",
+    "status": 200
+  },
+  {
+    "id": "SC003",
+    "url": "https://github.com/garrytan/gstack",
+    "title": "GitHub - garrytan/gstack",
+    "date_checked": "2026-10-10",
+    "used_for": "карточка gstack: skills /qa, /qa-only, лицензия, звёзды",
+    "status": 200
+  },
+  {
+    "id": "SC004",
+    "url": "https://github.com/musistudio/claude-code-router",
+    "title": "GitHub - musistudio/claude-code-router",
+    "date_checked": "2026-10-10",
+    "used_for": "карточка claude-code-router",
+    "status": 200
+  },
+  {
+    "id": "SC005",
+    "url": "https://github.com/openai/plugins",
+    "title": "GitHub - openai/plugins",
+    "date_checked": "2026-10-10",
+    "used_for": "репозиторий openai/plugins: звёзды",
+    "status": 200
+  },
+  {
+    "id": "SC006",
+    "url": "https://github.com/anthropics/knowledge-work-plugins",
+    "title": "GitHub - anthropics/knowledge-work-plugins",
+    "date_checked": "2026-10-10",
+    "used_for": "карточка knowledge-work-product-management",
+    "status": 200
+  },
+  {
+    "id": "SC007",
+    "url": "https://github.com/anthropics/claude-plugins-official",
+    "title": "GitHub - anthropics/claude-plugins-official",
+    "date_checked": "2026-10-10",
+    "used_for": "карточка claude-plugins-official: канал дистрибуции, форма подачи",
+    "status": 200
+  },
+  {
+    "id": "SC008",
+    "url": "https://skillselion.com/skills/openai/plugins/android-emulator-qa",
+    "title": "Skillselion: android-emulator-qa (openai/plugins)",
+    "date_checked": "2026-10-10",
+    "used_for": "листинг android-emulator-qa (страница-заглушка)",
+    "status": 200
+  },
+  {
+    "id": "SC009",
+    "url": "https://www.claudepluginhub.com/marketplaces/deventually-a11y-wcag22",
+    "title": "deventually a11y wcag22 (ClaudePluginHub)",
+    "date_checked": "2026-10-10",
+    "used_for": "карточка deventually-a11y-plugin",
+    "status": 200
+  },
+  {
+    "id": "SC010",
+    "url": "https://claudeskills.info/skills/sickn33/agentic-awesome-skills/accesslint-audit/",
+    "title": "accesslint audit (claudeskills.info)",
+    "date_checked": "2026-10-10",
+    "used_for": "карточка accesslint-audit",
+    "status": 200
+  },
+  {
+    "id": "SC011",
+    "url": "https://claudemarketplaces.com/skills/firecrawl/firecrawl-workflows/firecrawl-qa",
+    "title": "firecrawl qa (claudemarketplaces.com)",
+    "date_checked": "2026-10-10",
+    "used_for": "описание firecrawl-qa (страница вернула 429; по выдаче поиска)",
+    "status": 429
+  },
+  {
+    "id": "SC012",
+    "url": "https://testers.ai/claude.html",
+    "title": "testers.ai: Claude Skills (OpenTestAI)",
+    "date_checked": "2026-10-10",
+    "used_for": "карточка opentestai-testers-ai",
+    "status": 200
+  },
+  {
+    "id": "SC013",
+    "url": "https://claudskills.com/skills/codebase-audit-and-roadmap/",
+    "title": "Codebase Audit And Roadmap (ClaudSkills)",
+    "date_checked": "2026-10-10",
+    "used_for": "карточка codebase-audit-and-roadmap",
+    "status": 200
+  },
+  {
+    "id": "SC014",
+    "url": "https://github.com/CursorTouch/Android-MCP",
+    "title": "GitHub - CursorTouch/Android-MCP",
+    "date_checked": "2026-10-10",
+    "used_for": "карточка android-mcp-cursortouch",
+    "status": 200
+  },
+  {
+    "id": "SC015",
+    "url": "https://github.com/deventually/a11y-plugin",
+    "title": "GitHub - deventually/a11y-plugin",
+    "date_checked": "2026-10-10",
+    "used_for": "карточка deventually-a11y-plugin: лицензия, звёзды",
+    "status": 200
+  },
+  {
+    "id": "SC016",
+    "url": "https://agentskills.io/home",
+    "title": "Agent Skills Overview (agentskills.io)",
+    "date_checked": "2026-10-10",
+    "used_for": "стандарт Agent Skills: кросс-агентная переносимость",
+    "status": 200
+  },
+  {
+    "id": "SC017",
+    "url": "https://tessl.io/registry/skills/github/openai/plugins/android-emulator-qa",
+    "title": "android emulator qa (Tessl registry)",
+    "date_checked": "2026-10-10",
+    "used_for": "карточка openai-android-emulator-qa: шаги, оценка качества",
+    "status": 200
+  },
+  {
+    "id": "SC018",
+    "url": "https://ru.beincrypto.com/top-skilov-dlya-claude-code/",
+    "title": "top skilov dlya claude code (BeInCrypto RU)",
+    "date_checked": "2026-10-10",
+    "used_for": "подборка скилов RU (страница вернула 403, не прочитана)",
+    "status": 403
+  },
+  {
+    "id": "SC019",
+    "url": "https://github.com/garrytan/gstack/issues",
+    "title": "Issues - garrytan/gstack",
+    "date_checked": "2026-10-10",
+    "used_for": "жалобы на gstack: открытые issues",
+    "status": 200
+  },
+  {
+    "id": "SC020",
+    "url": "https://github.com/firecrawl/firecrawl-workflows",
+    "title": "GitHub - firecrawl/firecrawl-workflows",
+    "date_checked": "2026-10-10",
+    "used_for": "карточка firecrawl-workflows",
+    "status": 200
+  },
+  {
+    "id": "SC021",
+    "url": "https://playwright.dev/docs/test-agents",
+    "title": "Playwright: Test agents",
+    "date_checked": "2026-10-10",
+    "used_for": "карточка playwright-test-agents",
+    "status": 200
+  },
+  {
+    "id": "SC022",
+    "url": "https://code.claude.com/docs/en/model-config",
+    "title": "Model configuration (Claude Code Docs)",
+    "date_checked": "2026-10-10",
+    "used_for": "нативные возможности выбора модели и effort",
+    "status": 200
+  },
+  {
+    "id": "SC023",
+    "url": "https://github.com/sickn33/agentic-awesome-skills",
+    "title": "GitHub - sickn33/agentic-awesome-skills",
+    "date_checked": "2026-10-10",
+    "used_for": "каталог AAS: accesslint-audit, jev-use",
+    "status": 200
+  },
+  {
+    "id": "SC024",
+    "url": "https://wavect.io/blog/claude-model-router-hooks-vs-proxy/",
+    "title": "claude model router hooks vs proxy (Wavect)",
+    "date_checked": "2026-10-10",
+    "used_for": "ограничения хук-маршрутизации моделей",
+    "status": 200
+  },
+  {
+    "id": "SC025",
+    "url": "https://api.github.com/repos/tzachbon/claude-model-router-hook",
+    "title": "GitHub API: repos/tzachbon/claude-model-router-hook",
+    "date_checked": "2026-10-10",
+    "used_for": "даты и звёзды claude-model-router-hook",
+    "status": 200
+  },
+  {
+    "id": "SC026",
+    "url": "https://api.github.com/repos/garrytan/gstack",
+    "title": "GitHub API: repos/garrytan/gstack",
+    "date_checked": "2026-10-10",
+    "used_for": "даты и звёзды gstack",
+    "status": 200
+  },
+  {
+    "id": "SC027",
+    "url": "https://api.github.com/repos/musistudio/claude-code-router",
+    "title": "GitHub API: repos/musistudio/claude-code-router",
+    "date_checked": "2026-10-10",
+    "used_for": "даты и звёзды claude-code-router",
+    "status": 200
+  },
+  {
+    "id": "SC028",
+    "url": "https://api.github.com/repos/deventually/a11y-plugin",
+    "title": "GitHub API: repos/deventually/a11y-plugin",
+    "date_checked": "2026-10-10",
+    "used_for": "даты и звёзды a11y-plugin",
+    "status": 200
+  },
+  {
+    "id": "SC029",
+    "url": "https://api.github.com/repos/CursorTouch/Android-MCP",
+    "title": "GitHub API: repos/CursorTouch/Android-MCP",
+    "date_checked": "2026-10-10",
+    "used_for": "даты и звёзды Android-MCP",
+    "status": 200
+  },
+  {
+    "id": "SC030",
+    "url": "https://api.github.com/repos/anthropics/knowledge-work-plugins",
+    "title": "GitHub API: repos/anthropics/knowledge-work-plugins",
+    "date_checked": "2026-10-10",
+    "used_for": "даты и звёзды knowledge-work-plugins",
+    "status": 200
+  },
+  {
+    "id": "SC031",
+    "url": "https://api.github.com/repos/openai/plugins",
+    "title": "GitHub API: repos/openai/plugins",
+    "date_checked": "2026-10-10",
+    "used_for": "даты и звёзды openai/plugins",
+    "status": 200
+  },
+  {
+    "id": "SC032",
+    "url": "https://github.com/anthropics/claude-code/issues/43326",
+    "title": "Feature Request: Auto-select model and effort level based on task complexity (claude-code #43326)",
+    "date_checked": "2026-10-10",
+    "used_for": "спрос на автовыбор модели; ограничение хуков",
+    "status": 200
+  },
+  {
+    "id": "SC033",
+    "url": "https://qa.tech/pricing",
+    "title": "QA.tech: Pricing",
+    "date_checked": "2026-10-10",
+    "used_for": "цены и функции QA.tech",
+    "status": 200
+  },
+  {
+    "id": "SC034",
+    "url": "https://aiweekly.co/alerts/claude-code-skills-waste-23k-tokens-per-session",
+    "title": "Claude Code Skills Waste 23K Tokens Per Session (AI Weekly)",
+    "date_checked": "2026-10-10",
+    "used_for": "жалоба на токенные затраты скилов",
+    "status": null
+  },
+  {
+    "id": "SC035",
+    "url": "https://benzatine.com/news-room/garry-tans-ai-journey-love-and-controversy-surrounding-his-claude-code-release",
+    "title": "Why Garry Tan's Claude Code setup has gotten so much love, and hate",
+    "date_checked": "2026-10-10",
+    "used_for": "критика gstack",
+    "status": null
+  },
+  {
+    "id": "SC036",
+    "url": "https://newreleases.io/project/github/musistudio/claude-code-router/release/v3.0.10",
+    "title": "github musistudio/claude-code-router v3.0.10 (newreleases.io)",
+    "date_checked": "2026-10-10",
+    "used_for": "жалобы/исправления claude-code-router",
+    "status": null
+  },
+  {
+    "id": "SC037",
+    "url": "https://claudemarketplaces.com/skills/garrytan/gstack/qa",
+    "title": "qa (garrytan/gstack) - claudemarketplaces.com",
+    "date_checked": "2026-10-10",
+    "used_for": "описание gstack qa (результат поиска)",
+    "status": null
+  },
+  {
+    "id": "SC038",
+    "url": "https://designrevision.com/blog/awesome-claude-code-plugins",
+    "title": "awesome claude code plugins (DesignRevision)",
+    "date_checked": "2026-10-10",
+    "used_for": "подборка плагинов (результат поиска)",
+    "status": null
+  },
+  {
+    "id": "SC039",
+    "url": "https://www.datacamp.com/ru/tutorial/how-to-build-claude-code-plugins",
+    "title": "Руководство по плагинам Claude Code (DataCamp RU)",
+    "date_checked": "2026-10-10",
+    "used_for": "RU-материал по плагинам (результат поиска)",
+    "status": null
+  },
+  {
+    "id": "SC040",
+    "url": "https://habr.com/ru/posts/986194",
+    "title": "habr.com/ru/posts/986194",
+    "date_checked": "2026-10-10",
+    "used_for": "RU-материал (результат поиска)",
+    "status": null
+  },
+  {
+    "id": "SC041",
+    "url": "https://aipure.ai/ru/products/agenticqa",
+    "title": "AgenticQA (AIPURE RU)",
+    "date_checked": "2026-10-10",
+    "used_for": "RU-обзор AI-QA сервисов (результат поиска)",
+    "status": null
+  },
+  {
+    "id": "SC042",
+    "url": "https://www.mindstudio.ai/blog/context-rot-claude-code-skills-bloated-files",
+    "title": "context rot claude code skills bloated files (MindStudio)",
+    "date_checked": "2026-10-10",
+    "used_for": "context rot (результат поиска)",
+    "status": null
+  },
+  {
+    "id": "SC043",
+    "url": "https://code.claude.com/docs/ru/discover-plugins",
+    "title": "Обнаружение плагинов (Claude Code Docs RU)",
+    "date_checked": "2026-10-10",
+    "used_for": "RU-документация плагинов (результат поиска)",
+    "status": null
+  }
+]

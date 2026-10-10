@@ -1,0 +1,564 @@
+[
+  {
+    "name": "Hacker News (Show HN)",
+    "url": "https://news.ycombinator.com/show",
+    "platform": "форум/агрегатор",
+    "language": "en",
+    "audience_size": null,
+    "self_promo_rules": "Show HN разрешён для своего проекта, который можно попробовать без регистрации и email, нетривиальный и готовый; заголовок начинается с «Show HN»; нельзя просить друзей голосовать. Общие правила: свои материалы только «part of the time». Лендинги и мелкие обновления не подходят. [факт: правила прочитаны, 2026-10-10]",
+    "allowed_formats": [
+      "Show HN: пост с ссылкой на репозиторий",
+      "ответы автора в треде"
+    ],
+    "ban_risk": 3,
+    "source": "https://news.ycombinator.com/showhn.html",
+    "useful_formats": [
+      "Show HN про typesafe-triage: хук выбора модели под задачу, с описанием метода и ограничений",
+      "комментарий-разбор в чужих тредах про токены/модели Claude Code"
+    ],
+    "rules_verified": true,
+    "date_checked": "2026-10-10"
+  },
+  {
+    "name": "Reddit r/ClaudeAI",
+    "url": "https://www.reddit.com/r/ClaudeAI/",
+    "platform": "субреддит",
+    "language": "en",
+    "audience_size": null,
+    "self_promo_rules": "Полный текст правил не прочитан. Из сообщения модераторов (апрель 2026): showcase проектов в ленте требует karma>=50, иначе направляют в мегатред Built with Claude; условия showcase — в Rule 7 (текст не получен). Сторонние данные о минимальном возрасте аккаунта (~3 дня) — анекдотические. [факт: фрагмент из поиска, 2026-10-10]",
+    "allowed_formats": [
+      "мегатред Built with Claude / showcase",
+      "ответ на вопрос с упоминанием инструмента"
+    ],
+    "ban_risk": 3,
+    "source": "https://www.reddit.com/r/ClaudeAI/",
+    "useful_formats": [
+      "разбор кейса: как выбрать модель и effort под задачу, со ссылкой на скил лишь как пример"
+    ],
+    "rules_verified": false,
+    "date_checked": "2026-10-10"
+  },
+  {
+    "name": "Reddit r/ClaudeCode",
+    "url": "https://www.reddit.com/r/ClaudeCode/",
+    "platform": "субреддит",
+    "language": "en",
+    "audience_size": null,
+    "self_promo_rules": "Правила не найдены и не прочитаны (Reddit недоступен для чтения в прогоне). Считать самопродвижение ограниченным. [ДОПУЩЕНИЕ] Существование и профиль сообщества не подтверждены в этом прогоне.",
+    "allowed_formats": [
+      "ответ на вопрос",
+      "пост с разбором без рекламного тона (только после чтения правил)"
+    ],
+    "ban_risk": 3,
+    "source": "https://www.reddit.com/r/ClaudeCode/",
+    "useful_formats": [
+      "показ рабочего примера хука UserPromptSubmit",
+      "разбор экономии токенов"
+    ],
+    "rules_verified": false,
+    "date_checked": "2026-10-10"
+  },
+  {
+    "name": "Reddit r/softwaretesting",
+    "url": "https://www.reddit.com/r/softwaretesting/",
+    "platform": "субреддит",
+    "language": "en",
+    "audience_size": null,
+    "self_promo_rules": "Пост модераторов (2024, зеркало): коммерческие инструменты обсуждать можно, если упоминание выглядит естественным; ссылки на сайт, блог или раздел обучения коммерческого инструмента запрещены; на подозрительные аккаунты просят жаловаться. Актуальные правила не открыты. [факт: фрагмент из поиска, 2026-10-10]",
+    "allowed_formats": [
+      "ответ на вопрос с раскрытием авторства",
+      "технический разбор без ссылки на коммерческие сайты"
+    ],
+    "ban_risk": 4,
+    "source": "https://redlib.hackliberty.org/r/softwaretesting",
+    "useful_formats": [
+      "разбор: как проверить a11y сайта через браузерного агента (вывод находок в issues)"
+    ],
+    "rules_verified": false,
+    "date_checked": "2026-10-10"
+  },
+  {
+    "name": "Reddit r/QualityAssurance",
+    "url": "https://www.reddit.com/r/QualityAssurance/",
+    "platform": "субреддит",
+    "language": "en",
+    "audience_size": ">81 тыс. (оценка)",
+    "self_promo_rules": "Явных правил самопродвижения не найдено. Правило не нашёл: ban_risk не ниже 3. [факт: поиск, 2026-10-10]",
+    "allowed_formats": [
+      "ответ на вопрос",
+      "обсуждение подхода к QA без ссылки (со ссылкой — после чтения правил)"
+    ],
+    "ban_risk": 3,
+    "source": "https://thectoclub.com/nl/carriere/beste-softwaretestgemeenschappen/",
+    "useful_formats": [
+      "шаблон отчёта об ошибках из находок аудита"
+    ],
+    "rules_verified": false,
+    "date_checked": "2026-10-10",
+    "audience_note": "[оценка: сторонний источник, >81 000 участников, дата неизвестна]"
+  },
+  {
+    "name": "Reddit r/androiddev",
+    "url": "https://www.reddit.com/r/androiddev/",
+    "platform": "субреддит",
+    "language": "en",
+    "audience_size": null,
+    "self_promo_rules": "Снимок 2023: промо-пост требует содержательного описания пользы для разработчиков и готовности отвечать; открытого исходного кода желательно. Ежемесячный тред «Interesting Android Apps» (late 2025) — место для показа проектов, указывать бесплатность/платность; вне него самопродвижение обычно не разрешают. [факт: фрагменты из поиска, не первичный источник]",
+    "allowed_formats": [
+      "ежемесячный showcase-тред",
+      "ответ на вопрос про тестирование на эмуляторах"
+    ],
+    "ban_risk": 4,
+    "source": "https://redlib.hbubli.cc/r/androiddev/s/w1T0bZ4NHD",
+    "useful_formats": [
+      "разбор: матрица эмуляторов и конфигураций для QA APK через adb"
+    ],
+    "rules_verified": false,
+    "date_checked": "2026-10-10"
+  },
+  {
+    "name": "Reddit r/SideProject",
+    "url": "https://www.reddit.com/r/SideProject/",
+    "platform": "субреддит",
+    "language": "en",
+    "audience_size": null,
+    "self_promo_rules": "Официальные правила не найдены; сторонние источники расходятся (от «дружелюбен к промо, есть еженедельный тред» до «для обратной связи»). Размер: ~300K и ~795K в разных сторонних источниках. [факт: поиск; допущение: правила уточнить в сайдбаре]",
+    "allowed_formats": [
+      "пост «поделись проектом» с просьбой об отзыве"
+    ],
+    "ban_risk": 3,
+    "source": "https://thehiveindex.com/communities/side-project/",
+    "useful_formats": [
+      "история создания 4 скилов за 4 дня с честными числами"
+    ],
+    "rules_verified": false,
+    "date_checked": "2026-10-10"
+  },
+  {
+    "name": "Product Hunt",
+    "url": "https://www.producthunt.com/",
+    "platform": "каталог/площадка запусков",
+    "language": "en",
+    "audience_size": null,
+    "self_promo_rules": "Мейкерам рекомендуют самим публиковать свой продукт; ссылкой на запуск можно делиться где угодно; нельзя прямо просить апвоты (просить посетить и прокомментировать). Корпоративные аккаунты запрещены, нужен личный. Бесплатно. [факт: правила прочитаны, 2026-10-10]",
+    "allowed_formats": [
+      "запуск продукта (личный аккаунт)",
+      "комментарии под запуском"
+    ],
+    "ban_risk": 2,
+    "source": "https://www.producthunt.com/launch",
+    "useful_formats": [
+      "запуск маркетплейса скилов с демо-GIF и командой установки"
+    ],
+    "rules_verified": true,
+    "date_checked": "2026-10-10"
+  },
+  {
+    "name": "DEV Community (dev.to)",
+    "url": "https://dev.to/",
+    "platform": "блог-платформа",
+    "language": "en",
+    "audience_size": null,
+    "self_promo_rules": "Контент не должен создаваться главным образом ради продвижения или обратных ссылок; пост должен иметь собственное содержание, а не только ссылку на внешний текст; партнёрские ссылки раскрывать. Нарушения: удаление и ограничение участия. [факт: правила прочитаны, 2026-10-10]",
+    "allowed_formats": [
+      "технический пост-туториал с кодом",
+      "разбор архитектуры хука"
+    ],
+    "ban_risk": 3,
+    "source": "https://dev.to/terms",
+    "useful_formats": [
+      "пост: как выбирать модель Claude и effort под задачу, с кодом хука"
+    ],
+    "rules_verified": true,
+    "date_checked": "2026-10-10"
+  },
+  {
+    "name": "Hashnode",
+    "url": "https://hashnode.com/",
+    "platform": "блог-платформа",
+    "language": "en",
+    "audience_size": null,
+    "self_promo_rules": "По Community Guidelines (пересказ из поиска): промо без полезного материала нежелательно; продвижение продукта, связанного с разработкой ПО, допустимо со ссылкой и просьбой об отзыве. Code of Conduct запрещает автопостинг, накрутку и использование платформы в основном для саморекламы. [факт: пересказ из поиска, страница не прочитана напрямую]",
+    "allowed_formats": [
+      "технический пост",
+      "пост с просьбой об отзыве о проекте"
+    ],
+    "ban_risk": 3,
+    "source": "https://hashnode.com/guidelines",
+    "useful_formats": [
+      "пост про QA сайтов агентом: методика и ограничения"
+    ],
+    "rules_verified": false,
+    "date_checked": "2026-10-10"
+  },
+  {
+    "name": "Lobsters",
+    "url": "https://lobste.rs/",
+    "platform": "форум/агрегатор",
+    "language": "en",
+    "audience_size": null,
+    "self_promo_rules": "Регистрация только по приглашению; самопродвижение — менее четверти ваших постов и комментариев; сайт не для «write-only» анонсов. Первые 70 дней: нельзя отправлять ссылки на новые для сайта домены. [факт: правила прочитаны, 2026-10-10]",
+    "allowed_formats": [
+      "статья о технике (не анонс)",
+      "комментарии"
+    ],
+    "ban_risk": 4,
+    "source": "https://lobste.rs/about",
+    "useful_formats": [
+      "подробный технический разбор без маркетинга (после получения приглашения)"
+    ],
+    "rules_verified": true,
+    "date_checked": "2026-10-10"
+  },
+  {
+    "name": "Stack Overflow",
+    "url": "https://stackoverflow.com/",
+    "platform": "Q&A",
+    "language": "en",
+    "audience_size": null,
+    "self_promo_rules": "Откровенное самопродвижение понижают голосами и помечают как спам; упоминать свой продукт в ответе можно, но аффилиацию нужно раскрыть; если большая часть постов про ваш продукт — это плохо. Числовых порогов не найдено. [факт: пересказ из поиска; страница недоступна для чтения]",
+    "allowed_formats": [
+      "ответ на вопрос по существу с раскрытием авторства"
+    ],
+    "ban_risk": 4,
+    "source": "https://stackoverflow.com/help/promotion",
+    "useful_formats": [
+      "ответы про Playwright/adb, где скил — лишь одна из ссылок и с раскрытием"
+    ],
+    "rules_verified": false,
+    "date_checked": "2026-10-10"
+  },
+  {
+    "name": "awesome-claude-code (curated list)",
+    "url": "https://github.com/hesreallyhim/awesome-claude-code",
+    "platform": "каталог/curated list",
+    "language": "en",
+    "audience_size": "55,4 тыс. звёзд",
+    "self_promo_rules": "Подача только через веб-форму issue человеком (не gh CLI, не PR); ресурс старше 14 дней с активной разработкой ИЛИ >=100 звёзд; один ресурс на заявку; описание — что делает, а не реклама, без эмодзи, одна строка; Discussions не для продвижения; отбор курируемый, ответ не гарантирован. [факт: правила прочитаны, 2026-10-10]",
+    "allowed_formats": [
+      "заявка через форму после 2026-10-21 (14 дней с первого коммита 2026-10-07, [допущение: репозиторий создан 2026-10-07])"
+    ],
+    "ban_risk": 2,
+    "source": "https://raw.githubusercontent.com/hesreallyhim/awesome-claude-code/main/CONTRIBUTING.md",
+    "useful_formats": [
+      "заявка на отдельный плагин (например, site-qa-audit), по одному на заявку"
+    ],
+    "rules_verified": true,
+    "date_checked": "2026-10-10",
+    "audience_note": "[факт: 55.4k звёзд, 2026-10-10]"
+  },
+  {
+    "name": "anthropics/claude-plugins-official (каталог внешних плагинов)",
+    "url": "https://github.com/anthropics/claude-plugins-official",
+    "platform": "каталог/маркетплейс",
+    "language": "en",
+    "audience_size": "37,6 тыс. звёзд",
+    "self_promo_rules": "Внешние плагины подаются через форму приёма (ссылка в README); критерии: «quality and security standards», подробности не указаны; одобренные попадают в /external_plugins. [факт: правила прочитаны, 2026-10-10]",
+    "allowed_formats": [
+      "заявка через форму"
+    ],
+    "ban_risk": 1,
+    "source": "https://github.com/anthropics/claude-plugins-official",
+    "useful_formats": [
+      "подача плагина, прошедшего собственные тесты (~600)"
+    ],
+    "rules_verified": true,
+    "date_checked": "2026-10-10",
+    "audience_note": "[факт: 37.6k звёзд, 2026-10-10]"
+  },
+  {
+    "name": "claudemarketplaces.com",
+    "url": "https://claudemarketplaces.com/",
+    "platform": "каталог/агрегатор",
+    "language": "en",
+    "audience_size": null,
+    "self_promo_rules": "Формы подачи нет: краулеры находят маркетплейсы на GitHub по валидной схеме и скилы с «demonstrated search demand», новые и спорные проверяет редактор; реклама платная и маркируется (не исследуется — бюджет нулевой). Контакт: адрес на странице about. [факт: правила прочитаны, 2026-10-10]",
+    "allowed_formats": [
+      "валидный .claude-plugin/marketplace.json (уже есть)",
+      "письмо редактору при отсутствии в индексе"
+    ],
+    "ban_risk": 2,
+    "source": "https://claudemarketplaces.com/about",
+    "useful_formats": [
+      "проверка, что маркетплейс индексируется; корректные описания в marketplace.json"
+    ],
+    "rules_verified": true,
+    "date_checked": "2026-10-10"
+  },
+  {
+    "name": "Changelog News",
+    "url": "https://changelog.com/news",
+    "platform": "рассылка/дайджест",
+    "language": "en",
+    "audience_size": null,
+    "self_promo_rules": "Принимают ссылки на чужое и своё; не принимают how-to и туториалы, коммерческие продукты/услуги (их направляют в спонсорство), враждебные к читателю сайты; нужно объяснить новостную ценность; нужен вход. [факт: правила прочитаны, 2026-10-10]",
+    "allowed_formats": [
+      "ссылка с объяснением, почему это интересно разработчикам"
+    ],
+    "ban_risk": 3,
+    "source": "https://changelog.com/news/submit",
+    "useful_formats": [
+      "подача нетривиального технического результата, а не анонса плагина"
+    ],
+    "rules_verified": true,
+    "date_checked": "2026-10-10"
+  },
+  {
+    "name": "TLDR AI (рассылка)",
+    "url": "https://tldr.tech/ai",
+    "platform": "рассылка/дайджест",
+    "language": "en",
+    "audience_size": null,
+    "self_promo_rules": "Правил редакционной подачи не найдено; найден только платный рекламный путь (не исследуется при zero-budget-solo). ban_risk не ниже 3. [факт: поиск, 2026-10-10]",
+    "allowed_formats": [
+      "только если найдётся бесплатная форма подачи (не найдена)"
+    ],
+    "ban_risk": 3,
+    "source": "https://signup.tldr.tech/ai",
+    "useful_formats": [
+      "упоминание после публикации значимой статьи/поста"
+    ],
+    "rules_verified": false,
+    "date_checked": "2026-10-10"
+  },
+  {
+    "name": "Anthropic Discord (официальный сервер для разработчиков)",
+    "url": "https://www.anthropic.com/",
+    "platform": "чат/сервер",
+    "language": "en",
+    "audience_size": null,
+    "self_promo_rules": "Правила сервера и каналов showcase не найдены; только сторонний гид упоминает существование сервера и showcase-каналов. Прямой ссылки на приглашение не дано (брать на официальных страницах Anthropic). [допущение: самопродвижение ограничено, читать правила при входе]",
+    "allowed_formats": [
+      "ответ на вопрос",
+      "showcase-канал, если он есть (не подтверждено)"
+    ],
+    "ban_risk": 3,
+    "source": "https://artificial-intelligence-wiki.com/ai-research/ai-news-and-trends/ai-discord-servers-guide/",
+    "useful_formats": [
+      "помощь с вопросами про skills/hooks"
+    ],
+    "rules_verified": false,
+    "date_checked": "2026-10-10"
+  },
+  {
+    "name": "Indie Hackers",
+    "url": "https://www.indiehackers.com/",
+    "platform": "форум",
+    "language": "en",
+    "audience_size": null,
+    "self_promo_rules": "Страница правил не открылась (403); содержимое не прочитано. ban_risk не ниже 3. [факт: попытка открытия, 2026-10-10]",
+    "allowed_formats": [
+      "пост об опыте запуска (после чтения правил)"
+    ],
+    "ban_risk": 3,
+    "source": "https://www.indiehackers.com/rules",
+    "useful_formats": [
+      "история запуска с нулевым бюджетом и честными метриками"
+    ],
+    "rules_verified": false,
+    "date_checked": "2026-10-10"
+  },
+  {
+    "name": "GitHub (Topics, README, Discussions своего репозитория)",
+    "url": "https://github.com/OrionFLASH/claude-code-skills",
+    "platform": "хостинг кода/каталог",
+    "language": "en",
+    "audience_size": null,
+    "self_promo_rules": "Реклама допустима, но не должна быть основной целью; рекламный текст и ссылки в README/описании проекта допустимы, если относятся к проекту; нельзя рекламировать в чужих аккаунтах и issues; запрещены накрутка звёзд и стимулирование активности подарками. [факт: правила прочитаны, 2026-10-10]",
+    "allowed_formats": [
+      "темы (topics) репозитория",
+      "README с GIF",
+      "Discussions своего репозитория"
+    ],
+    "ban_risk": 1,
+    "source": "https://docs.github.com/en/site-policy/acceptable-use-policies/github-acceptable-use-policies",
+    "useful_formats": [
+      "README с демо, темы claude-code, claude-code-plugin, agent-skills"
+    ],
+    "rules_verified": true,
+    "date_checked": "2026-10-10"
+  },
+  {
+    "name": "Хабр (статьи)",
+    "url": "https://habr.com/ru/",
+    "platform": "блог-платформа",
+    "language": "ru",
+    "audience_size": null,
+    "self_promo_rules": "Нельзя использовать Хабр как площадку для продвижения своих проектов; рекламные публикации — только в корпоративных блогах или в хабе «Я пиарюсь»; полезные нереферальные по теме ссылки приветствуются, ссылки ради продаж/сбора контактов могут быть удалены; упоминание канала один раз. Требований к карме для статей на странице не найдено. Наказания: удаление, ReadOnly, деактивация. [факт: правила прочитаны, 2026-10-10]",
+    "allowed_formats": [
+      "технический разбор «как устроено» со ссылкой на открытый код (полезная ссылка по теме)"
+    ],
+    "ban_risk": 4,
+    "source": "https://habr.com/ru/docs/help/rules/",
+    "useful_formats": [
+      "статья: как хук UserPromptSubmit выбирает модель и effort, с кодом и ограничениями"
+    ],
+    "rules_verified": true,
+    "date_checked": "2026-10-10"
+  },
+  {
+    "name": "Хабр Q&A",
+    "url": "https://qna.habr.com/",
+    "platform": "Q&A",
+    "language": "ru",
+    "audience_size": null,
+    "self_promo_rules": "Отдельные правила не открыты; действуют общие правила Хабра (самопродвижение запрещено, полезные ссылки допустимы). ban_risk не ниже 3. [факт: правила Q&A не прочитаны]",
+    "allowed_formats": [
+      "ответ на вопрос по существу"
+    ],
+    "ban_risk": 3,
+    "source": "https://qna.habr.com/q/1392000",
+    "useful_formats": [
+      "ответы на вопросы про автоматизацию QA, Playwright, adb"
+    ],
+    "rules_verified": false,
+    "date_checked": "2026-10-10"
+  },
+  {
+    "name": "vc.ru",
+    "url": "https://vc.ru/",
+    "platform": "блог-платформа",
+    "language": "ru",
+    "audience_size": null,
+    "self_promo_rules": "Ссылки на собственные ресурсы допускаются, пока они полезны сообществу и не используются в коммерческих целях; посты, продвигающие коммерческие сервисы, услуги или ссылки (в т.ч. конкурсами), запрещены; агрессивные внешние ссылки — спам; блог только для рекламы может быть ограничен (снятие — через подписку Pro, платное, не исследуется). Накрутка рейтинга — бессрочный бан. [факт: правила прочитаны, 2026-10-10]",
+    "allowed_formats": [
+      "история создания открытого инструмента без коммерческих призывов"
+    ],
+    "ban_risk": 3,
+    "source": "https://vc.ru/rules",
+    "useful_formats": [
+      "кейс: стратегия роста по репозиторию — что нашлось в собственном проекте (с честными цифрами)"
+    ],
+    "rules_verified": true,
+    "date_checked": "2026-10-10"
+  },
+  {
+    "name": "Пикабу",
+    "url": "https://pikabu.ru/",
+    "platform": "соцсеть/форум",
+    "language": "ru",
+    "audience_size": null,
+    "self_promo_rules": "Страница правил не открылась (403). По пересказу из поиска: рекламные материалы выходят с пометками «Промо»/«Партнерский материал»; нельзя продвигать нескольких рекламодателей с одного профиля; правила отдельных сообществ могут запрещать ссылки. Правила о ссылках на свой проект не прочитаны. [факт: пересказ из поиска]",
+    "allowed_formats": [
+      "не рекомендуется для devtool без изучения правил сообщества"
+    ],
+    "ban_risk": 4,
+    "source": "https://pikabu.ru/information/rules",
+    "useful_formats": [
+      "нет приоритетного формата"
+    ],
+    "rules_verified": false,
+    "date_checked": "2026-10-10"
+  },
+  {
+    "name": "Дзен",
+    "url": "https://dzen.ru/",
+    "platform": "блог-платформа",
+    "language": "ru",
+    "audience_size": null,
+    "self_promo_rules": "Официальных правил не найдено. По сторонним источникам: компании могут писать информационные тексты с упоминанием продукта; запрещены заимствованный контент, кликбейт, фейки; платная реклама — отдельный формат (не исследуется). Маркировка рекламы — по закону. [факт: сторонний пересказ]",
+    "allowed_formats": [
+      "статья-разбор с упоминанием проекта"
+    ],
+    "ban_risk": 3,
+    "source": "https://www.unisender.com/ru/blog/dzen-dlya-biznesa-glavnoe-o-ploschadke/",
+    "useful_formats": [
+      "дубль статьи с Хабра в адаптированном виде [ДОПУЩЕНИЕ: проверить правила о дублировании]"
+    ],
+    "rules_verified": false,
+    "date_checked": "2026-10-10"
+  },
+  {
+    "name": "Telegram-чаты и сообщества по Claude Code/ИИ/QA",
+    "url": "https://telegram.org/tos",
+    "platform": "чат/сервер",
+    "language": "ru",
+    "audience_size": null,
+    "self_promo_rules": "Конкретных чатов не найдено (поиск не вернул русскоязычных чатов по Claude Code). Условия платформы запрещают спам; правила каждого чата закреплены и обычно ограничивают ссылки и рекламу. Нужно найти чаты и прочитать закреплённое правило, при необходимости спросить админа. [допущение]",
+    "allowed_formats": [
+      "ответ на вопрос",
+      "ссылка — только с разрешения администратора"
+    ],
+    "ban_risk": 4,
+    "source": "https://telegram.org/tos",
+    "useful_formats": [
+      "помощь в чатах по вопросам скилов без ссылки"
+    ],
+    "rules_verified": false,
+    "date_checked": "2026-10-10"
+  },
+  {
+    "name": "Telegram-каналы авторов/подборок (упоминания)",
+    "url": "https://telegram.org/tos",
+    "platform": "чат/сервер",
+    "language": "ru",
+    "audience_size": null,
+    "self_promo_rules": "Конкретных каналов не найдено. Платформа допускает сторонние промо у админов каналов; упоминание за услугу — реклама с маркировкой по закону (платное не исследуется при zero-budget-solo). Условия упоминаний каждого канала не изучены. [допущение]",
+    "allowed_formats": [
+      "бесплатный обзор по инициативе автора канала",
+      "собственный канал владельца"
+    ],
+    "ban_risk": 3,
+    "source": "https://telegram.org/tos",
+    "useful_formats": [
+      "свой канал с журналом изменений"
+    ],
+    "rules_verified": false,
+    "date_checked": "2026-10-10"
+  },
+  {
+    "name": "TGStat (каталог каналов и чатов)",
+    "url": "https://tgstat.ru/",
+    "platform": "каталог/агрегатор",
+    "language": "ru",
+    "audience_size": null,
+    "self_promo_rules": "Официальных правил добавления не найдено; по стороннему источнику — форма «Каталог — Добавить канал/чат», добавляют, если нет нарушений правил TGStat. Платные разделы не исследуются. [факт: сторонний пересказ]",
+    "allowed_formats": [
+      "добавление собственного канала в каталог"
+    ],
+    "ban_risk": 3,
+    "source": "https://www.unisender.com/ru/blog/tgstat-chto-ehto-za-servis-i-chem-on-polezen/",
+    "useful_formats": [
+      "после создания канала проекта"
+    ],
+    "rules_verified": false,
+    "date_checked": "2026-10-10"
+  },
+  {
+    "name": "ВКонтакте (сообщества)",
+    "url": "https://vk.com/",
+    "platform": "соцсеть/форум",
+    "language": "ru",
+    "audience_size": null,
+    "self_promo_rules": "Условия платформы не удалось прочитать (недоступно для WebFetch); правила конкретных сообществ не исследованы. ban_risk не ниже 3. [факт: попытка открытия]",
+    "allowed_formats": [
+      "свой паблик (после проверки правил)",
+      "ответы в тематических сообществах с разрешения админов"
+    ],
+    "ban_risk": 3,
+    "source": "https://vk.com/terms",
+    "useful_formats": [
+      "нет приоритетного формата"
+    ],
+    "rules_verified": false,
+    "date_checked": "2026-10-10"
+  },
+  {
+    "name": "GitVerse / GitFlic (российские хостинги кода)",
+    "url": "https://gitverse.ru/",
+    "platform": "хостинг кода/каталог",
+    "language": "ru",
+    "audience_size": null,
+    "self_promo_rules": "Условия использования не найдены. По сторонним данным: GitVerse умеет импорт своих репозиториев с GitHub; на GitFlic публичные репозитории открываются по запросу в поддержку. Лицензия PolyForm Noncommercial может влиять на условия [ДОПУЩЕНИЕ: проверить]. Скилл ничего туда не публикует; шаг для владельца.",
+    "allowed_formats": [
+      "зеркало репозитория"
+    ],
+    "ban_risk": 3,
+    "source": "https://qna.habr.com/q/1392000",
+    "useful_formats": [
+      "доступность для аудитории из РФ"
+    ],
+    "rules_verified": false,
+    "date_checked": "2026-10-10"
+  }
+]

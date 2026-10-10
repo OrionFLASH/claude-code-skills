@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 611" width="1180" height="611" role="img" font-family="system-ui, -apple-system, &#39;Segoe UI&#39;, Roboto, &#39;Helvetica Neue&#39;, Arial, sans-serif">
+<title>Дерево метрик: «целевая метрика» ← 6 входных метрик ← 16 предложений</title>
+<desc>Входные метрики выведены из effect_kpi реестра по ключевым словам (без совпадения — по категории предложения); у каждой — до трёх лучших предложений по рангу, в скобках — сколько всего предложений на неё влияет. North Star не задана: впишите её в data/north-star.json (ключ metric).</desc>
+<rect x="0" y="0" width="1180" height="611" fill="#FFFFFF"/>
+<text x="24" y="42.0" font-size="18" font-weight="700" fill="#1F2328">Дерево метрик: «целевая метрика» ← 6 входных метрик ← 16 предложений</text>
+<text x="24" y="79.0" font-size="13" fill="#57606A">Входные метрики выведены из effect_kpi реестра по ключевым словам (без совпадения — по категории предложения); у каждой — до трёх лучших предложений по</text>
+<text x="24" y="97.2" font-size="13" fill="#57606A">рангу, в скобках — сколько всего предложений на неё влияет. North Star не задана: впишите её в data/north-star.json (ключ metric).</text>
+<path d="M 244.0 334.5 C 259.0 334.5, 259.0 144.1, 268.0 144.1" fill="none" stroke="#9AA1A9" stroke-width="1.3"/>
+<polygon points="274.0,144.1 266.0,139.6 266.0,148.6" fill="#9AA1A9"/>
+<path d="M 544.0 144.1 C 554.0 144.1, 554.0 122.6, 558.0 122.6" fill="none" stroke="#E4E7EB" stroke-width="1.1"/>
+<polygon points="564.0,122.6 556.0,118.1 556.0,127.1" fill="#E4E7EB"/>
+<text x="570.0" y="125.8" font-size="11" fill="#1F2328" text-anchor="start">P018 Подать плагины в официальный каталог anthropics/claude-plugins-official</text>
+<path d="M 544.0 144.1 C 554.0 144.1, 554.0 144.1, 558.0 144.1" fill="none" stroke="#E4E7EB" stroke-width="1.1"/>
+<polygon points="564.0,144.1 556.0,139.6 556.0,148.6" fill="#E4E7EB"/>
+<text x="570.0" y="147.3" font-size="11" fill="#1F2328" text-anchor="start">P029 Переделать README в витрину: ценность в одной фразе, GIF, установка в три строки</text>
+<path d="M 544.0 144.1 C 554.0 144.1, 554.0 165.6, 558.0 165.6" fill="none" stroke="#E4E7EB" stroke-width="1.1"/>
+<polygon points="564.0,165.6 556.0,161.1 556.0,170.1" fill="#E4E7EB"/>
+<text x="570.0" y="168.8" font-size="11" fill="#1F2328" text-anchor="start">P019 Подать по одному плагину в awesome-claude-code после 21.10.2026</text>
+<rect x="274.0" y="121.1" width="270.0" height="46.0" rx="6" fill="#E0EEF6" stroke="#0072B2" stroke-width="1"/>
+<text x="282.0" y="140.1" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">Привлечение: визиты, установки,</text>
+<text x="282.0" y="155.1" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">охват (35)</text>
+<path d="M 244.0 334.5 C 259.0 334.5, 259.0 224.6, 268.0 224.6" fill="none" stroke="#9AA1A9" stroke-width="1.3"/>
+<polygon points="274.0,224.6 266.0,220.1 266.0,229.1" fill="#9AA1A9"/>
+<path d="M 544.0 224.6 C 554.0 224.6, 554.0 203.1, 558.0 203.1" fill="none" stroke="#E4E7EB" stroke-width="1.1"/>
+<polygon points="564.0,203.1 556.0,198.6 556.0,207.6" fill="#E4E7EB"/>
+<text x="570.0" y="206.3" font-size="11" fill="#1F2328" text-anchor="start">P034 Правила вклада и входные шаблоны: CONTRIBUTING, формы Issues, шаблон PR</text>
+<path d="M 544.0 224.6 C 554.0 224.6, 554.0 224.6, 558.0 224.6" fill="none" stroke="#E4E7EB" stroke-width="1.1"/>
+<polygon points="564.0,224.6 556.0,220.1 556.0,229.1" fill="#E4E7EB"/>
+<text x="570.0" y="227.8" font-size="11" fill="#1F2328" text-anchor="start">P039 Политика поддержки и лимит часов: SUPPORT.md, шаблоны ответов, срок первого ответа</text>
+<path d="M 544.0 224.6 C 554.0 224.6, 554.0 246.1, 558.0 246.1" fill="none" stroke="#E4E7EB" stroke-width="1.1"/>
+<polygon points="564.0,246.1 556.0,241.6 556.0,250.6" fill="#E4E7EB"/>
+<text x="570.0" y="249.3" font-size="11" fill="#1F2328" text-anchor="start">P036 Канал раннего доступа: второй маркетплейс на ветке beta для бета-тестеров</text>
+<rect x="274.0" y="209.1" width="270.0" height="31.0" rx="6" fill="#E0EEF6" stroke="#0072B2" stroke-width="1"/>
+<text x="282.0" y="228.1" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">Удержание и возвраты (3)</text>
+<path d="M 244.0 334.5 C 259.0 334.5, 259.0 305.1, 268.0 305.1" fill="none" stroke="#9AA1A9" stroke-width="1.3"/>
+<polygon points="274.0,305.1 266.0,300.6 266.0,309.6" fill="#9AA1A9"/>
+<path d="M 544.0 305.1 C 554.0 305.1, 554.0 283.6, 558.0 283.6" fill="none" stroke="#E4E7EB" stroke-width="1.1"/>
+<polygon points="564.0,283.6 556.0,279.1 556.0,288.1" fill="#E4E7EB"/>
+<text x="570.0" y="286.8" font-size="11" fill="#1F2328" text-anchor="start">P004 Дельта между прогонами: новые, исправленные и вернувшиеся находки</text>
+<path d="M 544.0 305.1 C 554.0 305.1, 554.0 305.1, 558.0 305.1" fill="none" stroke="#E4E7EB" stroke-width="1.1"/>
+<polygon points="564.0,305.1 556.0,300.6 556.0,309.6" fill="#E4E7EB"/>
+<text x="570.0" y="308.3" font-size="11" fill="#1F2328" text-anchor="start">P038 Рецепты регулярного запуска скилов: loop.md и routines для еженедельного повтора</text>
+<path d="M 544.0 305.1 C 554.0 305.1, 554.0 326.6, 558.0 326.6" fill="none" stroke="#E4E7EB" stroke-width="1.1"/>
+<polygon points="564.0,326.6 556.0,322.1 556.0,331.1" fill="#E4E7EB"/>
+<text x="570.0" y="329.8" font-size="11" fill="#1F2328" text-anchor="start">P002 Неинтерактивный режим site-qa-audit для CI: код возврата и JSON-итог</text>
+<rect x="274.0" y="282.1" width="270.0" height="46.0" rx="6" fill="#E0EEF6" stroke="#0072B2" stroke-width="1"/>
+<text x="282.0" y="301.1" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">Вовлечённость: регулярное</text>
+<text x="282.0" y="316.1" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">использование (18)</text>
+<path d="M 244.0 334.5 C 259.0 334.5, 259.0 385.6, 268.0 385.6" fill="none" stroke="#9AA1A9" stroke-width="1.3"/>
+<polygon points="274.0,385.6 266.0,381.1 266.0,390.1" fill="#9AA1A9"/>
+<path d="M 544.0 385.6 C 554.0 385.6, 554.0 364.1, 558.0 364.1" fill="none" stroke="#E4E7EB" stroke-width="1.1"/>
+<polygon points="564.0,364.1 556.0,359.6 556.0,368.6" fill="#E4E7EB"/>
+<text x="570.0" y="367.3" font-size="11" fill="#1F2328" text-anchor="start">P042 Решение по лицензии: NC, двойная лицензия или открытие части скилов — с оценкой рисков</text>
+<path d="M 544.0 385.6 C 554.0 385.6, 554.0 385.6, 558.0 385.6" fill="none" stroke="#E4E7EB" stroke-width="1.1"/>
+<polygon points="564.0,385.6 556.0,381.1 556.0,390.1" fill="#E4E7EB"/>
+<text x="570.0" y="388.8" font-size="11" fill="#1F2328" text-anchor="start">P041 Заявка в Claude for Open Source и реестр грантов с проверкой допустимости для NC-лицензии</text>
+<path d="M 544.0 385.6 C 554.0 385.6, 554.0 407.1, 558.0 407.1" fill="none" stroke="#E4E7EB" stroke-width="1.1"/>
+<polygon points="564.0,407.1 556.0,402.6 556.0,411.6" fill="#E4E7EB"/>
+<text x="570.0" y="410.3" font-size="11" fill="#1F2328" text-anchor="start">P040 FUNDING.yml и блок «Поддержать» без GitHub Sponsors: сервисы, доступные автору в РФ</text>
+<rect x="274.0" y="370.1" width="270.0" height="31.0" rx="6" fill="#E0EEF6" stroke="#0072B2" stroke-width="1"/>
+<text x="282.0" y="389.1" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">Монетизация (3)</text>
+<path d="M 244.0 334.5 C 259.0 334.5, 259.0 449.3, 268.0 449.3" fill="none" stroke="#9AA1A9" stroke-width="1.3"/>
+<polygon points="274.0,449.3 266.0,444.8 266.0,453.8" fill="#9AA1A9"/>
+<path d="M 544.0 449.3 C 554.0 449.3, 554.0 444.6, 558.0 444.6" fill="none" stroke="#E4E7EB" stroke-width="1.1"/>
+<polygon points="564.0,444.6 556.0,440.1 556.0,449.1" fill="#E4E7EB"/>
+<text x="570.0" y="447.8" font-size="11" fill="#1F2328" text-anchor="start">P013 typesafe-triage: подстановка model/effort в вызов Agent через PreToolUse (спайк)</text>
+<rect x="274.0" y="433.8" width="270.0" height="31.0" rx="6" fill="#E0EEF6" stroke="#0072B2" stroke-width="1"/>
+<text x="282.0" y="452.8" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">Рекомендации и шаринг (1)</text>
+<path d="M 244.0 334.5 C 259.0 334.5, 259.0 513.0, 268.0 513.0" fill="none" stroke="#9AA1A9" stroke-width="1.3"/>
+<polygon points="274.0,513.0 266.0,508.5 266.0,517.5" fill="#9AA1A9"/>
+<path d="M 544.0 513.0 C 554.0 513.0, 554.0 491.6, 558.0 491.6" fill="none" stroke="#E4E7EB" stroke-width="1.1"/>
+<polygon points="564.0,491.6 556.0,487.1 556.0,496.1" fill="#E4E7EB"/>
+<text x="570.0" y="494.8" font-size="11" fill="#1F2328" text-anchor="start">P059 CI в GitHub Actions: validate и тесты на Linux, macOS и Windows</text>
+<path d="M 544.0 513.0 C 554.0 513.0, 554.0 513.0, 558.0 513.0" fill="none" stroke="#E4E7EB" stroke-width="1.1"/>
+<polygon points="564.0,513.0 556.0,508.5 556.0,517.5" fill="#E4E7EB"/>
+<text x="570.0" y="516.3" font-size="11" fill="#1F2328" text-anchor="start">P046 Опросы спроса в Discussions: лицензия, переносимость, языки, приоритеты</text>
+<path d="M 544.0 513.0 C 554.0 513.0, 554.0 534.5, 558.0 534.5" fill="none" stroke="#E4E7EB" stroke-width="1.1"/>
+<polygon points="564.0,534.5 556.0,530.0 556.0,539.0" fill="#E4E7EB"/>
+<text x="570.0" y="537.8" font-size="11" fill="#1F2328" text-anchor="start">P044 Северная звезда и контрольные точки 30/60/90 дней с порогами «продолжать/свернуть»</text>
+<rect x="274.0" y="497.5" width="270.0" height="31.0" rx="6" fill="#E0EEF6" stroke="#0072B2" stroke-width="1"/>
+<text x="282.0" y="516.5" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">Качество и доверие (13)</text>
+<rect x="24.0" y="300.5" width="220.0" height="68.0" rx="8" fill="#0072B2"/>
+<text x="34.0" y="318.5" font-size="11" fill="#FFFFFF" text-anchor="start">North Star</text>
+<text x="34.0" y="336.5" font-size="13" fill="#FFFFFF" text-anchor="start" font-weight="600">Целевая метрика (North</text>
+<text x="34.0" y="353.4" font-size="13" fill="#FFFFFF" text-anchor="start" font-weight="600">Star не задана)</text>
+<text x="24" y="582.3" font-size="11" fill="#57606A">Источник: data/proposals.json (effect_kpi), data/scores.json (rank), North Star не задана</text>
+</svg>

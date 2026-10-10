@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 576" width="960" height="576" role="img" font-family="system-ui, -apple-system, &#39;Segoe UI&#39;, Roboto, &#39;Helvetica Neue&#39;, Arial, sans-serif">
+<title>Торнадо чувствительности: топ-20 сохраняется на 95 % при любом изменении одного веса на ±50 %</title>
+<desc>Сильнее всего ранги зависят от параметра «вес: WSJF»; длина полосы — средний сдвиг ранга при весе ×0,5 (влево) и ×1,5 (вправо).</desc>
+<rect x="0" y="0" width="960" height="576" fill="#FFFFFF"/>
+<text x="24" y="42.0" font-size="18" font-weight="700" fill="#1F2328">Торнадо чувствительности: топ-20 сохраняется на 95 % при любом изменении одного</text>
+<text x="24" y="65.4" font-size="18" font-weight="700" fill="#1F2328">веса на ±50 %</text>
+<text x="24" y="102.4" font-size="13" fill="#57606A">Сильнее всего ранги зависят от параметра «вес: WSJF»; длина полосы — средний сдвиг ранга при весе ×0,5 (влево) и ×1,5 (вправо).</text>
+<text x="602.0" y="125.0" font-size="11" fill="#57606A" text-anchor="end">вес ×0,5</text>
+<text x="618.0" y="125.0" font-size="11" fill="#57606A" text-anchor="start">вес ×1,5</text>
+<text x="24.0" y="154.5" font-size="12" fill="#1F2328" text-anchor="start">вес: WSJF</text>
+<rect x="358.2" y="142.0" width="251.8" height="16.0" rx="2" fill="#0072B2"/>
+<rect x="610.0" y="142.0" width="218.8" height="16.0" rx="2" fill="#E69F00"/>
+<text x="353.2" y="154.0" font-size="11" fill="#1F2328" text-anchor="end">1,67</text>
+<text x="833.8" y="154.0" font-size="11" fill="#1F2328" text-anchor="start">1,45</text>
+<text x="24.0" y="180.5" font-size="12" fill="#1F2328" text-anchor="start">вес: с поправкой на риск</text>
+<rect x="354.0" y="168.0" width="256.0" height="16.0" rx="2" fill="#0072B2"/>
+<rect x="610.0" y="168.0" width="206.4" height="16.0" rx="2" fill="#E69F00"/>
+<text x="349.0" y="180.0" font-size="11" fill="#1F2328" text-anchor="end">1,70</text>
+<text x="821.4" y="180.0" font-size="11" fill="#1F2328" text-anchor="start">1,37</text>
+<text x="24.0" y="206.5" font-size="12" fill="#1F2328" text-anchor="start">вес: RICE</text>
+<rect x="358.2" y="194.0" width="251.8" height="16.0" rx="2" fill="#0072B2"/>
+<rect x="610.0" y="194.0" width="156.9" height="16.0" rx="2" fill="#E69F00"/>
+<text x="353.2" y="206.0" font-size="11" fill="#1F2328" text-anchor="end">1,67</text>
+<text x="771.9" y="206.0" font-size="11" fill="#1F2328" text-anchor="start">1,04</text>
+<text x="24.0" y="232.5" font-size="12" fill="#1F2328" text-anchor="start">вес: ICE</text>
+<rect x="415.9" y="220.0" width="194.1" height="16.0" rx="2" fill="#0072B2"/>
+<rect x="610.0" y="220.0" width="148.6" height="16.0" rx="2" fill="#E69F00"/>
+<text x="410.9" y="232.0" font-size="11" fill="#1F2328" text-anchor="end">1,29</text>
+<text x="763.6" y="232.0" font-size="11" fill="#1F2328" text-anchor="start">0,99</text>
+<text x="24.0" y="258.5" font-size="12" fill="#1F2328" text-anchor="start">стоимость: экспертная стоимость</text>
+<rect x="523.4" y="246.0" width="86.6" height="16.0" rx="2" fill="#0072B2"/>
+<rect x="610.0" y="246.0" width="99.1" height="16.0" rx="2" fill="#E69F00"/>
+<text x="518.4" y="258.0" font-size="11" fill="#1F2328" text-anchor="end">0,57</text>
+<text x="714.1" y="258.0" font-size="11" fill="#1F2328" text-anchor="start">0,66</text>
+<text x="24.0" y="284.5" font-size="12" fill="#1F2328" text-anchor="start">стоимость: трудозатраты</text>
+<rect x="539.8" y="272.0" width="70.2" height="16.0" rx="2" fill="#0072B2"/>
+<rect x="610.0" y="272.0" width="74.3" height="16.0" rx="2" fill="#E69F00"/>
+<text x="534.8" y="284.0" font-size="11" fill="#1F2328" text-anchor="end">0,47</text>
+<text x="689.3" y="284.0" font-size="11" fill="#1F2328" text-anchor="start">0,49</text>
+<text x="24.0" y="310.5" font-size="12" fill="#1F2328" text-anchor="start">стоимость: срок до результата</text>
+<rect x="519.1" y="298.0" width="90.9" height="16.0" rx="2" fill="#0072B2"/>
+<rect x="610.0" y="298.0" width="49.6" height="16.0" rx="2" fill="#E69F00"/>
+<text x="514.1" y="310.0" font-size="11" fill="#1F2328" text-anchor="end">0,60</text>
+<text x="664.6" y="310.0" font-size="11" fill="#1F2328" text-anchor="start">0,33</text>
+<text x="24.0" y="336.5" font-size="12" fill="#1F2328" text-anchor="start">ценность: активация</text>
+<rect x="552.1" y="324.0" width="57.9" height="16.0" rx="2" fill="#0072B2"/>
+<rect x="610.0" y="324.0" width="57.9" height="16.0" rx="2" fill="#E69F00"/>
+<text x="547.1" y="336.0" font-size="11" fill="#1F2328" text-anchor="end">0,38</text>
+<text x="672.9" y="336.0" font-size="11" fill="#1F2328" text-anchor="start">0,38</text>
+<text x="24.0" y="362.5" font-size="12" fill="#1F2328" text-anchor="start">ценность: спрос</text>
+<rect x="556.4" y="350.0" width="53.6" height="16.0" rx="2" fill="#0072B2"/>
+<rect x="610.0" y="350.0" width="61.9" height="16.0" rx="2" fill="#E69F00"/>
+<text x="551.4" y="362.0" font-size="11" fill="#1F2328" text-anchor="end">0,36</text>
+<text x="676.9" y="362.0" font-size="11" fill="#1F2328" text-anchor="start">0,41</text>
+<text x="24.0" y="388.5" font-size="12" fill="#1F2328" text-anchor="start">ценность: доход</text>
+<rect x="556.4" y="376.0" width="53.6" height="16.0" rx="2" fill="#0072B2"/>
+<rect x="610.0" y="376.0" width="61.9" height="16.0" rx="2" fill="#E69F00"/>
+<text x="551.4" y="388.0" font-size="11" fill="#1F2328" text-anchor="end">0,36</text>
+<text x="676.9" y="388.0" font-size="11" fill="#1F2328" text-anchor="start">0,41</text>
+<text x="24.0" y="414.5" font-size="12" fill="#1F2328" text-anchor="start">стоимость: зависимости</text>
+<rect x="539.8" y="402.0" width="70.2" height="16.0" rx="2" fill="#0072B2"/>
+<rect x="610.0" y="402.0" width="33.0" height="16.0" rx="2" fill="#E69F00"/>
+<text x="534.8" y="414.0" font-size="11" fill="#1F2328" text-anchor="end">0,47</text>
+<text x="648.0" y="414.0" font-size="11" fill="#1F2328" text-anchor="start">0,22</text>
+<text x="24.0" y="440.5" font-size="12" fill="#1F2328" text-anchor="start">стоимость: деньги</text>
+<rect x="552.1" y="428.0" width="57.9" height="16.0" rx="2" fill="#0072B2"/>
+<rect x="610.0" y="428.0" width="41.3" height="16.0" rx="2" fill="#E69F00"/>
+<text x="547.1" y="440.0" font-size="11" fill="#1F2328" text-anchor="end">0,38</text>
+<text x="656.3" y="440.0" font-size="11" fill="#1F2328" text-anchor="start">0,27</text>
+<text x="24.0" y="466.5" font-size="12" fill="#1F2328" text-anchor="start">ценность: охват</text>
+<rect x="548.1" y="454.0" width="61.9" height="16.0" rx="2" fill="#0072B2"/>
+<rect x="610.0" y="454.0" width="37.2" height="16.0" rx="2" fill="#E69F00"/>
+<text x="543.1" y="466.0" font-size="11" fill="#1F2328" text-anchor="end">0,41</text>
+<text x="652.2" y="466.0" font-size="11" fill="#1F2328" text-anchor="start">0,25</text>
+<text x="24.0" y="492.5" font-size="12" fill="#1F2328" text-anchor="start">ценность: защитимость</text>
+<rect x="556.4" y="480.0" width="53.6" height="16.0" rx="2" fill="#0072B2"/>
+<rect x="610.0" y="480.0" width="45.4" height="16.0" rx="2" fill="#E69F00"/>
+<text x="551.4" y="492.0" font-size="11" fill="#1F2328" text-anchor="end">0,36</text>
+<text x="660.4" y="492.0" font-size="11" fill="#1F2328" text-anchor="start">0,30</text>
+<line x1="610.0" y1="131.0" x2="610.0" y2="501.0" stroke="#1F2328" stroke-width="1.2"/>
+<text x="610.0" y="523.0" font-size="12" fill="#1F2328" text-anchor="middle">Средний сдвиг ранга, позиций</text>
+<text x="24" y="548.0" font-size="11" fill="#57606A">Источник: data/sensitivity.json (score.py, 62 прогонов)</text>
+</svg>

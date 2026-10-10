@@ -1,0 +1,618 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 1229" width="1180" height="1229" role="img" font-family="system-ui, -apple-system, &#39;Segoe UI&#39;, Roboto, &#39;Helvetica Neue&#39;, Arial, sans-serif">
+<title>Тепловая карта метрик топ-30: насыщеннее — лучше</title>
+<desc>Для стоимости и риска шкала цвета перевёрнута (дешевле и безопаснее — насыщеннее); в ячейках исходные значения.</desc>
+<rect x="0" y="0" width="1180" height="1229" fill="#FFFFFF"/>
+<text x="24" y="42.0" font-size="18" font-weight="700" fill="#1F2328">Тепловая карта метрик топ-30: насыщеннее — лучше</text>
+<text x="24" y="79.0" font-size="13" fill="#57606A">Для стоимости и риска шкала цвета перевёрнута (дешевле и безопаснее — насыщеннее); в ячейках исходные значения.</text>
+<text x="426.9" y="101.6" font-size="11" fill="#1F2328" text-anchor="middle" font-weight="600">Ценность</text>
+<text x="512.7" y="101.6" font-size="11" fill="#1F2328" text-anchor="middle" font-weight="600">Стоимость</text>
+<text x="598.4" y="101.6" font-size="11" fill="#1F2328" text-anchor="middle" font-weight="600">Риск</text>
+<text x="684.2" y="101.6" font-size="11" fill="#1F2328" text-anchor="middle" font-weight="600">Уверенность</text>
+<text x="770.0" y="101.6" font-size="11" fill="#1F2328" text-anchor="middle" font-weight="600">RICE норм.</text>
+<text x="855.8" y="101.6" font-size="11" fill="#1F2328" text-anchor="middle" font-weight="600">ICE норм.</text>
+<text x="941.6" y="101.6" font-size="11" fill="#1F2328" text-anchor="middle" font-weight="600">WSJF норм.</text>
+<text x="1027.3" y="101.6" font-size="11" fill="#1F2328" text-anchor="middle" font-weight="600">С поправкой</text>
+<text x="1027.3" y="114.8" font-size="11" fill="#1F2328" text-anchor="middle" font-weight="600">на риск</text>
+<text x="1113.1" y="101.6" font-size="11" fill="#1F2328" text-anchor="middle" font-weight="600">Composite</text>
+<text x="24.0" y="140.1" font-size="11" fill="#1F2328" text-anchor="start">1. P018 Подать плагины в официальный каталог</text>
+<text x="24.0" y="153.6" font-size="11" fill="#1F2328" text-anchor="start">anthropics/claude-plugins-official</text>
+<rect x="385.0" y="126.6" width="83.8" height="33.0" rx="2" fill="#187FB9"/>
+<text x="426.9" y="147.1" font-size="11" fill="#1F2328" text-anchor="middle">4,57</text>
+<rect x="470.8" y="126.6" width="83.8" height="33.0" rx="2" fill="#2084BC"/>
+<text x="512.7" y="147.1" font-size="11" fill="#1F2328" text-anchor="middle">1,58</text>
+<rect x="556.6" y="126.6" width="83.8" height="33.0" rx="2" fill="#1E82BB"/>
+<text x="598.4" y="147.1" font-size="11" fill="#1F2328" text-anchor="middle">1,54</text>
+<rect x="642.3" y="126.6" width="83.8" height="33.0" rx="2" fill="#2485BD"/>
+<text x="684.2" y="147.1" font-size="11" fill="#1F2328" text-anchor="middle">0,84</text>
+<rect x="728.1" y="126.6" width="83.8" height="33.0" rx="2" fill="#147DB8"/>
+<text x="770.0" y="147.1" font-size="11" fill="#FFFFFF" text-anchor="middle">0,91</text>
+<rect x="813.9" y="126.6" width="83.8" height="33.0" rx="2" fill="#0072B2"/>
+<text x="855.8" y="147.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,00</text>
+<rect x="899.7" y="126.6" width="83.8" height="33.0" rx="2" fill="#4497C7"/>
+<text x="941.6" y="147.1" font-size="11" fill="#1F2328" text-anchor="middle">0,69</text>
+<rect x="985.4" y="126.6" width="83.8" height="33.0" rx="2" fill="#0072B2"/>
+<text x="1027.3" y="147.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,00</text>
+<rect x="1071.2" y="126.6" width="83.8" height="33.0" rx="2" fill="#177FB9"/>
+<text x="1113.1" y="147.1" font-size="11" fill="#1F2328" text-anchor="middle">0,90</text>
+<text x="24.0" y="175.1" font-size="11" fill="#1F2328" text-anchor="start">2. P029 Переделать README в витрину: ценность в одной</text>
+<text x="24.0" y="188.6" font-size="11" fill="#1F2328" text-anchor="start">фразе, GIF, установка в три строки</text>
+<rect x="385.0" y="161.6" width="83.8" height="33.0" rx="2" fill="#3A92C4"/>
+<text x="426.9" y="182.1" font-size="11" fill="#1F2328" text-anchor="middle">3,96</text>
+<rect x="470.8" y="161.6" width="83.8" height="33.0" rx="2" fill="#187FB9"/>
+<text x="512.7" y="182.1" font-size="11" fill="#1F2328" text-anchor="middle">1,44</text>
+<rect x="556.6" y="161.6" width="83.8" height="33.0" rx="2" fill="#0072B2"/>
+<text x="598.4" y="182.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,00</text>
+<rect x="642.3" y="161.6" width="83.8" height="33.0" rx="2" fill="#338EC1"/>
+<text x="684.2" y="182.1" font-size="11" fill="#1F2328" text-anchor="middle">0,77</text>
+<rect x="728.1" y="161.6" width="83.8" height="33.0" rx="2" fill="#0072B2"/>
+<text x="770.0" y="182.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,00</text>
+<rect x="813.9" y="161.6" width="83.8" height="33.0" rx="2" fill="#308CC0"/>
+<text x="855.8" y="182.1" font-size="11" fill="#1F2328" text-anchor="middle">0,79</text>
+<rect x="899.7" y="161.6" width="83.8" height="33.0" rx="2" fill="#3B92C4"/>
+<text x="941.6" y="182.1" font-size="11" fill="#1F2328" text-anchor="middle">0,74</text>
+<rect x="985.4" y="161.6" width="83.8" height="33.0" rx="2" fill="#1A80BA"/>
+<text x="1027.3" y="182.1" font-size="11" fill="#1F2328" text-anchor="middle">0,88</text>
+<rect x="1071.2" y="161.6" width="83.8" height="33.0" rx="2" fill="#1F83BB"/>
+<text x="1113.1" y="182.1" font-size="11" fill="#1F2328" text-anchor="middle">0,86</text>
+<text x="24.0" y="210.1" font-size="11" fill="#1F2328" text-anchor="start">3. P019 Подать по одному плагину в awesome-claude-code</text>
+<text x="24.0" y="223.6" font-size="11" fill="#1F2328" text-anchor="start">после 21.10.2026</text>
+<rect x="385.0" y="196.6" width="83.8" height="33.0" rx="2" fill="#4397C6"/>
+<text x="426.9" y="217.1" font-size="11" fill="#1F2328" text-anchor="middle">3,79</text>
+<rect x="470.8" y="196.6" width="83.8" height="33.0" rx="2" fill="#0C79B6"/>
+<text x="512.7" y="217.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,22</text>
+<rect x="556.6" y="196.6" width="83.8" height="33.0" rx="2" fill="#1B81BA"/>
+<text x="598.4" y="217.1" font-size="11" fill="#1F2328" text-anchor="middle">1,49</text>
+<rect x="642.3" y="196.6" width="83.8" height="33.0" rx="2" fill="#2485BD"/>
+<text x="684.2" y="217.1" font-size="11" fill="#1F2328" text-anchor="middle">0,84</text>
+<rect x="728.1" y="196.6" width="83.8" height="33.0" rx="2" fill="#0C79B6"/>
+<text x="770.0" y="217.1" font-size="11" fill="#FFFFFF" text-anchor="middle">0,95</text>
+<rect x="813.9" y="196.6" width="83.8" height="33.0" rx="2" fill="#1B81BA"/>
+<text x="855.8" y="217.1" font-size="11" fill="#1F2328" text-anchor="middle">0,88</text>
+<rect x="899.7" y="196.6" width="83.8" height="33.0" rx="2" fill="#2284BC"/>
+<text x="941.6" y="217.1" font-size="11" fill="#1F2328" text-anchor="middle">0,85</text>
+<rect x="985.4" y="196.6" width="83.8" height="33.0" rx="2" fill="#3C93C4"/>
+<text x="1027.3" y="217.1" font-size="11" fill="#1F2328" text-anchor="middle">0,73</text>
+<rect x="1071.2" y="196.6" width="83.8" height="33.0" rx="2" fill="#2084BC"/>
+<text x="1113.1" y="217.1" font-size="11" fill="#1F2328" text-anchor="middle">0,85</text>
+<text x="24.0" y="245.1" font-size="11" fill="#1F2328" text-anchor="start">4. P069 Англоязычная витрина: README.en.md с тем же</text>
+<text x="24.0" y="258.6" font-size="11" fill="#1F2328" text-anchor="start">верхом, что у README-витрины</text>
+<rect x="385.0" y="231.6" width="83.8" height="33.0" rx="2" fill="#539FCB"/>
+<text x="426.9" y="252.1" font-size="11" fill="#1F2328" text-anchor="middle">3,51</text>
+<rect x="470.8" y="231.6" width="83.8" height="33.0" rx="2" fill="#187FB9"/>
+<text x="512.7" y="252.1" font-size="11" fill="#1F2328" text-anchor="middle">1,44</text>
+<rect x="556.6" y="231.6" width="83.8" height="33.0" rx="2" fill="#0776B4"/>
+<text x="598.4" y="252.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,12</text>
+<rect x="642.3" y="231.6" width="83.8" height="33.0" rx="2" fill="#3E94C5"/>
+<text x="684.2" y="252.1" font-size="11" fill="#1F2328" text-anchor="middle">0,72</text>
+<rect x="728.1" y="231.6" width="83.8" height="33.0" rx="2" fill="#1C81BB"/>
+<text x="770.0" y="252.1" font-size="11" fill="#1F2328" text-anchor="middle">0,87</text>
+<rect x="813.9" y="231.6" width="83.8" height="33.0" rx="2" fill="#55A0CB"/>
+<text x="855.8" y="252.1" font-size="11" fill="#1F2328" text-anchor="middle">0,62</text>
+<rect x="899.7" y="231.6" width="83.8" height="33.0" rx="2" fill="#4396C6"/>
+<text x="941.6" y="252.1" font-size="11" fill="#1F2328" text-anchor="middle">0,70</text>
+<rect x="985.4" y="231.6" width="83.8" height="33.0" rx="2" fill="#4497C7"/>
+<text x="1027.3" y="252.1" font-size="11" fill="#1F2328" text-anchor="middle">0,69</text>
+<rect x="1071.2" y="231.6" width="83.8" height="33.0" rx="2" fill="#3B92C4"/>
+<text x="1113.1" y="252.1" font-size="11" fill="#1F2328" text-anchor="middle">0,73</text>
+<text x="24.0" y="280.1" font-size="11" fill="#1F2328" text-anchor="start">5. P032 Quickstart «первый результат за 5 минут» для</text>
+<text x="24.0" y="293.6" font-size="11" fill="#1F2328" text-anchor="start">каждого скила: промпт и ожидаемый вывод</text>
+<rect x="385.0" y="266.6" width="83.8" height="33.0" rx="2" fill="#4296C6"/>
+<text x="426.9" y="287.1" font-size="11" fill="#1F2328" text-anchor="middle">3,81</text>
+<rect x="470.8" y="266.6" width="83.8" height="33.0" rx="2" fill="#2385BD"/>
+<text x="512.7" y="287.1" font-size="11" fill="#1F2328" text-anchor="middle">1,64</text>
+<rect x="556.6" y="266.6" width="83.8" height="33.0" rx="2" fill="#0072B2"/>
+<text x="598.4" y="287.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,00</text>
+<rect x="642.3" y="266.6" width="83.8" height="33.0" rx="2" fill="#3E94C5"/>
+<text x="684.2" y="287.1" font-size="11" fill="#1F2328" text-anchor="middle">0,72</text>
+<rect x="728.1" y="266.6" width="83.8" height="33.0" rx="2" fill="#308CC1"/>
+<text x="770.0" y="287.1" font-size="11" fill="#1F2328" text-anchor="middle">0,78</text>
+<rect x="813.9" y="266.6" width="83.8" height="33.0" rx="2" fill="#4E9DCA"/>
+<text x="855.8" y="287.1" font-size="11" fill="#1F2328" text-anchor="middle">0,65</text>
+<rect x="899.7" y="266.6" width="83.8" height="33.0" rx="2" fill="#58A2CC"/>
+<text x="941.6" y="287.1" font-size="11" fill="#1F2328" text-anchor="middle">0,61</text>
+<rect x="985.4" y="266.6" width="83.8" height="33.0" rx="2" fill="#2787BE"/>
+<text x="1027.3" y="287.1" font-size="11" fill="#1F2328" text-anchor="middle">0,83</text>
+<rect x="1071.2" y="266.6" width="83.8" height="33.0" rx="2" fill="#3E94C5"/>
+<text x="1113.1" y="287.1" font-size="11" fill="#1F2328" text-anchor="middle">0,72</text>
+<text x="24.0" y="315.1" font-size="11" fill="#1F2328" text-anchor="start">6. P033 Блок «кому подходит, что потребуется, сколько</text>
+<text x="24.0" y="328.6" font-size="11" fill="#1F2328" text-anchor="start">стоит прогон, лицензия» на входе README</text>
+<rect x="385.0" y="301.6" width="83.8" height="33.0" rx="2" fill="#6DADD3"/>
+<text x="426.9" y="322.1" font-size="11" fill="#1F2328" text-anchor="middle">3,04</text>
+<rect x="470.8" y="301.6" width="83.8" height="33.0" rx="2" fill="#0072B2"/>
+<text x="512.7" y="322.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,00</text>
+<rect x="556.6" y="301.6" width="83.8" height="33.0" rx="2" fill="#167EB9"/>
+<text x="598.4" y="322.1" font-size="11" fill="#1F2328" text-anchor="middle">1,39</text>
+<rect x="642.3" y="301.6" width="83.8" height="33.0" rx="2" fill="#3E94C5"/>
+<text x="684.2" y="322.1" font-size="11" fill="#1F2328" text-anchor="middle">0,72</text>
+<rect x="728.1" y="301.6" width="83.8" height="33.0" rx="2" fill="#308CC1"/>
+<text x="770.0" y="322.1" font-size="11" fill="#1F2328" text-anchor="middle">0,78</text>
+<rect x="813.9" y="301.6" width="83.8" height="33.0" rx="2" fill="#5EA5CE"/>
+<text x="855.8" y="322.1" font-size="11" fill="#1F2328" text-anchor="middle">0,58</text>
+<rect x="899.7" y="301.6" width="83.8" height="33.0" rx="2" fill="#0072B2"/>
+<text x="941.6" y="322.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,00</text>
+<rect x="985.4" y="301.6" width="83.8" height="33.0" rx="2" fill="#74B2D5"/>
+<text x="1027.3" y="322.1" font-size="11" fill="#1F2328" text-anchor="middle">0,48</text>
+<rect x="1071.2" y="301.6" width="83.8" height="33.0" rx="2" fill="#3E94C5"/>
+<text x="1113.1" y="322.1" font-size="11" fill="#1F2328" text-anchor="middle">0,72</text>
+<text x="24.0" y="350.1" font-size="11" fill="#1F2328" text-anchor="start">7. P070 Статический хостинг демо на GitHub Pages:</text>
+<text x="24.0" y="363.6" font-size="11" fill="#1F2328" text-anchor="start">страница стратегии и индекс примеров</text>
+<rect x="385.0" y="336.6" width="83.8" height="33.0" rx="2" fill="#68ABD1"/>
+<text x="426.9" y="357.1" font-size="11" fill="#1F2328" text-anchor="middle">3,13</text>
+<rect x="470.8" y="336.6" width="83.8" height="33.0" rx="2" fill="#0072B2"/>
+<text x="512.7" y="357.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,00</text>
+<rect x="556.6" y="336.6" width="83.8" height="33.0" rx="2" fill="#1D82BB"/>
+<text x="598.4" y="357.1" font-size="11" fill="#1F2328" text-anchor="middle">1,51</text>
+<rect x="642.3" y="336.6" width="83.8" height="33.0" rx="2" fill="#187FB9"/>
+<text x="684.2" y="357.1" font-size="11" fill="#1F2328" text-anchor="middle">0,89</text>
+<rect x="728.1" y="336.6" width="83.8" height="33.0" rx="2" fill="#4C9BC9"/>
+<text x="770.0" y="357.1" font-size="11" fill="#1F2328" text-anchor="middle">0,66</text>
+<rect x="813.9" y="336.6" width="83.8" height="33.0" rx="2" fill="#2F8CC0"/>
+<text x="855.8" y="357.1" font-size="11" fill="#1F2328" text-anchor="middle">0,79</text>
+<rect x="899.7" y="336.6" width="83.8" height="33.0" rx="2" fill="#0B78B5"/>
+<text x="941.6" y="357.1" font-size="11" fill="#FFFFFF" text-anchor="middle">0,95</text>
+<rect x="985.4" y="336.6" width="83.8" height="33.0" rx="2" fill="#71B0D4"/>
+<text x="1027.3" y="357.1" font-size="11" fill="#1F2328" text-anchor="middle">0,49</text>
+<rect x="1071.2" y="336.6" width="83.8" height="33.0" rx="2" fill="#3F94C5"/>
+<text x="1113.1" y="357.1" font-size="11" fill="#1F2328" text-anchor="middle">0,72</text>
+<text x="24.0" y="385.1" font-size="11" fill="#1F2328" text-anchor="start">8. P043 Еженедельный снимок публичных сигналов GitHub в</text>
+<text x="24.0" y="398.6" font-size="11" fill="#1F2328" text-anchor="start">CSV: просмотры, клоны, источники, звёзды</text>
+<rect x="385.0" y="371.6" width="83.8" height="33.0" rx="2" fill="#6CADD3"/>
+<text x="426.9" y="392.1" font-size="11" fill="#1F2328" text-anchor="middle">3,06</text>
+<rect x="470.8" y="371.6" width="83.8" height="33.0" rx="2" fill="#0072B2"/>
+<text x="512.7" y="392.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,00</text>
+<rect x="556.6" y="371.6" width="83.8" height="33.0" rx="2" fill="#0072B2"/>
+<text x="598.4" y="392.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,00</text>
+<rect x="642.3" y="371.6" width="83.8" height="33.0" rx="2" fill="#0D79B6"/>
+<text x="684.2" y="392.1" font-size="11" fill="#FFFFFF" text-anchor="middle">0,94</text>
+<rect x="728.1" y="371.6" width="83.8" height="33.0" rx="2" fill="#5EA5CE"/>
+<text x="770.0" y="392.1" font-size="11" fill="#1F2328" text-anchor="middle">0,58</text>
+<rect x="813.9" y="371.6" width="83.8" height="33.0" rx="2" fill="#2888BE"/>
+<text x="855.8" y="392.1" font-size="11" fill="#1F2328" text-anchor="middle">0,82</text>
+<rect x="899.7" y="371.6" width="83.8" height="33.0" rx="2" fill="#0D79B6"/>
+<text x="941.6" y="392.1" font-size="11" fill="#FFFFFF" text-anchor="middle">0,94</text>
+<rect x="985.4" y="371.6" width="83.8" height="33.0" rx="2" fill="#67AAD1"/>
+<text x="1027.3" y="392.1" font-size="11" fill="#1F2328" text-anchor="middle">0,54</text>
+<rect x="1071.2" y="371.6" width="83.8" height="33.0" rx="2" fill="#4196C6"/>
+<text x="1113.1" y="392.1" font-size="11" fill="#1F2328" text-anchor="middle">0,71</text>
+<text x="24.0" y="420.1" font-size="11" fill="#1F2328" text-anchor="start">9. P059 CI в GitHub Actions: validate и тесты на Linux, macOS</text>
+<text x="24.0" y="433.6" font-size="11" fill="#1F2328" text-anchor="start">и Windows</text>
+<rect x="385.0" y="406.6" width="83.8" height="33.0" rx="2" fill="#55A0CC"/>
+<text x="426.9" y="427.1" font-size="11" fill="#1F2328" text-anchor="middle">3,47</text>
+<rect x="470.8" y="406.6" width="83.8" height="33.0" rx="2" fill="#2385BD"/>
+<text x="512.7" y="427.1" font-size="11" fill="#1F2328" text-anchor="middle">1,64</text>
+<rect x="556.6" y="406.6" width="83.8" height="33.0" rx="2" fill="#0575B4"/>
+<text x="598.4" y="427.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,10</text>
+<rect x="642.3" y="406.6" width="83.8" height="33.0" rx="2" fill="#0D79B6"/>
+<text x="684.2" y="427.1" font-size="11" fill="#FFFFFF" text-anchor="middle">0,94</text>
+<rect x="728.1" y="406.6" width="83.8" height="33.0" rx="2" fill="#3790C3"/>
+<text x="770.0" y="427.1" font-size="11" fill="#1F2328" text-anchor="middle">0,75</text>
+<rect x="813.9" y="406.6" width="83.8" height="33.0" rx="2" fill="#2B89BF"/>
+<text x="855.8" y="427.1" font-size="11" fill="#1F2328" text-anchor="middle">0,81</text>
+<rect x="899.7" y="406.6" width="83.8" height="33.0" rx="2" fill="#5DA5CE"/>
+<text x="941.6" y="427.1" font-size="11" fill="#1F2328" text-anchor="middle">0,58</text>
+<rect x="985.4" y="406.6" width="83.8" height="33.0" rx="2" fill="#4799C7"/>
+<text x="1027.3" y="427.1" font-size="11" fill="#1F2328" text-anchor="middle">0,68</text>
+<rect x="1071.2" y="406.6" width="83.8" height="33.0" rx="2" fill="#4296C6"/>
+<text x="1113.1" y="427.1" font-size="11" fill="#1F2328" text-anchor="middle">0,70</text>
+<text x="24.0" y="455.1" font-size="11" fill="#1F2328" text-anchor="start">10. P030 Сделать GIF и ролики первой минуты из реальных</text>
+<text x="24.0" y="468.6" font-size="11" fill="#1F2328" text-anchor="start">прогонов существующими утилитами</text>
+<rect x="385.0" y="441.6" width="83.8" height="33.0" rx="2" fill="#4296C6"/>
+<text x="426.9" y="462.1" font-size="11" fill="#1F2328" text-anchor="middle">3,81</text>
+<rect x="470.8" y="441.6" width="83.8" height="33.0" rx="2" fill="#2385BD"/>
+<text x="512.7" y="462.1" font-size="11" fill="#1F2328" text-anchor="middle">1,64</text>
+<rect x="556.6" y="441.6" width="83.8" height="33.0" rx="2" fill="#0072B2"/>
+<text x="598.4" y="462.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,00</text>
+<rect x="642.3" y="441.6" width="83.8" height="33.0" rx="2" fill="#60A6CF"/>
+<text x="684.2" y="462.1" font-size="11" fill="#1F2328" text-anchor="middle">0,57</text>
+<rect x="728.1" y="441.6" width="83.8" height="33.0" rx="2" fill="#3790C3"/>
+<text x="770.0" y="462.1" font-size="11" fill="#1F2328" text-anchor="middle">0,75</text>
+<rect x="813.9" y="441.6" width="83.8" height="33.0" rx="2" fill="#75B2D5"/>
+<text x="855.8" y="462.1" font-size="11" fill="#1F2328" text-anchor="middle">0,48</text>
+<rect x="899.7" y="441.6" width="83.8" height="33.0" rx="2" fill="#58A2CC"/>
+<text x="941.6" y="462.1" font-size="11" fill="#1F2328" text-anchor="middle">0,61</text>
+<rect x="985.4" y="441.6" width="83.8" height="33.0" rx="2" fill="#2787BE"/>
+<text x="1027.3" y="462.1" font-size="11" fill="#1F2328" text-anchor="middle">0,83</text>
+<rect x="1071.2" y="441.6" width="83.8" height="33.0" rx="2" fill="#4899C8"/>
+<text x="1113.1" y="462.1" font-size="11" fill="#1F2328" text-anchor="middle">0,68</text>
+<text x="24.0" y="490.1" font-size="11" fill="#1F2328" text-anchor="start">11. P060 Node-зависимости плагинов без ручного npm</text>
+<text x="24.0" y="503.6" font-size="11" fill="#1F2328" text-anchor="start">install после каждого обновления</text>
+<rect x="385.0" y="476.6" width="83.8" height="33.0" rx="2" fill="#55A0CC"/>
+<text x="426.9" y="497.1" font-size="11" fill="#1F2328" text-anchor="middle">3,47</text>
+<rect x="470.8" y="476.6" width="83.8" height="33.0" rx="2" fill="#2C8ABF"/>
+<text x="512.7" y="497.1" font-size="11" fill="#1F2328" text-anchor="middle">1,78</text>
+<rect x="556.6" y="476.6" width="83.8" height="33.0" rx="2" fill="#2D8AC0"/>
+<text x="598.4" y="497.1" font-size="11" fill="#1F2328" text-anchor="middle">1,80</text>
+<rect x="642.3" y="476.6" width="83.8" height="33.0" rx="2" fill="#0D79B6"/>
+<text x="684.2" y="497.1" font-size="11" fill="#FFFFFF" text-anchor="middle">0,94</text>
+<rect x="728.1" y="476.6" width="83.8" height="33.0" rx="2" fill="#348EC2"/>
+<text x="770.0" y="497.1" font-size="11" fill="#1F2328" text-anchor="middle">0,77</text>
+<rect x="813.9" y="476.6" width="83.8" height="33.0" rx="2" fill="#328DC1"/>
+<text x="855.8" y="497.1" font-size="11" fill="#1F2328" text-anchor="middle">0,78</text>
+<rect x="899.7" y="476.6" width="83.8" height="33.0" rx="2" fill="#7BB5D7"/>
+<text x="941.6" y="497.1" font-size="11" fill="#1F2328" text-anchor="middle">0,45</text>
+<rect x="985.4" y="476.6" width="83.8" height="33.0" rx="2" fill="#61A7CF"/>
+<text x="1027.3" y="497.1" font-size="11" fill="#1F2328" text-anchor="middle">0,56</text>
+<rect x="1071.2" y="476.6" width="83.8" height="33.0" rx="2" fill="#519ECA"/>
+<text x="1113.1" y="497.1" font-size="11" fill="#1F2328" text-anchor="middle">0,64</text>
+<text x="24.0" y="525.1" font-size="11" fill="#1F2328" text-anchor="start">12. P046 Опросы спроса в Discussions: лицензия,</text>
+<text x="24.0" y="538.6" font-size="11" fill="#1F2328" text-anchor="start">переносимость, языки, приоритеты</text>
+<rect x="385.0" y="511.6" width="83.8" height="33.0" rx="2" fill="#6FAFD4"/>
+<text x="426.9" y="532.1" font-size="11" fill="#1F2328" text-anchor="middle">3,00</text>
+<rect x="470.8" y="511.6" width="83.8" height="33.0" rx="2" fill="#0C79B6"/>
+<text x="512.7" y="532.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,22</text>
+<rect x="556.6" y="511.6" width="83.8" height="33.0" rx="2" fill="#0072B2"/>
+<text x="598.4" y="532.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,00</text>
+<rect x="642.3" y="511.6" width="83.8" height="33.0" rx="2" fill="#0D79B6"/>
+<text x="684.2" y="532.1" font-size="11" fill="#FFFFFF" text-anchor="middle">0,94</text>
+<rect x="728.1" y="511.6" width="83.8" height="33.0" rx="2" fill="#56A1CC"/>
+<text x="770.0" y="532.1" font-size="11" fill="#1F2328" text-anchor="middle">0,62</text>
+<rect x="813.9" y="511.6" width="83.8" height="33.0" rx="2" fill="#3690C2"/>
+<text x="855.8" y="532.1" font-size="11" fill="#1F2328" text-anchor="middle">0,76</text>
+<rect x="899.7" y="511.6" width="83.8" height="33.0" rx="2" fill="#489AC8"/>
+<text x="941.6" y="532.1" font-size="11" fill="#1F2328" text-anchor="middle">0,67</text>
+<rect x="985.4" y="511.6" width="83.8" height="33.0" rx="2" fill="#6CADD2"/>
+<text x="1027.3" y="532.1" font-size="11" fill="#1F2328" text-anchor="middle">0,52</text>
+<rect x="1071.2" y="511.6" width="83.8" height="33.0" rx="2" fill="#529ECB"/>
+<text x="1113.1" y="532.1" font-size="11" fill="#1F2328" text-anchor="middle">0,63</text>
+<text x="24.0" y="560.1" font-size="11" fill="#1F2328" text-anchor="start">13. P004 Дельта между прогонами: новые, исправленные и</text>
+<text x="24.0" y="573.6" font-size="11" fill="#1F2328" text-anchor="start">вернувшиеся находки</text>
+<rect x="385.0" y="546.6" width="83.8" height="33.0" rx="2" fill="#4B9BC9"/>
+<text x="426.9" y="567.1" font-size="11" fill="#1F2328" text-anchor="middle">3,65</text>
+<rect x="470.8" y="546.6" width="83.8" height="33.0" rx="2" fill="#2C8ABF"/>
+<text x="512.7" y="567.1" font-size="11" fill="#1F2328" text-anchor="middle">1,78</text>
+<rect x="556.6" y="546.6" width="83.8" height="33.0" rx="2" fill="#137CB8"/>
+<text x="598.4" y="567.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,34</text>
+<rect x="642.3" y="546.6" width="83.8" height="33.0" rx="2" fill="#187FB9"/>
+<text x="684.2" y="567.1" font-size="11" fill="#1F2328" text-anchor="middle">0,89</text>
+<rect x="728.1" y="546.6" width="83.8" height="33.0" rx="2" fill="#63A8D0"/>
+<text x="770.0" y="567.1" font-size="11" fill="#1F2328" text-anchor="middle">0,56</text>
+<rect x="813.9" y="546.6" width="83.8" height="33.0" rx="2" fill="#338EC1"/>
+<text x="855.8" y="567.1" font-size="11" fill="#1F2328" text-anchor="middle">0,77</text>
+<rect x="899.7" y="546.6" width="83.8" height="33.0" rx="2" fill="#71B0D4"/>
+<text x="941.6" y="567.1" font-size="11" fill="#1F2328" text-anchor="middle">0,49</text>
+<rect x="985.4" y="546.6" width="83.8" height="33.0" rx="2" fill="#4296C6"/>
+<text x="1027.3" y="567.1" font-size="11" fill="#1F2328" text-anchor="middle">0,70</text>
+<rect x="1071.2" y="546.6" width="83.8" height="33.0" rx="2" fill="#55A0CC"/>
+<text x="1113.1" y="567.1" font-size="11" fill="#1F2328" text-anchor="middle">0,62</text>
+<text x="24.0" y="595.1" font-size="11" fill="#1F2328" text-anchor="start">14. P042 Решение по лицензии: NC, двойная лицензия или</text>
+<text x="24.0" y="608.6" font-size="11" fill="#1F2328" text-anchor="start">открытие части скилов — с оценкой рисков</text>
+<rect x="385.0" y="581.6" width="83.8" height="33.0" rx="2" fill="#4899C8"/>
+<text x="426.9" y="602.1" font-size="11" fill="#1F2328" text-anchor="middle">3,71</text>
+<rect x="470.8" y="581.6" width="83.8" height="33.0" rx="2" fill="#2C8ABF"/>
+<text x="512.7" y="602.1" font-size="11" fill="#1F2328" text-anchor="middle">1,78</text>
+<rect x="556.6" y="581.6" width="83.8" height="33.0" rx="2" fill="#56A1CC"/>
+<text x="598.4" y="602.1" font-size="11" fill="#1F2328" text-anchor="middle">2,54</text>
+<rect x="642.3" y="581.6" width="83.8" height="33.0" rx="2" fill="#3E94C5"/>
+<text x="684.2" y="602.1" font-size="11" fill="#1F2328" text-anchor="middle">0,72</text>
+<rect x="728.1" y="581.6" width="83.8" height="33.0" rx="2" fill="#358FC2"/>
+<text x="770.0" y="602.1" font-size="11" fill="#1F2328" text-anchor="middle">0,76</text>
+<rect x="813.9" y="581.6" width="83.8" height="33.0" rx="2" fill="#59A3CD"/>
+<text x="855.8" y="602.1" font-size="11" fill="#1F2328" text-anchor="middle">0,60</text>
+<rect x="899.7" y="581.6" width="83.8" height="33.0" rx="2" fill="#69ABD2"/>
+<text x="941.6" y="602.1" font-size="11" fill="#1F2328" text-anchor="middle">0,53</text>
+<rect x="985.4" y="581.6" width="83.8" height="33.0" rx="2" fill="#6CADD3"/>
+<text x="1027.3" y="602.1" font-size="11" fill="#1F2328" text-anchor="middle">0,51</text>
+<rect x="1071.2" y="581.6" width="83.8" height="33.0" rx="2" fill="#57A1CC"/>
+<text x="1113.1" y="602.1" font-size="11" fill="#1F2328" text-anchor="middle">0,61</text>
+<text x="24.0" y="630.1" font-size="11" fill="#1F2328" text-anchor="start">15. P024 Запуск в формате «покажи проект»: Show HN,</text>
+<text x="24.0" y="643.6" font-size="11" fill="#1F2328" text-anchor="start">затем Product Hunt</text>
+<rect x="385.0" y="616.6" width="83.8" height="33.0" rx="2" fill="#4598C7"/>
+<text x="426.9" y="637.1" font-size="11" fill="#1F2328" text-anchor="middle">3,76</text>
+<rect x="470.8" y="616.6" width="83.8" height="33.0" rx="2" fill="#3890C3"/>
+<text x="512.7" y="637.1" font-size="11" fill="#1F2328" text-anchor="middle">2,00</text>
+<rect x="556.6" y="616.6" width="83.8" height="33.0" rx="2" fill="#3690C2"/>
+<text x="598.4" y="637.1" font-size="11" fill="#1F2328" text-anchor="middle">1,98</text>
+<rect x="642.3" y="616.6" width="83.8" height="33.0" rx="2" fill="#3E94C5"/>
+<text x="684.2" y="637.1" font-size="11" fill="#1F2328" text-anchor="middle">0,72</text>
+<rect x="728.1" y="616.6" width="83.8" height="33.0" rx="2" fill="#308CC1"/>
+<text x="770.0" y="637.1" font-size="11" fill="#1F2328" text-anchor="middle">0,78</text>
+<rect x="813.9" y="616.6" width="83.8" height="33.0" rx="2" fill="#60A6CF"/>
+<text x="855.8" y="637.1" font-size="11" fill="#1F2328" text-anchor="middle">0,57</text>
+<rect x="899.7" y="616.6" width="83.8" height="33.0" rx="2" fill="#88BCDB"/>
+<text x="941.6" y="637.1" font-size="11" fill="#1F2328" text-anchor="middle">0,39</text>
+<rect x="985.4" y="616.6" width="83.8" height="33.0" rx="2" fill="#529FCB"/>
+<text x="1027.3" y="637.1" font-size="11" fill="#1F2328" text-anchor="middle">0,63</text>
+<rect x="1071.2" y="616.6" width="83.8" height="33.0" rx="2" fill="#58A2CD"/>
+<text x="1113.1" y="637.1" font-size="11" fill="#1F2328" text-anchor="middle">0,60</text>
+<text x="24.0" y="665.1" font-size="11" fill="#1F2328" text-anchor="start">16. P001 Оценка объёма и стоимости прогона до старта и</text>
+<text x="24.0" y="678.6" font-size="11" fill="#1F2328" text-anchor="start">лимит бюджета</text>
+<rect x="385.0" y="651.6" width="83.8" height="33.0" rx="2" fill="#4A9BC8"/>
+<text x="426.9" y="672.1" font-size="11" fill="#1F2328" text-anchor="middle">3,66</text>
+<rect x="470.8" y="651.6" width="83.8" height="33.0" rx="2" fill="#2C8ABF"/>
+<text x="512.7" y="672.1" font-size="11" fill="#1F2328" text-anchor="middle">1,78</text>
+<rect x="556.6" y="651.6" width="83.8" height="33.0" rx="2" fill="#1A80BA"/>
+<text x="598.4" y="672.1" font-size="11" fill="#1F2328" text-anchor="middle">1,46</text>
+<rect x="642.3" y="651.6" width="83.8" height="33.0" rx="2" fill="#3E94C5"/>
+<text x="684.2" y="672.1" font-size="11" fill="#1F2328" text-anchor="middle">0,72</text>
+<rect x="728.1" y="651.6" width="83.8" height="33.0" rx="2" fill="#509ECA"/>
+<text x="770.0" y="672.1" font-size="11" fill="#1F2328" text-anchor="middle">0,64</text>
+<rect x="813.9" y="651.6" width="83.8" height="33.0" rx="2" fill="#5BA4CE"/>
+<text x="855.8" y="672.1" font-size="11" fill="#1F2328" text-anchor="middle">0,59</text>
+<rect x="899.7" y="651.6" width="83.8" height="33.0" rx="2" fill="#78B4D6"/>
+<text x="941.6" y="672.1" font-size="11" fill="#1F2328" text-anchor="middle">0,46</text>
+<rect x="985.4" y="651.6" width="83.8" height="33.0" rx="2" fill="#4598C7"/>
+<text x="1027.3" y="672.1" font-size="11" fill="#1F2328" text-anchor="middle">0,69</text>
+<rect x="1071.2" y="651.6" width="83.8" height="33.0" rx="2" fill="#5AA3CD"/>
+<text x="1113.1" y="672.1" font-size="11" fill="#1F2328" text-anchor="middle">0,60</text>
+<text x="24.0" y="700.1" font-size="11" fill="#1F2328" text-anchor="start">17. P017 Заполнить метаданные репозитория: темы GitHub,</text>
+<text x="24.0" y="713.6" font-size="11" fill="#1F2328" text-anchor="start">описание, social preview</text>
+<rect x="385.0" y="686.6" width="83.8" height="33.0" rx="2" fill="#7EB7D8"/>
+<text x="426.9" y="707.1" font-size="11" fill="#1F2328" text-anchor="middle">2,74</text>
+<rect x="470.8" y="686.6" width="83.8" height="33.0" rx="2" fill="#0072B2"/>
+<text x="512.7" y="707.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,00</text>
+<rect x="556.6" y="686.6" width="83.8" height="33.0" rx="2" fill="#0072B2"/>
+<text x="598.4" y="707.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,00</text>
+<rect x="642.3" y="686.6" width="83.8" height="33.0" rx="2" fill="#2485BD"/>
+<text x="684.2" y="707.1" font-size="11" fill="#1F2328" text-anchor="middle">0,84</text>
+<rect x="728.1" y="686.6" width="83.8" height="33.0" rx="2" fill="#62A8D0"/>
+<text x="770.0" y="707.1" font-size="11" fill="#1F2328" text-anchor="middle">0,56</text>
+<rect x="813.9" y="686.6" width="83.8" height="33.0" rx="2" fill="#55A1CC"/>
+<text x="855.8" y="707.1" font-size="11" fill="#1F2328" text-anchor="middle">0,62</text>
+<rect x="899.7" y="686.6" width="83.8" height="33.0" rx="2" fill="#3D93C4"/>
+<text x="941.6" y="707.1" font-size="11" fill="#1F2328" text-anchor="middle">0,73</text>
+<rect x="985.4" y="686.6" width="83.8" height="33.0" rx="2" fill="#82B9D9"/>
+<text x="1027.3" y="707.1" font-size="11" fill="#1F2328" text-anchor="middle">0,42</text>
+<rect x="1071.2" y="686.6" width="83.8" height="33.0" rx="2" fill="#5EA5CE"/>
+<text x="1113.1" y="707.1" font-size="11" fill="#1F2328" text-anchor="middle">0,58</text>
+<text x="24.0" y="735.1" font-size="11" fill="#1F2328" text-anchor="start">18. P050 Заявки в тематические awesome-списки смежных</text>
+<text x="24.0" y="748.6" font-size="11" fill="#1F2328" text-anchor="start">экосистем: Playwright, a11y, Android</text>
+<rect x="385.0" y="721.6" width="83.8" height="33.0" rx="2" fill="#73B1D5"/>
+<text x="426.9" y="742.1" font-size="11" fill="#1F2328" text-anchor="middle">2,94</text>
+<rect x="470.8" y="721.6" width="83.8" height="33.0" rx="2" fill="#107BB7"/>
+<text x="512.7" y="742.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,29</text>
+<rect x="556.6" y="721.6" width="83.8" height="33.0" rx="2" fill="#0876B4"/>
+<text x="598.4" y="742.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,15</text>
+<rect x="642.3" y="721.6" width="83.8" height="33.0" rx="2" fill="#2485BD"/>
+<text x="684.2" y="742.1" font-size="11" fill="#1F2328" text-anchor="middle">0,84</text>
+<rect x="728.1" y="721.6" width="83.8" height="33.0" rx="2" fill="#54A0CB"/>
+<text x="770.0" y="742.1" font-size="11" fill="#1F2328" text-anchor="middle">0,62</text>
+<rect x="813.9" y="721.6" width="83.8" height="33.0" rx="2" fill="#539FCB"/>
+<text x="855.8" y="742.1" font-size="11" fill="#1F2328" text-anchor="middle">0,63</text>
+<rect x="899.7" y="721.6" width="83.8" height="33.0" rx="2" fill="#5FA6CF"/>
+<text x="941.6" y="742.1" font-size="11" fill="#1F2328" text-anchor="middle">0,57</text>
+<rect x="985.4" y="721.6" width="83.8" height="33.0" rx="2" fill="#75B2D5"/>
+<text x="1027.3" y="742.1" font-size="11" fill="#1F2328" text-anchor="middle">0,47</text>
+<rect x="1071.2" y="721.6" width="83.8" height="33.0" rx="2" fill="#5FA6CF"/>
+<text x="1113.1" y="742.1" font-size="11" fill="#1F2328" text-anchor="middle">0,57</text>
+<text x="24.0" y="770.1" font-size="11" fill="#1F2328" text-anchor="start">19. P044 Северная звезда и контрольные точки 30/60/90</text>
+<text x="24.0" y="783.6" font-size="11" fill="#1F2328" text-anchor="start">дней с порогами «продолжать/свернуть»</text>
+<rect x="385.0" y="756.6" width="83.8" height="33.0" rx="2" fill="#68ABD1"/>
+<text x="426.9" y="777.1" font-size="11" fill="#1F2328" text-anchor="middle">3,13</text>
+<rect x="470.8" y="756.6" width="83.8" height="33.0" rx="2" fill="#0C79B6"/>
+<text x="512.7" y="777.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,22</text>
+<rect x="556.6" y="756.6" width="83.8" height="33.0" rx="2" fill="#0072B2"/>
+<text x="598.4" y="777.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,00</text>
+<rect x="642.3" y="756.6" width="83.8" height="33.0" rx="2" fill="#6FAFD4"/>
+<text x="684.2" y="777.1" font-size="11" fill="#1F2328" text-anchor="middle">0,50</text>
+<rect x="728.1" y="756.6" width="83.8" height="33.0" rx="2" fill="#54A0CB"/>
+<text x="770.0" y="777.1" font-size="11" fill="#1F2328" text-anchor="middle">0,62</text>
+<rect x="813.9" y="756.6" width="83.8" height="33.0" rx="2" fill="#94C3DF"/>
+<text x="855.8" y="777.1" font-size="11" fill="#1F2328" text-anchor="middle">0,34</text>
+<rect x="899.7" y="756.6" width="83.8" height="33.0" rx="2" fill="#4698C7"/>
+<text x="941.6" y="777.1" font-size="11" fill="#1F2328" text-anchor="middle">0,69</text>
+<rect x="985.4" y="756.6" width="83.8" height="33.0" rx="2" fill="#60A7CF"/>
+<text x="1027.3" y="777.1" font-size="11" fill="#1F2328" text-anchor="middle">0,57</text>
+<rect x="1071.2" y="756.6" width="83.8" height="33.0" rx="2" fill="#60A6CF"/>
+<text x="1113.1" y="777.1" font-size="11" fill="#1F2328" text-anchor="middle">0,57</text>
+<text x="24.0" y="805.1" font-size="11" fill="#1F2328" text-anchor="start">20. P063 Диета SKILL.md: критичные правила в первых 5 тыс.</text>
+<text x="24.0" y="818.6" font-size="11" fill="#1F2328" text-anchor="start">токенов, детали — в references</text>
+<rect x="385.0" y="791.6" width="83.8" height="33.0" rx="2" fill="#58A2CD"/>
+<text x="426.9" y="812.1" font-size="11" fill="#1F2328" text-anchor="middle">3,41</text>
+<rect x="470.8" y="791.6" width="83.8" height="33.0" rx="2" fill="#4F9DCA"/>
+<text x="512.7" y="812.1" font-size="11" fill="#1F2328" text-anchor="middle">2,42</text>
+<rect x="556.6" y="791.6" width="83.8" height="33.0" rx="2" fill="#1A80BA"/>
+<text x="598.4" y="812.1" font-size="11" fill="#1F2328" text-anchor="middle">1,46</text>
+<rect x="642.3" y="791.6" width="83.8" height="33.0" rx="2" fill="#187FB9"/>
+<text x="684.2" y="812.1" font-size="11" fill="#1F2328" text-anchor="middle">0,89</text>
+<rect x="728.1" y="791.6" width="83.8" height="33.0" rx="2" fill="#3E94C5"/>
+<text x="770.0" y="812.1" font-size="11" fill="#1F2328" text-anchor="middle">0,72</text>
+<rect x="813.9" y="791.6" width="83.8" height="33.0" rx="2" fill="#5FA6CF"/>
+<text x="855.8" y="812.1" font-size="11" fill="#1F2328" text-anchor="middle">0,57</text>
+<rect x="899.7" y="791.6" width="83.8" height="33.0" rx="2" fill="#A5CCE4"/>
+<text x="941.6" y="812.1" font-size="11" fill="#1F2328" text-anchor="middle">0,26</text>
+<rect x="985.4" y="791.6" width="83.8" height="33.0" rx="2" fill="#59A3CD"/>
+<text x="1027.3" y="812.1" font-size="11" fill="#1F2328" text-anchor="middle">0,60</text>
+<rect x="1071.2" y="791.6" width="83.8" height="33.0" rx="2" fill="#65A9D1"/>
+<text x="1113.1" y="812.1" font-size="11" fill="#1F2328" text-anchor="middle">0,55</text>
+<text x="24.0" y="840.1" font-size="11" fill="#1F2328" text-anchor="start">21. P028 Развести бренд с daymade/claude-code-skills:</text>
+<text x="24.0" y="853.6" font-size="11" fill="#1F2328" text-anchor="start">уникальное имя в выдаче и каталогах</text>
+<rect x="385.0" y="826.6" width="83.8" height="33.0" rx="2" fill="#78B3D6"/>
+<text x="426.9" y="847.1" font-size="11" fill="#1F2328" text-anchor="middle">2,85</text>
+<rect x="470.8" y="826.6" width="83.8" height="33.0" rx="2" fill="#147DB8"/>
+<text x="512.7" y="847.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,36</text>
+<rect x="556.6" y="826.6" width="83.8" height="33.0" rx="2" fill="#147DB8"/>
+<text x="598.4" y="847.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,37</text>
+<rect x="642.3" y="826.6" width="83.8" height="33.0" rx="2" fill="#2485BD"/>
+<text x="684.2" y="847.1" font-size="11" fill="#1F2328" text-anchor="middle">0,84</text>
+<rect x="728.1" y="826.6" width="83.8" height="33.0" rx="2" fill="#54A0CB"/>
+<text x="770.0" y="847.1" font-size="11" fill="#1F2328" text-anchor="middle">0,62</text>
+<rect x="813.9" y="826.6" width="83.8" height="33.0" rx="2" fill="#5BA4CE"/>
+<text x="855.8" y="847.1" font-size="11" fill="#1F2328" text-anchor="middle">0,59</text>
+<rect x="899.7" y="826.6" width="83.8" height="33.0" rx="2" fill="#6BACD2"/>
+<text x="941.6" y="847.1" font-size="11" fill="#1F2328" text-anchor="middle">0,52</text>
+<rect x="985.4" y="826.6" width="83.8" height="33.0" rx="2" fill="#83BADA"/>
+<text x="1027.3" y="847.1" font-size="11" fill="#1F2328" text-anchor="middle">0,41</text>
+<rect x="1071.2" y="826.6" width="83.8" height="33.0" rx="2" fill="#67AAD1"/>
+<text x="1113.1" y="847.1" font-size="11" fill="#1F2328" text-anchor="middle">0,54</text>
+<text x="24.0" y="875.1" font-size="11" fill="#1F2328" text-anchor="start">22. P031 Опубликовать демо-отчёты: пример QA-отчёта и</text>
+<text x="24.0" y="888.6" font-size="11" fill="#1F2328" text-anchor="start">страницы стратегии без установки</text>
+<rect x="385.0" y="861.6" width="83.8" height="33.0" rx="2" fill="#4095C5"/>
+<text x="426.9" y="882.1" font-size="11" fill="#1F2328" text-anchor="middle">3,85</text>
+<rect x="470.8" y="861.6" width="83.8" height="33.0" rx="2" fill="#3890C3"/>
+<text x="512.7" y="882.1" font-size="11" fill="#1F2328" text-anchor="middle">2,00</text>
+<rect x="556.6" y="861.6" width="83.8" height="33.0" rx="2" fill="#167EB9"/>
+<text x="598.4" y="882.1" font-size="11" fill="#1F2328" text-anchor="middle">1,39</text>
+<rect x="642.3" y="861.6" width="83.8" height="33.0" rx="2" fill="#86BBDA"/>
+<text x="684.2" y="882.1" font-size="11" fill="#1F2328" text-anchor="middle">0,40</text>
+<rect x="728.1" y="861.6" width="83.8" height="33.0" rx="2" fill="#73B1D5"/>
+<text x="770.0" y="882.1" font-size="11" fill="#1F2328" text-anchor="middle">0,49</text>
+<rect x="813.9" y="861.6" width="83.8" height="33.0" rx="2" fill="#A8CEE5"/>
+<text x="855.8" y="882.1" font-size="11" fill="#1F2328" text-anchor="middle">0,24</text>
+<rect x="899.7" y="861.6" width="83.8" height="33.0" rx="2" fill="#73B1D5"/>
+<text x="941.6" y="882.1" font-size="11" fill="#1F2328" text-anchor="middle">0,48</text>
+<rect x="985.4" y="861.6" width="83.8" height="33.0" rx="2" fill="#338EC1"/>
+<text x="1027.3" y="882.1" font-size="11" fill="#1F2328" text-anchor="middle">0,77</text>
+<rect x="1071.2" y="861.6" width="83.8" height="33.0" rx="2" fill="#6EAED3"/>
+<text x="1113.1" y="882.1" font-size="11" fill="#1F2328" text-anchor="middle">0,51</text>
+<text x="24.0" y="910.1" font-size="11" fill="#1F2328" text-anchor="start">23. P035 Включить Discussions и публичную дорожную карту</text>
+<text x="24.0" y="923.6" font-size="11" fill="#1F2328" text-anchor="start">с ответом «вы просили — сделано»</text>
+<rect x="385.0" y="896.6" width="83.8" height="33.0" rx="2" fill="#82B9D9"/>
+<text x="426.9" y="917.1" font-size="11" fill="#1F2328" text-anchor="middle">2,66</text>
+<rect x="470.8" y="896.6" width="83.8" height="33.0" rx="2" fill="#0072B2"/>
+<text x="512.7" y="917.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,00</text>
+<rect x="556.6" y="896.6" width="83.8" height="33.0" rx="2" fill="#0776B4"/>
+<text x="598.4" y="917.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,12</text>
+<rect x="642.3" y="896.6" width="83.8" height="33.0" rx="2" fill="#2485BD"/>
+<text x="684.2" y="917.1" font-size="11" fill="#1F2328" text-anchor="middle">0,84</text>
+<rect x="728.1" y="896.6" width="83.8" height="33.0" rx="2" fill="#96C4DF"/>
+<text x="770.0" y="917.1" font-size="11" fill="#1F2328" text-anchor="middle">0,33</text>
+<rect x="813.9" y="896.6" width="83.8" height="33.0" rx="2" fill="#5AA3CD"/>
+<text x="855.8" y="917.1" font-size="11" fill="#1F2328" text-anchor="middle">0,59</text>
+<rect x="899.7" y="896.6" width="83.8" height="33.0" rx="2" fill="#328DC1"/>
+<text x="941.6" y="917.1" font-size="11" fill="#1F2328" text-anchor="middle">0,78</text>
+<rect x="985.4" y="896.6" width="83.8" height="33.0" rx="2" fill="#8CBEDC"/>
+<text x="1027.3" y="917.1" font-size="11" fill="#1F2328" text-anchor="middle">0,37</text>
+<rect x="1071.2" y="896.6" width="83.8" height="33.0" rx="2" fill="#6EAED3"/>
+<text x="1113.1" y="917.1" font-size="11" fill="#1F2328" text-anchor="middle">0,50</text>
+<text x="24.0" y="945.1" font-size="11" fill="#1F2328" text-anchor="start">24. P038 Рецепты регулярного запуска скилов: loop.md и</text>
+<text x="24.0" y="958.6" font-size="11" fill="#1F2328" text-anchor="start">routines для еженедельного повтора</text>
+<rect x="385.0" y="931.6" width="83.8" height="33.0" rx="2" fill="#77B3D6"/>
+<text x="426.9" y="952.1" font-size="11" fill="#1F2328" text-anchor="middle">2,87</text>
+<rect x="470.8" y="931.6" width="83.8" height="33.0" rx="2" fill="#0F7AB7"/>
+<text x="512.7" y="952.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,27</text>
+<rect x="556.6" y="931.6" width="83.8" height="33.0" rx="2" fill="#0072B2"/>
+<text x="598.4" y="952.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,00</text>
+<rect x="642.3" y="931.6" width="83.8" height="33.0" rx="2" fill="#187FB9"/>
+<text x="684.2" y="952.1" font-size="11" fill="#1F2328" text-anchor="middle">0,89</text>
+<rect x="728.1" y="931.6" width="83.8" height="33.0" rx="2" fill="#8FC0DD"/>
+<text x="770.0" y="952.1" font-size="11" fill="#1F2328" text-anchor="middle">0,36</text>
+<rect x="813.9" y="931.6" width="83.8" height="33.0" rx="2" fill="#4C9CC9"/>
+<text x="855.8" y="952.1" font-size="11" fill="#1F2328" text-anchor="middle">0,66</text>
+<rect x="899.7" y="931.6" width="83.8" height="33.0" rx="2" fill="#5EA5CE"/>
+<text x="941.6" y="952.1" font-size="11" fill="#1F2328" text-anchor="middle">0,58</text>
+<rect x="985.4" y="931.6" width="83.8" height="33.0" rx="2" fill="#77B3D6"/>
+<text x="1027.3" y="952.1" font-size="11" fill="#1F2328" text-anchor="middle">0,47</text>
+<rect x="1071.2" y="931.6" width="83.8" height="33.0" rx="2" fill="#6FAFD4"/>
+<text x="1113.1" y="952.1" font-size="11" fill="#1F2328" text-anchor="middle">0,50</text>
+<text x="24.0" y="980.1" font-size="11" fill="#1F2328" text-anchor="start">25. P049 Договориться с TypeSafe о взаимной витрине:</text>
+<text x="24.0" y="993.6" font-size="11" fill="#1F2328" text-anchor="start">typesafe-triage как пример на Jev</text>
+<rect x="385.0" y="966.6" width="83.8" height="33.0" rx="2" fill="#77B3D6"/>
+<text x="426.9" y="987.1" font-size="11" fill="#1F2328" text-anchor="middle">2,87</text>
+<rect x="470.8" y="966.6" width="83.8" height="33.0" rx="2" fill="#0C79B6"/>
+<text x="512.7" y="987.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,22</text>
+<rect x="556.6" y="966.6" width="83.8" height="33.0" rx="2" fill="#0776B4"/>
+<text x="598.4" y="987.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,12</text>
+<rect x="642.3" y="966.6" width="83.8" height="33.0" rx="2" fill="#3E94C5"/>
+<text x="684.2" y="987.1" font-size="11" fill="#1F2328" text-anchor="middle">0,72</text>
+<rect x="728.1" y="966.6" width="83.8" height="33.0" rx="2" fill="#81B8D9"/>
+<text x="770.0" y="987.1" font-size="11" fill="#1F2328" text-anchor="middle">0,42</text>
+<rect x="813.9" y="966.6" width="83.8" height="33.0" rx="2" fill="#6FAED3"/>
+<text x="855.8" y="987.1" font-size="11" fill="#1F2328" text-anchor="middle">0,50</text>
+<rect x="899.7" y="966.6" width="83.8" height="33.0" rx="2" fill="#56A1CC"/>
+<text x="941.6" y="987.1" font-size="11" fill="#1F2328" text-anchor="middle">0,61</text>
+<rect x="985.4" y="966.6" width="83.8" height="33.0" rx="2" fill="#7BB5D7"/>
+<text x="1027.3" y="987.1" font-size="11" fill="#1F2328" text-anchor="middle">0,45</text>
+<rect x="1071.2" y="966.6" width="83.8" height="33.0" rx="2" fill="#71B0D4"/>
+<text x="1113.1" y="987.1" font-size="11" fill="#1F2328" text-anchor="middle">0,49</text>
+<text x="24.0" y="1015.1" font-size="11" fill="#1F2328" text-anchor="start">26. P054 Английские описания и ключевые слова плагинов в</text>
+<text x="24.0" y="1028.6" font-size="11" fill="#1F2328" text-anchor="start">plugin.json и marketplace.json</text>
+<rect x="385.0" y="1001.6" width="83.8" height="33.0" rx="2" fill="#A4CBE3"/>
+<text x="426.9" y="1022.1" font-size="11" fill="#1F2328" text-anchor="middle">2,06</text>
+<rect x="470.8" y="1001.6" width="83.8" height="33.0" rx="2" fill="#0072B2"/>
+<text x="512.7" y="1022.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,00</text>
+<rect x="556.6" y="1001.6" width="83.8" height="33.0" rx="2" fill="#0072B2"/>
+<text x="598.4" y="1022.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,00</text>
+<rect x="642.3" y="1001.6" width="83.8" height="33.0" rx="2" fill="#187FB9"/>
+<text x="684.2" y="1022.1" font-size="11" fill="#1F2328" text-anchor="middle">0,89</text>
+<rect x="728.1" y="1001.6" width="83.8" height="33.0" rx="2" fill="#57A2CC"/>
+<text x="770.0" y="1022.1" font-size="11" fill="#1F2328" text-anchor="middle">0,61</text>
+<rect x="813.9" y="1001.6" width="83.8" height="33.0" rx="2" fill="#7AB4D7"/>
+<text x="855.8" y="1022.1" font-size="11" fill="#1F2328" text-anchor="middle">0,45</text>
+<rect x="899.7" y="1001.6" width="83.8" height="33.0" rx="2" fill="#4F9DCA"/>
+<text x="941.6" y="1022.1" font-size="11" fill="#1F2328" text-anchor="middle">0,65</text>
+<rect x="985.4" y="1001.6" width="83.8" height="33.0" rx="2" fill="#BCD8EB"/>
+<text x="1027.3" y="1022.1" font-size="11" fill="#1F2328" text-anchor="middle">0,16</text>
+<rect x="1071.2" y="1001.6" width="83.8" height="33.0" rx="2" fill="#75B2D5"/>
+<text x="1113.1" y="1022.1" font-size="11" fill="#1F2328" text-anchor="middle">0,47</text>
+<text x="24.0" y="1050.1" font-size="11" fill="#1F2328" text-anchor="start">27. P048 Листинг в реестре Tessl и skills.sh с публичными</text>
+<text x="24.0" y="1063.6" font-size="11" fill="#1F2328" text-anchor="start">оценками качества и безопасности</text>
+<rect x="385.0" y="1036.6" width="83.8" height="33.0" rx="2" fill="#70AFD4"/>
+<text x="426.9" y="1057.1" font-size="11" fill="#1F2328" text-anchor="middle">2,99</text>
+<rect x="470.8" y="1036.6" width="83.8" height="33.0" rx="2" fill="#308CC0"/>
+<text x="512.7" y="1057.1" font-size="11" fill="#1F2328" text-anchor="middle">1,85</text>
+<rect x="556.6" y="1036.6" width="83.8" height="33.0" rx="2" fill="#137CB8"/>
+<text x="598.4" y="1057.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,34</text>
+<rect x="642.3" y="1036.6" width="83.8" height="33.0" rx="2" fill="#2485BD"/>
+<text x="684.2" y="1057.1" font-size="11" fill="#1F2328" text-anchor="middle">0,84</text>
+<rect x="728.1" y="1036.6" width="83.8" height="33.0" rx="2" fill="#68AAD1"/>
+<text x="770.0" y="1057.1" font-size="11" fill="#1F2328" text-anchor="middle">0,53</text>
+<rect x="813.9" y="1036.6" width="83.8" height="33.0" rx="2" fill="#66AAD1"/>
+<text x="855.8" y="1057.1" font-size="11" fill="#1F2328" text-anchor="middle">0,54</text>
+<rect x="899.7" y="1036.6" width="83.8" height="33.0" rx="2" fill="#8FC0DD"/>
+<text x="941.6" y="1057.1" font-size="11" fill="#1F2328" text-anchor="middle">0,36</text>
+<rect x="985.4" y="1036.6" width="83.8" height="33.0" rx="2" fill="#78B3D6"/>
+<text x="1027.3" y="1057.1" font-size="11" fill="#1F2328" text-anchor="middle">0,46</text>
+<rect x="1071.2" y="1036.6" width="83.8" height="33.0" rx="2" fill="#75B2D5"/>
+<text x="1113.1" y="1057.1" font-size="11" fill="#1F2328" text-anchor="middle">0,47</text>
+<text x="24.0" y="1085.1" font-size="11" fill="#1F2328" text-anchor="start">28. P025 Пост «QA-находки → черновики issues» к GitHub</text>
+<text x="24.0" y="1098.6" font-size="11" fill="#1F2328" text-anchor="start">Universe 28–29.10.2026</text>
+<rect x="385.0" y="1071.6" width="83.8" height="33.0" rx="2" fill="#73B1D5"/>
+<text x="426.9" y="1092.1" font-size="11" fill="#1F2328" text-anchor="middle">2,93</text>
+<rect x="470.8" y="1071.6" width="83.8" height="33.0" rx="2" fill="#308CC0"/>
+<text x="512.7" y="1092.1" font-size="11" fill="#1F2328" text-anchor="middle">1,85</text>
+<rect x="556.6" y="1071.6" width="83.8" height="33.0" rx="2" fill="#147DB8"/>
+<text x="598.4" y="1092.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,37</text>
+<rect x="642.3" y="1071.6" width="83.8" height="33.0" rx="2" fill="#3E94C5"/>
+<text x="684.2" y="1092.1" font-size="11" fill="#1F2328" text-anchor="middle">0,72</text>
+<rect x="728.1" y="1071.6" width="83.8" height="33.0" rx="2" fill="#6CADD3"/>
+<text x="770.0" y="1092.1" font-size="11" fill="#1F2328" text-anchor="middle">0,52</text>
+<rect x="813.9" y="1071.6" width="83.8" height="33.0" rx="2" fill="#80B8D9"/>
+<text x="855.8" y="1092.1" font-size="11" fill="#1F2328" text-anchor="middle">0,42</text>
+<rect x="899.7" y="1071.6" width="83.8" height="33.0" rx="2" fill="#82B9D9"/>
+<text x="941.6" y="1092.1" font-size="11" fill="#1F2328" text-anchor="middle">0,42</text>
+<rect x="985.4" y="1071.6" width="83.8" height="33.0" rx="2" fill="#7DB6D8"/>
+<text x="1027.3" y="1092.1" font-size="11" fill="#1F2328" text-anchor="middle">0,44</text>
+<rect x="1071.2" y="1071.6" width="83.8" height="33.0" rx="2" fill="#7AB4D7"/>
+<text x="1113.1" y="1092.1" font-size="11" fill="#1F2328" text-anchor="middle">0,45</text>
+<text x="24.0" y="1120.1" font-size="11" fill="#1F2328" text-anchor="start">29. P068 Переносимое ядро: SKILL.md по Agent Skills и</text>
+<text x="24.0" y="1133.6" font-size="11" fill="#1F2328" text-anchor="start">дымовой тест вне Claude Code</text>
+<rect x="385.0" y="1106.6" width="83.8" height="33.0" rx="2" fill="#4C9CC9"/>
+<text x="426.9" y="1127.1" font-size="11" fill="#1F2328" text-anchor="middle">3,63</text>
+<rect x="470.8" y="1106.6" width="83.8" height="33.0" rx="2" fill="#7AB5D7"/>
+<text x="512.7" y="1127.1" font-size="11" fill="#1F2328" text-anchor="middle">3,20</text>
+<rect x="556.6" y="1106.6" width="83.8" height="33.0" rx="2" fill="#328DC1"/>
+<text x="598.4" y="1127.1" font-size="11" fill="#1F2328" text-anchor="middle">1,90</text>
+<rect x="642.3" y="1106.6" width="83.8" height="33.0" rx="2" fill="#2485BD"/>
+<text x="684.2" y="1127.1" font-size="11" fill="#1F2328" text-anchor="middle">0,84</text>
+<rect x="728.1" y="1106.6" width="83.8" height="33.0" rx="2" fill="#5EA6CE"/>
+<text x="770.0" y="1127.1" font-size="11" fill="#1F2328" text-anchor="middle">0,58</text>
+<rect x="813.9" y="1106.6" width="83.8" height="33.0" rx="2" fill="#83BADA"/>
+<text x="855.8" y="1127.1" font-size="11" fill="#1F2328" text-anchor="middle">0,41</text>
+<rect x="899.7" y="1106.6" width="83.8" height="33.0" rx="2" fill="#BAD8EA"/>
+<text x="941.6" y="1127.1" font-size="11" fill="#1F2328" text-anchor="middle">0,16</text>
+<rect x="985.4" y="1106.6" width="83.8" height="33.0" rx="2" fill="#59A2CD"/>
+<text x="1027.3" y="1127.1" font-size="11" fill="#1F2328" text-anchor="middle">0,60</text>
+<rect x="1071.2" y="1106.6" width="83.8" height="33.0" rx="2" fill="#7BB5D7"/>
+<text x="1113.1" y="1127.1" font-size="11" fill="#1F2328" text-anchor="middle">0,45</text>
+<text x="24.0" y="1155.1" font-size="11" fill="#1F2328" text-anchor="start">30. P067 Безопасность проекта: SECURITY.md, проверка</text>
+<text x="24.0" y="1168.6" font-size="11" fill="#1F2328" text-anchor="start">зависимостей, контрольные суммы всех скилов</text>
+<rect x="385.0" y="1141.6" width="83.8" height="33.0" rx="2" fill="#83B9DA"/>
+<text x="426.9" y="1162.1" font-size="11" fill="#1F2328" text-anchor="middle">2,65</text>
+<rect x="470.8" y="1141.6" width="83.8" height="33.0" rx="2" fill="#2788BE"/>
+<text x="512.7" y="1162.1" font-size="11" fill="#1F2328" text-anchor="middle">1,71</text>
+<rect x="556.6" y="1141.6" width="83.8" height="33.0" rx="2" fill="#0072B2"/>
+<text x="598.4" y="1162.1" font-size="11" fill="#FFFFFF" text-anchor="middle">1,00</text>
+<rect x="642.3" y="1141.6" width="83.8" height="33.0" rx="2" fill="#187FB9"/>
+<text x="684.2" y="1162.1" font-size="11" fill="#1F2328" text-anchor="middle">0,89</text>
+<rect x="728.1" y="1141.6" width="83.8" height="33.0" rx="2" fill="#70AFD4"/>
+<text x="770.0" y="1162.1" font-size="11" fill="#1F2328" text-anchor="middle">0,50</text>
+<rect x="813.9" y="1141.6" width="83.8" height="33.0" rx="2" fill="#6BACD2"/>
+<text x="855.8" y="1162.1" font-size="11" fill="#1F2328" text-anchor="middle">0,52</text>
+<rect x="899.7" y="1141.6" width="83.8" height="33.0" rx="2" fill="#89BDDB"/>
+<text x="941.6" y="1162.1" font-size="11" fill="#1F2328" text-anchor="middle">0,38</text>
+<rect x="985.4" y="1141.6" width="83.8" height="33.0" rx="2" fill="#8ABDDB"/>
+<text x="1027.3" y="1162.1" font-size="11" fill="#1F2328" text-anchor="middle">0,38</text>
+<rect x="1071.2" y="1141.6" width="83.8" height="33.0" rx="2" fill="#7CB5D7"/>
+<text x="1113.1" y="1162.1" font-size="11" fill="#1F2328" text-anchor="middle">0,45</text>
+<text x="24" y="1200.6" font-size="11" fill="#57606A">Источник: data/scores.json</text>
+</svg>

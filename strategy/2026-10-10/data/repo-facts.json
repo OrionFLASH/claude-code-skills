@@ -1,0 +1,284 @@
+{
+  "repo": {
+    "name": "claude-code-skills",
+    "path": "<repo>",
+    "remote": "OrionFLASH/claude-code-skills"
+  },
+  "date": "2026-10-10",
+  "tool": "repo_facts.py",
+  "github": {
+    "visibility": "public",
+    "is_private": false,
+    "license": {
+      "key": "other",
+      "name": "Other",
+      "spdx": "other"
+    },
+    "topics": [],
+    "stars": 0,
+    "forks": 0,
+    "description": "Мои скилы для Claude Code: маркетплейс плагинов",
+    "default_branch": "main"
+  },
+  "visibility": "public",
+  "license": {
+    "file": "LICENSE",
+    "spdx": "custom/unknown",
+    "note": null,
+    "github": {
+      "key": "other",
+      "name": "Other",
+      "spdx": "other"
+    }
+  },
+  "issues": {
+    "open": 3,
+    "closed": 92,
+    "total": 95,
+    "limit_reached": false
+  },
+  "tests": {
+    "static": {
+      "python_functions": 600,
+      "js_cases": 2,
+      "files": 32,
+      "total": 602
+    },
+    "claims": [],
+    "claim_values": [],
+    "check_needed": false,
+    "recommendation": "Тесты не запускались. Сверьте числа из документов (в документах чисел нет) с коллекцией: `pytest --collect-only -q | tail -1` (или `npx vitest list`/`npx jest --listTests`); параметризация даёт больше тестов, чем функций.",
+    "collect_hint": "pytest --collect-only -q"
+  },
+  "tracked_secret_like": [],
+  "platform_compat": {
+    "declared": [
+      "macos",
+      "windows"
+    ],
+    "declared_sources": [
+      {
+        "platform": "windows",
+        "file": "README.md",
+        "line": 20,
+        "source": "readme"
+      },
+      {
+        "platform": "macos",
+        "file": "README.md",
+        "line": 20,
+        "source": "readme"
+      },
+      {
+        "platform": "windows",
+        "file": "README.md",
+        "line": 73,
+        "source": "readme"
+      }
+    ],
+    "unix_only": [
+      {
+        "module": "os.getloadavg",
+        "file": "skills/android-qa-audit/scripts/adb_helpers.py",
+        "line": 1938,
+        "guarded": true
+      },
+      {
+        "module": "os.getuid",
+        "file": "skills/android-qa-audit/scripts/grpc_emu.py",
+        "line": 576,
+        "guarded": true
+      },
+      {
+        "module": "signal.SIGKILL",
+        "file": "skills/typesafe-triage/scripts/test_typesafe_hook_skip.py",
+        "line": 222,
+        "guarded": true
+      }
+    ],
+    "windows_only": [
+      {
+        "module": "ctypes.windll",
+        "file": "skills/android-qa-audit/scripts/sdkutil.py",
+        "line": 342,
+        "guarded": true
+      },
+      {
+        "module": "ctypes.windll",
+        "file": "skills/site-qa-audit/scripts/tabs.py",
+        "line": 106,
+        "guarded": true
+      }
+    ],
+    "mismatch": false,
+    "note": "",
+    "checked": "Python: импорты и вызовы ОС; защита — try/except, if по платформе, hasattr/getattr"
+  },
+  "prices": [
+    {
+      "file": "skills/android-qa-audit/scripts/guard.py",
+      "line": 705,
+      "value": 199,
+      "currency": "RUB",
+      "context": "text",
+      "kind": "literal",
+      "currency_from": "literal"
+    },
+    {
+      "file": "skills/product-strategy/scripts/build_html.py",
+      "line": 2121,
+      "value": 2,
+      "currency": "USD",
+      "context": "cost",
+      "kind": "constant",
+      "currency_from": "project"
+    },
+    {
+      "file": "skills/product-strategy/scripts/model.py",
+      "line": 69,
+      "value": 12,
+      "currency": "USD",
+      "context": "price_month[value]",
+      "kind": "table",
+      "currency_from": "nearby"
+    },
+    {
+      "file": "skills/product-strategy/scripts/model.py",
+      "line": 70,
+      "value": 29,
+      "currency": "USD",
+      "context": "price_one_time[value]",
+      "kind": "table",
+      "currency_from": "file"
+    },
+    {
+      "file": "skills/product-strategy/scripts/model.py",
+      "line": 141,
+      "value": 6,
+      "currency": "USD",
+      "context": "fixed_cost_month",
+      "kind": "constant",
+      "currency_from": "nearby"
+    },
+    {
+      "file": "skills/product-strategy/scripts/model.py",
+      "line": 142,
+      "value": 12,
+      "currency": "USD",
+      "context": "fixed_cost_month",
+      "kind": "constant",
+      "currency_from": "nearby"
+    },
+    {
+      "file": "skills/product-strategy/scripts/repo_scan.py",
+      "line": 711,
+      "value": 390,
+      "currency": "RUB",
+      "context": "PRICE_PRO",
+      "kind": "constant",
+      "currency_from": "file"
+    },
+    {
+      "file": "skills/product-strategy/scripts/repo_scan.py",
+      "line": 711,
+      "value": 9.99,
+      "currency": "RUB",
+      "context": "price",
+      "kind": "constant",
+      "currency_from": "file"
+    },
+    {
+      "file": "skills/product-strategy/scripts/repo_scan.py",
+      "line": 711,
+      "value": 490,
+      "currency": "RUB",
+      "context": "priceMonthly",
+      "kind": "constant",
+      "currency_from": "file"
+    },
+    {
+      "file": "skills/product-strategy/scripts/repo_scan.py",
+      "line": 720,
+      "value": 390,
+      "currency": "RUB",
+      "context": "в add",
+      "kind": "literal",
+      "currency_from": "literal"
+    },
+    {
+      "file": "skills/product-strategy/scripts/repo_scan.py",
+      "line": 720,
+      "value": 9.99,
+      "currency": "USD",
+      "context": "в add",
+      "kind": "literal",
+      "period": "month",
+      "currency_from": "literal"
+    },
+    {
+      "file": "skills/product-strategy/scripts/repo_scan.py",
+      "line": 720,
+      "value": 5,
+      "currency": "EUR",
+      "context": "в add",
+      "kind": "literal",
+      "currency_from": "literal"
+    },
+    {
+      "file": "skills/product-strategy/scripts/score.py",
+      "line": 42,
+      "value": 2,
+      "currency": "USD",
+      "context": "cost",
+      "kind": "constant",
+      "currency_from": "project"
+    },
+    {
+      "file": "skills/product-strategy/scripts/score.py",
+      "line": 57,
+      "value": 3.6,
+      "currency": "USD",
+      "context": "expensive_cost",
+      "kind": "constant",
+      "currency_from": "project"
+    },
+    {
+      "file": "skills/typesafe-triage/scripts/test_typesafe_feedback.py",
+      "line": 101,
+      "value": 3,
+      "currency": "USD",
+      "context": "cost",
+      "kind": "constant",
+      "currency_from": "file"
+    },
+    {
+      "file": "skills/typesafe-triage/scripts/triage_report.py",
+      "line": 18,
+      "value": 0.04,
+      "currency": "USD",
+      "context": "PRICE_PER_MTOK_USD",
+      "kind": "constant",
+      "currency_from": "key"
+    },
+    {
+      "file": "skills/typesafe-triage/scripts/typesafe_guard.py",
+      "line": 27,
+      "value": 0.04,
+      "currency": "USD",
+      "context": "PRICE_PER_MTOK_USD",
+      "kind": "constant",
+      "currency_from": "key"
+    },
+    {
+      "file": "skills/typesafe-triage/scripts/typesafe_guard.py",
+      "line": 44,
+      "value": 2,
+      "currency": "USD",
+      "context": "monthly_budget_usd",
+      "kind": "constant",
+      "currency_from": "key"
+    }
+  ],
+  "trials": [],
+  "notes": []
+}

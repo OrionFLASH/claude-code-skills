@@ -1,0 +1,115 @@
+{
+  "version": 1,
+  "created": "2026-10-10",
+  "author": {
+    "name": "OrionFlash",
+    "nick": "",
+    "copyright": "© 2026 OrionFlash"
+  },
+  "repo": {
+    "path": "/Users/orionflash/dev/MyProject/claude-code-skills",
+    "name": "claude-code-skills",
+    "remote": "OrionFLASH/claude-code-skills",
+    "analyze": true
+  },
+  "product": {
+    "name": "claude-code-skills (маркетплейс скилов для Claude Code)",
+    "url": "",
+    "local_run": "auto",
+    "run_command": "",
+    "type": "devtool",
+    "known_facts": ""
+  },
+  "strategy": {
+    "kind": "full",
+    "goal": "рост и развитие продукта: аудитория, активация, удержание, монетизация",
+    "depth": "standard",
+    "proposals_min": 50,
+    "horizon_months": 6,
+    "vision_years": 2,
+    "markets": [
+      "ru",
+      "en"
+    ],
+    "budget": {
+      "variants": [
+        "zero"
+      ],
+      "note": ""
+    },
+    "paid_tier": "no",
+    "constraints": "",
+    "categories_na": [],
+    "profile": "zero-budget-solo"
+  },
+  "project": {
+    "goal": "auto",
+    "repo_visibility": "public",
+    "publish_code": "undecided",
+    "currency": "RUB",
+    "price_hint": null,
+    "traffic_hint": null,
+    "team_size": 1
+  },
+  "scope": {
+    "repo_analysis": true,
+    "app_run": false,
+    "competitors": true,
+    "competitors_min": 10,
+    "communities": true,
+    "keywords": true,
+    "events": true,
+    "legal": false,
+    "issues": false,
+    "design_mockups": false,
+    "mockups_min": 0,
+    "design_refs": false,
+    "unit_economics": true,
+    "experiments": 8,
+    "specs_top": 10,
+    "kanban_cards": 40
+  },
+  "sources": {
+    "repo": true,
+    "issues": false,
+    "web_search": true,
+    "web_search_budget_per_hour": 100,
+    "analytics_exports": [],
+    "owner_docs": [],
+    "competitor_list": [],
+    "other": ""
+  },
+  "formats": {
+    "html": true,
+    "xlsx": false,
+    "pptx": false,
+    "pdf": false,
+    "md": true
+  },
+  "tools": {
+    "typesafe": "auto",
+    "browser": "auto",
+    "subagents": true,
+    "max_parallel_agents": 5,
+    "install": "local-auto",
+    "node_dir": "/Users/orionflash/.cache/product-strategy/node"
+  },
+  "phases": {
+    "gap_audit": true
+  },
+  "output": {
+    "dir": "/Users/orionflash/dev/MyProject/claude-code-skills/strategy/2026-10-10",
+    "inside_repo": true,
+    "git_branch": "docs/strategy-2026-10-10"
+  },
+  "language": "ru",
+  "autopilot": false,
+  "assumptions": [
+    "Рынки определены по репозиторию: ru, en (кириллица в README: 4152 знаков)",
+    "Тип продукта определён по репозиторию: other (тип не определён по манифестам)",
+    "Валюта определена по первому рынку: RUB",
+    "Профиль стратегии: zero-budget-solo",
+    "[ДОПУЩЕНИЕ] Тип продукта исправлен вручную: other → devtool (набор плагинов-скилов для Claude Code; манифесты плагина, не пакетный менеджер) — фаза 1",
+    "[ДОПУЩЕНИЕ] Цены, найденные repo_facts (199 RUB, 12 USD и др.), — константы тестов/моделей/шаблонов внутри скилов, не цены продукта; продукт бесплатный (PolyForm Noncommercial)"
+  ]
+}

@@ -1,0 +1,2904 @@
+[
+  {
+    "id": "G1-01",
+    "title": "Оценка объёма и стоимости прогона до старта и лимит бюджета",
+    "category": "product",
+    "segment": "пользователи site-qa-audit, android-qa-audit и product-strategy, которых останавливает цена запуска (десятки субагентов)",
+    "description": "В опросе (intake) после выбора глубины показывать диапазон: число исполнителей/потоков, страниц или экранов, ориентировочный расход токенов и денег; хранить `budget.max_usd` и `budget.max_subagents` в run-config; при подходе к лимиту спрашивать «продолжить или сузить»; после прогона записывать факт в журнал и подстраивать коэффициенты оценки.",
+    "rationale": "Цена запуска названа главным барьером принятия, а платформа уже отдаёт стоимость: JSON-ответ `claude -p` содержит `total_cost_usd`, есть лимит `--max-budget-usd`. Скил, который заранее называет цену, снимает страх «сожжёт лимит» и честнее позиционируется рядом с «лёгкими» конкурентами.",
+    "evidence": [
+      {
+        "kind": "docs",
+        "url": "https://code.claude.com/docs/en/headless",
+        "file": null,
+        "title": "Run Claude Code programmatically: стоимость и лимит бюджета",
+        "note": "Ответ json включает total_cost_usd и разбивку по моделям; есть --max-budget-usd.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "community",
+        "url": "https://aiweekly.co/alerts/claude-code-skills-waste-23k-tokens-per-session",
+        "file": null,
+        "title": "Claude Code Skills Waste 23K Tokens Per Session (AI Weekly)",
+        "note": "Оценка одного автора: около 23 тыс. токенов за сессию уходит на скилы.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "B",
+    "current_feature": "нет: в skills/site-qa-audit/references/depth-matrix.md и parallelism.md нет слов «стоимость/токен» (grep, 2026-10-10); у product-strategy есть таблица «Глубина → объём» без денег (skills/product-strategy/references/intake.md:28)",
+    "effect_kpi": [
+      {
+        "kpi": "Доля пользователей, дошедших от установки до первого завершённого прогона",
+        "direction": "up",
+        "range": "+5..10 п.п.",
+        "label": "допущение"
+      },
+      {
+        "kpi": "Доля прогонов, превысивших заявленный лимит",
+        "direction": "down",
+        "range": "< 10 %",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Описать формулу оценки: исполнители × средний расход на исполнителя × глубина",
+        "where": "skills/site-qa-audit/references/depth-matrix.md",
+        "how": "Коэффициенты снять с 3 собственных прогонов (журнал + /cost) [допущение: хватит 3 точек для первой версии]",
+        "doc_url": null
+      },
+      {
+        "what": "Добавить секцию `budget` в шаблон конфига и разбор в intake",
+        "where": "skills/site-qa-audit/templates/run-config.example.yaml, scripts/intake.py",
+        "how": "Ключи max_usd, max_subagents; значения по умолчанию = «без лимита», чтобы не менять поведение",
+        "doc_url": null
+      },
+      {
+        "what": "Показ оценки в раунде «глубина» и повторный вопрос при превышении 80 %",
+        "where": "skills/site-qa-audit/references/intake.md",
+        "how": "Текст вопроса и рекомендуемый вариант «сузить до smoke»",
+        "doc_url": null
+      },
+      {
+        "what": "Записывать факт расхода в журнал прогона",
+        "where": "shared/scripts/runjournal.py",
+        "how": "Поле cost_actual из итога claude -p, если есть; иначе ручной ввод",
+        "doc_url": null
+      },
+      {
+        "what": "Повторить в android-qa-audit и product-strategy",
+        "where": "skills/android-qa-audit, skills/product-strategy",
+        "how": "Тот же блок budget; тест в tests/unit.sh",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [],
+    "effort_days": [
+      3,
+      6
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Без затрат: время разработчика."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 2,
+      "reputation": 2,
+      "note": "Неточная оценка может быть воспринята как обещание; в тексте указывать «ориентир ±50 % [допущение]»"
+    },
+    "time_to_first_result_days": 14,
+    "cheap_test": "Свести расход трёх прошлых прогонов в таблицу и проверить, предсказывает ли простая формула стоимость с ошибкой не более 50 %.",
+    "scores": {
+      "value": 4,
+      "cost": 2,
+      "risk": 2,
+      "confidence": 3,
+      "reach": 4,
+      "impact": 3,
+      "activation": 3,
+      "moat": 2,
+      "fit": 4,
+      "demand": 3
+    },
+    "kano": "linear",
+    "horizon": "now",
+    "horizon_years": 0,
+    "mockup": null,
+    "source_group": "G1"
+  },
+  {
+    "id": "G1-02",
+    "title": "Неинтерактивный режим site-qa-audit для CI: код возврата и JSON-итог",
+    "category": "product",
+    "segment": "разработчики и QA, которым нужен проверочный прогон сайта в конвейере или по cron без диалога",
+    "description": "Документированный запуск `claude --bare -p --plugin-dir … '/site-qa-audit:site-qa-audit autopilot smoke <URL>'`; скил пишет `summary.json` (счётчики по серьёзности, путь к отчёту) и возвращает код 0/1/2 по порогу `--fail-on high`; обёртка `scripts/ci_run.sh|ps1` проверяет загрузку плагина по `plugin_errors` из события `system/init`. Публикация issues в этом режиме выключена.",
+    "rationale": "Автопилот уже есть, но выход — Markdown для человека. Документация Claude Code прямо описывает CI-сценарий: коды возврата, `--json-schema`, `--bare`, проверку `plugin_errors`; конкуренты уровня Playwright Test Agents работают в конвейерах.",
+    "evidence": [
+      {
+        "kind": "docs",
+        "url": "https://code.claude.com/docs/en/headless",
+        "file": null,
+        "title": "Headless: коды возврата, --bare, --plugin-dir, plugin_errors",
+        "note": "Код 0 при успехе, ненулевой при сбое; plugin_errors позволяет упасть в CI.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "repo",
+        "url": null,
+        "file": "skills/site-qa-audit/SKILL.md:54",
+        "title": "Автопилот в site-qa-audit",
+        "note": "Явный вызов со словом «автопилот» идёт без вопросов.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "A",
+    "current_feature": "частично: автопилот без вопросов есть (skills/site-qa-audit/SKILL.md:54); summary.json и кода возврата по серьёзности нет (grep fail-on/summary.json по SKILL.md, references, scripts — пусто, кроме несвязанного thread_coverage.py:225)",
+    "effect_kpi": [
+      {
+        "kpi": "Число проектов, запускающих прогон из CI (по обращениям)",
+        "direction": "up",
+        "range": "0 → 1..3 за квартал",
+        "label": "допущение"
+      },
+      {
+        "kpi": "Время от идеи до настроенного CI-прогона",
+        "direction": "down",
+        "range": "< 30 мин",
+        "label": "оценка"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Определить схему summary.json (счётчики severity, статус, пути)",
+        "where": "skills/site-qa-audit/templates/",
+        "how": "Файл summary.schema.json + проверка в validate_findings.py",
+        "doc_url": null
+      },
+      {
+        "what": "Добавить в build_report.py запись summary.json и вычисление кода по порогу",
+        "where": "skills/site-qa-audit/scripts/build_report.py",
+        "how": "Коды: 0 нет находок ≥ порога, 1 есть, 2 прогон не завершён",
+        "doc_url": null
+      },
+      {
+        "what": "Обёртка запуска с --bare и --plugin-dir и проверкой plugin_errors",
+        "where": "skills/site-qa-audit/scripts/ci_run.sh, ci_run.ps1",
+        "how": "Читает system/init из stream-json, падает при непустом plugin_errors",
+        "doc_url": "https://code.claude.com/docs/en/headless"
+      },
+      {
+        "what": "Раздел «CI» в INSTALL.md с примером workflow для GitHub Actions",
+        "where": "skills/site-qa-audit/INSTALL.md",
+        "how": "Секрет ANTHROPIC_API_KEY; предупреждение о стоимости (см. G1-01)",
+        "doc_url": null
+      },
+      {
+        "what": "Тест на фикстуре: прогон отчёта → код возврата",
+        "where": "skills/site-qa-audit/tests/",
+        "how": "Офлайн, без модели",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [
+      "G1-18"
+    ],
+    "effort_days": [
+      4,
+      8
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Без затрат разработчика; токены прогона оплачивает пользователь."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 3,
+      "reputation": 2,
+      "note": "--bare не читает OAuth/keychain: нужен API-ключ; поведение слэш-вызова скила в --bare требует проверки [ДОПУЩЕНИЕ]"
+    },
+    "time_to_first_result_days": 10,
+    "cheap_test": "Вручную: `claude --bare -p --plugin-dir skills/site-qa-audit '/site-qa-audit:site-qa-audit smoke file://…'` на фикстуре и проверить, что скил подхватился.",
+    "scores": {
+      "value": 4,
+      "cost": 3,
+      "risk": 3,
+      "confidence": 4,
+      "reach": 2,
+      "impact": 4,
+      "activation": 2,
+      "moat": 4,
+      "fit": 4,
+      "demand": 2
+    },
+    "kano": "delight",
+    "horizon": "next",
+    "horizon_years": 0,
+    "mockup": null,
+    "source_group": "G1"
+  },
+  {
+    "id": "G1-03",
+    "title": "Экспорт находок в SARIF 2.1.0 и JUnit XML",
+    "category": "product",
+    "segment": "команды, у которых уже есть GitHub code scanning или CI с отчётами JUnit",
+    "description": "Новый экспортёр `qa_sarif.py` в shared: findings.json → SARIF 2.1.0 (правило = check_id, уровень по severity, `partialFingerprints` из нашего fingerprint, путь = URL/экран) и JUnit XML (один testcase на проверку). Включить в `export_results.py` флаг `--format sarif|junit`.",
+    "rationale": "GitHub принимает SARIF от сторонних инструментов и просит `partialFingerprints`, чтобы не плодить дубли: у нас fingerprint уже есть для дедупликации, то есть данные готовы. Находки появятся во вкладке Security без самописных скриптов.",
+    "evidence": [
+      {
+        "kind": "docs",
+        "url": "https://docs.github.com/en/code-security/code-scanning/integrating-with-code-scanning/sarif-support-for-code-scanning",
+        "file": null,
+        "title": "SARIF support for code scanning (GitHub Docs)",
+        "note": "Сторонние инструменты загружают SARIF 2.1.0; нужны partialFingerprints.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "repo",
+        "url": null,
+        "file": "shared/scripts/qa_export.py:10",
+        "title": "Экспорт результатов копирует только md/json/скриншоты",
+        "note": "Копируются summary.md, report.md, findings.json и картинки.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "A",
+    "current_feature": "нет: форматов SARIF/JUnit в skills/ и shared/ нет (grep sarif/junit, 2026-10-10: единственное упоминание — детектор в skills/product-strategy/scripts/repo_scan.py); экспорт — shared/scripts/qa_export.py:1",
+    "effect_kpi": [
+      {
+        "kpi": "Находки, видимые в GitHub Security без ручных шагов",
+        "direction": "up",
+        "range": "0 → 100 % прогонов с флагом",
+        "label": "оценка"
+      },
+      {
+        "kpi": "Число форматов экспорта",
+        "direction": "up",
+        "range": "1 → 3",
+        "label": "факт"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Сопоставить поля finding.schema.json с SARIF (rule, level, location, fingerprints)",
+        "where": "skills/site-qa-audit/templates/finding.schema.json",
+        "how": "Таблица соответствия в references/export-formats.md",
+        "doc_url": "https://docs.github.com/en/code-security/code-scanning/integrating-with-code-scanning/sarif-support-for-code-scanning"
+      },
+      {
+        "what": "Написать shared/scripts/qa_sarif.py на stdlib",
+        "where": "shared/scripts/",
+        "how": "json + xml.etree; валидация размера ≤ 10 МБ gzip по правилам GitHub",
+        "doc_url": null
+      },
+      {
+        "what": "Добавить флаг --format в export_results.py обоих QA-скилов",
+        "where": "skills/*/scripts/export_results.py",
+        "how": "Через общий qa_export.cli",
+        "doc_url": null
+      },
+      {
+        "what": "Тесты на фикстурах находок",
+        "where": "shared/tests/, skills/*/tests/",
+        "how": "Структура SARIF по схеме 2.1.0, JUnit парсится",
+        "doc_url": null
+      },
+      {
+        "what": "Показать загрузку в CI на примере github/codeql-action/upload-sarif",
+        "where": "skills/site-qa-audit/INSTALL.md",
+        "how": "Пример workflow; артефакты ролики не включаем",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [],
+    "effort_days": [
+      3,
+      6
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Без затрат: время разработчика."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 2,
+      "tech": 2,
+      "reputation": 1,
+      "note": "В SARIF попадают тексты находок: применять существующее маскирование (masking.py) до экспорта"
+    },
+    "time_to_first_result_days": 10,
+    "cheap_test": "Сгенерировать SARIF из одной фикстуры и загрузить в тестовый публичный репозиторий через upload-sarif; проверить, что алерт появился.",
+    "scores": {
+      "value": 3,
+      "cost": 2,
+      "risk": 2,
+      "confidence": 4,
+      "reach": 2,
+      "impact": 3,
+      "activation": 2,
+      "moat": 3,
+      "fit": 3,
+      "demand": 2
+    },
+    "kano": "delight",
+    "horizon": "next",
+    "horizon_years": 0,
+    "mockup": null,
+    "source_group": "G1"
+  },
+  {
+    "id": "G1-04",
+    "title": "Дельта между прогонами: новые, исправленные и вернувшиеся находки",
+    "category": "product",
+    "segment": "команды, которые гоняют QA одного сайта или приложения повторно (после релиза, раз в неделю)",
+    "description": "В build_report добавить сравнение с предыдущим прогоном той же цели по fingerprint: блок «Новые / Исправлено / Вернулось / Без изменений», строка дельты в summary (например «новых +3, исправлено −5»), метка REGRESSION для вернувшихся. Хранить `history.json` в папке результатов цели.",
+    "rationale": "Дельта-строка — один из немногих приёмов, которые конкурент выбрал и показывает: a11y-plugin дописывает в audit-history.json каждую проверку и печатает «FAIL −3, PASS +3». Нужные данные (fingerprint, claims перепроверки) у нас уже есть, но между прогонами не сравниваются.",
+    "evidence": [
+      {
+        "kind": "competitor",
+        "url": "https://github.com/deventually/a11y-plugin",
+        "file": null,
+        "title": "a11y-plugin (deventually): audit-history и дельта-строка",
+        "note": "Каждый аудит дописывает сводку; строка дельты показывает FAIL −3, PASS +3.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "repo",
+        "url": null,
+        "file": "skills/site-qa-audit/scripts/fingerprint.py:207",
+        "title": "fingerprint.py: match и dedupe внутри прогона и по issues",
+        "note": "Отпечаток находки уже считается; сравнения прогонов между собой нет.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "A",
+    "current_feature": "частично: fingerprint и метка REGRESSION есть для перепроверки исправлений (skills/site-qa-audit/references/severity.md, claims.md), сравнения двух прогонов цели нет (grep «между прогонами/previous run» по SKILL.md, references, scripts — пусто)",
+    "effect_kpi": [
+      {
+        "kpi": "Время на ответ «что изменилось с прошлого раза»",
+        "direction": "down",
+        "range": "10 мин → 1 мин",
+        "label": "допущение"
+      },
+      {
+        "kpi": "Доля повторных прогонов с дельтой в отчёте",
+        "direction": "up",
+        "range": "0 → 100 %",
+        "label": "факт"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Определить ключ цели и место history.json",
+        "where": "skills/site-qa-audit/references/run-files.md",
+        "how": "Ключ = нормализованный URL/пакет + профиль устройств",
+        "doc_url": null
+      },
+      {
+        "what": "Реализовать compare в fingerprint.py: fingerprint → статус",
+        "where": "skills/site-qa-audit/scripts/fingerprint.py",
+        "how": "Подкоманда `delta --prev <history.json>`; тот же модуль в android-qa-audit",
+        "doc_url": null
+      },
+      {
+        "what": "Вывести блок и строку дельты в отчёт",
+        "where": "skills/site-qa-audit/scripts/build_report.py, templates/run-report.md",
+        "how": "Секция «Изменения с прошлого прогона»",
+        "doc_url": null
+      },
+      {
+        "what": "Обновлять history.json при финализации прогона",
+        "where": "shared/scripts/qa_export.py",
+        "how": "Атомарная запись, не копировать в export без согласия",
+        "doc_url": null
+      },
+      {
+        "what": "Тесты: три синтетических прогона",
+        "where": "skills/site-qa-audit/tests/",
+        "how": "Новые/исправлено/вернулось",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [],
+    "effort_days": [
+      3,
+      6
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Без затрат: время разработчика."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 2,
+      "reputation": 1,
+      "note": "Fingerprint может дрейфовать при смене вёрстки: показывать «возможно то же» отдельным статусом"
+    },
+    "time_to_first_result_days": 10,
+    "cheap_test": "Взять два реальных findings.json одной цели (из прошлых прогонов автора) и вручную посчитать пересечение по fingerprint; сравнить с ожиданием.",
+    "scores": {
+      "value": 4,
+      "cost": 2,
+      "risk": 2,
+      "confidence": 4,
+      "reach": 3,
+      "impact": 4,
+      "retention": 3,
+      "moat": 3,
+      "fit": 4,
+      "demand": 2
+    },
+    "kano": "delight",
+    "horizon": "now",
+    "horizon_years": 0,
+    "mockup": null,
+    "source_group": "G1"
+  },
+  {
+    "id": "G1-05",
+    "title": "Однофайловый HTML-отчёт QA с находками, скриншотами и роликами",
+    "category": "product",
+    "segment": "тот, кто получает результат аудита: заказчик, коллега, владелец сайта без Markdown-просмотрщика",
+    "description": "Из report.md и findings.json собирать `report.html`: фильтры по серьёзности и направлению, карточка находки с шагами, скриншотом и роликом (встроенные или относительные ссылки), печатная вёрстка. Переиспользовать приёмы build_html.py из product-strategy. Для site и android общий генератор в shared.",
+    "rationale": "Отчёт сейчас — Markdown, а главная ценность QA-скилов (воспроизводимые находки с роликами) в нём не видна без редактора. Страница, открываемая двойным щелчком, сокращает путь «получил отчёт → понял» и годится как носитель для обзоров.",
+    "evidence": [
+      {
+        "kind": "research",
+        "url": null,
+        "file": null,
+        "title": "Логический вывод",
+        "note": "Цепочка: ролики и скриншоты есть (clips.md) → формат Markdown их не показывает → HTML открывается везде; генератор HTML в репозитории уже написан для product-strategy.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "D",
+    "current_feature": "нет: отчёт QA — только Markdown (templates/run-report.md); report.html ни в одном QA-скиле нет (grep report.html, 2026-10-10); HTML-генератор есть у другого скила — skills/product-strategy/scripts/build_html.py:1",
+    "effect_kpi": [
+      {
+        "kpi": "Доля получателей отчёта, открывших ролики находок",
+        "direction": "up",
+        "range": "в 2 раза",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Выбрать структуру карточки находки из finding.schema.json",
+        "where": "skills/site-qa-audit/templates/finding.schema.json",
+        "how": "Поля: id, severity, steps, screenshots, clip",
+        "doc_url": null
+      },
+      {
+        "what": "Выделить минимальный шаблонизатор из build_html.py",
+        "where": "skills/product-strategy/scripts/build_html.py",
+        "how": "Без зависимостей, чистый HTML + немного JS для фильтров",
+        "doc_url": null
+      },
+      {
+        "what": "Написать shared/scripts/qa_report_html.py",
+        "where": "shared/scripts/",
+        "how": "Вход: папка прогона; выход: report.html рядом с report.md",
+        "doc_url": null
+      },
+      {
+        "what": "Подключить в build_report.py обоих скилов",
+        "where": "skills/*/scripts/build_report.py",
+        "how": "Флаг --html, по умолчанию включён",
+        "doc_url": null
+      },
+      {
+        "what": "Проверка в браузере по фикстуре",
+        "where": "skills/site-qa-audit/tests/",
+        "how": "Playwright: открывается, фильтры работают, нет внешних запросов",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [],
+    "effort_days": [
+      4,
+      8
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Без затрат: время разработчика."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 2,
+      "tech": 2,
+      "reputation": 1,
+      "note": "Встроенные скриншоты могут содержать личные данные: те же правила маскирования и режим «без картинок»"
+    },
+    "time_to_first_result_days": 10,
+    "cheap_test": "Вручную собрать report.html из одного готового прогона (шаблоном) и показать 2–3 знакомым: понятнее ли, чем Markdown.",
+    "scores": {
+      "value": 3,
+      "cost": 3,
+      "risk": 2,
+      "confidence": 2,
+      "reach": 4,
+      "impact": 2,
+      "activation": 2,
+      "moat": 2,
+      "fit": 4,
+      "demand": 2
+    },
+    "kano": "delight",
+    "horizon": "next",
+    "horizon_years": 0,
+    "mockup": null,
+    "source_group": "G1"
+  },
+  {
+    "id": "G1-06",
+    "title": "Режим «предложить патч»: diff по находке без автоприменения",
+    "category": "product",
+    "segment": "разработчики, у которых QA-скил нашёл дефект в коде доступного репозитория",
+    "description": "Для подтверждённой находки (recheck = confirmed) исполнитель в отдельном режиме формирует минимальный патч (unified diff) в `drafts/patches/<id>.diff` с пояснением и привязанным падающим e2e из `e2e_stub.py`. Патч не применяется и не коммитится; применение — решение пользователя, ревью диффа независимым агентом остаётся обязательным (fix-cycle).",
+    "rationale": "Автоисправление есть у 4 из 15 изученных конкурентов, включая gstack `/qa`; без него мы заканчиваем на «вот проблема». У нас уже есть безопасная основа: подтверждение, падающий тест, цикл исправления и запрет трогать чужое — не хватает шага «предложить правку».",
+    "evidence": [
+      {
+        "kind": "competitor",
+        "url": "https://github.com/garrytan/gstack",
+        "file": null,
+        "title": "gstack: /qa с автоисправлением и регресс-тестом",
+        "note": "Нашёл, исправил, добавил регресс-тест; это главный конкурент по вниманию.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "competitor",
+        "url": "https://claudeskills.info/skills/sickn33/agentic-awesome-skills/accesslint-audit/",
+        "file": null,
+        "title": "accesslint-audit (agentic-awesome-skills)",
+        "note": "По матрице конкурентов умеет автоисправление найденного в коде a11y.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "B",
+    "current_feature": "частично: после правок есть fix-cycle с падающим тестом и ревью диффа (skills/site-qa-audit/SKILL.md:104, references/fix-cycle.md), генерации патча по находке нет (grep «патч/автоисправ» по SKILL.md и fix-cycle.md — пусто)",
+    "effect_kpi": [
+      {
+        "kpi": "Доля подтверждённых находок с готовым патчем-черновиком",
+        "direction": "up",
+        "range": "0 → 30..50 %",
+        "label": "допущение"
+      },
+      {
+        "kpi": "Время от находки до закрытого issue",
+        "direction": "down",
+        "range": "-20..40 %",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Описать режим и запреты (только чтение чужих файлов, патч — файл, не изменение)",
+        "where": "skills/site-qa-audit/references/fix-cycle.md",
+        "how": "Раздел «Предложить патч»; без записи в репозиторий пользователя",
+        "doc_url": null
+      },
+      {
+        "what": "Шаблон вывода patch + пояснение + команда проверки",
+        "where": "skills/site-qa-audit/templates/",
+        "how": "patch-proposal.md",
+        "doc_url": null
+      },
+      {
+        "what": "Связать с e2e_stub.py: тест падает до патча",
+        "where": "skills/site-qa-audit/scripts/e2e_stub.py",
+        "how": "Патч принимается к показу, только если приложенный тест воспроизводит находку",
+        "doc_url": null
+      },
+      {
+        "what": "Добавить поле patch в finding.schema.json (необязательное)",
+        "where": "skills/site-qa-audit/templates/finding.schema.json",
+        "how": "Путь к diff и статус ревью",
+        "doc_url": null
+      },
+      {
+        "what": "Тест на фикстуре local-app",
+        "where": "skills/site-qa-audit/tests/fixtures/",
+        "how": "Находка → diff применяется чисто через git apply --check",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [],
+    "effort_days": [
+      6,
+      12
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Без затрат: время разработчика."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 3,
+      "reputation": 3,
+      "note": "Неверный патч подрывает доверие: только по подтверждённым находкам, с независимым ревью, без автоприменения"
+    },
+    "time_to_first_result_days": 21,
+    "cheap_test": "Взять 3 уже закрытых issue автора с известным исправлением, дать скилу находку и сравнить предложенный патч с реальным.",
+    "scores": {
+      "value": 4,
+      "cost": 3,
+      "risk": 3,
+      "confidence": 3,
+      "reach": 3,
+      "impact": 4,
+      "activation": 2,
+      "moat": 2,
+      "fit": 3,
+      "demand": 3
+    },
+    "kano": "linear",
+    "horizon": "next",
+    "horizon_years": 0,
+    "mockup": null,
+    "source_group": "G1"
+  },
+  {
+    "id": "G1-07",
+    "title": "Таблица соответствия WCAG 2.2 AA по критериям в отчёте",
+    "category": "product",
+    "segment": "владельцы сайтов и команды, которым нужно показать статус доступности по критериям, а не списком находок",
+    "description": "Привязать каждый `a11y.*` check_id к критерию успеха WCAG (SC) и собрать в отчёт таблицу «критерий × статус» (прошёл / не прошёл / проверено вручную / не проверялось) с честной оговоркой: автоматика покрывает часть критериев. Готовый блок для приложения к разбору доступности.",
+    "rationale": "Нормативные сроки по доступности двигают спрос (в источниках — требования ADA Title II к веб-доступности), а в отчёте только список нарушений; таблица по критериям отвечает на вопрос «что в итоге покрыто». Данные уже есть: check_id `a11y.axe.*` и ручные пункты чек-листа.",
+    "evidence": [
+      {
+        "kind": "research",
+        "url": "https://www.jdsupra.com/legalnews/department-of-justice-delays-compliance-2688927/",
+        "file": null,
+        "title": "JD Supra: DOJ переносит сроки ADA Title II (вторичный источник)",
+        "note": "Сроки соответствия веб-доступности для госорганов США сдвинуты; опора на WCAG 2.1 AA.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "repo",
+        "url": null,
+        "file": "skills/site-qa-audit/references/checklists/accessibility.md:9",
+        "title": "Чек-лист доступности с check_id",
+        "note": "Пункты a11y.axe.*, a11y.zoom-200, a11y.keyboard-trap и др.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "C",
+    "current_feature": "частично: проверки a11y есть и называются по check_id (skills/site-qa-audit/references/checklists/accessibility.md:9–34), привязки к номерам критериев WCAG и итоговой таблицы в отчёте нет",
+    "effect_kpi": [
+      {
+        "kpi": "Доля a11y-прогонов с таблицей критериев",
+        "direction": "up",
+        "range": "0 → 100 %",
+        "label": "факт"
+      },
+      {
+        "kpi": "Покрытие критериев AA автоматикой+чек-листом (оценка в отчёте)",
+        "direction": "up",
+        "range": "показывается явно",
+        "label": "оценка"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Составить карту check_id → SC",
+        "where": "skills/site-qa-audit/references/wcag-map.md",
+        "how": "По документации WCAG 2.2 и тегам правил axe (wcag2aa/wcag22aa)",
+        "doc_url": null
+      },
+      {
+        "what": "Добавить поле wcag[] в схему находки",
+        "where": "skills/site-qa-audit/templates/finding.schema.json",
+        "how": "Массив SC; необязательное",
+        "doc_url": null
+      },
+      {
+        "what": "Строить таблицу в build_report.py",
+        "where": "skills/site-qa-audit/scripts/build_report.py",
+        "how": "Статус «не проверялось», если пункт чек-листа не выполнялся",
+        "doc_url": null
+      },
+      {
+        "what": "Блок-оговорка про пределы автоматики",
+        "where": "skills/site-qa-audit/templates/run-report.md",
+        "how": "Не юридическое заключение",
+        "doc_url": null
+      },
+      {
+        "what": "Тест: один a11y-прогон → таблица",
+        "where": "skills/site-qa-audit/tests/",
+        "how": "Проверка статусов на фикстуре",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [],
+    "effort_days": [
+      3,
+      6
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Без затрат: время разработчика."
+    },
+    "risks": {
+      "legal": 3,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 2,
+      "reputation": 2,
+      "note": "Таблицу легко принять за заключение о соответствии: обязательная оговорка и статус «не проверялось»"
+    },
+    "time_to_first_result_days": 10,
+    "cheap_test": "Составить таблицу вручную для одного готового a11y-прогона и показать эксперту по доступности: пригодна ли как приложение к разбору.",
+    "scores": {
+      "value": 3,
+      "cost": 2,
+      "risk": 3,
+      "confidence": 3,
+      "reach": 2,
+      "impact": 3,
+      "activation": 1,
+      "moat": 2,
+      "fit": 4,
+      "demand": 2
+    },
+    "kano": "delight",
+    "horizon": "next",
+    "horizon_years": 0,
+    "mockup": null,
+    "source_group": "G1"
+  },
+  {
+    "id": "G1-08",
+    "title": "Прогон по изменённым страницам: охват от git diff или PR",
+    "category": "product",
+    "segment": "разработчики, проверяющие сайт после правки, а не весь сайт",
+    "description": "Режим `scope: changed`: из `git diff --name-only <база>..HEAD` (или номера PR через gh) сопоставить файлы со страницами (по картам маршрутов фреймворка или по списку из run-config) и ограничить обход ими плюс главными сценариями. Цель — прогон на минуты, а не на час.",
+    "rationale": "Долгий полный прогон с десятками субагентов — главный барьер повседневного использования. Охват по диффу уменьшает объём работы в разы для типичной правки и естественно сочетается с CI-режимом. Аналог-идея: Playwright-агенты и ревью-инструменты работают по плану для изменённого.",
+    "evidence": [
+      {
+        "kind": "research",
+        "url": null,
+        "file": null,
+        "title": "Логический вывод",
+        "note": "Цепочка: стоимость пропорциональна числу страниц → правка затрагивает малую долю → ограничение охвата снижает цену без потери ценности для проверки правки.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "D",
+    "current_feature": "нет: в skills/site-qa-audit/SKILL.md и references/intake.md нет режима «по диффу/PR» (grep changed-files/git diff --name/merge-base, 2026-10-10 — пусто); есть «весь сайт / раздел / список URL / текущий экран» (SKILL.md:98–100)",
+    "effect_kpi": [
+      {
+        "kpi": "Время типичного прогона после правки",
+        "direction": "down",
+        "range": "в 3..5 раз",
+        "label": "допущение"
+      },
+      {
+        "kpi": "Число страниц на прогон при режиме changed",
+        "direction": "down",
+        "range": "-60..90 %",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Описать режим в intake и depth-matrix",
+        "where": "skills/site-qa-audit/references/intake.md",
+        "how": "Новая опция охвата: changed",
+        "doc_url": null
+      },
+      {
+        "what": "Скрипт сопоставления файлов и URL",
+        "where": "skills/site-qa-audit/scripts/changed_scope.py",
+        "how": "Источники: git diff, gh pr diff; карта в run-config `routes_map`",
+        "doc_url": null
+      },
+      {
+        "what": "Резерв: если сопоставить не удалось — вопрос пользователю, не молчаливый полный обход",
+        "where": "skills/site-qa-audit/scripts/changed_scope.py",
+        "how": "Код 2 → вопрос",
+        "doc_url": null
+      },
+      {
+        "what": "Режим для android: изменённые экраны из списка активити",
+        "where": "skills/android-qa-audit/",
+        "how": "Только если выйдет простая карта; иначе пропустить",
+        "doc_url": null
+      },
+      {
+        "what": "Тест на временном git-репозитории",
+        "where": "skills/site-qa-audit/tests/",
+        "how": "Фикстура с двумя коммитами",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [],
+    "effort_days": [
+      4,
+      8
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Без затрат: время разработчика."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 3,
+      "reputation": 1,
+      "note": "Сопоставление файл→страница ненадёжно для SPA; поэтому явная карта routes_map, а не угадывание"
+    },
+    "time_to_first_result_days": 14,
+    "cheap_test": "Вручную взять 3 последних коммита сайта автора, выписать затронутые страницы и сравнить с тем, что прогнал бы скил.",
+    "scores": {
+      "value": 3,
+      "cost": 3,
+      "risk": 3,
+      "confidence": 2,
+      "reach": 3,
+      "impact": 3,
+      "activation": 2,
+      "moat": 2,
+      "fit": 4,
+      "demand": 2
+    },
+    "kano": "linear",
+    "horizon": "next",
+    "horizon_years": 0,
+    "mockup": null,
+    "source_group": "G1"
+  },
+  {
+    "id": "G1-09",
+    "title": "Пресеты run-config по типу сайта: лендинг, SaaS, магазин, блог, документация",
+    "category": "product",
+    "segment": "новые пользователи site-qa-audit, которым трудно заполнить конфиг и выбрать направления",
+    "description": "Набор из 5–6 готовых файлов в `templates/presets/`: какие из 10 направлений включить, глубина, типичные запреты (оплата, регистрация), страницы-кандидаты. Intake предлагает пресет первым вопросом («что за сайт?») и заполняет конфиг, остальное пользователь правит.",
+    "rationale": "Шаблоны и примеры конфигураций сокращают путь до первого результата в продуктах с большим числом настроек; у нас один шаблон `run-config.example.yaml` на все случаи, а опрос из 1–3 вопросов на раунд всё равно требует решений.",
+    "evidence": [
+      {
+        "kind": "repo",
+        "url": null,
+        "file": "skills/site-qa-audit/templates/run-config.example.yaml:1",
+        "title": "Единственный пример конфига",
+        "note": "В templates лежит только run-config.example.yaml.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "research",
+        "url": null,
+        "file": null,
+        "title": "Логический вывод (затравка SOL-20 библиотеки роста)",
+        "note": "Пустое начальное состояние и ручная сборка настроек → доля начавших с пресета растёт.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "D",
+    "current_feature": "нет: в skills/site-qa-audit/templates/ один run-config.example.yaml, пресетов нет (ls, 2026-10-10; grep «preset/пресет» по SKILL.md и intake.md — пусто)",
+    "effect_kpi": [
+      {
+        "kpi": "Число вопросов в опросе до старта",
+        "direction": "down",
+        "range": "-1..2",
+        "label": "оценка"
+      },
+      {
+        "kpi": "Доля прогонов, начатых с пресета",
+        "direction": "up",
+        "range": "до 50 %",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Определить 5 типов сайтов и набор направлений для каждого",
+        "where": "skills/site-qa-audit/references/depth-matrix.md",
+        "how": "Опора на реальные прогоны автора",
+        "doc_url": null
+      },
+      {
+        "what": "Создать файлы пресетов",
+        "where": "skills/site-qa-audit/templates/presets/*.yaml",
+        "how": "Тот же формат, что run-config.example.yaml",
+        "doc_url": null
+      },
+      {
+        "what": "Предложение пресета в intake.py",
+        "where": "skills/site-qa-audit/scripts/intake.py",
+        "how": "from-text угадывает тип по ключевым словам, иначе вопрос",
+        "doc_url": null
+      },
+      {
+        "what": "Проверка пресетов валидатором конфига",
+        "where": "skills/site-qa-audit/tests/",
+        "how": "Каждый пресет проходит разбор",
+        "doc_url": null
+      },
+      {
+        "what": "Описать пресеты в INSTALL/README скила",
+        "where": "skills/site-qa-audit/README.md",
+        "how": "Таблица «тип → что проверяется»",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [],
+    "effort_days": [
+      2,
+      4
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Без затрат: время разработчика."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 1,
+      "reputation": 1,
+      "note": "Пресет — стартовая точка, не гарантия покрытия"
+    },
+    "time_to_first_result_days": 7,
+    "cheap_test": "Сделать два пресета (лендинг, SaaS) вручную и посмотреть на первом внешнем пользователе, сократился ли опрос.",
+    "scores": {
+      "value": 3,
+      "cost": 2,
+      "risk": 1,
+      "confidence": 2,
+      "reach": 4,
+      "impact": 2,
+      "activation": 3,
+      "moat": 1,
+      "fit": 4,
+      "demand": 2
+    },
+    "kano": "linear",
+    "horizon": "now",
+    "horizon_years": 0,
+    "mockup": null,
+    "source_group": "G1"
+  },
+  {
+    "id": "G1-10",
+    "title": "Android: проверка выравнивания нативных библиотек под 16 КБ страницы",
+    "category": "product",
+    "segment": "разработчики Android-приложений с нативным кодом (.so) и сторонними SDK",
+    "description": "В `apk_info.py` для APK/AAB разбирать ELF-заголовки `lib/*/*.so` (arm64-v8a, x86_64) и сообщать, выровнены ли сегменты LOAD на 16 КБ; находка `compat.page-size-16k` с перечнем библиотек и подсказкой про NDK r28+ и AGP 8.5.1+. Чистый Kotlin/Java без .so — «не применимо».",
+    "rationale": "С 1 ноября 2025 Google Play требует поддержки 16 КБ страниц памяти для обновлений приложений под Android 15+, обновления без поддержки выпустить нельзя; в apk_info уже есть проверка targetSdk, а этой нет. Статическая проверка стоит копейки и не требует эмулятора.",
+    "evidence": [
+      {
+        "kind": "community",
+        "url": "https://median.co/blog/how-to-prepare-android-apps-google-play-16-kb-page-size-requirement",
+        "file": null,
+        "title": "How to prepare Android apps for Google Play’s 16 KB page size requirement (Median)",
+        "note": "С 1 ноября 2025 приложения должны поддерживать 16 КБ страницы; затронут нативный код. Из результатов поиска, страница не открывалась.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "community",
+        "url": "https://www.freecodecamp.org/news/google-16-kb-page-size-requirement-what-to-do/",
+        "file": null,
+        "title": "Google 16 KB page size requirement: what to do (freeCodeCamp)",
+        "note": "Гайд по подготовке: NDK, зависимости, проверка выравнивания. Из результатов поиска, страница не открывалась.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "B",
+    "current_feature": "частично: проверка targetSdk относительно минимума Google Play есть (skills/android-qa-audit/scripts/apk_info.py:38, :379), анализа .so и 16 КБ нет (grep «16 KB/page size», 2026-10-10 — пусто)",
+    "effect_kpi": [
+      {
+        "kpi": "Число Play-совместимостей, проверяемых статически",
+        "direction": "up",
+        "range": "+1",
+        "label": "факт"
+      },
+      {
+        "kpi": "Прогоны, выявившие несовместимые .so до релиза",
+        "direction": "up",
+        "range": "по обращениям",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Разобрать ELF program headers средствами stdlib (struct)",
+        "where": "skills/android-qa-audit/scripts/apk_info.py",
+        "how": "Читать p_align у LOAD-сегментов, без внешних утилит",
+        "doc_url": null
+      },
+      {
+        "what": "Добавить check_id compat.page-size-16k и серьёзность",
+        "where": "skills/android-qa-audit/references/severity.md",
+        "how": "High для приложений под targetSdk ≥ 35, если есть .so с p_align < 16384",
+        "doc_url": null
+      },
+      {
+        "what": "Показать в отчёте таблицу библиотек",
+        "where": "skills/android-qa-audit/scripts/build_report.py",
+        "how": "Имя .so, ABI, выравнивание, источник (SDK по пути)",
+        "doc_url": null
+      },
+      {
+        "what": "Сверить правила Play на дату релиза и записать в справочник",
+        "where": "skills/android-qa-audit/references/",
+        "how": "Отдельный файл play-requirements.md с датой проверки; ссылка на developer.android.com/guide/practices/page-sizes [не открывалась]",
+        "doc_url": null
+      },
+      {
+        "what": "Тест на синтетическом .so",
+        "where": "skills/android-qa-audit/tests/",
+        "how": "Два ELF-образца: 4 КБ и 16 КБ",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [],
+    "effort_days": [
+      3,
+      5
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Без затрат: время разработчика."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 2,
+      "reputation": 2,
+      "note": "Правила Play меняются (в источниках упомянуто продление до 31.05.2026 из вторичного источника): дата проверки в справочнике обязательна [ДОПУЩЕНИЕ]"
+    },
+    "time_to_first_result_days": 10,
+    "cheap_test": "Прогнать ручной readelf по .so двух известных APK и убедиться, что разбор stdlib даёт тот же p_align.",
+    "scores": {
+      "value": 3,
+      "cost": 2,
+      "risk": 2,
+      "confidence": 3,
+      "reach": 2,
+      "impact": 3,
+      "activation": 1,
+      "moat": 2,
+      "fit": 4,
+      "demand": 2
+    },
+    "kano": "must",
+    "horizon": "now",
+    "horizon_years": 0,
+    "mockup": null,
+    "source_group": "G1"
+  },
+  {
+    "id": "G1-11",
+    "title": "Расписание: периодический smoke-прогон сайта с дельтой и тревогой о регрессе",
+    "category": "product",
+    "segment": "владельцы небольших сайтов и приложений, которым нужна еженедельная проверка без ручного запуска",
+    "description": "Рецепт и обёртка для регулярного запуска облегчённого прогона (smoke) через встроенные в Claude Code повторяемые задачи или cron + CI-режим: результат — краткая дельта (см. дельта между прогонами) и, если появились Critical/High, черновик issue или сообщение. Без публикации по умолчанию.",
+    "rationale": "Платформа уже умеет самоповторяющиеся и запланированные запуски (`/loop`, расписания), а у нас есть smoke-глубина и автопилот: не хватает связки «регулярно + что изменилось». Это превращает разовый аудит в наблюдение за качеством.",
+    "evidence": [
+      {
+        "kind": "docs",
+        "url": "https://code.claude.com/docs/en/headless",
+        "file": null,
+        "title": "Headless: ожидание отложенных пробуждений /loop",
+        "note": "Прогон ждёт запланированные самопробуждения /loop и выполняет итерации.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "C",
+    "current_feature": "нет: ни расписаний, ни /loop в skills/site-qa-audit (grep schedule|/loop|cron|расписан по SKILL.md и references — пусто)",
+    "effect_kpi": [
+      {
+        "kpi": "Число пользователей с регулярным запуском",
+        "direction": "up",
+        "range": "0 → 1..3",
+        "label": "допущение"
+      },
+      {
+        "kpi": "Время обнаружения регресса после релиза",
+        "direction": "down",
+        "range": "дни → сутки",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Описать рецепт запуска по расписанию",
+        "where": "skills/site-qa-audit/references/scheduling.md",
+        "how": "Вариант A: встроенные задачи Claude Code; B: cron/CI + ci_run",
+        "doc_url": null
+      },
+      {
+        "what": "Режим «тихий» без публикации и без запросов",
+        "where": "skills/site-qa-audit/scripts/intake.py",
+        "how": "autopilot + smoke + publish: never",
+        "doc_url": null
+      },
+      {
+        "what": "Использовать дельту для порога тревоги",
+        "where": "skills/site-qa-audit/scripts/build_report.py",
+        "how": "Тревога только на новые/вернувшиеся High+",
+        "doc_url": null
+      },
+      {
+        "what": "Канал уведомления — черновик issue",
+        "where": "shared/scripts/qa_direct.py",
+        "how": "Только по явному разрешению в конфиге",
+        "doc_url": null
+      },
+      {
+        "what": "Защита от лавины расхода",
+        "where": "skills/site-qa-audit/scripts/",
+        "how": "Лимит запусков в сутки и бюджет (см. оценку стоимости)",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [
+      "G1-02",
+      "G1-04"
+    ],
+    "effort_days": [
+      3,
+      6
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Без затрат: время разработчика."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 3,
+      "reputation": 2,
+      "note": "Незаметный регулярный расход токенов: обязательный лимит и явное включение"
+    },
+    "time_to_first_result_days": 21,
+    "cheap_test": "Настроить один недельный smoke по собственному сайту автора и посмотреть, сколько стоит и полезна ли дельта.",
+    "scores": {
+      "value": 3,
+      "cost": 2,
+      "risk": 3,
+      "confidence": 2,
+      "reach": 2,
+      "impact": 3,
+      "retention": 3,
+      "moat": 3,
+      "fit": 3,
+      "demand": 2
+    },
+    "kano": "delight",
+    "horizon": "later",
+    "horizon_years": 1,
+    "mockup": null,
+    "source_group": "G1"
+  },
+  {
+    "id": "G1-12",
+    "title": "typesafe-triage: учёт цены смены модели (кэш промпта) в рекомендации",
+    "category": "product",
+    "segment": "пользователи Claude Code, которые часто переключают модель и платят за потерю кэша",
+    "description": "Добавить в оценку действия «пересоздать контекст дороже, чем остаться»: если сессия длинная и разница в уровнях небольшая, триаж не советует смену модели, а советует Agent для изолируемого куска либо остаться; строка в заметке «смена модели сбросит кэш ≈ N токенов [оценка]». Порог — настраиваемый.",
+    "rationale": "Смена модели в сеансе ломает кэш промпта; хуки смены модели не меняют текущий сеанс, и об этом открыт запрос на платформе (40 лайков). Триаж, который учитывает цену переключения, честнее обещает экономию, чем «всегда подбирай дешевле» — а обещание экономии без измерений названо в разборе конкурентов как то, чего повторять не надо.",
+    "evidence": [
+      {
+        "kind": "community",
+        "url": "https://wavect.io/blog/claude-model-router-hooks-vs-proxy/",
+        "file": null,
+        "title": "Wavect: claude model router hooks vs proxy",
+        "note": "Смена модели в сеансе ломает кэш промпта; хуки не меняют текущий сеанс.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "issue",
+        "url": "https://github.com/anthropics/claude-code/issues/43326",
+        "file": null,
+        "title": "claude-code #43326: автоподбор модели и effort по сложности",
+        "note": "Открытый запрос, около 40 лайков; нативного автовыбора нет.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "B",
+    "current_feature": "нет: учёта цены смены модели в триаже не видно (grep «кэш/cache» по skills/typesafe-triage/SKILL.md: только флаг --cache для --calibrate, строка 120); есть экономный режим и delegate_down (SKILL.md:56–57)",
+    "effect_kpi": [
+      {
+        "kpi": "Доля советов «сменить модель», приведших к потере кэша без выгоды",
+        "direction": "down",
+        "range": "по журналу фактов",
+        "label": "допущение"
+      },
+      {
+        "kpi": "Экономия токенов против «всегда opus» в --report",
+        "direction": "up",
+        "range": "измеряется честно",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Собрать из журнала фактов длину сеанса и частоту смен",
+        "where": "skills/typesafe-triage/scripts/typesafe_triage.py",
+        "how": "Источник: --report, стенограммы",
+        "doc_url": null
+      },
+      {
+        "what": "Ввести порог «смена выгодна» и эвристику в triage_heuristics",
+        "where": "skills/typesafe-triage/scripts/triage_heuristics.py",
+        "how": "Параметры в config.json",
+        "doc_url": null
+      },
+      {
+        "what": "Добавить строку цены в заметку и отчёт",
+        "where": "skills/typesafe-triage/SKILL.md",
+        "how": "Формулировка с пометкой «оценка»",
+        "doc_url": null
+      },
+      {
+        "what": "Проверка на triage_cases.json",
+        "where": "skills/typesafe-triage/scripts/triage_cases.json",
+        "how": "Новые кейсы «смена не нужна»",
+        "doc_url": null
+      },
+      {
+        "what": "Тесты",
+        "where": "skills/typesafe-triage/scripts/",
+        "how": "pytest -p no:cacheprovider",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [],
+    "effort_days": [
+      3,
+      6
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Без затрат: время разработчика."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 2,
+      "reputation": 2,
+      "note": "Модель стоимости кэша упрощённая: показывать как оценку; цены и правила кэша меняются [допущение]"
+    },
+    "time_to_first_result_days": 14,
+    "cheap_test": "Взять по --report 20 решений «Agent/смена» за неделю и вручную оценить, где смена была невыгодна из-за длинного контекста.",
+    "scores": {
+      "value": 3,
+      "cost": 2,
+      "risk": 2,
+      "confidence": 3,
+      "reach": 3,
+      "impact": 3,
+      "activation": 1,
+      "moat": 3,
+      "fit": 4,
+      "demand": 3
+    },
+    "kano": "linear",
+    "horizon": "next",
+    "horizon_years": 0,
+    "mockup": null,
+    "source_group": "G1"
+  },
+  {
+    "id": "G1-13",
+    "title": "typesafe-triage: подстановка model/effort в вызов Agent через PreToolUse (спайк)",
+    "category": "product",
+    "segment": "пользователи, у которых заметка триажа расходится с тем, что реально запускает Claude",
+    "description": "Исследовать и, если платформа позволяет, добавить хук `PreToolUse` на `Agent`, возвращающий `updatedInput` с model/effort из решения триажа, чтобы совет исполнялся, а не оставался подсказкой. Флаг `enforce=off` по умолчанию, режим «только логировать расхождение» как первая ступень.",
+    "rationale": "Сейчас триаж даёт заметку, а следует ли ей модель, зависит от модели; в отчёте это видно как «вызовы Agent из стенограмм». Если PreToolUse умеет переписывать вход инструмента, расхождение можно закрыть детерминированно. Но схема для поля модели не подтверждена официальной страницей — отсюда спайк и класс C.",
+    "evidence": [
+      {
+        "kind": "community",
+        "url": "https://www.claudelog.com/mechanics/hooks/",
+        "file": null,
+        "title": "Hooks: PreToolUse и updatedInput (сторонние руководства)",
+        "note": "Хук PreToolUse может вернуть updatedInput и переписать вход инструмента. Источник — результаты поиска, не первоисточник.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "C",
+    "current_feature": "нет: в хуках плагина только UserPromptSubmit, PostToolUse (Agent|Task) и SubagentStop (skills/typesafe-triage/hooks/hooks.json), PreToolUse нет",
+    "effect_kpi": [
+      {
+        "kpi": "Доля вызовов Agent, исполнивших рекомендованный model/effort",
+        "direction": "up",
+        "range": "по --report",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Прочитать актуальный hooks reference и подтвердить, можно ли менять model у Agent",
+        "where": "официальная страница hooks reference на code.claude.com (проверить перед работой)",
+        "how": "Если нельзя — закрыть спайк, записать вывод",
+        "doc_url": null
+      },
+      {
+        "what": "Прототип PreToolUse-хука в режиме «логировать расхождение»",
+        "where": "skills/typesafe-triage/hooks/hooks.json, scripts/",
+        "how": "Сравнить tool_input с последним решением триажа",
+        "doc_url": null
+      },
+      {
+        "what": "Режим enforce с явным включением",
+        "where": "skills/typesafe-triage/scripts/",
+        "how": "updatedInput, не затирая остальные поля",
+        "doc_url": null
+      },
+      {
+        "what": "Защита: пользовательское указание главнее",
+        "where": "skills/typesafe-triage/SKILL.md:44",
+        "how": "Явное «на opus» не переписывается",
+        "doc_url": null
+      },
+      {
+        "what": "Тесты на подставных событиях хука",
+        "where": "skills/typesafe-triage/scripts/",
+        "how": "Формат JSON ответа",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [],
+    "effort_days": [
+      3,
+      7
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Без затрат: время разработчика."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 3,
+      "privacy": 1,
+      "tech": 3,
+      "reputation": 3,
+      "note": "Поведение платформы может измениться; перезапись входа без ведома пользователя — риск доверия: только по явному флагу"
+    },
+    "time_to_first_result_days": 14,
+    "cheap_test": "Написать хук-пустышку, логирующий tool_input вызовов Agent за день, и проверить, есть ли в нём поле model.",
+    "scores": {
+      "value": 3,
+      "cost": 2,
+      "risk": 3,
+      "confidence": 2,
+      "reach": 2,
+      "impact": 3,
+      "activation": 1,
+      "moat": 3,
+      "fit": 4,
+      "demand": 2
+    },
+    "kano": "delight",
+    "horizon": "later",
+    "horizon_years": 1,
+    "mockup": null,
+    "source_group": "G1"
+  },
+  {
+    "id": "G1-14",
+    "title": "product-strategy: создание issues по топ-N предложений одной командой",
+    "category": "product",
+    "segment": "владельцы репозиториев, получившие реестр предложений и желающие превратить лучшие в задачи",
+    "description": "Команда `strategy_track.py issues --top N [--dry-run]`: берёт предложения из реестра, формирует тела issues по шаблонам репозитория (shared/qa_issueforms), с метками `strategy`, ссылкой на id и критерием готовности; создание только после подтверждения, по умолчанию — черновики в файлы. Привязка issue к предложению записывается в links.json для отслеживания.",
+    "rationale": "Конкуренты в разборе заканчивают на документе; наше отслеживание выполнения по issues и PR уникально, но сейчас скил лишь печатает подсказку `gh issue create` — владелец вручную переносит каждое предложение. Замыкание «стратегия → issues → отслеживание» усиливает главное отличие.",
+    "evidence": [
+      {
+        "kind": "competitor",
+        "url": "https://claudskills.com/skills/codebase-audit-and-roadmap/",
+        "file": null,
+        "title": "Codebase Audit And Roadmap (ClaudSkills)",
+        "note": "Аудит и роадмап заканчиваются документом, без привязки к трекеру.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "repo",
+        "url": null,
+        "file": "skills/product-strategy/scripts/strategy_track.py:1990",
+        "title": "Подсказка gh issue create вместо создания",
+        "note": "Скрипт только печатает пример команды.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "C",
+    "current_feature": "частично: связь предложение↔issue/PR есть в режиме отслеживания (strategy_track.py: link/unlink), массового создания issues нет — строка 1990 только печатает команду gh issue create",
+    "effect_kpi": [
+      {
+        "kpi": "Доля предложений топ-N, ставших issues",
+        "direction": "up",
+        "range": "0 → 80 %",
+        "label": "допущение"
+      },
+      {
+        "kpi": "Время от реестра до заведённых задач",
+        "direction": "down",
+        "range": "часы → минуты",
+        "label": "оценка"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Выбрать формат тела issue из предложения",
+        "where": "skills/product-strategy/templates/",
+        "how": "id, цель, шаги, критерий готовности, ссылка на отчёт",
+        "doc_url": null
+      },
+      {
+        "what": "Подкоманда issues в strategy_track.py (dry-run по умолчанию)",
+        "where": "skills/product-strategy/scripts/strategy_track.py",
+        "how": "Вывод в drafts/issues/*.md",
+        "doc_url": null
+      },
+      {
+        "what": "Подстановка форм репозитория",
+        "where": "shared/scripts/qa_issueforms.py",
+        "how": "Те же правила, что у QA-скилов",
+        "doc_url": null
+      },
+      {
+        "what": "Создание после явного подтверждения через gh",
+        "where": "skills/product-strategy/scripts/strategy_track.py",
+        "how": "Проверка дублей по метке и id",
+        "doc_url": null
+      },
+      {
+        "what": "Запись связей в links.json",
+        "where": "skills/product-strategy/scripts/strategy_track.py",
+        "how": "Для последующего прогресса",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [],
+    "effort_days": [
+      3,
+      6
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Без затрат: время разработчика."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 2,
+      "privacy": 1,
+      "tech": 2,
+      "reputation": 2,
+      "note": "Массовое создание issues шумит: лимит N, дедупликация по id, подтверждение"
+    },
+    "time_to_first_result_days": 10,
+    "cheap_test": "Вручную создать issues для топ-5 предложений этого реестра и проверить, что отслеживание подхватывает их без доработки.",
+    "scores": {
+      "value": 3,
+      "cost": 2,
+      "risk": 2,
+      "confidence": 3,
+      "reach": 2,
+      "impact": 3,
+      "retention": 3,
+      "moat": 3,
+      "fit": 4,
+      "demand": 2
+    },
+    "kano": "delight",
+    "horizon": "now",
+    "horizon_years": 0,
+    "mockup": null,
+    "source_group": "G1"
+  },
+  {
+    "id": "G1-15",
+    "title": "Лечение хрупких e2e-заготовок: перегенерация селекторов по свежему DOM",
+    "category": "product",
+    "segment": "разработчики, использующие e2e_stub.py для регрессионных тестов по находкам",
+    "description": "К `e2e_stub.py` и `e2e_run.js` добавить шаг «healer»: при падении теста по селектору, а не по утверждению, скрипт ищет эквивалентный элемент в текущем DOM (роль, текст, aria-label), предлагает замену селектора и перезапускает; результат — предложение правки, а не молчаливая замена; сомнительные случаи помечаются, а не «лечатся».",
+    "rationale": "У Playwright есть явный агент-лекарь: прогоняет падающие тесты, находит эквивалентные элементы и предлагает правку, пропуская тест, если функция сломана. Наши заготовки тестов собираются из шагов находки и содержат TODO-селекторы, то есть хрупки по построению, а цикл исправления требует три зелёных прогона.",
+    "evidence": [
+      {
+        "kind": "docs",
+        "url": "https://playwright.dev/docs/test-agents",
+        "file": null,
+        "title": "Playwright Test agents: planner, generator, healer",
+        "note": "Healer выполняет набор и автоматически чинит падающие тесты, повторяя шаги.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "repo",
+        "url": null,
+        "file": "skills/site-qa-audit/scripts/e2e_stub.py:90",
+        "title": "Заготовка теста с TODO",
+        "note": "В e2e_stub заготовка требует «заменить TODO, проверить селекторы».",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "A",
+    "current_feature": "частично: заготовки тестов и прогон с guard есть (e2e_stub.py, node/e2e_run.js; SKILL.md:104,155,172), перегенерации селекторов нет",
+    "effect_kpi": [
+      {
+        "kpi": "Доля e2e-заготовок, прошедших «падает до / проходит после» без ручной правки",
+        "direction": "up",
+        "range": "+20..40 п.п.",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Классифицировать причины падения: селектор / утверждение / тайминг",
+        "where": "skills/site-qa-audit/scripts/node/e2e_run.js",
+        "how": "По тексту ошибки Playwright",
+        "doc_url": null
+      },
+      {
+        "what": "Поиск эквивалентного элемента в снимке доступности",
+        "where": "skills/site-qa-audit/scripts/node/",
+        "how": "role+name, текст, data-testid; ранжирование",
+        "doc_url": null
+      },
+      {
+        "what": "Режим предложения правки без записи",
+        "where": "skills/site-qa-audit/scripts/e2e_stub.py",
+        "how": "Выводит diff для теста",
+        "doc_url": null
+      },
+      {
+        "what": "Правило «не лечить, если ломается поведение»",
+        "where": "skills/site-qa-audit/references/fix-cycle.md",
+        "how": "Совпадает с логикой healer: пропуск при сломанной функции",
+        "doc_url": null
+      },
+      {
+        "what": "Тесты на фикстурах с переименованной кнопкой",
+        "where": "skills/site-qa-audit/tests/fixtures/",
+        "how": "Старый селектор → найден новый",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [],
+    "effort_days": [
+      5,
+      10
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Без затрат: время разработчика."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 3,
+      "reputation": 2,
+      "note": "Лечение может скрыть настоящий дефект: ограничено селекторными падениями"
+    },
+    "time_to_first_result_days": 21,
+    "cheap_test": "На 3 заготовках с намеренно сломанным селектором проверить, находит ли простой поиск по роли и имени верный элемент.",
+    "scores": {
+      "value": 3,
+      "cost": 3,
+      "risk": 3,
+      "confidence": 4,
+      "reach": 2,
+      "impact": 3,
+      "activation": 2,
+      "moat": 3,
+      "fit": 3,
+      "demand": 2
+    },
+    "kano": "delight",
+    "horizon": "next",
+    "horizon_years": 0,
+    "mockup": null,
+    "source_group": "G1"
+  },
+  {
+    "id": "G1-16",
+    "title": "android-qa-audit: сравнение двух сборок APK (разрешения, размер, SDK, старт)",
+    "category": "product",
+    "segment": "разработчики и QA Android-приложений перед релизом, сравнивающие кандидат с прошлой версией",
+    "description": "Команда `apk_info.py diff old.apk new.apk`: разрешения и компоненты (добавлено/убрано), размер и крупнейшие ресурсы, targetSdk/minSdk, нативные библиотеки, подписи; опционально — замер холодного старта на одном стенде для обеих. Блок «Изменения между сборками» в отчёте.",
+    "rationale": "Предрелизная проверка «что изменилось» — типовая потребность, а вся разборка APK у нас уже есть (apk_info, 680 строк): вычитание двух результатов дёшево, детерминированно, не тратит токены модели. Это ещё и дифференциатор для узкой ниши Android QA через adb.",
+    "evidence": [
+      {
+        "kind": "research",
+        "url": null,
+        "file": null,
+        "title": "Логический вывод",
+        "note": "Цепочка: apk_info уже извлекает разрешения, SDK, размер и .so → сравнение двух JSON-результатов не требует новой разборки → сигнал «новое опасное разрешение» полезен до релиза; внешний аналог не найден.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "D",
+    "current_feature": "нет: в skills/android-qa-audit/scripts/apk_info.py команды сравнения нет (grep compare/diff, 2026-10-10 — пусто); подкоманды: analyze, installed, summary, build-apks (apk_info.py:649)",
+    "effect_kpi": [
+      {
+        "kpi": "Время предрелизной сверки двух сборок",
+        "direction": "down",
+        "range": "30 мин → 2 мин",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Свести вывод analyze к стабильной структуре",
+        "where": "skills/android-qa-audit/scripts/apk_info.py",
+        "how": "Нормализовать порядок и поля",
+        "doc_url": null
+      },
+      {
+        "what": "Реализовать diff двух структур",
+        "where": "skills/android-qa-audit/scripts/apk_info.py",
+        "how": "Разрешения, компоненты, SDK, размер, .so",
+        "doc_url": null
+      },
+      {
+        "what": "Выделить «опасные» изменения",
+        "where": "skills/android-qa-audit/references/severity.md",
+        "how": "Новое dangerous-разрешение, рост размера > порога, cleartext",
+        "doc_url": null
+      },
+      {
+        "what": "Опциональный замер холодного старта на двух сборках",
+        "where": "skills/android-qa-audit/scripts/adb_helpers.py",
+        "how": "launch --cold N раз, медиана",
+        "doc_url": null
+      },
+      {
+        "what": "Тесты на двух синтетических APK",
+        "where": "skills/android-qa-audit/tests/",
+        "how": "Фикстуры из tests/fixtures",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [],
+    "effort_days": [
+      3,
+      6
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Без затрат: время разработчика."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 2,
+      "reputation": 1,
+      "note": "Для AAB нужен build-apks; для обфусцированных сборок сравнение компонентов шумное"
+    },
+    "time_to_first_result_days": 14,
+    "cheap_test": "Вручную сравнить два реальных APK одного приложения (текущий и прошлый) через два вызова analyze и diff текстов.",
+    "scores": {
+      "value": 3,
+      "cost": 2,
+      "risk": 2,
+      "confidence": 2,
+      "reach": 2,
+      "impact": 3,
+      "activation": 1,
+      "moat": 3,
+      "fit": 4,
+      "demand": 1
+    },
+    "kano": "delight",
+    "horizon": "next",
+    "horizon_years": 0,
+    "mockup": null,
+    "source_group": "G1"
+  },
+  {
+    "id": "G1-17",
+    "title": "CI в GitHub Actions: validate и тесты на Linux, macOS и Windows",
+    "category": "platform",
+    "segment": "владелец репозитория и будущие вкладчики; косвенно — пользователи, которым нужны проверяемые релизы",
+    "description": "Добавить `.github/workflows/ci.yml`: на push и PR запускать `tools/validate.sh`, офлайн-наборы `tests/unit.sh` каждого скила и pytest для product-strategy и typesafe-triage на ubuntu, macos и windows (Git Bash). Браузерные и эмуляторные наборы — отдельным ручным job. Бейдж статуса в README (оформляет G2).",
+    "rationale": "Тесты (≈600 функций в 32 файлах) запускаются только вручную, CI в репозитории нет, а Windows заявлен, но не подтверждён автоматически. Стандартные раннеры GitHub бесплатны для публичных репозиториев, то есть цена нулевая, а выигрыш — доверие и защита от регрессий при темпе до 113 коммитов в день.",
+    "evidence": [
+      {
+        "kind": "docs",
+        "url": "https://docs.github.com/en/billing/managing-billing-for-your-products/about-billing-for-github-actions",
+        "file": null,
+        "title": "About billing for GitHub Actions",
+        "note": "Стандартные раннеры GitHub бесплатны в публичных репозиториях.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "repo",
+        "url": null,
+        "file": "tools/validate.sh:1",
+        "title": "Скан репозитория: CI отсутствует",
+        "note": "Каталога .github нет; проверки запускаются вручную.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "competitor",
+        "url": "https://github.com/garrytan/gstack/issues",
+        "file": null,
+        "title": "gstack: открытые жалобы на Windows/Git Bash и хуки",
+        "note": "Issues #3110, #3088, #3082 про поломки на Windows.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "A",
+    "current_feature": "нет: каталога .github нет (ls -la .github — не найден, 2026-10-10); проверки — tools/validate.sh и tests/*.sh вручную",
+    "effect_kpi": [
+      {
+        "kpi": "Доля коммитов в main с зелёной проверкой",
+        "direction": "up",
+        "range": "0 → 100 %",
+        "label": "факт"
+      },
+      {
+        "kpi": "Платформы, подтверждённые автоматически",
+        "direction": "up",
+        "range": "0 → 3",
+        "label": "факт"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Выбрать наборы, не требующие сети, браузера и эмулятора",
+        "where": "skills/*/tests/unit.sh, skills/product-strategy/tests, skills/typesafe-triage/scripts",
+        "how": "Список в tests/CI.md; помеченные SKIP пропускаются",
+        "doc_url": null
+      },
+      {
+        "what": "Создать workflow с матрицей ОС и версий Python 3.9 и 3.12",
+        "where": ".github/workflows/ci.yml",
+        "how": "actions/checkout, setup-python, bash для Windows",
+        "doc_url": null
+      },
+      {
+        "what": "Починить расхождения Windows, найденные первым прогоном",
+        "where": "tools/, shared/scripts/find-python.*, tests/*.sh",
+        "how": "По одному исправлению на причину",
+        "doc_url": null
+      },
+      {
+        "what": "Закрепить версии действий по SHA",
+        "where": ".github/workflows/ci.yml",
+        "how": "Защита цепочки поставки (см. SECURITY)",
+        "doc_url": null
+      },
+      {
+        "what": "Дописать в CONVENTIONS правило «PR зелёный перед merge»",
+        "where": "CONVENTIONS.md",
+        "how": "Описание, как запускать локально",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [],
+    "effort_days": [
+      3,
+      7
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Без затрат: время разработчика."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 2,
+      "reputation": 1,
+      "note": "Первый прогон на Windows почти наверняка найдёт расхождения: заложить время на правки"
+    },
+    "time_to_first_result_days": 7,
+    "cheap_test": "Запустить validate и unit.sh в одном тестовом workflow на трёх ОС и посмотреть число падений.",
+    "scores": {
+      "value": 4,
+      "cost": 2,
+      "risk": 1,
+      "confidence": 5,
+      "moat": 3,
+      "virality": 1,
+      "acquisition": 2,
+      "revenue": 1
+    },
+    "kano": "must",
+    "horizon": "now",
+    "horizon_years": 0,
+    "mockup": null,
+    "source_group": "G1"
+  },
+  {
+    "id": "G1-18",
+    "title": "Node-зависимости плагинов без ручного npm install после каждого обновления",
+    "category": "platform",
+    "segment": "пользователи site-qa-audit и android-qa-audit при установке и обновлении плагина",
+    "description": "Привести плагины в вид, который Claude Code ставит сам: положить `package.json` и `package-lock.json` в корень плагина (или SessionStart-хук, ставящий пакеты в `${CLAUDE_PLUGIN_DATA}` и сравнивающий package.json), а скрипты брать `NODE_PATH` оттуда. Убрать из README строку «cd scripts/node && npm install после обновления». Версии playwright, axe-core, lighthouse уже зафиксированы lock-файлом.",
+    "rationale": "Платформа автоматически ставит Node-зависимости при кэшировании плагина, но только если `package.json` и lock-файл лежат в корне плагина, у нас они в `scripts/node/`; поэтому README требует ручной npm install после обновления. Каталог `${CLAUDE_PLUGIN_DATA}` переживает обновления версий, а ручной шаг — типовая точка потери новичка.",
+    "evidence": [
+      {
+        "kind": "docs",
+        "url": "https://code.claude.com/docs/en/plugins/loading",
+        "file": null,
+        "title": "Plugin loading: установка Node-зависимостей при кэшировании",
+        "note": "Установка идёт, если в корне плагина есть package.json и lock-файл npm или Bun.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "docs",
+        "url": "https://code.claude.com/docs/en/plugins/components",
+        "file": null,
+        "title": "Plugin components: SessionStart-хук и CLAUDE_PLUGIN_DATA",
+        "note": "CLAUDE_PLUGIN_DATA переживает обновления, для node_modules и кэшей.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "repo",
+        "url": null,
+        "file": "README.md:44",
+        "title": "README требует npm install после обновления",
+        "note": "В таблице обновления для site-qa-audit: cd scripts/node && npm install.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "A",
+    "current_feature": "нет: package.json лежит в skills/site-qa-audit/scripts/node/package.json, не в корне плагина; ручной шаг описан в README.md:44–45; корневого package.json у плагинов нет (ls, 2026-10-10)",
+    "effect_kpi": [
+      {
+        "kpi": "Ручных шагов после обновления плагина (site-qa-audit)",
+        "direction": "down",
+        "range": "3 → 0..1",
+        "label": "факт"
+      },
+      {
+        "kpi": "Доля установок, где браузерные скрипты запускаются с первого раза",
+        "direction": "up",
+        "range": "по обращениям",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Проверить условия автоустановки на тестовом плагине",
+        "where": "skills/site-qa-audit/",
+        "how": "claude plugin install из локального маркетплейса, смотреть /plugin на ноту об установке",
+        "doc_url": "https://code.claude.com/docs/en/plugins/loading"
+      },
+      {
+        "what": "Переместить package.json/lock в корень плагина или добавить SessionStart-хук в DATA",
+        "where": "skills/site-qa-audit/hooks/hooks.json",
+        "how": "Команда с diff -q по образцу из документации",
+        "doc_url": "https://code.claude.com/docs/en/plugins/components"
+      },
+      {
+        "what": "Подправить пути запуска node-скриптов (NODE_PATH)",
+        "where": "skills/site-qa-audit/scripts/node/lib.js, scripts/*.py",
+        "how": "Единая функция поиска node_modules",
+        "doc_url": null
+      },
+      {
+        "what": "То же для android-qa-audit (аннотации)",
+        "where": "skills/android-qa-audit/scripts/node/",
+        "how": "Меньший набор зависимостей",
+        "doc_url": null
+      },
+      {
+        "what": "Обновить README и INSTALL, тест на чистой установке",
+        "where": "README.md, skills/*/INSTALL.md",
+        "how": "Playwright-браузеры по-прежнему ставятся отдельно (npx playwright install)",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [],
+    "effort_days": [
+      3,
+      6
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Без затрат: время разработчика."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 3,
+      "reputation": 2,
+      "note": "Автоустановка идёт с --ignore-scripts и таймаутом 60 с; лимиты платформы могут не пустить playwright — тогда хук в DATA"
+    },
+    "time_to_first_result_days": 10,
+    "cheap_test": "Установить site-qa-audit в чистый каталог и посмотреть, появился ли node_modules после первой сессии с корневым lock-файлом.",
+    "scores": {
+      "value": 4,
+      "cost": 2,
+      "risk": 3,
+      "confidence": 5,
+      "moat": 2,
+      "virality": 1,
+      "acquisition": 3,
+      "revenue": 1
+    },
+    "kano": "must",
+    "horizon": "now",
+    "horizon_years": 0,
+    "mockup": null,
+    "source_group": "G1"
+  },
+  {
+    "id": "G1-19",
+    "title": "validate: claude plugin validate --strict, линтер SKILL.md и ночная проверка дрейфа",
+    "category": "platform",
+    "segment": "автор и вкладчики; защита от тихих поломок при смене формата плагинов Claude Code",
+    "description": "Расширить `tools/validate.sh`: вызывать `claude plugin validate --strict` для каждого плагина и для маркетплейса (если CLI доступен), проверять SKILL.md по спецификации Agent Skills (name, лимит description 1024 знака, структура) и отсутствие `claude-` в именах плагинов. Ночной job в CI гоняет проверку против свежего Claude Code.",
+    "rationale": "Формат плагинов меняется, и это названо угрозой платформенного риска; у платформы есть бесплатный официальный валидатор с режимом --strict для CI. Запас по длине description у site-qa-audit — несколько знаков из 1024, а наш validate проверяет frontmatter, но не лимиты спецификации.",
+    "evidence": [
+      {
+        "kind": "docs",
+        "url": "https://code.claude.com/docs/en/plugins-reference",
+        "file": null,
+        "title": "Plugin manifest reference: claude plugin validate и --strict",
+        "note": "validate — авторитетная проверка манифеста; --strict превращает предупреждения в ошибки для CI.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "docs",
+        "url": "https://agentskills.io/home",
+        "file": null,
+        "title": "Agent Skills: открытый формат SKILL.md",
+        "note": "Минимум во frontmatter — name и description; прогрессивная загрузка.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "repo",
+        "url": null,
+        "file": "tools/lib/skillsrepo.py:243",
+        "title": "validate проверяет frontmatter и наличие файлов, лимитов спецификации не знает",
+        "note": "Проверка kebab-case, файлов, plugin.json.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "A",
+    "current_feature": "частично: tools/validate.sh и tools/lib/skillsrepo.py:243 проверяют frontmatter, README, CHANGELOG, plugin.json, секреты; вызова claude plugin validate и лимитов спецификации нет (grep, 2026-10-10)",
+    "effect_kpi": [
+      {
+        "kpi": "Классы поломок формата, ловимых до релиза",
+        "direction": "up",
+        "range": "+3..5",
+        "label": "допущение"
+      },
+      {
+        "kpi": "Запас длины description у самого длинного скила (знаков)",
+        "direction": "up",
+        "range": "≥ 100",
+        "label": "оценка"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Добавить вызов claude plugin validate [--strict] в validate.sh/ps1",
+        "where": "tools/validate.sh, tools/validate.ps1",
+        "how": "Пропуск с предупреждением, если claude не установлен",
+        "doc_url": "https://code.claude.com/docs/en/plugins-reference"
+      },
+      {
+        "what": "Правила спецификации в skillsrepo.validate",
+        "where": "tools/lib/skillsrepo.py",
+        "how": "Лимит description, имя = папка, запрещённые префиксы",
+        "doc_url": null
+      },
+      {
+        "what": "Сократить описания у скилов с запасом < 50 знаков",
+        "where": "skills/*/SKILL.md",
+        "how": "Без потери триггерных слов",
+        "doc_url": null
+      },
+      {
+        "what": "Ночной workflow против последнего Claude Code",
+        "where": ".github/workflows/drift.yml",
+        "how": "Установка CLI и validate; результат — issue-черновик при падении",
+        "doc_url": null
+      },
+      {
+        "what": "Тесты нового кода валидатора",
+        "where": "shared/tests/, tools/",
+        "how": "Фикстуры с превышением лимита",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [
+      "G1-17"
+    ],
+    "effort_days": [
+      2,
+      5
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Без затрат: время разработчика."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 2,
+      "privacy": 1,
+      "tech": 1,
+      "reputation": 1,
+      "note": "Ночной job требует установки CLI в CI: если установка нестабильна, оставить ручной запуск"
+    },
+    "time_to_first_result_days": 7,
+    "cheap_test": "Запустить claude plugin validate --strict на четырёх плагинах локально и посмотреть число предупреждений.",
+    "scores": {
+      "value": 3,
+      "cost": 2,
+      "risk": 1,
+      "confidence": 5,
+      "moat": 2,
+      "virality": 1,
+      "acquisition": 1,
+      "revenue": 1
+    },
+    "kano": "must",
+    "horizon": "now",
+    "horizon_years": 0,
+    "mockup": null,
+    "source_group": "G1"
+  },
+  {
+    "id": "G1-20",
+    "title": "Eval-наборы claude plugin eval: срабатывает ли скил на обычные формулировки",
+    "category": "platform",
+    "segment": "автор, которому нужны измеримые доказательства качества и защита от регрессий при смене модели",
+    "description": "Создать `evals/` в плагинах (начать с typesafe-triage и site-qa-audit): 4–6 кейсов, где скил должен срабатывать, и 2–3, где нет; грейдеры `tool_used: Skill` и критерии результата; запуск `claude plugin eval` вручную перед релизом и при выходе новой модели, отчёт сравнивает с прогоном без плагина. Результаты — в CHANGELOG.",
+    "rationale": "У платформы есть официальный механизм оценки плагинов с базовой линией «без плагина», а у конкурентов публичные оценки качества (Tessl, golden-тесты). Наши ≈600 тестов проверяют код, но не то, выбирает ли модель скил на обычных фразах; типичная первая находка по документации — именно провал срабатывания.",
+    "evidence": [
+      {
+        "kind": "docs",
+        "url": "https://code.claude.com/docs/en/plugin-evals",
+        "file": null,
+        "title": "Test plugins with evals (claude plugin eval)",
+        "note": "Кейс = промпт и грейдеры; каждый кейс 3 раза; сравнение с прогоном без плагина.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "competitor",
+        "url": "https://tessl.io/registry/skills/github/openai/plugins/android-emulator-qa",
+        "file": null,
+        "title": "Tessl: качество android-emulator-qa 93 %",
+        "note": "Публичная оценка качества навыка в реестре.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "A",
+    "current_feature": "нет: каталога evals/ в плагинах нет (ls skills/*/, 2026-10-10); есть код-тесты (tests/) и dry-run сценарий skills/site-qa-audit/tests/dry-run-todomvc.md",
+    "effect_kpi": [
+      {
+        "kpi": "Доля естественных формулировок, на которых скил срабатывает",
+        "direction": "up",
+        "range": "измеряется впервые",
+        "label": "факт"
+      },
+      {
+        "kpi": "Разница с прогоном без плагина (Δ)",
+        "direction": "up",
+        "range": "> 0 по кейсам",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Сгенерировать каркас через claude plugin eval init для typesafe-triage",
+        "where": "skills/typesafe-triage/evals/",
+        "how": "Интерактивный режим, затем правки",
+        "doc_url": "https://code.claude.com/docs/en/plugin-evals"
+      },
+      {
+        "what": "Написать 5+2 кейса для site-qa-audit по триггерам из description",
+        "where": "skills/site-qa-audit/evals/",
+        "how": "Включая негативные («напиши unit-тест»)",
+        "doc_url": null
+      },
+      {
+        "what": "Настроить запуск вручную с лимитом числа запусков",
+        "where": "tests/EVALS.md",
+        "how": "Оценка стоимости: кейсы × 3 × 2 запуска",
+        "doc_url": null
+      },
+      {
+        "what": "Записать результат в CHANGELOG релиза",
+        "where": "skills/*/CHANGELOG.md",
+        "how": "Строка «eval: срабатывание N из M»",
+        "doc_url": null
+      },
+      {
+        "what": "Если Δ≈0 — править description",
+        "where": "skills/*/SKILL.md",
+        "how": "Затем повторить",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [],
+    "effort_days": [
+      3,
+      6
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 1500,
+      "currency": "RUB",
+      "note": "Вызовы модели на запуск набора ≈ 30..60 запусков [ДОПУЩЕНИЕ: порядка 500–1500 ₽ за набор]"
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 2,
+      "reputation": 2,
+      "note": "Расход токенов на каждый запуск; поведение eval может меняться [ДОПУЩЕНИЕ: экспериментальный раздел experimental.evals]"
+    },
+    "time_to_first_result_days": 10,
+    "cheap_test": "Прогнать eval на одном скиле с 3 кейсами и посмотреть Δ и стоимость.",
+    "scores": {
+      "value": 3,
+      "cost": 2,
+      "risk": 2,
+      "confidence": 4,
+      "moat": 3,
+      "virality": 1,
+      "acquisition": 2,
+      "revenue": 1
+    },
+    "kano": "linear",
+    "horizon": "next",
+    "horizon_years": 0,
+    "mockup": null,
+    "source_group": "G1"
+  },
+  {
+    "id": "G1-21",
+    "title": "Диета SKILL.md: критичные правила в первых 5 тыс. токенов, детали — в references",
+    "category": "platform",
+    "segment": "все пользователи QA-скилов; особенно длинные сессии с автосжатием контекста",
+    "description": "Пересобрать `SKILL.md` четырёх скилов: в начало — запреты безопасности, порядок прогона и условия остановки (то, что нельзя терять), в конец — таблицы скриптов и редкие режимы переносить в `references/` с явными условиями чтения. Цель: критичное целиком в первых ≈5 000 токенов, общий размер тела ≤ 50 % текущего. Измерять размер скриптом в validate.",
+    "rationale": "Документация: тело скила остаётся в контексте, а при автосжатии возвращается только первые 5 000 токенов каждого скила (бюджет 25 000 на все), рекомендация — держать SKILL.md в пределах 500 строк. У site-qa-audit 37,9 тыс. знаков (16 тыс. кириллицей), у typesafe-triage 26 тыс., то есть хвост инструкции — включая таблицы скриптов — может выпасть после сжатия; плюс повторяющаяся стоимость токенов.",
+    "evidence": [
+      {
+        "kind": "docs",
+        "url": "https://code.claude.com/docs/en/skills",
+        "file": null,
+        "title": "Skills: прогрессивная загрузка, лимит 500 строк, 5 000 токенов при сжатии",
+        "note": "Держать SKILL.md до 500 строк; после сжатия сохраняются первые 5 000 токенов.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "repo",
+        "url": null,
+        "file": "skills/site-qa-audit/SKILL.md:140",
+        "title": "Размер SKILL.md site-qa-audit",
+        "note": "37 862 знака, 183 строки; таблица скриптов в конце файла.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "community",
+        "url": "https://www.mindstudio.ai/blog/context-rot-claude-code-skills-bloated-files",
+        "file": null,
+        "title": "Context rot: раздутые файлы скилов (MindStudio)",
+        "note": "Описание проблемы раздувания скилов; страница из sources.json.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "A",
+    "current_feature": "частично: детали уже вынесены в references/ (site: 21 файл), но SKILL.md остаётся длинным — site 37 862 знака, android 25 685, typesafe 26 369, product-strategy 14 551 (замер len, 2026-10-10); запретов-в-начале как правила нет",
+    "effect_kpi": [
+      {
+        "kpi": "Доля критичных правил внутри первых 5 000 токенов",
+        "direction": "up",
+        "range": "→ 100 %",
+        "label": "оценка"
+      },
+      {
+        "kpi": "Размер SKILL.md (знаков), site-qa-audit",
+        "direction": "down",
+        "range": "37,9 тыс. → ≤ 19 тыс.",
+        "label": "оценка"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Разметить в SKILL.md блоки «нельзя терять» и «справочное»",
+        "where": "skills/*/SKILL.md",
+        "how": "Критичное: запреты, порядок шагов, условия остановки",
+        "doc_url": null
+      },
+      {
+        "what": "Перенести таблицы скриптов и редкие режимы в references/ с условиями чтения",
+        "where": "skills/*/references/",
+        "how": "В SKILL.md одна строка-указатель на файл",
+        "doc_url": null
+      },
+      {
+        "what": "Добавить проверку размера в validate (знаки/строки, предупреждение)",
+        "where": "tools/lib/skillsrepo.py",
+        "how": "Порог настраиваемый",
+        "doc_url": null
+      },
+      {
+        "what": "Прогнать eval срабатывания до и после",
+        "where": "skills/*/evals/",
+        "how": "Убедиться, что качество не просело (см. eval-наборы)",
+        "doc_url": null
+      },
+      {
+        "what": "Записать изменение в CHANGELOG и поднять версии",
+        "where": "skills/*/CHANGELOG.md",
+        "how": "Патч-релиз, поведение не меняется",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [],
+    "effort_days": [
+      4,
+      8
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Без затрат: время разработчика."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 2,
+      "reputation": 2,
+      "note": "Сокращение может убрать нужную модели подсказку; защита — eval до/после и независимое ревью"
+    },
+    "time_to_first_result_days": 14,
+    "cheap_test": "Измерить число токенов первых 5 000 токенов site-qa-audit (по знакам ≈ треть тела) и проверить вручную, какие запреты остаются за границей.",
+    "scores": {
+      "value": 4,
+      "cost": 3,
+      "risk": 2,
+      "confidence": 4,
+      "moat": 2,
+      "virality": 1,
+      "acquisition": 2,
+      "revenue": 1
+    },
+    "kano": "linear",
+    "horizon": "now",
+    "horizon_years": 0,
+    "mockup": null,
+    "source_group": "G1"
+  },
+  {
+    "id": "G1-22",
+    "title": "Вынести общее ядро QA site/android в shared: fingerprint, валидатор, черновики",
+    "category": "platform",
+    "segment": "автор: снижение стоимости каждого изменения QA-скилов; косвенно — единообразие вывода для пользователей",
+    "description": "Сравнить одноимённые модули `fingerprint.py`, `validate_findings.py`, `render_draft.py`, `recheck.py`, `build_report.py`, `intake.py` в двух QA-скилах, выделить общую часть в `shared/scripts/` (через существующий механизм `.shared` и вендоринг), оставив в скилах только отличия (Android: устройства; site: страницы). Работа под защитой CI и тестов.",
+    "rationale": "Часть QA-ядра уже вынесена (12 модулей), часть дублируется и расходится: fingerprint 234 против 193 строк, validate_findings 209 против 139, render_draft 709 против 575, intake 460 против 516 (замер wc, 2026-10-10). Каждая правка ядра делается дважды, а схемы находок рискуют разойтись. Платформа допускает символические ссылки внутри маркетплейса как альтернативу копиям.",
+    "evidence": [
+      {
+        "kind": "repo",
+        "url": null,
+        "file": "skills/site-qa-audit/scripts/fingerprint.py:1",
+        "title": "Расходящиеся копии: fingerprint.py site и android",
+        "note": "234 и 193 строки, в diff ≈213 различающихся строк.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "repo",
+        "url": null,
+        "file": "tools/lib/skillsrepo.py:100",
+        "title": "Вендоринг shared по списку .shared",
+        "note": "Копии побайтно проверяются validate.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "docs",
+        "url": "https://code.claude.com/docs/en/plugins/host-marketplace",
+        "file": null,
+        "title": "Host a marketplace: симлинки внутри маркетплейса",
+        "note": "Симлинк на соседнюю часть маркетплейса копируется в кэш как содержимое.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "A",
+    "current_feature": "частично: общее вынесено (shared/scripts: 17 файлов, вендорятся через .shared), но fingerprint, validate_findings, render_draft, recheck, build_report, intake существуют в двух разных реализациях (skills/*/scripts/, замер wc -l и diff, 2026-10-10)",
+    "effect_kpi": [
+      {
+        "kpi": "Строк дублируемого QA-кода между site и android",
+        "direction": "down",
+        "range": "≈ -1,5..2 тыс.",
+        "label": "оценка"
+      },
+      {
+        "kpi": "Правок ядра, делаемых дважды",
+        "direction": "down",
+        "range": "→ 0",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Инвентаризация: для каждой пары модулей — общая часть и отличия",
+        "where": "skills/*/scripts/",
+        "how": "Таблица в docs/plans/qa-core.md; измерить построчное сходство [ДОПУЩЕНИЕ: схожесть не измерена]",
+        "doc_url": null
+      },
+      {
+        "what": "Выделить самый большой выигрыш первым: fingerprint + validate_findings",
+        "where": "shared/scripts/",
+        "how": "Параметризация по скилу, как в qa_known.cli(argv, skill)",
+        "doc_url": null
+      },
+      {
+        "what": "Перевести скилы на shared-версию, оставив тонкие обёртки",
+        "where": "skills/*/scripts/",
+        "how": "Тесты до и после зелёные",
+        "doc_url": null
+      },
+      {
+        "what": "Проверить вендоринг/симлинки на Windows",
+        "where": "tools/lib/skillsrepo.py",
+        "how": "Вариант с симлинками — только если стабилен на Windows",
+        "doc_url": null
+      },
+      {
+        "what": "Повторить для render_draft и build_report по мере выигрыша",
+        "where": "shared/scripts/",
+        "how": "Каждый шаг — отдельная ветка и релиз",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [
+      "G1-17"
+    ],
+    "effort_days": [
+      8,
+      15
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Без затрат: время разработчика."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 4,
+      "reputation": 1,
+      "note": "Рефакторинг двух зрелых скилов: риск тихих регрессий; без CI и тестов не начинать"
+    },
+    "time_to_first_result_days": 30,
+    "cheap_test": "Построчно сравнить fingerprint.py двух скилов и оценить, какая доля действительно общая.",
+    "scores": {
+      "value": 3,
+      "cost": 4,
+      "risk": 3,
+      "confidence": 4,
+      "moat": 3,
+      "virality": 1,
+      "acquisition": 1,
+      "revenue": 1
+    },
+    "kano": "indifferent",
+    "horizon": "next",
+    "horizon_years": 0,
+    "mockup": null,
+    "source_group": "G1"
+  },
+  {
+    "id": "G1-23",
+    "title": "Версионированная публичная схема findings.json (общая для site и android)",
+    "category": "platform",
+    "segment": "авторы инструментов и скилов, которые хотят читать или писать находки QA; сам автор — для миграций",
+    "description": "Единый `finding.schema.json` v1 с `$id`, `schema_version` и таблицей различий между site и android; валидатор в shared; документ `docs/findings-spec.md` с примерами и правилами совместимости (что добавлять можно, что ломает). Основа для экспортёров и для дельты между прогонами.",
+    "rationale": "Две схемы находок живут отдельно (по одной в templates каждого QA-скила) и расходятся, а экспортёры (SARIF, HTML, дельта) должны читать одно и то же. Открытая спецификация данных продукта — типовой платформенный шаг и условие для сторонних инструментов; без неё каждый новый формат придётся писать дважды.",
+    "evidence": [
+      {
+        "kind": "repo",
+        "url": null,
+        "file": "skills/site-qa-audit/templates/finding.schema.json:1",
+        "title": "Схема находок site-qa-audit",
+        "note": "Файл finding.schema.json в templates скила.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "repo",
+        "url": null,
+        "file": "skills/android-qa-audit/templates/finding.schema.json:1",
+        "title": "Схема находок android-qa-audit",
+        "note": "Отдельный finding.schema.json в templates скила.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "C",
+    "current_feature": "частично: схемы есть в обоих скилах отдельно (skills/site-qa-audit/templates/finding.schema.json, skills/android-qa-audit/templates/finding.schema.json); общей версии, schema_version и документа совместимости нет",
+    "effect_kpi": [
+      {
+        "kpi": "Число схем находок",
+        "direction": "down",
+        "range": "2 → 1 общая + расширения",
+        "label": "факт"
+      },
+      {
+        "kpi": "Экспортёров, читающих одну схему",
+        "direction": "up",
+        "range": "0 → 3",
+        "label": "оценка"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Сравнить две схемы поле за полем",
+        "where": "skills/*/templates/finding.schema.json",
+        "how": "Таблица общих, site-only, android-only",
+        "doc_url": null
+      },
+      {
+        "what": "Спроектировать v1 (общая часть + необязательные расширения)",
+        "where": "shared/templates/finding.schema.json",
+        "how": "Добавить $id, schema_version",
+        "doc_url": null
+      },
+      {
+        "what": "Миграция валидаторов на общую схему",
+        "where": "skills/*/scripts/validate_findings.py",
+        "how": "Старые находки читаются без изменений",
+        "doc_url": null
+      },
+      {
+        "what": "Документ совместимости",
+        "where": "docs/findings-spec.md",
+        "how": "Правила добавления полей, версия при ломающих изменениях",
+        "doc_url": null
+      },
+      {
+        "what": "Тесты на старых findings.json из фикстур",
+        "where": "skills/*/tests/fixtures/",
+        "how": "Обратная совместимость",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [],
+    "effort_days": [
+      4,
+      8
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Без затрат: время разработчика."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 3,
+      "reputation": 1,
+      "note": "Смена схемы без миграции сломает сохранённые прогоны: обратная совместимость обязательна"
+    },
+    "time_to_first_result_days": 14,
+    "cheap_test": "Свести поля двух схем в таблицу и посмотреть долю общих полей.",
+    "scores": {
+      "value": 3,
+      "cost": 3,
+      "risk": 2,
+      "confidence": 3,
+      "moat": 4,
+      "virality": 2,
+      "acquisition": 1,
+      "revenue": 1
+    },
+    "kano": "indifferent",
+    "horizon": "next",
+    "horizon_years": 0,
+    "mockup": null,
+    "source_group": "G1"
+  },
+  {
+    "id": "G1-24",
+    "title": "Разрезать файлы больше 2300 строк под защитой тестов",
+    "category": "platform",
+    "segment": "автор и будущие вкладчики; снижение риска ошибок при правках крупных модулей",
+    "description": "Модули-монолиты (`build_html.py` 4534, `strategy_track.py` 2791, `adb_helpers.py` 2495, `typesafe_triage.py` 2358, `repo_scan.py` 2247 строк) разрезать на пакеты по ответственности, не меняя поведения и CLI; каждая нарезка — отдельный PR с зелёным CI и снимками вывода (golden). Порядок: от самого меняемого по git-истории.",
+    "rationale": "Крупные файлы повышают цену каждой правки и порог входа вкладчика; скил разрабатывается в темпе до 113 коммитов в день и правится в тех же файлах. Рефакторинг безопасен только при проверяемой базе (тесты, CI), поэтому после CI; внешней аудитории пока нет — срочности нет, отсюда горизонт позже.",
+    "evidence": [
+      {
+        "kind": "repo",
+        "url": null,
+        "file": "skills/product-strategy/scripts/build_html.py:1",
+        "title": "Крупнейшие файлы репозитория по git ls-files",
+        "note": "build_html.py — 4534 строки, strategy_track.py — 2791, adb_helpers.py — 2495.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "C",
+    "current_feature": "нет: файлы не разделены (wc -l по git ls-files, 2026-10-10); часть логики уже вынесена в соседние модули (triage_heuristics.py, typesafe_guard.py)",
+    "effect_kpi": [
+      {
+        "kpi": "Файлов > 2000 строк",
+        "direction": "down",
+        "range": "5 → 0..1",
+        "label": "факт"
+      },
+      {
+        "kpi": "Время на нахождение места правки (вкладчик)",
+        "direction": "down",
+        "range": "по обращениям",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Снять golden-вывод (HTML/JSON) со всех крупных модулей",
+        "where": "skills/*/tests/",
+        "how": "Снимки до нарезки",
+        "doc_url": null
+      },
+      {
+        "what": "Разрезать самый часто меняемый: typesafe_triage.py",
+        "where": "skills/typesafe-triage/scripts/",
+        "how": "Пакет typesafe_triage/, точка входа прежняя",
+        "doc_url": null
+      },
+      {
+        "what": "Затем strategy_track.py и build_html.py",
+        "where": "skills/product-strategy/scripts/",
+        "how": "По одному на релиз",
+        "doc_url": null
+      },
+      {
+        "what": "adb_helpers.py — по группам подкоманд",
+        "where": "skills/android-qa-audit/scripts/",
+        "how": "Сохранить CLI",
+        "doc_url": null
+      },
+      {
+        "what": "Обновить CONVENTIONS: лимит размера файла",
+        "where": "CONVENTIONS.md",
+        "how": "Предупреждение в validate",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [
+      "G1-17"
+    ],
+    "effort_days": [
+      10,
+      20
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Без затрат: время разработчика."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 4,
+      "reputation": 1,
+      "note": "Риск тихих регрессий; хуки вызывают скрипты по путям — пути не менять"
+    },
+    "time_to_first_result_days": 45,
+    "cheap_test": "Подсчитать, сколько коммитов за последние дни затрагивали эти пять файлов, чтобы выбрать первый.",
+    "scores": {
+      "value": 2,
+      "cost": 4,
+      "risk": 3,
+      "confidence": 3,
+      "moat": 2,
+      "virality": 1,
+      "acquisition": 1,
+      "revenue": 1
+    },
+    "kano": "indifferent",
+    "horizon": "later",
+    "horizon_years": 1,
+    "mockup": null,
+    "source_group": "G1"
+  },
+  {
+    "id": "G1-25",
+    "title": "Безопасность проекта: SECURITY.md, проверка зависимостей, контрольные суммы всех скилов",
+    "category": "platform",
+    "segment": "пользователи, ставящие скилы со скриптами и хуками, исполняемыми на их машине; корпоративные читатели репозитория",
+    "description": "Добавить SECURITY.md (канал сообщения об уязвимостях, поддерживаемые версии), включить Dependabot для npm lock-файлов и секрет-скан в CI, распространить `SHA256SUMS` с typesafe-triage на все скилы и проверку в validate. В README одна строка «что скрипты скилов делают на вашей машине» со ссылкой на guard и dry-run.",
+    "rationale": "Скилы запускают скрипты и хуки на машине пользователя; у платформы жёсткие правила установки зависимостей (точные версии из lock-файла, без скриптов жизненного цикла), а SHA256SUMS есть у одного скила из четырёх. Явная политика безопасности — недорогой сигнал доверия для кода, который иначе просят запускать вслепую.",
+    "evidence": [
+      {
+        "kind": "docs",
+        "url": "https://code.claude.com/docs/en/plugins/loading",
+        "file": null,
+        "title": "Plugin loading: зависимости только из реестра, точные версии, --ignore-scripts",
+        "note": "Установка идёт по lock-файлу, без lifecycle-скриптов.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "repo",
+        "url": null,
+        "file": "skills/typesafe-triage/SHA256SUMS:1",
+        "title": "SHA256SUMS только у typesafe-triage",
+        "note": "Файл контрольных сумм лежит у одного из четырёх скилов.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "A",
+    "current_feature": "частично: SHA256SUMS и shared/scripts/skill_sums.py есть только у typesafe-triage (ls skills/*/SHA256SUMS, 2026-10-10); секрет-скан есть в validate (tools/lib/skillsrepo.py:221), SECURITY.md и Dependabot нет",
+    "effect_kpi": [
+      {
+        "kpi": "Скилов с проверяемыми контрольными суммами",
+        "direction": "up",
+        "range": "1 → 4",
+        "label": "факт"
+      },
+      {
+        "kpi": "Время реакции на сообщение об уязвимости",
+        "direction": "down",
+        "range": "определён срок (например 7 дней)",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Написать SECURITY.md",
+        "where": "SECURITY.md",
+        "how": "Канал: приватные advisory GitHub; поддерживаемые версии — последняя по каждому скилу",
+        "doc_url": null
+      },
+      {
+        "what": "Подключить Dependabot для скриптов Node",
+        "where": ".github/dependabot.yml",
+        "how": "Недельный график, группировка по скилу",
+        "doc_url": null
+      },
+      {
+        "what": "Секрет-скан и аудит зависимостей в CI",
+        "where": ".github/workflows/ci.yml",
+        "how": "gitleaks либо встроенная проверка validate; npm audit как предупреждение",
+        "doc_url": null
+      },
+      {
+        "what": "Распространить skill_sums на все скилы",
+        "where": "shared/scripts/skill_sums.py, tools/lib/skillsrepo.py",
+        "how": "Генерация и проверка в validate",
+        "doc_url": null
+      },
+      {
+        "what": "Абзац «что делают скрипты» в README",
+        "where": "README.md",
+        "how": "Ссылки на guard, dry-run",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [
+      "G1-17"
+    ],
+    "effort_days": [
+      2,
+      5
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Без затрат: время разработчика."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 1,
+      "reputation": 1,
+      "note": "Обещания SLA без ресурсов — риск: писать срок как цель, не гарантию"
+    },
+    "time_to_first_result_days": 7,
+    "cheap_test": "Прогнать gitleaks локально по истории и посмотреть, есть ли находки.",
+    "scores": {
+      "value": 3,
+      "cost": 2,
+      "risk": 1,
+      "confidence": 4,
+      "moat": 2,
+      "virality": 1,
+      "acquisition": 2,
+      "revenue": 1
+    },
+    "kano": "linear",
+    "horizon": "now",
+    "horizon_years": 0,
+    "mockup": null,
+    "source_group": "G1"
+  },
+  {
+    "id": "G1-26",
+    "title": "Переносимое ядро: SKILL.md по Agent Skills и дымовой тест вне Claude Code",
+    "category": "platform",
+    "segment": "пользователи других агентов (Codex, Gemini CLI, Cursor, Copilot), у которых тот же формат скилов",
+    "description": "Разделить, что в скилах специфично для Claude Code (хуки, `AskUserQuestion`, слэш-имена, Agent), а что переносимо (скрипты на stdlib, справочники, схемы). Привести SKILL.md к формату открытой спецификации, вынести Claude-специфику в явные «адаптеры», собрать дымовой тест: скрипты-проверки работают без Claude Code. Первый кандидат — product-strategy и хук-независимая часть typesafe-triage.",
+    "rationale": "Формат Agent Skills поддерживают десятки агентов, а 7 из 15 изученных конкурентов работают вне Claude Code; у нас Claude-специфичные хуки и формулировки. Ядро скриптов — чистый Python и Node, поэтому часть ценности переносима при умеренных затратах; полная совместимость — многолетняя ставка.",
+    "evidence": [
+      {
+        "kind": "docs",
+        "url": "https://agentskills.io/home",
+        "file": null,
+        "title": "Agent Skills: открытый формат, перечень поддерживающих агентов",
+        "note": "Формат поддерживают Cursor, Gemini CLI, Codex, Copilot и др.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "competitor",
+        "url": "https://github.com/garrytan/gstack",
+        "file": null,
+        "title": "Матрица функций: работают вне Claude Code 7 из 15",
+        "note": "gstack, accesslint-audit, Android-MCP и др. заявляют кросс-агентность.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "A",
+    "current_feature": "частично: скрипты на stdlib и Node, хуки и опросы привязаны к Claude Code (skills/*/hooks/hooks.json, SKILL.md:49 про AskUserQuestion/хук); проверок переносимости нет",
+    "effect_kpi": [
+      {
+        "kpi": "Скилов, чьи скрипты проходят дымовой тест вне Claude Code",
+        "direction": "up",
+        "range": "0 → 2",
+        "label": "допущение"
+      },
+      {
+        "kpi": "Поддерживаемых клиентов",
+        "direction": "up",
+        "range": "1 → 3",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Составить карту Claude-специфики по скилам",
+        "where": "docs/portability.md",
+        "how": "Хуки, вопросы пользователю, имена инструментов",
+        "doc_url": null
+      },
+      {
+        "what": "Проверить SKILL.md спецификацией и выровнять frontmatter",
+        "where": "skills/*/SKILL.md",
+        "how": "Через проверки G1-19",
+        "doc_url": "https://agentskills.io/home"
+      },
+      {
+        "what": "Дымовой тест скриптов без Claude Code",
+        "where": "tests/portability/",
+        "how": "Запуск CLI-подкоманд из CI",
+        "doc_url": null
+      },
+      {
+        "what": "Адаптерный слой для вопросов/делегирования",
+        "where": "skills/*/references/adapters.md",
+        "how": "Что делать агенту без AskUserQuestion",
+        "doc_url": null
+      },
+      {
+        "what": "Опробовать один скил в стороннем агенте",
+        "where": "локально",
+        "how": "Gemini CLI или Codex; записать итог в docs",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [
+      "G1-19",
+      "G1-21"
+    ],
+    "effort_days": [
+      10,
+      25
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Без затрат: время разработчика."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 4,
+      "reputation": 2,
+      "note": "Расширение поддержки увеличивает нагрузку на единственного разработчика; без внешнего спроса может быть преждевременным"
+    },
+    "time_to_first_result_days": 30,
+    "cheap_test": "Скопировать product-strategy как папку скилов в стороннего агента и проверить, находит ли он SKILL.md и запускаются ли скрипты.",
+    "scores": {
+      "value": 4,
+      "cost": 4,
+      "risk": 3,
+      "confidence": 3,
+      "moat": 3,
+      "virality": 2,
+      "acquisition": 4,
+      "revenue": 1
+    },
+    "kano": "delight",
+    "horizon": "later",
+    "horizon_years": 2,
+    "mockup": null,
+    "source_group": "G1"
+  }
+]

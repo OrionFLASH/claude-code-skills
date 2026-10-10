@@ -1,0 +1,542 @@
+[
+  {
+    "id": "G01",
+    "phase": "30 дней",
+    "task": "Решение об имени и одна фраза ценности",
+    "proposal_ids": [
+      "P028"
+    ],
+    "start_month": 1,
+    "end_month": 1,
+    "type": "task",
+    "owner": "владелец",
+    "done_criteria": "Записано решение «слоган без переименования» или «переименование до первых листингов»; одна фраза ценности для README, README.en.md, описания репозитория и plugin.json",
+    "dependencies": []
+  },
+  {
+    "id": "G02",
+    "phase": "30 дней",
+    "task": "GIF и ролики первой минуты по четырём скилам",
+    "proposal_ids": [
+      "P030"
+    ],
+    "start_month": 1,
+    "end_month": 1,
+    "type": "task",
+    "owner": "разработчик",
+    "done_criteria": "По GIF на скил до 1,5 МБ в docs/media из реальных прогонов на тренировочных целях, без чужих данных",
+    "dependencies": []
+  },
+  {
+    "id": "G03",
+    "phase": "30 дней",
+    "task": "README-витрина с блоком «кому подходит, что нужно, сколько стоит, лицензия» и метаданные репозитория",
+    "proposal_ids": [
+      "P029",
+      "P033",
+      "P017"
+    ],
+    "start_month": 1,
+    "end_month": 1,
+    "type": "task",
+    "owner": "владелец + разработчик",
+    "done_criteria": "Верх README: фраза ценности, GIF, установка в три строки, таблица требований и лицензии; темы, описание и social preview заполнены",
+    "dependencies": [
+      "G01",
+      "G02"
+    ]
+  },
+  {
+    "id": "G04",
+    "phase": "60 дней",
+    "task": "Еженедельный снимок публичных сигналов GitHub в CSV",
+    "proposal_ids": [
+      "P043"
+    ],
+    "start_month": 2,
+    "end_month": 2,
+    "type": "task",
+    "owner": "разработчик",
+    "done_criteria": "tools/stats_snapshot.py пишет CSV вне репозитория; два снимка подряд без пропуска недели",
+    "dependencies": []
+  },
+  {
+    "id": "G05",
+    "phase": "60 дней",
+    "task": "CI на Linux, macOS и Windows",
+    "proposal_ids": [
+      "P059"
+    ],
+    "start_month": 2,
+    "end_month": 2,
+    "type": "task",
+    "owner": "разработчик",
+    "done_criteria": ".github/workflows/ci.yml зелёный на трёх ОС, бейдж статуса в README",
+    "dependencies": []
+  },
+  {
+    "id": "G06",
+    "phase": "60 дней",
+    "task": "Английские описания плагинов и проверка автоиндексов каталогов",
+    "proposal_ids": [
+      "P054",
+      "P020"
+    ],
+    "start_month": 2,
+    "end_month": 2,
+    "type": "task",
+    "owner": "владелец + разработчик",
+    "done_criteria": "Первая фраза description и displayName на английском, версии подняты; присутствие в каталогах-агрегаторах проверено и записано",
+    "dependencies": [
+      "G01"
+    ]
+  },
+  {
+    "id": "G07",
+    "phase": "60 дней",
+    "task": "Контрольная точка ставки 1 (2026-11-30)",
+    "proposal_ids": [
+      "P029",
+      "P030"
+    ],
+    "start_month": 2,
+    "end_month": 2,
+    "type": "milestone",
+    "owner": "владелец",
+    "done_criteria": "Посетители и звёзды сверены с порогом ставки 1 из раздела 1; решение «продолжать» или «витрина по минимуму» записано",
+    "dependencies": [
+      "G03",
+      "G04"
+    ]
+  },
+  {
+    "id": "G08",
+    "phase": "90 дней",
+    "task": "Англоязычная витрина README.en.md",
+    "proposal_ids": [
+      "P069"
+    ],
+    "start_month": 3,
+    "end_month": 3,
+    "type": "task",
+    "owner": "разработчик",
+    "done_criteria": "README.en.md с тем же верхом, переключатель RU/EN в обоих файлах, пометка «вопросы и отчёты скилов на русском»",
+    "dependencies": [
+      "G03"
+    ]
+  },
+  {
+    "id": "G09",
+    "phase": "90 дней",
+    "task": "Решение по лицензии до первой заявки в каталог",
+    "proposal_ids": [
+      "P042"
+    ],
+    "start_month": 3,
+    "end_month": 3,
+    "type": "task",
+    "owner": "владелец",
+    "done_criteria": "Матрица трёх вариантов по правилам каталогов заполнена; решение записано в README и LICENSE до подачи",
+    "dependencies": []
+  },
+  {
+    "id": "G10",
+    "phase": "90 дней",
+    "task": "Заявки в awesome-claude-code и официальный каталог Anthropic (первым — typesafe-triage)",
+    "proposal_ids": [
+      "P019",
+      "P018"
+    ],
+    "start_month": 3,
+    "end_month": 3,
+    "type": "task",
+    "owner": "владелец",
+    "done_criteria": "Заявки поданы владельцем через веб-формы до 2026-12-25, по одному плагину на заявку",
+    "dependencies": [
+      "G06",
+      "G08",
+      "G09"
+    ]
+  },
+  {
+    "id": "G11",
+    "phase": "90 дней",
+    "task": "Контрольная точка 90 дней: CI на трёх ОС (2026-12-15) и решение по ставкам",
+    "proposal_ids": [
+      "P059",
+      "P069",
+      "P042"
+    ],
+    "start_month": 3,
+    "end_month": 3,
+    "type": "milestone",
+    "owner": "владелец",
+    "done_criteria": "По каждой ставке записано «масштабировать» или «остановить» по критериям отказа раздела 1",
+    "dependencies": [
+      "G05",
+      "G08",
+      "G09",
+      "G10"
+    ]
+  },
+  {
+    "id": "G12",
+    "phase": "6 месяцев",
+    "task": "Демо без установки на GitHub Pages и quickstart для каждого скила",
+    "proposal_ids": [
+      "P070",
+      "P031",
+      "P032"
+    ],
+    "start_month": 4,
+    "end_month": 4,
+    "type": "task",
+    "owner": "разработчик",
+    "done_criteria": "Страница стратегии и QA-пример открываются в приватном окне без входа; docs/quickstart для четырёх скилов проверены на чистой машине",
+    "dependencies": [
+      "G03"
+    ]
+  },
+  {
+    "id": "G13",
+    "phase": "6 месяцев",
+    "task": "Контрольная точка ставки 2 (2027-01-31)",
+    "proposal_ids": [
+      "P018",
+      "P019"
+    ],
+    "start_month": 4,
+    "end_month": 4,
+    "type": "milestone",
+    "owner": "владелец",
+    "done_criteria": "Записано, принят ли хотя бы один листинг; при отказе из-за лицензии — повтор решения P042 или отказ от каталогов",
+    "dependencies": [
+      "G10"
+    ]
+  },
+  {
+    "id": "G14",
+    "phase": "6 месяцев",
+    "task": "Node-зависимости без ручного npm install; подача site-qa-audit второй волной P018",
+    "proposal_ids": [
+      "P060"
+    ],
+    "start_month": 5,
+    "end_month": 6,
+    "type": "task",
+    "owner": "владелец + разработчик",
+    "done_criteria": "Один механизм для трёх скилов с Node; после обновления плагина ноль ручных шагов; site-qa-audit подан в официальный каталог",
+    "dependencies": [
+      "G05"
+    ]
+  },
+  {
+    "id": "G15",
+    "phase": "6 месяцев",
+    "task": "Диета SKILL.md: критичные правила в первых 5 000 токенов",
+    "proposal_ids": [
+      "P063"
+    ],
+    "start_month": 5,
+    "end_month": 6,
+    "type": "task",
+    "owner": "разработчик",
+    "done_criteria": "Проверка размера в tools/lib/skillsrepo.py (знаки или токены); dry-run site-qa-audit до и после без потери шагов",
+    "dependencies": []
+  },
+  {
+    "id": "G16",
+    "phase": "6 месяцев",
+    "task": "Discussions, публичная дорожная карта и опрос спроса",
+    "proposal_ids": [
+      "P035",
+      "P046"
+    ],
+    "start_month": 5,
+    "end_month": 6,
+    "type": "task",
+    "owner": "владелец",
+    "done_criteria": "Discussions включены, дорожная карта закреплена; опрос шёл 14 дней, итог записан в папку стратегии",
+    "dependencies": [
+      "G10"
+    ]
+  },
+  {
+    "id": "G17",
+    "phase": "6 месяцев",
+    "task": "Прокси принятия и North Star с порогами 30/60/90 дней",
+    "proposal_ids": [
+      "P047",
+      "P044"
+    ],
+    "start_month": 5,
+    "end_month": 6,
+    "type": "task",
+    "owner": "разработчик",
+    "done_criteria": "Счётчик внешних упоминаний в CSV снимков; data/north-star.json с порогами «продолжать / свернуть»",
+    "dependencies": [
+      "G04"
+    ]
+  },
+  {
+    "id": "G18",
+    "phase": "6 месяцев",
+    "task": "Итог горизонта: North Star и ворота запуска P024",
+    "proposal_ids": [
+      "P044",
+      "P046"
+    ],
+    "start_month": 6,
+    "end_month": 6,
+    "type": "milestone",
+    "owner": "владелец",
+    "done_criteria": "North Star сверена с целями раздела 12; записано решение «запускать P024» или «не запускать»",
+    "dependencies": [
+      "G12",
+      "G16",
+      "G17"
+    ]
+  },
+  {
+    "id": "G19",
+    "phase": "12 месяцев",
+    "task": "Ритм: еженедельный снимок, ежемесячная сверка плана, квартальный пересмотр",
+    "proposal_ids": [],
+    "start_month": 1,
+    "end_month": 12,
+    "type": "task",
+    "owner": "владелец",
+    "done_criteria": "12 ежемесячных сверок strategy_track.py check и два квартальных пересмотра записаны",
+    "dependencies": []
+  },
+  {
+    "id": "G20",
+    "phase": "12 месяцев",
+    "task": "Вторая волна по воротам: аудит безопасности, Show HN → Product Hunt, смежные awesome-списки",
+    "proposal_ids": [
+      "P067",
+      "P024",
+      "P050"
+    ],
+    "start_month": 7,
+    "end_month": 7,
+    "type": "task",
+    "owner": "владелец + разработчик",
+    "done_criteria": "SECURITY.md и разовый gitleaks по истории без находок; при «да» в G18 — один Show HN и через 1–2 недели Product Hunt; 1–3 заявки в смежные списки",
+    "dependencies": [
+      "G05",
+      "G18"
+    ]
+  },
+  {
+    "id": "G21",
+    "phase": "12 месяцев",
+    "task": "Дельта между прогонами и рецепты регулярного запуска",
+    "proposal_ids": [
+      "P004",
+      "P038"
+    ],
+    "start_month": 8,
+    "end_month": 9,
+    "type": "task",
+    "owner": "разработчик",
+    "done_criteria": "Блок «Новые / Исправлено / Вернулось» в отчёте повторного прогона; loop.md для трёх скилов в INSTALL.md",
+    "dependencies": [
+      "G14"
+    ]
+  },
+  {
+    "id": "G22",
+    "phase": "12 месяцев",
+    "task": "validate --strict, линтер SKILL.md и ночная проверка дрейфа",
+    "proposal_ids": [
+      "P061"
+    ],
+    "start_month": 8,
+    "end_month": 8,
+    "type": "task",
+    "owner": "разработчик",
+    "done_criteria": "Ночной workflow против свежего Claude Code зелёный; запас длины description не меньше 100 знаков",
+    "dependencies": [
+      "G05",
+      "G15"
+    ]
+  },
+  {
+    "id": "G23",
+    "phase": "12 месяцев",
+    "task": "Оценка стоимости прогона до старта и лимит бюджета",
+    "proposal_ids": [
+      "P001"
+    ],
+    "start_month": 9,
+    "end_month": 9,
+    "type": "task",
+    "owner": "разработчик",
+    "done_criteria": "Оценка показывается в опросе до старта; на трёх прошлых прогонах ошибка формулы не больше 50 %",
+    "dependencies": []
+  },
+  {
+    "id": "G24",
+    "phase": "12 месяцев",
+    "task": "Листинги Tessl и skills.sh, взаимная витрина с TypeSafe",
+    "proposal_ids": [
+      "P048",
+      "P049"
+    ],
+    "start_month": 10,
+    "end_month": 10,
+    "type": "task",
+    "owner": "владелец",
+    "done_criteria": "Страницы скилов в реестрах найдены, замечания к SKILL.md закрыты; письмо команде TypeSafe отправлено",
+    "dependencies": [
+      "G15"
+    ]
+  },
+  {
+    "id": "G25",
+    "phase": "12 месяцев",
+    "task": "Технический разбор хука на dev.to и кейс на vc.ru",
+    "proposal_ids": [
+      "P022",
+      "P023"
+    ],
+    "start_month": 10,
+    "end_month": 11,
+    "type": "task",
+    "owner": "владелец",
+    "done_criteria": "Два текста опубликованы владельцем по правилам площадок, ссылка на репозиторий вторична",
+    "dependencies": [
+      "G12"
+    ]
+  },
+  {
+    "id": "G26",
+    "phase": "12 месяцев",
+    "task": "Неинтерактивный режим site-qa-audit для CI",
+    "proposal_ids": [
+      "P002"
+    ],
+    "start_month": 11,
+    "end_month": 12,
+    "type": "task",
+    "owner": "разработчик",
+    "done_criteria": "summary.json и код возврата по порогу --fail-on; раздел «CI» в INSTALL.md с примером workflow",
+    "dependencies": [
+      "G14"
+    ]
+  },
+  {
+    "id": "G27",
+    "phase": "12 месяцев",
+    "task": "Итог года: повторный прогон стратегии и выбор многолетних ставок",
+    "proposal_ids": [],
+    "start_month": 12,
+    "end_month": 12,
+    "type": "milestone",
+    "owner": "владелец",
+    "done_criteria": "Новая стратегия в папке прогона; из раздела 15 выбраны одна-две ставки по условиям входа",
+    "dependencies": [
+      "G18"
+    ]
+  },
+  {
+    "id": "G28",
+    "phase": "vision",
+    "task": "Переносимое ядро по Agent Skills и дымовой тест вне Claude Code",
+    "proposal_ids": [
+      "P068"
+    ],
+    "start_month": 13,
+    "end_month": 15,
+    "type": "task",
+    "owner": "разработчик",
+    "done_criteria": "Скрипты двух скилов проходят дымовой тест вне Claude Code",
+    "dependencies": [
+      "G15",
+      "G22",
+      "G27"
+    ]
+  },
+  {
+    "id": "G29",
+    "phase": "vision",
+    "task": "Мультиагентная поставка: Codex, Cursor, Gemini CLI",
+    "proposal_ids": [
+      "P073"
+    ],
+    "start_month": 16,
+    "end_month": 18,
+    "type": "task",
+    "owner": "разработчик",
+    "done_criteria": "install.sh --host и матрица совместимости в CI для 2–3 агентов",
+    "dependencies": [
+      "G28"
+    ]
+  },
+  {
+    "id": "G30",
+    "phase": "vision",
+    "task": "Общее ядро QA и публичная схема findings.json",
+    "proposal_ids": [
+      "P065",
+      "P064"
+    ],
+    "start_month": 13,
+    "end_month": 18,
+    "type": "task",
+    "owner": "разработчик",
+    "done_criteria": "Одна схема находок v1 с расширениями; fingerprint и валидатор в shared/",
+    "dependencies": [
+      "G05",
+      "G27"
+    ]
+  },
+  {
+    "id": "G31",
+    "phase": "vision",
+    "task": "MCP-интерфейс к детерминированным движкам QA",
+    "proposal_ids": [
+      "P072"
+    ],
+    "start_month": 19,
+    "end_month": 24,
+    "type": "task",
+    "owner": "разработчик",
+    "done_criteria": "Движки QA проверены в 2–3 клиентах MCP",
+    "dependencies": [
+      "G30"
+    ]
+  },
+  {
+    "id": "G32",
+    "phase": "vision",
+    "task": "Правила вклада и открытый русскоязычный каталог скилов",
+    "proposal_ids": [
+      "P034",
+      "P071"
+    ],
+    "start_month": 19,
+    "end_month": 24,
+    "type": "task",
+    "owner": "владелец + разработчик",
+    "done_criteria": "CONTRIBUTING и обязательные проверки приёма в CI; в каталоге 3–10 сторонних плагинов",
+    "dependencies": [
+      "G27"
+    ]
+  },
+  {
+    "id": "G33",
+    "phase": "vision",
+    "task": "Итог видения: повторный прогон и следующий цикл",
+    "proposal_ids": [],
+    "start_month": 24,
+    "end_month": 24,
+    "type": "milestone",
+    "owner": "владелец",
+    "done_criteria": "Стратегия следующего цикла записана",
+    "dependencies": [
+      "G27"
+    ]
+  }
+]

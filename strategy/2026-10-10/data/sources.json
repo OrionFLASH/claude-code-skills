@@ -1,0 +1,1172 @@
+[
+  {
+    "id": "S001",
+    "url": "https://news.ycombinator.com/showhn.html",
+    "title": "Show HN Guidelines",
+    "date_checked": "2026-10-10",
+    "used_for": "правила Show HN",
+    "status": 200,
+    "note": "открыт"
+  },
+  {
+    "id": "S002",
+    "url": "https://news.ycombinator.com/newsguidelines.html",
+    "title": "Hacker News Guidelines",
+    "date_checked": "2026-10-10",
+    "used_for": "самопродвижение, голосование",
+    "status": 200,
+    "note": "открыт"
+  },
+  {
+    "id": "S003",
+    "url": "https://habr.com/ru/docs/help/rules/",
+    "title": "Хабр: правила",
+    "date_checked": "2026-10-10",
+    "used_for": "самопиар, ссылки",
+    "status": 200,
+    "note": "открыт"
+  },
+  {
+    "id": "S004",
+    "url": "https://vc.ru/rules",
+    "title": "vc.ru: правила",
+    "date_checked": "2026-10-10",
+    "used_for": "самопромоция, коммерческие посты",
+    "status": 200,
+    "note": "открыт"
+  },
+  {
+    "id": "S005",
+    "url": "https://www.producthunt.com/launch",
+    "title": "Product Hunt: launch guide",
+    "date_checked": "2026-10-10",
+    "used_for": "правила запуска",
+    "status": 403,
+    "note": "открыт; анти-бот: требует перепроверки в браузере"
+  },
+  {
+    "id": "S006",
+    "url": "https://dev.to/terms",
+    "title": "DEV Community: Terms, раздел 11 Content Policy",
+    "date_checked": "2026-10-10",
+    "used_for": "промо-контент",
+    "status": 200,
+    "note": "открыт"
+  },
+  {
+    "id": "S007",
+    "url": "https://lobste.rs/about",
+    "title": "Lobsters: about",
+    "date_checked": "2026-10-10",
+    "used_for": "самопродвижение <25%, инвайты, 70 дней",
+    "status": 200,
+    "note": "открыт"
+  },
+  {
+    "id": "S008",
+    "url": "https://github.com/hesreallyhim/awesome-claude-code",
+    "title": "awesome-claude-code (репозиторий)",
+    "date_checked": "2026-10-10",
+    "used_for": "число звёзд 55.4k",
+    "status": 200,
+    "note": "открыт"
+  },
+  {
+    "id": "S009",
+    "url": "https://raw.githubusercontent.com/hesreallyhim/awesome-claude-code/main/CONTRIBUTING.md",
+    "title": "awesome-claude-code: CONTRIBUTING",
+    "date_checked": "2026-10-10",
+    "used_for": "условия подачи (14 дней или 100 звёзд, форма)",
+    "status": 200,
+    "note": "открыт"
+  },
+  {
+    "id": "S010",
+    "url": "https://github.com/anthropics/claude-plugins-official",
+    "title": "anthropics/claude-plugins-official",
+    "date_checked": "2026-10-10",
+    "used_for": "подача внешних плагинов через форму; карточка claude-plugins-official: канал дистрибуции, форма подачи",
+    "status": 200,
+    "note": "открыт; звёзд 37.6k"
+  },
+  {
+    "id": "S011",
+    "url": "https://claudemarketplaces.com/about",
+    "title": "claudemarketplaces.com: about",
+    "date_checked": "2026-10-10",
+    "used_for": "автоиндексация маркетплейсов, реклама платная",
+    "status": 200,
+    "note": "открыт"
+  },
+  {
+    "id": "S012",
+    "url": "https://changelog.com/news/submit",
+    "title": "Changelog News: submit",
+    "date_checked": "2026-10-10",
+    "used_for": "что принимают",
+    "status": 200,
+    "note": "открыт"
+  },
+  {
+    "id": "S013",
+    "url": "https://telegram.org/tos",
+    "title": "Telegram Terms of Service",
+    "date_checked": "2026-10-10",
+    "used_for": "спам, каналы",
+    "status": 200,
+    "note": "открыт"
+  },
+  {
+    "id": "S014",
+    "url": "https://docs.github.com/en/site-policy/acceptable-use-policies/github-acceptable-use-policies",
+    "title": "GitHub Acceptable Use Policies",
+    "date_checked": "2026-10-10",
+    "used_for": "спам, накрутка звёзд, промо",
+    "status": 200,
+    "note": "открыт"
+  },
+  {
+    "id": "S015",
+    "url": "https://pikabu.ru/information/rules",
+    "title": "Пикабу: Кодекс (правила публикации)",
+    "date_checked": "2026-10-10",
+    "used_for": "правила",
+    "status": 403,
+    "note": "открыть не удалось (403); есть только пересказ в поиске, текст правил о ссылках не прочитан; анти-бот: требует перепроверки в браузере"
+  },
+  {
+    "id": "S016",
+    "url": "https://pikabu.ru/information/adrules",
+    "title": "Пикабу: правила размещения рекламы",
+    "date_checked": "2026-10-10",
+    "used_for": "маркировка «Промо»",
+    "status": 403,
+    "note": "открыть не удалось (403); пересказ из поиска; анти-бот: требует перепроверки в браузере"
+  },
+  {
+    "id": "S017",
+    "url": "https://redlib.groet-infra.nl/r/ClaudeAI/comments/1sly3jm/built_with_claude_project_showcase_megathread/oq1cg2n/?context=3",
+    "title": "r/ClaudeAI: Built with Claude megathread (зеркало Reddit)",
+    "date_checked": "2026-10-10",
+    "used_for": "karma>=50 для showcase, мегатред",
+    "status": 200,
+    "note": "только фрагмент из поиска; Rule 7 не прочитано; Reddit через WebFetch недоступен"
+  },
+  {
+    "id": "S018",
+    "url": "https://hashnode.com/guidelines",
+    "title": "Hashnode: Community Guidelines",
+    "date_checked": "2026-10-10",
+    "used_for": "промо-посты",
+    "status": 200,
+    "note": "не открыт напрямую (открытие вернуло ошибку профиля); пересказ из поиска"
+  },
+  {
+    "id": "S019",
+    "url": "https://stackoverflow.com/help/promotion",
+    "title": "Stack Overflow: How to not be a spammer",
+    "date_checked": "2026-10-10",
+    "used_for": "раскрытие аффилиации",
+    "status": 403,
+    "note": "WebFetch недоступен; пересказ из поиска; анти-бот: требует перепроверки в браузере"
+  },
+  {
+    "id": "S020",
+    "url": "https://redlib.hackliberty.org/r/softwaretesting",
+    "title": "r/softwaretesting (зеркало Reddit)",
+    "date_checked": "2026-10-10",
+    "used_for": "пост модераторов о коммерческих инструментах (2024)",
+    "status": null,
+    "note": "фрагмент из поиска, не открыт"
+  },
+  {
+    "id": "S021",
+    "url": "https://thehiveindex.com/communities/side-project/",
+    "title": "r/SideProject: сторонняя карточка",
+    "date_checked": "2026-10-10",
+    "used_for": "оценка размера (расходится)",
+    "status": 200,
+    "note": "сторонний источник, не открыт"
+  },
+  {
+    "id": "S022",
+    "url": "https://redlib.hbubli.cc/r/androiddev/s/w1T0bZ4NHD",
+    "title": "r/androiddev (зеркало Reddit, снимок 2023)",
+    "date_checked": "2026-10-10",
+    "used_for": "правило о промо-постах",
+    "status": 200,
+    "note": "фрагмент из поиска, не открыт"
+  },
+  {
+    "id": "S023",
+    "url": "https://www.unisender.com/ru/blog/tgstat-chto-ehto-za-servis-i-chem-on-polezen/",
+    "title": "Unisender: TGStat",
+    "date_checked": "2026-10-10",
+    "used_for": "каталог каналов, добавление",
+    "status": 200,
+    "note": "сторонний пересказ, официальных правил не найдено"
+  },
+  {
+    "id": "S024",
+    "url": "https://www.unisender.com/ru/blog/dzen-dlya-biznesa-glavnoe-o-ploschadke/",
+    "title": "Unisender: Дзен для бизнеса",
+    "date_checked": "2026-10-10",
+    "used_for": "упоминание продукта в статьях",
+    "status": 200,
+    "note": "сторонний пересказ; официальных правил не найдено"
+  },
+  {
+    "id": "S025",
+    "url": "https://qna.habr.com/q/1392000",
+    "title": "Habr Q&A: GitVerse импорт и форки",
+    "date_checked": "2026-10-10",
+    "used_for": "условия GitVerse",
+    "status": 200,
+    "note": "фрагмент из поиска"
+  },
+  {
+    "id": "S026",
+    "url": "https://infostart.ru/1c/articles/2058025/",
+    "title": "Infostart: GitFlic",
+    "date_checked": "2026-10-10",
+    "used_for": "публичные репозитории по запросу в поддержку",
+    "status": null,
+    "note": "фрагмент из поиска"
+  },
+  {
+    "id": "S027",
+    "url": "https://thectoclub.com/nl/carriere/beste-softwaretestgemeenschappen/",
+    "title": "The CTO Club: сообщества тестировщиков",
+    "date_checked": "2026-10-10",
+    "used_for": "размер r/QualityAssurance >81 000 (сторонний)",
+    "status": 403,
+    "note": "фрагмент из поиска; анти-бот: требует перепроверки в браузере"
+  },
+  {
+    "id": "S028",
+    "url": "https://signup.tldr.tech/ai",
+    "title": "TLDR AI (страница подписки)",
+    "date_checked": "2026-10-10",
+    "used_for": "рассылка",
+    "status": 200,
+    "note": "из поиска; правил подачи не найдено; платная реклама отдельно"
+  },
+  {
+    "id": "S029",
+    "url": "https://artificial-intelligence-wiki.com/ai-research/ai-news-and-trends/ai-discord-servers-guide/",
+    "title": "Сторонний гид по Discord-серверам ИИ",
+    "date_checked": "2026-10-10",
+    "used_for": "существование официального сервера Anthropic",
+    "status": 200,
+    "note": "сторонний, правил сервера не найдено"
+  },
+  {
+    "id": "S030",
+    "url": "https://www.indiehackers.com/rules",
+    "title": "Indie Hackers: rules",
+    "date_checked": "2026-10-10",
+    "used_for": "правила сообщества",
+    "status": 403,
+    "note": "открыть не удалось (403); не прочитано; анти-бот: требует перепроверки в браузере"
+  },
+  {
+    "id": "S031",
+    "url": "https://vk.com/terms",
+    "title": "ВКонтакте: условия",
+    "date_checked": "2026-10-10",
+    "used_for": "правила",
+    "status": 418,
+    "note": "WebFetch недоступен; не прочитано"
+  },
+  {
+    "id": "S032",
+    "url": "https://www.reddit.com/r/ClaudeCode/",
+    "title": "r/ClaudeCode",
+    "date_checked": "2026-10-10",
+    "used_for": "страница сообщества",
+    "status": 403,
+    "note": "не открыта (Reddit недоступен через WebFetch); существование сообщества — знание агента, не проверено в прогоне; анти-бот: требует перепроверки в браузере"
+  },
+  {
+    "id": "S033",
+    "url": "https://github.com/OrionFLASH/claude-code-skills",
+    "title": "GitHub - OrionFLASH/claude-code-skills",
+    "date_checked": "2026-10-10",
+    "used_for": "карточка нашего продукта (self); годовщина репозитория",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S034",
+    "url": "https://github.com/tzachbon/claude-model-router-hook",
+    "title": "GitHub - tzachbon/claude-model-router-hook",
+    "date_checked": "2026-10-10",
+    "used_for": "карточка claude-model-router-hook: функции, лицензия, установка",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S035",
+    "url": "https://github.com/garrytan/gstack",
+    "title": "GitHub - garrytan/gstack",
+    "date_checked": "2026-10-10",
+    "used_for": "карточка gstack: skills /qa, /qa-only, лицензия, звёзды",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S036",
+    "url": "https://github.com/musistudio/claude-code-router",
+    "title": "GitHub - musistudio/claude-code-router",
+    "date_checked": "2026-10-10",
+    "used_for": "карточка claude-code-router",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S037",
+    "url": "https://github.com/openai/plugins",
+    "title": "GitHub - openai/plugins",
+    "date_checked": "2026-10-10",
+    "used_for": "репозиторий openai/plugins: звёзды",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S038",
+    "url": "https://github.com/anthropics/knowledge-work-plugins",
+    "title": "GitHub - anthropics/knowledge-work-plugins",
+    "date_checked": "2026-10-10",
+    "used_for": "карточка knowledge-work-product-management",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S039",
+    "url": "https://skillselion.com/skills/openai/plugins/android-emulator-qa",
+    "title": "Skillselion: android-emulator-qa (openai/plugins)",
+    "date_checked": "2026-10-10",
+    "used_for": "листинг android-emulator-qa (страница-заглушка)",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S040",
+    "url": "https://www.claudepluginhub.com/marketplaces/deventually-a11y-wcag22",
+    "title": "deventually a11y wcag22 (ClaudePluginHub)",
+    "date_checked": "2026-10-10",
+    "used_for": "карточка deventually-a11y-plugin",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S041",
+    "url": "https://claudeskills.info/skills/sickn33/agentic-awesome-skills/accesslint-audit/",
+    "title": "accesslint audit (claudeskills.info)",
+    "date_checked": "2026-10-10",
+    "used_for": "карточка accesslint-audit; QA/a11y выдача",
+    "status": 200,
+    "note": "получено из результатов поиска; страница не открывалась"
+  },
+  {
+    "id": "S042",
+    "url": "https://claudemarketplaces.com/skills/firecrawl/firecrawl-workflows/firecrawl-qa",
+    "title": "firecrawl qa (claudemarketplaces.com)",
+    "date_checked": "2026-10-10",
+    "used_for": "описание firecrawl-qa (страница вернула 429; по выдаче поиска)",
+    "status": 429,
+    "note": "анти-бот: требует перепроверки в браузере"
+  },
+  {
+    "id": "S043",
+    "url": "https://testers.ai/claude.html",
+    "title": "testers.ai: Claude Skills (OpenTestAI)",
+    "date_checked": "2026-10-10",
+    "used_for": "карточка opentestai-testers-ai",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S044",
+    "url": "https://claudskills.com/skills/codebase-audit-and-roadmap/",
+    "title": "Codebase Audit And Roadmap (ClaudSkills)",
+    "date_checked": "2026-10-10",
+    "used_for": "карточка codebase-audit-and-roadmap",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S045",
+    "url": "https://github.com/CursorTouch/Android-MCP",
+    "title": "GitHub - CursorTouch/Android-MCP",
+    "date_checked": "2026-10-10",
+    "used_for": "карточка android-mcp-cursortouch",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S046",
+    "url": "https://github.com/deventually/a11y-plugin",
+    "title": "GitHub - deventually/a11y-plugin",
+    "date_checked": "2026-10-10",
+    "used_for": "карточка deventually-a11y-plugin: лицензия, звёзды",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S047",
+    "url": "https://agentskills.io/home",
+    "title": "Agent Skills Overview (agentskills.io)",
+    "date_checked": "2026-10-10",
+    "used_for": "стандарт Agent Skills: кросс-агентная переносимость",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S048",
+    "url": "https://tessl.io/registry/skills/github/openai/plugins/android-emulator-qa",
+    "title": "android emulator qa (Tessl registry)",
+    "date_checked": "2026-10-10",
+    "used_for": "карточка openai-android-emulator-qa: шаги, оценка качества",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S049",
+    "url": "https://ru.beincrypto.com/top-skilov-dlya-claude-code/",
+    "title": "top skilov dlya claude code (BeInCrypto RU)",
+    "date_checked": "2026-10-10",
+    "used_for": "подборка скилов RU (страница вернула 403, не прочитана)",
+    "status": 403,
+    "note": "анти-бот: требует перепроверки в браузере"
+  },
+  {
+    "id": "S050",
+    "url": "https://github.com/garrytan/gstack/issues",
+    "title": "Issues - garrytan/gstack",
+    "date_checked": "2026-10-10",
+    "used_for": "жалобы на gstack: открытые issues",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S051",
+    "url": "https://github.com/firecrawl/firecrawl-workflows",
+    "title": "GitHub - firecrawl/firecrawl-workflows",
+    "date_checked": "2026-10-10",
+    "used_for": "карточка firecrawl-workflows",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S052",
+    "url": "https://playwright.dev/docs/test-agents",
+    "title": "Playwright: Test agents",
+    "date_checked": "2026-10-10",
+    "used_for": "карточка playwright-test-agents",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S053",
+    "url": "https://code.claude.com/docs/en/model-config",
+    "title": "Model configuration (Claude Code Docs)",
+    "date_checked": "2026-10-10",
+    "used_for": "нативные возможности выбора модели и effort",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S054",
+    "url": "https://github.com/sickn33/agentic-awesome-skills",
+    "title": "GitHub - sickn33/agentic-awesome-skills",
+    "date_checked": "2026-10-10",
+    "used_for": "каталог AAS: accesslint-audit, jev-use",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S055",
+    "url": "https://wavect.io/blog/claude-model-router-hooks-vs-proxy/",
+    "title": "claude model router hooks vs proxy (Wavect)",
+    "date_checked": "2026-10-10",
+    "used_for": "ограничения хук-маршрутизации моделей",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S056",
+    "url": "https://api.github.com/repos/tzachbon/claude-model-router-hook",
+    "title": "GitHub API: repos/tzachbon/claude-model-router-hook",
+    "date_checked": "2026-10-10",
+    "used_for": "даты и звёзды claude-model-router-hook",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S057",
+    "url": "https://api.github.com/repos/garrytan/gstack",
+    "title": "GitHub API: repos/garrytan/gstack",
+    "date_checked": "2026-10-10",
+    "used_for": "даты и звёзды gstack",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S058",
+    "url": "https://api.github.com/repos/musistudio/claude-code-router",
+    "title": "GitHub API: repos/musistudio/claude-code-router",
+    "date_checked": "2026-10-10",
+    "used_for": "даты и звёзды claude-code-router",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S059",
+    "url": "https://api.github.com/repos/deventually/a11y-plugin",
+    "title": "GitHub API: repos/deventually/a11y-plugin",
+    "date_checked": "2026-10-10",
+    "used_for": "даты и звёзды a11y-plugin",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S060",
+    "url": "https://api.github.com/repos/CursorTouch/Android-MCP",
+    "title": "GitHub API: repos/CursorTouch/Android-MCP",
+    "date_checked": "2026-10-10",
+    "used_for": "даты и звёзды Android-MCP",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S061",
+    "url": "https://api.github.com/repos/anthropics/knowledge-work-plugins",
+    "title": "GitHub API: repos/anthropics/knowledge-work-plugins",
+    "date_checked": "2026-10-10",
+    "used_for": "даты и звёзды knowledge-work-plugins",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S062",
+    "url": "https://api.github.com/repos/openai/plugins",
+    "title": "GitHub API: repos/openai/plugins",
+    "date_checked": "2026-10-10",
+    "used_for": "даты и звёзды openai/plugins",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S063",
+    "url": "https://github.com/anthropics/claude-code/issues/43326",
+    "title": "Feature Request: Auto-select model and effort level based on task complexity (claude-code #43326)",
+    "date_checked": "2026-10-10",
+    "used_for": "спрос на автовыбор модели; ограничение хуков",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S064",
+    "url": "https://qa.tech/pricing",
+    "title": "QA.tech: Pricing",
+    "date_checked": "2026-10-10",
+    "used_for": "цены и функции QA.tech",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S065",
+    "url": "https://aiweekly.co/alerts/claude-code-skills-waste-23k-tokens-per-session",
+    "title": "Claude Code Skills Waste 23K Tokens Per Session (AI Weekly)",
+    "date_checked": "2026-10-10",
+    "used_for": "жалоба на токенные затраты скилов",
+    "status": 403,
+    "note": "анти-бот: требует перепроверки в браузере"
+  },
+  {
+    "id": "S066",
+    "url": "https://benzatine.com/news-room/garry-tans-ai-journey-love-and-controversy-surrounding-his-claude-code-release",
+    "title": "Why Garry Tan's Claude Code setup has gotten so much love, and hate",
+    "date_checked": "2026-10-10",
+    "used_for": "критика gstack",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S067",
+    "url": "https://newreleases.io/project/github/musistudio/claude-code-router/release/v3.0.10",
+    "title": "github musistudio/claude-code-router v3.0.10 (newreleases.io)",
+    "date_checked": "2026-10-10",
+    "used_for": "жалобы/исправления claude-code-router",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S068",
+    "url": "https://claudemarketplaces.com/skills/garrytan/gstack/qa",
+    "title": "qa (garrytan/gstack) - claudemarketplaces.com",
+    "date_checked": "2026-10-10",
+    "used_for": "описание gstack qa (результат поиска)",
+    "status": 429,
+    "note": "анти-бот: требует перепроверки в браузере"
+  },
+  {
+    "id": "S069",
+    "url": "https://designrevision.com/blog/awesome-claude-code-plugins",
+    "title": "awesome claude code plugins (DesignRevision)",
+    "date_checked": "2026-10-10",
+    "used_for": "подборка плагинов (результат поиска)",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S070",
+    "url": "https://www.datacamp.com/ru/tutorial/how-to-build-claude-code-plugins",
+    "title": "Руководство по плагинам Claude Code (DataCamp RU)",
+    "date_checked": "2026-10-10",
+    "used_for": "RU-материал по плагинам (результат поиска); RU плагины выдача",
+    "status": 403,
+    "note": "получено из результатов поиска; страница не открывалась; анти-бот: требует перепроверки в браузере"
+  },
+  {
+    "id": "S071",
+    "url": "https://habr.com/ru/posts/986194",
+    "title": "habr.com/ru/posts/986194",
+    "date_checked": "2026-10-10",
+    "used_for": "RU-материал (результат поиска)",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S072",
+    "url": "https://aipure.ai/ru/products/agenticqa",
+    "title": "AgenticQA (AIPURE RU)",
+    "date_checked": "2026-10-10",
+    "used_for": "RU-обзор AI-QA сервисов (результат поиска)",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S073",
+    "url": "https://www.mindstudio.ai/blog/context-rot-claude-code-skills-bloated-files",
+    "title": "context rot claude code skills bloated files (MindStudio)",
+    "date_checked": "2026-10-10",
+    "used_for": "context rot (результат поиска)",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S074",
+    "url": "https://code.claude.com/docs/ru/discover-plugins",
+    "title": "Обнаружение плагинов (Claude Code Docs RU)",
+    "date_checked": "2026-10-10",
+    "used_for": "RU-документация плагинов (результат поиска)",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S075",
+    "url": "https://github.blog/author/arielkanter/",
+    "title": "GitHub blog: GitHub Universe 2026, 28-29 октября, Fort Mason, San Francisco",
+    "date_checked": "2026-10-10",
+    "used_for": "даты Universe",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S076",
+    "url": "https://hacktoberfest.com/questions/",
+    "title": "Hacktoberfest 2026 FAQ (DigitalOcean, MLH, DEV)",
+    "date_checked": "2026-10-10",
+    "used_for": "формат и сроки Hacktoberfest 2026",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S077",
+    "url": "https://developer.android.com/google/play/requirements/target-sdk",
+    "title": "Google Play: Target API level requirements",
+    "date_checked": "2026-10-10",
+    "used_for": "дедлайн target API 36, продление до 2026-11-01",
+    "status": 302,
+    "note": ""
+  },
+  {
+    "id": "S078",
+    "url": "https://highload.ru/",
+    "title": "HighLoad++ (официальный сайт организатора)",
+    "date_checked": "2026-10-10",
+    "used_for": "даты HighLoad++ 2026 и Saint HighLoad++ 2027",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S079",
+    "url": "https://www.gibsondunn.com/eu-ai-act-omnibus-agreement-postponed-high-risk-deadlines-and-other-key-changes/",
+    "title": "Gibson Dunn: EU AI Act Omnibus Agreement (юрфирма, вторичный источник; текст в Official Journal на 2026-10-10 не проверен)",
+    "date_checked": "2026-10-10",
+    "used_for": "сроки AI Act после Digital Omnibus",
+    "status": 200,
+    "note": "вторичный источник"
+  },
+  {
+    "id": "S080",
+    "url": "https://buh.ru/news/utverzhden-poryadok-perenosa-vykhodnykh-dney-v-2027-godu.html",
+    "title": "БУХ.1С: постановление Правительства РФ № 1187 от 17.09.2026 (перенос выходных 2027); оригинал: http://static.government.ru/media/files/Rcbz6Xcgzzt7GLO5H0Ib0b1uNU5ARsKQ.pdf",
+    "date_checked": "2026-10-10",
+    "used_for": "нерабочие праздничные дни РФ 2027",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S081",
+    "url": "https://claude.com/code-with-claude",
+    "title": "Anthropic: Code with Claude (официальная страница)",
+    "date_checked": "2026-10-10",
+    "used_for": "даты 2026 и отсутствие объявления 2027",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S082",
+    "url": "https://io.google/",
+    "title": "Google I/O (официальный сайт)",
+    "date_checked": "2026-10-10",
+    "used_for": "отсутствие объявленной даты I/O 2027",
+    "status": 200,
+    "note": ""
+  },
+  {
+    "id": "S083",
+    "url": "https://www.jdsupra.com/legalnews/department-of-justice-delays-compliance-2688927/",
+    "title": "JD Supra: DOJ delays ADA Title II web accessibility deadlines (юр. сводка; interim final rule 2026-04-20)",
+    "date_checked": "2026-10-10",
+    "used_for": "срок ADA Title II 2027-04-26",
+    "status": 202,
+    "note": "вторичный источник; не открывалась, только сводка поиска"
+  },
+  {
+    "id": "S084",
+    "url": "https://outside.so/when-is/when-is-google-io-2027",
+    "title": "outside.so: when is Google I/O 2027 (неофициальный счётчик)",
+    "date_checked": "2026-10-10",
+    "used_for": "только ориентир даты I/O 2027",
+    "status": 200,
+    "note": "неофициальный"
+  },
+  {
+    "id": "S085",
+    "url": "https://agentskills.io/",
+    "title": "Agent Skills — открытый формат (agentskills.io)",
+    "date_checked": "2026-10-10",
+    "used_for": "стандарт скилов; кластер «Что такое скилы»",
+    "status": 200,
+    "note": "получено из результатов поиска; страница не открывалась"
+  },
+  {
+    "id": "S086",
+    "url": "https://code.claude.com/docs/en/subagents",
+    "title": "Документация Claude Code: субагенты",
+    "date_checked": "2026-10-10",
+    "used_for": "кластер «Выбор модели и effort»",
+    "status": 200,
+    "note": "получено из результатов поиска; страница не открывалась"
+  },
+  {
+    "id": "S087",
+    "url": "https://docs.humanlayer.com/reference/subagent-models",
+    "title": "HumanLayer: модели и effort субагентов",
+    "date_checked": "2026-10-10",
+    "used_for": "формулировки про effort",
+    "status": 200,
+    "note": "получено из результатов поиска; страница не открывалась"
+  },
+  {
+    "id": "S088",
+    "url": "https://claudemarketplaces.com/skills/daymade/claude-code-skills/marketplace-dev",
+    "title": "claudemarketplaces: marketplace-dev",
+    "date_checked": "2026-10-10",
+    "used_for": "каталоги плагинов, конкуренция",
+    "status": 429,
+    "note": "получено из результатов поиска; страница не открывалась; анти-бот: требует перепроверки в браузере"
+  },
+  {
+    "id": "S089",
+    "url": "https://skills.joseconti.com/",
+    "title": "skills.joseconti.com — маркетплейс одного автора",
+    "date_checked": "2026-10-10",
+    "used_for": "каталоги плагинов",
+    "status": 200,
+    "note": "получено из результатов поиска; страница не открывалась"
+  },
+  {
+    "id": "S090",
+    "url": "https://www.vibeindex.ai/marketplaces/jeremylongshore/claude-code-plugins-plus-skills",
+    "title": "vibeindex: claude-code-plugins-plus-skills",
+    "date_checked": "2026-10-10",
+    "used_for": "каталоги плагинов",
+    "status": 200,
+    "note": "получено из результатов поиска; страница не открывалась"
+  },
+  {
+    "id": "S091",
+    "url": "https://claudeskills.info/skills/fugazi/test-automation-skills-agents/a11y-playwright-testing/",
+    "title": "claudeskills.info: a11y-playwright-testing",
+    "date_checked": "2026-10-10",
+    "used_for": "QA/a11y выдача",
+    "status": 200,
+    "note": "получено из результатов поиска; страница не открывалась"
+  },
+  {
+    "id": "S092",
+    "url": "https://github.com/Anjos2/mcp-android-emulator",
+    "title": "GitHub: mcp-android-emulator",
+    "date_checked": "2026-10-10",
+    "used_for": "Android QA выдача",
+    "status": 200,
+    "note": "получено из результатов поиска; страница не открывалась"
+  },
+  {
+    "id": "S093",
+    "url": "https://www.skills.sh/smithery/ai/android-emulator-qa",
+    "title": "skills.sh: Android Emulator QA",
+    "date_checked": "2026-10-10",
+    "used_for": "Android QA выдача",
+    "status": 200,
+    "note": "получено из результатов поиска; страница не открывалась"
+  },
+  {
+    "id": "S094",
+    "url": "https://dtf.ru/top_rating/4130214-reyting-neyrosetey-dlya-audita-sayta",
+    "title": "DTF: рейтинг нейросетей для аудита сайта",
+    "date_checked": "2026-10-10",
+    "used_for": "RU QA/аудит выдача",
+    "status": null,
+    "note": "получено из результатов поиска; страница не открывалась"
+  },
+  {
+    "id": "S095",
+    "url": "https://habr.com/en/articles/993174",
+    "title": "Хабр: что такое Skills и как применять",
+    "date_checked": "2026-10-10",
+    "used_for": "RU скилы выдача",
+    "status": 403,
+    "note": "получено из результатов поиска; страница не открывалась; анти-бот: требует перепроверки в браузере"
+  },
+  {
+    "id": "S096",
+    "url": "https://habr.com/en/articles/1011524",
+    "title": "Хабр: гайд Anthropic по скилам (перевод)",
+    "date_checked": "2026-10-10",
+    "used_for": "RU скилы выдача",
+    "status": 200,
+    "note": "получено из результатов поиска; страница не открывалась"
+  },
+  {
+    "id": "S097",
+    "url": "https://claudemarketplaces.com/skills/phuryn/pm-skills/product-strategy",
+    "title": "claudemarketplaces: product-strategy",
+    "date_checked": "2026-10-10",
+    "used_for": "стратегия: выдача",
+    "status": 429,
+    "note": "получено из результатов поиска; страница не открывалась; анти-бот: требует перепроверки в браузере"
+  },
+  {
+    "id": "S098",
+    "url": "https://github.com/GetBindu/awesome-claude-code-and-skills",
+    "title": "GitHub: awesome-claude-code-and-skills",
+    "date_checked": "2026-10-10",
+    "used_for": "awesome-списки",
+    "status": 200,
+    "note": "получено из результатов поиска; страница не открывалась"
+  },
+  {
+    "id": "S099",
+    "url": "https://designrevision.com/blog/awesome-claude-code-skills",
+    "title": "designrevision: Awesome Claude Code Skills",
+    "date_checked": "2026-10-10",
+    "used_for": "awesome-списки",
+    "status": 200,
+    "note": "получено из результатов поиска; страница не открывалась"
+  },
+  {
+    "id": "S100",
+    "url": "https://systemprompt.io/guides/claude-code-cost-optimisation",
+    "title": "systemprompt: Claude Code cost optimisation",
+    "date_checked": "2026-10-10",
+    "used_for": "выбор модели выдача",
+    "status": 200,
+    "note": "получено из результатов поиска; страница не открывалась"
+  },
+  {
+    "id": "S101",
+    "url": "https://code.claude.com/docs/en/headless",
+    "title": "Run Claude Code programmatically: стоимость и лимит бюджета",
+    "date_checked": null,
+    "used_for": "реестр: P001, P002, P011; канбан: P001, P002",
+    "status": null,
+    "note": ""
+  },
+  {
+    "id": "S102",
+    "url": "https://docs.github.com/en/code-security/code-scanning/integrating-with-code-scanning/sarif-support-for-code-scanning",
+    "title": "SARIF support for code scanning (GitHub Docs)",
+    "date_checked": null,
+    "used_for": "реестр: P003",
+    "status": null,
+    "note": ""
+  },
+  {
+    "id": "S103",
+    "url": "https://median.co/blog/how-to-prepare-android-apps-google-play-16-kb-page-size-requirement",
+    "title": "How to prepare Android apps for Google Play’s 16 KB page size requirement (Median)",
+    "date_checked": null,
+    "used_for": "реестр: P010",
+    "status": null,
+    "note": ""
+  },
+  {
+    "id": "S104",
+    "url": "https://www.freecodecamp.org/news/google-16-kb-page-size-requirement-what-to-do/",
+    "title": "Google 16 KB page size requirement: what to do (freeCodeCamp)",
+    "date_checked": null,
+    "used_for": "реестр: P010",
+    "status": null,
+    "note": ""
+  },
+  {
+    "id": "S105",
+    "url": "https://www.claudelog.com/mechanics/hooks/",
+    "title": "Hooks: PreToolUse и updatedInput (сторонние руководства)",
+    "date_checked": null,
+    "used_for": "реестр: P013",
+    "status": null,
+    "note": ""
+  },
+  {
+    "id": "S106",
+    "url": "https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/classifying-your-repository-with-topics",
+    "title": "GitHub Docs: Classifying your repository with topics",
+    "date_checked": null,
+    "used_for": "реестр: P017; канбан: P017",
+    "status": null,
+    "note": ""
+  },
+  {
+    "id": "S107",
+    "url": "https://clau.de/plugin-directory-submission",
+    "title": "clau.de / plugin-directory-submission",
+    "date_checked": null,
+    "used_for": "реестр: P018; канбан: P018",
+    "status": null,
+    "note": "без названия"
+  },
+  {
+    "id": "S108",
+    "url": "https://github.com/daymade/claude-code-skills",
+    "title": "daymade/claude-code-skills",
+    "date_checked": null,
+    "used_for": "реестр: P028; канбан: P028",
+    "status": null,
+    "note": ""
+  },
+  {
+    "id": "S109",
+    "url": "https://docs.github.com/en/communities/setting-up-your-project-for-healthy-contributions/setting-guidelines-for-repository-contributors",
+    "title": "GitHub Docs: Setting guidelines for repository contributors",
+    "date_checked": null,
+    "used_for": "реестр: P034",
+    "status": null,
+    "note": ""
+  },
+  {
+    "id": "S110",
+    "url": "https://docs.github.com/en/discussions/collaborating-with-your-community-using-discussions/about-discussions",
+    "title": "GitHub Docs: About discussions",
+    "date_checked": null,
+    "used_for": "реестр: P035, P046; канбан: P035, P046",
+    "status": null,
+    "note": ""
+  },
+  {
+    "id": "S111",
+    "url": "https://code.claude.com/docs/en/plugins/host-marketplace",
+    "title": "Claude Code Docs: Run release channels",
+    "date_checked": null,
+    "used_for": "реестр: P036, P047, P054, P064; канбан: P047, P054",
+    "status": null,
+    "note": ""
+  },
+  {
+    "id": "S112",
+    "url": "https://code.claude.com/docs/en/scheduled-tasks",
+    "title": "Claude Code Docs: Run prompts on a schedule",
+    "date_checked": null,
+    "used_for": "реестр: P038; канбан: P038",
+    "status": null,
+    "note": ""
+  },
+  {
+    "id": "S113",
+    "url": "https://docs.github.com/en/sponsors/getting-started-with-github-sponsors/about-github-sponsors",
+    "title": "GitHub Docs: About GitHub Sponsors",
+    "date_checked": null,
+    "used_for": "реестр: P040",
+    "status": null,
+    "note": ""
+  },
+  {
+    "id": "S114",
+    "url": "https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository",
+    "title": "GitHub Docs: Displaying a sponsor button",
+    "date_checked": null,
+    "used_for": "реестр: P040",
+    "status": null,
+    "note": ""
+  },
+  {
+    "id": "S115",
+    "url": "https://claude.com/open-source-max",
+    "title": "Claude for Open Source: How it works",
+    "date_checked": null,
+    "used_for": "реестр: P041",
+    "status": null,
+    "note": ""
+  },
+  {
+    "id": "S116",
+    "url": "https://nlnet.nl/propose/",
+    "title": "NLnet: How to propose",
+    "date_checked": null,
+    "used_for": "реестр: P041, P042; канбан: P042",
+    "status": null,
+    "note": ""
+  },
+  {
+    "id": "S117",
+    "url": "https://docs.github.com/en/rest/metrics/traffic",
+    "title": "GitHub REST API: Repository traffic",
+    "date_checked": null,
+    "used_for": "реестр: P043; канбан: P043",
+    "status": null,
+    "note": ""
+  },
+  {
+    "id": "S118",
+    "url": "https://docs.kedro.org/en/1.5.0/about/telemetry/",
+    "title": "Kedro: Telemetry",
+    "date_checked": null,
+    "used_for": "реестр: P045",
+    "status": null,
+    "note": ""
+  },
+  {
+    "id": "S119",
+    "url": "https://github.com/typesafe-ai/skills",
+    "title": "typesafe-ai/skills",
+    "date_checked": null,
+    "used_for": "реестр: P049; канбан: P049",
+    "status": null,
+    "note": ""
+  },
+  {
+    "id": "S120",
+    "url": "https://github.com/mxschmitt/awesome-playwright",
+    "title": "awesome-playwright",
+    "date_checked": null,
+    "used_for": "реестр: P050; канбан: P050",
+    "status": null,
+    "note": ""
+  },
+  {
+    "id": "S121",
+    "url": "https://code.claude.com/docs/en/plugin-marketplaces",
+    "title": "Claude Code Docs: Create a marketplace",
+    "date_checked": null,
+    "used_for": "реестр: P054, P055; канбан: P054",
+    "status": null,
+    "note": ""
+  },
+  {
+    "id": "S122",
+    "url": "https://docs.github.com/en/billing/managing-billing-for-your-products/about-billing-for-github-actions",
+    "title": "About billing for GitHub Actions",
+    "date_checked": null,
+    "used_for": "реестр: P059; канбан: P059",
+    "status": null,
+    "note": ""
+  },
+  {
+    "id": "S123",
+    "url": "https://code.claude.com/docs/en/plugins/loading",
+    "title": "Plugin loading: установка Node-зависимостей при кэшировании",
+    "date_checked": null,
+    "used_for": "реестр: P060, P067; канбан: P060, P067",
+    "status": null,
+    "note": ""
+  },
+  {
+    "id": "S124",
+    "url": "https://code.claude.com/docs/en/plugins/components",
+    "title": "Plugin components: SessionStart-хук и CLAUDE_PLUGIN_DATA",
+    "date_checked": null,
+    "used_for": "реестр: P060; канбан: P060",
+    "status": null,
+    "note": ""
+  },
+  {
+    "id": "S125",
+    "url": "https://code.claude.com/docs/en/plugins-reference",
+    "title": "Plugin manifest reference: claude plugin validate и --strict",
+    "date_checked": null,
+    "used_for": "реестр: P061; канбан: P061",
+    "status": null,
+    "note": ""
+  },
+  {
+    "id": "S126",
+    "url": "https://code.claude.com/docs/en/plugin-evals",
+    "title": "Test plugins with evals (claude plugin eval)",
+    "date_checked": null,
+    "used_for": "реестр: P062",
+    "status": null,
+    "note": ""
+  },
+  {
+    "id": "S127",
+    "url": "https://code.claude.com/docs/en/skills",
+    "title": "Skills: прогрессивная загрузка, лимит 500 строк, 5 000 токенов при сжатии",
+    "date_checked": null,
+    "used_for": "реестр: P063; канбан: P063",
+    "status": null,
+    "note": ""
+  },
+  {
+    "id": "S128",
+    "url": "https://docs.github.com/en/repositories/working-with-files/using-files/working-with-non-code-files",
+    "title": "GitHub: какие не-кодовые файлы отображаются",
+    "date_checked": null,
+    "used_for": "реестр: P070; канбан: P070",
+    "status": null,
+    "note": ""
+  },
+  {
+    "id": "S129",
+    "url": "https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-github-pages-site",
+    "title": "GitHub Pages: создание сайта",
+    "date_checked": null,
+    "used_for": "реестр: P070; канбан: P070",
+    "status": null,
+    "note": ""
+  },
+  {
+    "id": "S130",
+    "url": "https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits",
+    "title": "GitHub Pages: лимиты",
+    "date_checked": null,
+    "used_for": "реестр: P070; канбан: P070",
+    "status": null,
+    "note": ""
+  }
+]

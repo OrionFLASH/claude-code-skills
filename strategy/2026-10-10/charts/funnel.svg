@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 509" width="1000" height="509" role="img" font-family="system-ui, -apple-system, &#39;Segoe UI&#39;, Roboto, &#39;Helvetica Neue&#39;, Arial, sans-serif">
+<title>Воронка AARRR за 6 мес.: от 1 395 посетителей до 0 новых платящих (базовый сценарий)</title>
+<desc>Логарифмическая шкала: каждая метка — порядок величины; все конверсии — допущения из build/model-params.json.</desc>
+<rect x="0" y="0" width="1000" height="509" fill="#FFFFFF"/>
+<text x="24" y="42.0" font-size="18" font-weight="700" fill="#1F2328">Воронка AARRR за 6 мес.: от 1 395 посетителей до 0 новых платящих (базовый сценарий)</text>
+<text x="24" y="79.0" font-size="13" fill="#57606A">Логарифмическая шкала: каждая метка — порядок величины; все конверсии — допущения из build/model-params.json.</text>
+<line x1="254.0" y1="95.6" x2="254.0" y2="415.6" stroke="#E4E7EB" stroke-width="1"/>
+<text x="254.0" y="431.6" font-size="11" fill="#57606A" text-anchor="middle">0,1</text>
+<line x1="380.4" y1="95.6" x2="380.4" y2="415.6" stroke="#E4E7EB" stroke-width="1"/>
+<text x="380.4" y="431.6" font-size="11" fill="#57606A" text-anchor="middle">1</text>
+<line x1="506.8" y1="95.6" x2="506.8" y2="415.6" stroke="#E4E7EB" stroke-width="1"/>
+<text x="506.8" y="431.6" font-size="11" fill="#57606A" text-anchor="middle">10</text>
+<line x1="633.2" y1="95.6" x2="633.2" y2="415.6" stroke="#E4E7EB" stroke-width="1"/>
+<text x="633.2" y="431.6" font-size="11" fill="#57606A" text-anchor="middle">100</text>
+<line x1="759.6" y1="95.6" x2="759.6" y2="415.6" stroke="#E4E7EB" stroke-width="1"/>
+<text x="759.6" y="431.6" font-size="11" fill="#57606A" text-anchor="middle">1 000</text>
+<line x1="886.0" y1="95.6" x2="886.0" y2="415.6" stroke="#E4E7EB" stroke-width="1"/>
+<text x="886.0" y="431.6" font-size="11" fill="#57606A" text-anchor="middle">10 000</text>
+<text x="24.0" y="132.1" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">Посетители</text>
+<rect x="254.0" y="103.6" width="453.6" height="13.0" rx="2" fill="#D55E00"/>
+<text x="712.6" y="113.6" font-size="11" fill="#1F2328" text-anchor="start">388</text>
+<rect x="254.0" y="119.6" width="523.9" height="13.0" rx="2" fill="#0072B2"/>
+<text x="782.9" y="129.6" font-size="11" fill="#1F2328" text-anchor="start">1 395</text>
+<rect x="254.0" y="135.6" width="605.5" height="13.0" rx="2" fill="#009E73"/>
+<text x="864.5" y="145.6" font-size="11" fill="#1F2328" text-anchor="start">6 172</text>
+<text x="24.0" y="196.1" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">Активированные</text>
+<rect x="254.0" y="167.6" width="195.2" height="13.0" rx="2" fill="#D55E00"/>
+<text x="454.2" y="177.6" font-size="11" fill="#1F2328" text-anchor="start">3,5</text>
+<rect x="254.0" y="183.6" width="309.5" height="13.0" rx="2" fill="#0072B2"/>
+<text x="568.5" y="193.6" font-size="11" fill="#1F2328" text-anchor="start">28</text>
+<rect x="254.0" y="199.6" width="427.6" height="13.0" rx="2" fill="#009E73"/>
+<text x="686.6" y="209.6" font-size="11" fill="#1F2328" text-anchor="start">242</text>
+<text x="24.0" y="260.1" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">Активные в месяц (среднее)</text>
+<rect x="254.0" y="231.6" width="126.4" height="13.0" rx="2" fill="#D55E00"/>
+<text x="385.4" y="241.6" font-size="11" fill="#1F2328" text-anchor="start">1,0</text>
+<rect x="254.0" y="247.6" width="245.2" height="13.0" rx="2" fill="#0072B2"/>
+<text x="504.2" y="257.6" font-size="11" fill="#1F2328" text-anchor="start">8,7</text>
+<rect x="254.0" y="263.6" width="369.4" height="13.0" rx="2" fill="#009E73"/>
+<text x="628.4" y="273.6" font-size="11" fill="#1F2328" text-anchor="start">84</text>
+<text x="24.0" y="324.1" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">Новые платящие</text>
+<rect x="254.0" y="295.6" width="0.0" height="13.0" rx="2" fill="#D55E00"/>
+<text x="259.0" y="305.6" font-size="11" fill="#1F2328" text-anchor="start">0,0</text>
+<rect x="254.0" y="311.6" width="0.0" height="13.0" rx="2" fill="#0072B2"/>
+<text x="259.0" y="321.6" font-size="11" fill="#1F2328" text-anchor="start">0,0</text>
+<rect x="254.0" y="327.6" width="0.0" height="13.0" rx="2" fill="#009E73"/>
+<text x="259.0" y="337.6" font-size="11" fill="#1F2328" text-anchor="start">0,0</text>
+<text x="24.0" y="388.1" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">Регистрации по приглашениям</text>
+<rect x="254.0" y="359.6" width="0.0" height="13.0" rx="2" fill="#D55E00"/>
+<text x="259.0" y="369.6" font-size="11" fill="#1F2328" text-anchor="start">0,0</text>
+<rect x="254.0" y="375.6" width="88.3" height="13.0" rx="2" fill="#0072B2"/>
+<text x="347.3" y="385.6" font-size="11" fill="#1F2328" text-anchor="start">0,5</text>
+<rect x="254.0" y="391.6" width="252.8" height="13.0" rx="2" fill="#009E73"/>
+<text x="511.8" y="401.6" font-size="11" fill="#1F2328" text-anchor="start">10</text>
+<rect x="254.0" y="446.6" width="12.0" height="12.0" rx="2" fill="#D55E00"/>
+<text x="272.0" y="455.6" font-size="12" fill="#1F2328" text-anchor="start">Пессимистичный</text>
+<rect x="395.6" y="446.6" width="12.0" height="12.0" rx="2" fill="#0072B2"/>
+<text x="413.6" y="455.6" font-size="12" fill="#1F2328" text-anchor="start">Базовый</text>
+<rect x="483.2" y="446.6" width="12.0" height="12.0" rx="2" fill="#009E73"/>
+<text x="501.2" y="455.6" font-size="12" fill="#1F2328" text-anchor="start">Оптимистичный</text>
+<text x="24" y="481.0" font-size="11" fill="#57606A">Источник: data/model.json (model.py) [допущение]</text>
+</svg>

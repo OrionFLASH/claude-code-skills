@@ -1,0 +1,234 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1060 1172" width="1060" height="1172" role="img" font-family="system-ui, -apple-system, &#39;Segoe UI&#39;, Roboto, &#39;Helvetica Neue&#39;, Arial, sans-serif">
+<title>Радары топ-10: профиль каждого лидера по семи осям (1–5)</title>
+<desc>Чем больше площадь, тем сильнее предложение по всем осям; самая частая слабая ось у лидеров — «WSJF».</desc>
+<rect x="0" y="0" width="1060" height="1172" fill="#FFFFFF"/>
+<text x="24" y="42.0" font-size="18" font-weight="700" fill="#1F2328">Радары топ-10: профиль каждого лидера по семи осям (1–5)</text>
+<text x="24" y="79.0" font-size="13" fill="#57606A">Чем больше площадь, тем сильнее предложение по всем осям; самая частая слабая ось у лидеров — «WSJF».</text>
+<text x="30.0" y="103.6" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">#1 P018 — Подать плагины в официальный</text>
+<text x="30.0" y="118.6" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">каталог anthropics/claude-plugins-official</text>
+<polygon points="192.7,216.1 204.5,221.8 207.4,234.6 199.2,244.9 186.1,244.9 177.9,234.6 180.8,221.8" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="192.7,201.0 216.3,212.4 222.2,238.0 205.8,258.5 179.5,258.5 163.2,238.0 169.0,212.4" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="192.7,185.9 228.2,203.0 236.9,241.4 212.4,272.2 173.0,272.2 148.4,241.4 157.2,203.0" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="192.7,170.7 240.0,193.5 251.7,244.7 218.9,285.8 166.4,285.8 133.7,244.7 145.3,193.5" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="192.7,155.6 251.8,184.1 266.4,248.1 225.5,299.4 159.8,299.4 118.9,248.1 133.5,184.1" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<line x1="192.7" y1="231.3" x2="192.7" y2="155.6" stroke="#E4E7EB" stroke-width="1"/>
+<text x="192.7" y="147.6" font-size="10" fill="#57606A" text-anchor="middle">Ценность</text>
+<line x1="192.7" y1="231.3" x2="251.8" y2="184.1" stroke="#E4E7EB" stroke-width="1"/>
+<text x="261.2" y="180.6" font-size="10" fill="#57606A" text-anchor="start">Простота</text>
+<line x1="192.7" y1="231.3" x2="266.4" y2="248.1" stroke="#E4E7EB" stroke-width="1"/>
+<text x="278.1" y="254.8" font-size="10" fill="#57606A" text-anchor="start">Безопасность</text>
+<line x1="192.7" y1="231.3" x2="225.5" y2="299.4" stroke="#E4E7EB" stroke-width="1"/>
+<text x="230.7" y="314.3" font-size="10" fill="#57606A" text-anchor="start">Уверенность</text>
+<line x1="192.7" y1="231.3" x2="159.8" y2="299.4" stroke="#E4E7EB" stroke-width="1"/>
+<text x="154.6" y="314.3" font-size="10" fill="#57606A" text-anchor="end">RICE</text>
+<line x1="192.7" y1="231.3" x2="118.9" y2="248.1" stroke="#E4E7EB" stroke-width="1"/>
+<text x="107.2" y="254.8" font-size="10" fill="#57606A" text-anchor="end">ICE</text>
+<line x1="192.7" y1="231.3" x2="133.5" y2="184.1" stroke="#E4E7EB" stroke-width="1"/>
+<text x="124.1" y="180.6" font-size="10" fill="#57606A" text-anchor="end">WSJF</text>
+<polygon points="192.7,162.1 244.9,189.6 258.5,246.3 221.3,290.7 162.2,294.4 118.9,248.1 148.1,195.7" fill="#0072B2" stroke="#0072B2" stroke-width="1.8" stroke-linejoin="round" fill-opacity="0.250"/>
+<text x="367.3" y="103.6" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">#2 P029 — Переделать README в витрину:</text>
+<text x="367.3" y="118.6" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">ценность в одной фразе, GIF, установка в три</text>
+<text x="367.3" y="133.6" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">строки</text>
+<polygon points="530.0,231.1 541.8,236.8 544.8,249.6 536.6,259.9 523.4,259.9 515.2,249.6 518.2,236.8" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="530.0,216.0 553.7,227.4 559.5,253.0 543.1,273.5 516.9,273.5 500.5,253.0 506.3,227.4" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="530.0,200.9 565.5,218.0 574.3,256.4 549.7,287.2 510.3,287.2 485.7,256.4 494.5,218.0" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="530.0,185.7 577.3,208.5 589.0,259.7 556.3,300.8 503.7,300.8 471.0,259.7 482.7,208.5" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="530.0,170.6 589.2,199.1 603.8,263.1 562.8,314.4 497.2,314.4 456.2,263.1 470.8,199.1" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<line x1="530.0" y1="246.3" x2="530.0" y2="170.6" stroke="#E4E7EB" stroke-width="1"/>
+<text x="530.0" y="162.6" font-size="10" fill="#57606A" text-anchor="middle">Ценность</text>
+<line x1="530.0" y1="246.3" x2="589.2" y2="199.1" stroke="#E4E7EB" stroke-width="1"/>
+<text x="598.5" y="195.6" font-size="10" fill="#57606A" text-anchor="start">Простота</text>
+<line x1="530.0" y1="246.3" x2="603.8" y2="263.1" stroke="#E4E7EB" stroke-width="1"/>
+<text x="615.5" y="269.8" font-size="10" fill="#57606A" text-anchor="start">Безопасность</text>
+<line x1="530.0" y1="246.3" x2="562.8" y2="314.4" stroke="#E4E7EB" stroke-width="1"/>
+<text x="568.0" y="329.3" font-size="10" fill="#57606A" text-anchor="start">Уверенность</text>
+<line x1="530.0" y1="246.3" x2="497.2" y2="314.4" stroke="#E4E7EB" stroke-width="1"/>
+<text x="492.0" y="329.3" font-size="10" fill="#57606A" text-anchor="end">RICE</text>
+<line x1="530.0" y1="246.3" x2="456.2" y2="263.1" stroke="#E4E7EB" stroke-width="1"/>
+<text x="444.5" y="269.8" font-size="10" fill="#57606A" text-anchor="end">ICE</text>
+<line x1="530.0" y1="246.3" x2="470.8" y2="199.1" stroke="#E4E7EB" stroke-width="1"/>
+<text x="461.5" y="195.6" font-size="10" fill="#57606A" text-anchor="end">WSJF</text>
+<polygon points="530.0,186.4 584.0,203.2 603.8,263.1 556.8,301.9 497.2,314.4 468.9,260.2 483.3,209.0" fill="#E69F00" stroke="#E69F00" stroke-width="1.8" stroke-linejoin="round" fill-opacity="0.250"/>
+<text x="704.7" y="103.6" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">#3 P019 — Подать по одному плагину в</text>
+<text x="704.7" y="118.6" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">awesome-claude-code после 21.10.2026</text>
+<polygon points="867.3,216.1 879.2,221.8 882.1,234.6 873.9,244.9 860.8,244.9 852.6,234.6 855.5,221.8" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="867.3,201.0 891.0,212.4 896.8,238.0 880.5,258.5 854.2,258.5 837.8,238.0 843.7,212.4" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="867.3,185.9 902.8,203.0 911.6,241.4 887.0,272.2 847.6,272.2 823.1,241.4 831.8,203.0" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="867.3,170.7 914.7,193.5 926.3,244.7 893.6,285.8 841.1,285.8 808.3,244.7 820.0,193.5" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="867.3,155.6 926.5,184.1 941.1,248.1 900.2,299.4 834.5,299.4 793.6,248.1 808.2,184.1" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<line x1="867.3" y1="231.3" x2="867.3" y2="155.6" stroke="#E4E7EB" stroke-width="1"/>
+<text x="867.3" y="147.6" font-size="10" fill="#57606A" text-anchor="middle">Ценность</text>
+<line x1="867.3" y1="231.3" x2="926.5" y2="184.1" stroke="#E4E7EB" stroke-width="1"/>
+<text x="935.9" y="180.6" font-size="10" fill="#57606A" text-anchor="start">Простота</text>
+<line x1="867.3" y1="231.3" x2="941.1" y2="248.1" stroke="#E4E7EB" stroke-width="1"/>
+<text x="952.8" y="254.8" font-size="10" fill="#57606A" text-anchor="start">Безопасность</text>
+<line x1="867.3" y1="231.3" x2="900.2" y2="299.4" stroke="#E4E7EB" stroke-width="1"/>
+<text x="905.4" y="314.3" font-size="10" fill="#57606A" text-anchor="start">Уверенность</text>
+<line x1="867.3" y1="231.3" x2="834.5" y2="299.4" stroke="#E4E7EB" stroke-width="1"/>
+<text x="829.3" y="314.3" font-size="10" fill="#57606A" text-anchor="end">RICE</text>
+<line x1="867.3" y1="231.3" x2="793.6" y2="248.1" stroke="#E4E7EB" stroke-width="1"/>
+<text x="781.9" y="254.8" font-size="10" fill="#57606A" text-anchor="end">ICE</text>
+<line x1="867.3" y1="231.3" x2="808.2" y2="184.1" stroke="#E4E7EB" stroke-width="1"/>
+<text x="798.8" y="180.6" font-size="10" fill="#57606A" text-anchor="end">WSJF</text>
+<polygon points="867.3,173.8 923.9,186.1 933.9,246.5 896.0,290.7 835.9,296.5 800.7,246.5 815.3,189.8" fill="#009E73" stroke="#009E73" stroke-width="1.8" stroke-linejoin="round" fill-opacity="0.250"/>
+<text x="30.0" y="361.9" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">#4 P069 — Англоязычная витрина:</text>
+<text x="30.0" y="376.9" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">README.en.md с тем же верхом, что у</text>
+<text x="30.0" y="391.9" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">README-витрины</text>
+<polygon points="192.7,489.5 204.5,495.2 207.4,508.0 199.2,518.2 186.1,518.2 177.9,508.0 180.8,495.2" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="192.7,474.3 216.3,485.7 222.2,511.3 205.8,531.9 179.5,531.9 163.2,511.3 169.0,485.7" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="192.7,459.2 228.2,476.3 236.9,514.7 212.4,545.5 173.0,545.5 148.4,514.7 157.2,476.3" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="192.7,444.1 240.0,466.9 251.7,518.1 218.9,559.1 166.4,559.1 133.7,518.1 145.3,466.9" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="192.7,428.9 251.8,457.4 266.4,521.4 225.5,572.8 159.8,572.8 118.9,521.4 133.5,457.4" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<line x1="192.7" y1="504.6" x2="192.7" y2="428.9" stroke="#E4E7EB" stroke-width="1"/>
+<text x="192.7" y="420.9" font-size="10" fill="#57606A" text-anchor="middle">Ценность</text>
+<line x1="192.7" y1="504.6" x2="251.8" y2="457.4" stroke="#E4E7EB" stroke-width="1"/>
+<text x="261.2" y="453.9" font-size="10" fill="#57606A" text-anchor="start">Простота</text>
+<line x1="192.7" y1="504.6" x2="266.4" y2="521.4" stroke="#E4E7EB" stroke-width="1"/>
+<text x="278.1" y="528.1" font-size="10" fill="#57606A" text-anchor="start">Безопасность</text>
+<line x1="192.7" y1="504.6" x2="225.5" y2="572.8" stroke="#E4E7EB" stroke-width="1"/>
+<text x="230.7" y="587.6" font-size="10" fill="#57606A" text-anchor="start">Уверенность</text>
+<line x1="192.7" y1="504.6" x2="159.8" y2="572.8" stroke="#E4E7EB" stroke-width="1"/>
+<text x="154.6" y="587.6" font-size="10" fill="#57606A" text-anchor="end">RICE</text>
+<line x1="192.7" y1="504.6" x2="118.9" y2="521.4" stroke="#E4E7EB" stroke-width="1"/>
+<text x="107.2" y="528.1" font-size="10" fill="#57606A" text-anchor="end">ICE</text>
+<line x1="192.7" y1="504.6" x2="133.5" y2="457.4" stroke="#E4E7EB" stroke-width="1"/>
+<text x="124.1" y="453.9" font-size="10" fill="#57606A" text-anchor="end">WSJF</text>
+<polygon points="192.7,451.4 246.7,461.5 264.6,521.0 218.1,557.5 163.2,565.8 141.3,516.3 147.7,468.7" fill="#D55E00" stroke="#D55E00" stroke-width="1.8" stroke-linejoin="round" fill-opacity="0.250"/>
+<text x="367.3" y="361.9" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">#5 P032 — Quickstart «первый результат за 5</text>
+<text x="367.3" y="376.9" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">минут» для каждого скила: промпт и</text>
+<text x="367.3" y="391.9" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">ожидаемый вывод</text>
+<polygon points="530.0,489.5 541.8,495.2 544.8,508.0 536.6,518.2 523.4,518.2 515.2,508.0 518.2,495.2" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="530.0,474.3 553.7,485.7 559.5,511.3 543.1,531.9 516.9,531.9 500.5,511.3 506.3,485.7" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="530.0,459.2 565.5,476.3 574.3,514.7 549.7,545.5 510.3,545.5 485.7,514.7 494.5,476.3" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="530.0,444.1 577.3,466.9 589.0,518.1 556.3,559.1 503.7,559.1 471.0,518.1 482.7,466.9" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="530.0,428.9 589.2,457.4 603.8,521.4 562.8,572.8 497.2,572.8 456.2,521.4 470.8,457.4" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<line x1="530.0" y1="504.6" x2="530.0" y2="428.9" stroke="#E4E7EB" stroke-width="1"/>
+<text x="530.0" y="420.9" font-size="10" fill="#57606A" text-anchor="middle">Ценность</text>
+<line x1="530.0" y1="504.6" x2="589.2" y2="457.4" stroke="#E4E7EB" stroke-width="1"/>
+<text x="598.5" y="453.9" font-size="10" fill="#57606A" text-anchor="start">Простота</text>
+<line x1="530.0" y1="504.6" x2="603.8" y2="521.4" stroke="#E4E7EB" stroke-width="1"/>
+<text x="615.5" y="528.1" font-size="10" fill="#57606A" text-anchor="start">Безопасность</text>
+<line x1="530.0" y1="504.6" x2="562.8" y2="572.8" stroke="#E4E7EB" stroke-width="1"/>
+<text x="568.0" y="587.6" font-size="10" fill="#57606A" text-anchor="start">Уверенность</text>
+<line x1="530.0" y1="504.6" x2="497.2" y2="572.8" stroke="#E4E7EB" stroke-width="1"/>
+<text x="492.0" y="587.6" font-size="10" fill="#57606A" text-anchor="end">RICE</text>
+<line x1="530.0" y1="504.6" x2="456.2" y2="521.4" stroke="#E4E7EB" stroke-width="1"/>
+<text x="444.5" y="528.1" font-size="10" fill="#57606A" text-anchor="end">ICE</text>
+<line x1="530.0" y1="504.6" x2="470.8" y2="457.4" stroke="#E4E7EB" stroke-width="1"/>
+<text x="461.5" y="453.9" font-size="10" fill="#57606A" text-anchor="end">WSJF</text>
+<polygon points="530.0,447.0 581.6,463.4 603.8,521.4 555.5,557.5 502.9,561.0 476.9,516.7 489.5,472.3" fill="#CC79A7" stroke="#CC79A7" stroke-width="1.8" stroke-linejoin="round" fill-opacity="0.250"/>
+<text x="704.7" y="361.9" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">#6 P033 — Блок «кому подходит, что</text>
+<text x="704.7" y="376.9" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">потребуется, сколько стоит прогон, лицензия»</text>
+<text x="704.7" y="391.9" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">на входе README</text>
+<polygon points="867.3,489.5 879.2,495.2 882.1,508.0 873.9,518.2 860.8,518.2 852.6,508.0 855.5,495.2" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="867.3,474.3 891.0,485.7 896.8,511.3 880.5,531.9 854.2,531.9 837.8,511.3 843.7,485.7" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="867.3,459.2 902.8,476.3 911.6,514.7 887.0,545.5 847.6,545.5 823.1,514.7 831.8,476.3" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="867.3,444.1 914.7,466.9 926.3,518.1 893.6,559.1 841.1,559.1 808.3,518.1 820.0,466.9" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="867.3,428.9 926.5,457.4 941.1,521.4 900.2,572.8 834.5,572.8 793.6,521.4 808.2,457.4" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<line x1="867.3" y1="504.6" x2="867.3" y2="428.9" stroke="#E4E7EB" stroke-width="1"/>
+<text x="867.3" y="420.9" font-size="10" fill="#57606A" text-anchor="middle">Ценность</text>
+<line x1="867.3" y1="504.6" x2="926.5" y2="457.4" stroke="#E4E7EB" stroke-width="1"/>
+<text x="935.9" y="453.9" font-size="10" fill="#57606A" text-anchor="start">Простота</text>
+<line x1="867.3" y1="504.6" x2="941.1" y2="521.4" stroke="#E4E7EB" stroke-width="1"/>
+<text x="952.8" y="528.1" font-size="10" fill="#57606A" text-anchor="start">Безопасность</text>
+<line x1="867.3" y1="504.6" x2="900.2" y2="572.8" stroke="#E4E7EB" stroke-width="1"/>
+<text x="905.4" y="587.6" font-size="10" fill="#57606A" text-anchor="start">Уверенность</text>
+<line x1="867.3" y1="504.6" x2="834.5" y2="572.8" stroke="#E4E7EB" stroke-width="1"/>
+<text x="829.3" y="587.6" font-size="10" fill="#57606A" text-anchor="end">RICE</text>
+<line x1="867.3" y1="504.6" x2="793.6" y2="521.4" stroke="#E4E7EB" stroke-width="1"/>
+<text x="781.9" y="528.1" font-size="10" fill="#57606A" text-anchor="end">ICE</text>
+<line x1="867.3" y1="504.6" x2="808.2" y2="457.4" stroke="#E4E7EB" stroke-width="1"/>
+<text x="798.8" y="453.9" font-size="10" fill="#57606A" text-anchor="end">WSJF</text>
+<polygon points="867.3,458.5 926.5,457.4 935.3,520.1 892.8,557.5 840.2,561.0 818.4,515.8 808.2,457.4" fill="#56B4E9" stroke="#56B4E9" stroke-width="1.8" stroke-linejoin="round" fill-opacity="0.250"/>
+<text x="30.0" y="620.3" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">#7 P070 — Статический хостинг демо на GitHub</text>
+<text x="30.0" y="635.3" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">Pages: страница стратегии и индекс примеров</text>
+<polygon points="192.7,732.8 204.5,738.5 207.4,751.3 199.2,761.6 186.1,761.6 177.9,751.3 180.8,738.5" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="192.7,717.7 216.3,729.1 222.2,754.7 205.8,775.2 179.5,775.2 163.2,754.7 169.0,729.1" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="192.7,702.5 228.2,719.6 236.9,758.0 212.4,788.8 173.0,788.8 148.4,758.0 157.2,719.6" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="192.7,687.4 240.0,710.2 251.7,761.4 218.9,802.5 166.4,802.5 133.7,761.4 145.3,710.2" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="192.7,672.3 251.8,700.8 266.4,764.8 225.5,816.1 159.8,816.1 118.9,764.8 133.5,700.8" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<line x1="192.7" y1="747.9" x2="192.7" y2="672.3" stroke="#E4E7EB" stroke-width="1"/>
+<text x="192.7" y="664.3" font-size="10" fill="#57606A" text-anchor="middle">Ценность</text>
+<line x1="192.7" y1="747.9" x2="251.8" y2="700.8" stroke="#E4E7EB" stroke-width="1"/>
+<text x="261.2" y="697.3" font-size="10" fill="#57606A" text-anchor="start">Простота</text>
+<line x1="192.7" y1="747.9" x2="266.4" y2="764.8" stroke="#E4E7EB" stroke-width="1"/>
+<text x="278.1" y="771.4" font-size="10" fill="#57606A" text-anchor="start">Безопасность</text>
+<line x1="192.7" y1="747.9" x2="225.5" y2="816.1" stroke="#E4E7EB" stroke-width="1"/>
+<text x="230.7" y="830.9" font-size="10" fill="#57606A" text-anchor="start">Уверенность</text>
+<line x1="192.7" y1="747.9" x2="159.8" y2="816.1" stroke="#E4E7EB" stroke-width="1"/>
+<text x="154.6" y="830.9" font-size="10" fill="#57606A" text-anchor="end">RICE</text>
+<line x1="192.7" y1="747.9" x2="118.9" y2="764.8" stroke="#E4E7EB" stroke-width="1"/>
+<text x="107.2" y="771.4" font-size="10" fill="#57606A" text-anchor="end">ICE</text>
+<line x1="192.7" y1="747.9" x2="133.5" y2="700.8" stroke="#E4E7EB" stroke-width="1"/>
+<text x="124.1" y="697.3" font-size="10" fill="#57606A" text-anchor="end">WSJF</text>
+<polygon points="192.7,700.5 251.8,700.8 258.9,763.0 222.6,810.1 168.8,797.6 131.4,761.9 135.8,702.6" fill="#8C6D31" stroke="#8C6D31" stroke-width="1.8" stroke-linejoin="round" fill-opacity="0.250"/>
+<text x="367.3" y="620.3" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">#8 P043 — Еженедельный снимок публичных</text>
+<text x="367.3" y="635.3" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">сигналов GitHub в CSV: просмотры, клоны,</text>
+<text x="367.3" y="650.3" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">источники, звёзды</text>
+<polygon points="530.0,747.8 541.8,753.5 544.8,766.3 536.6,776.6 523.4,776.6 515.2,766.3 518.2,753.5" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="530.0,732.7 553.7,744.1 559.5,769.7 543.1,790.2 516.9,790.2 500.5,769.7 506.3,744.1" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="530.0,717.5 565.5,734.6 574.3,773.0 549.7,803.8 510.3,803.8 485.7,773.0 494.5,734.6" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="530.0,702.4 577.3,725.2 589.0,776.4 556.3,817.5 503.7,817.5 471.0,776.4 482.7,725.2" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="530.0,687.3 589.2,715.8 603.8,779.8 562.8,831.1 497.2,831.1 456.2,779.8 470.8,715.8" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<line x1="530.0" y1="762.9" x2="530.0" y2="687.3" stroke="#E4E7EB" stroke-width="1"/>
+<text x="530.0" y="679.3" font-size="10" fill="#57606A" text-anchor="middle">Ценность</text>
+<line x1="530.0" y1="762.9" x2="589.2" y2="715.8" stroke="#E4E7EB" stroke-width="1"/>
+<text x="598.5" y="712.3" font-size="10" fill="#57606A" text-anchor="start">Простота</text>
+<line x1="530.0" y1="762.9" x2="603.8" y2="779.8" stroke="#E4E7EB" stroke-width="1"/>
+<text x="615.5" y="786.4" font-size="10" fill="#57606A" text-anchor="start">Безопасность</text>
+<line x1="530.0" y1="762.9" x2="562.8" y2="831.1" stroke="#E4E7EB" stroke-width="1"/>
+<text x="568.0" y="845.9" font-size="10" fill="#57606A" text-anchor="start">Уверенность</text>
+<line x1="530.0" y1="762.9" x2="497.2" y2="831.1" stroke="#E4E7EB" stroke-width="1"/>
+<text x="492.0" y="845.9" font-size="10" fill="#57606A" text-anchor="end">RICE</text>
+<line x1="530.0" y1="762.9" x2="456.2" y2="779.8" stroke="#E4E7EB" stroke-width="1"/>
+<text x="444.5" y="786.4" font-size="10" fill="#57606A" text-anchor="end">ICE</text>
+<line x1="530.0" y1="762.9" x2="470.8" y2="715.8" stroke="#E4E7EB" stroke-width="1"/>
+<text x="461.5" y="712.3" font-size="10" fill="#57606A" text-anchor="end">WSJF</text>
+<polygon points="530.0,716.6 589.2,715.8 603.8,779.8 561.3,827.8 508.2,808.1 467.0,777.3 473.6,717.9" fill="#882255" stroke="#882255" stroke-width="1.8" stroke-linejoin="round" fill-opacity="0.250"/>
+<text x="704.7" y="620.3" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">#9 P059 — CI в GitHub Actions: validate и тесты</text>
+<text x="704.7" y="635.3" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">на Linux, macOS и Windows</text>
+<polygon points="867.3,732.8 879.2,738.5 882.1,751.3 873.9,761.6 860.8,761.6 852.6,751.3 855.5,738.5" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="867.3,717.7 891.0,729.1 896.8,754.7 880.5,775.2 854.2,775.2 837.8,754.7 843.7,729.1" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="867.3,702.5 902.8,719.6 911.6,758.0 887.0,788.8 847.6,788.8 823.1,758.0 831.8,719.6" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="867.3,687.4 914.7,710.2 926.3,761.4 893.6,802.5 841.1,802.5 808.3,761.4 820.0,710.2" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="867.3,672.3 926.5,700.8 941.1,764.8 900.2,816.1 834.5,816.1 793.6,764.8 808.2,700.8" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<line x1="867.3" y1="747.9" x2="867.3" y2="672.3" stroke="#E4E7EB" stroke-width="1"/>
+<text x="867.3" y="664.3" font-size="10" fill="#57606A" text-anchor="middle">Ценность</text>
+<line x1="867.3" y1="747.9" x2="926.5" y2="700.8" stroke="#E4E7EB" stroke-width="1"/>
+<text x="935.9" y="697.3" font-size="10" fill="#57606A" text-anchor="start">Простота</text>
+<line x1="867.3" y1="747.9" x2="941.1" y2="764.8" stroke="#E4E7EB" stroke-width="1"/>
+<text x="952.8" y="771.4" font-size="10" fill="#57606A" text-anchor="start">Безопасность</text>
+<line x1="867.3" y1="747.9" x2="900.2" y2="816.1" stroke="#E4E7EB" stroke-width="1"/>
+<text x="905.4" y="830.9" font-size="10" fill="#57606A" text-anchor="start">Уверенность</text>
+<line x1="867.3" y1="747.9" x2="834.5" y2="816.1" stroke="#E4E7EB" stroke-width="1"/>
+<text x="829.3" y="830.9" font-size="10" fill="#57606A" text-anchor="end">RICE</text>
+<line x1="867.3" y1="747.9" x2="793.6" y2="764.8" stroke="#E4E7EB" stroke-width="1"/>
+<text x="781.9" y="771.4" font-size="10" fill="#57606A" text-anchor="end">ICE</text>
+<line x1="867.3" y1="747.9" x2="808.2" y2="700.8" stroke="#E4E7EB" stroke-width="1"/>
+<text x="798.8" y="697.3" font-size="10" fill="#57606A" text-anchor="end">WSJF</text>
+<polygon points="867.3,695.4 919.0,706.8 939.7,764.4 898.6,812.8 841.0,802.6 804.9,762.2 828.0,716.6" fill="#117733" stroke="#117733" stroke-width="1.8" stroke-linejoin="round" fill-opacity="0.250"/>
+<text x="30.0" y="878.6" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">#10 P030 — Сделать GIF и ролики первой</text>
+<text x="30.0" y="893.6" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">минуты из реальных прогонов</text>
+<text x="30.0" y="908.6" font-size="12" fill="#1F2328" text-anchor="start" font-weight="600">существующими утилитами</text>
+<polygon points="192.7,1006.1 204.5,1011.8 207.4,1024.6 199.2,1034.9 186.1,1034.9 177.9,1024.6 180.8,1011.8" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="192.7,991.0 216.3,1002.4 222.2,1028.0 205.8,1048.5 179.5,1048.5 163.2,1028.0 169.0,1002.4" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="192.7,975.9 228.2,993.0 236.9,1031.4 212.4,1062.2 173.0,1062.2 148.4,1031.4 157.2,993.0" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="192.7,960.7 240.0,983.5 251.7,1034.7 218.9,1075.8 166.4,1075.8 133.7,1034.7 145.3,983.5" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<polygon points="192.7,945.6 251.8,974.1 266.4,1038.1 225.5,1089.4 159.8,1089.4 118.9,1038.1 133.5,974.1" fill="none" stroke="#E4E7EB" stroke-width="1" stroke-linejoin="round"/>
+<line x1="192.7" y1="1021.3" x2="192.7" y2="945.6" stroke="#E4E7EB" stroke-width="1"/>
+<text x="192.7" y="937.6" font-size="10" fill="#57606A" text-anchor="middle">Ценность</text>
+<line x1="192.7" y1="1021.3" x2="251.8" y2="974.1" stroke="#E4E7EB" stroke-width="1"/>
+<text x="261.2" y="970.6" font-size="10" fill="#57606A" text-anchor="start">Простота</text>
+<line x1="192.7" y1="1021.3" x2="266.4" y2="1038.1" stroke="#E4E7EB" stroke-width="1"/>
+<text x="278.1" y="1044.8" font-size="10" fill="#57606A" text-anchor="start">Безопасность</text>
+<line x1="192.7" y1="1021.3" x2="225.5" y2="1089.4" stroke="#E4E7EB" stroke-width="1"/>
+<text x="230.7" y="1104.3" font-size="10" fill="#57606A" text-anchor="start">Уверенность</text>
+<line x1="192.7" y1="1021.3" x2="159.8" y2="1089.4" stroke="#E4E7EB" stroke-width="1"/>
+<text x="154.6" y="1104.3" font-size="10" fill="#57606A" text-anchor="end">RICE</text>
+<line x1="192.7" y1="1021.3" x2="118.9" y2="1038.1" stroke="#E4E7EB" stroke-width="1"/>
+<text x="107.2" y="1044.8" font-size="10" fill="#57606A" text-anchor="end">ICE</text>
+<line x1="192.7" y1="1021.3" x2="133.5" y2="974.1" stroke="#E4E7EB" stroke-width="1"/>
+<text x="124.1" y="970.6" font-size="10" fill="#57606A" text-anchor="end">WSJF</text>
+<polygon points="192.7,963.6 244.3,980.1 266.4,1038.1 214.2,1066.0 166.3,1076.0 149.9,1031.0 152.2,989.0" fill="#7F7F7F" stroke="#7F7F7F" stroke-width="1.8" stroke-linejoin="round" fill-opacity="0.250"/>
+<text x="24" y="1143.9" font-size="11" fill="#57606A">Источник: data/scores.json; простота = 6 − стоимость, безопасность = 6 − риск, нормированные метрики → 1 + 4·n</text>
+</svg>

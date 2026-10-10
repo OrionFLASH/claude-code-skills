@@ -1,0 +1,1599 @@
+{
+  "repo": {
+    "name": "claude-code-skills",
+    "path": "<repo>",
+    "remote": "OrionFLASH/claude-code-skills",
+    "default_branch": "main",
+    "license": "custom/unknown",
+    "remote_host": "github.com",
+    "is_git": true,
+    "head": "d6eea983dfa76f5c6c5ebd883340cb84c41c1666",
+    "readme_title": "claude-code-skills",
+    "readme_summary": "Личная коллекция скилов для [Claude Code](https://claude.com/claude-code). Каждый скил — отдельный подпроект в `skills/<имя>/` и отдельный плагин в маркетплейсе `.claude-plugin/marketplace.json`."
+  },
+  "stack": {
+    "languages": {
+      "Python": 4119704,
+      "JavaScript": 661657,
+      "Shell": 365349,
+      "HTML": 45591,
+      "CSS": 20132,
+      "PowerShell": 5389
+    },
+    "frameworks": [
+      "claude-code-skills"
+    ],
+    "package_managers": [
+      "npm"
+    ],
+    "manifests": [
+      "shared/templates/skill-skeleton/.claude-plugin/plugin.json",
+      "skills/android-qa-audit/.claude-plugin/plugin.json",
+      "skills/android-qa-audit/scripts/node/package.json",
+      "skills/product-strategy/.claude-plugin/plugin.json",
+      "skills/product-strategy/scripts/node/package.json",
+      "skills/site-qa-audit/.claude-plugin/plugin.json",
+      "skills/site-qa-audit/scripts/node/e2e/shim/@playwright/test/package.json",
+      "skills/site-qa-audit/scripts/node/package.json",
+      "skills/typesafe-triage/.claude-plugin/plugin.json"
+    ],
+    "data_languages": {
+      "Markdown": 2466689,
+      "JSON": 347023,
+      "YAML": 42222,
+      "Text": 22855,
+      "XML": 18352
+    },
+    "dependencies_count": 4,
+    "large_files_bytes": {}
+  },
+  "entrypoints": [
+    {
+      "kind": "lib",
+      "file": "skills/android-qa-audit/.claude-plugin/plugin.json",
+      "line": 1,
+      "note": "плагин Claude Code «android-qa-audit»"
+    },
+    {
+      "kind": "lib",
+      "file": "skills/product-strategy/.claude-plugin/plugin.json",
+      "line": 1,
+      "note": "плагин Claude Code «product-strategy»"
+    },
+    {
+      "kind": "lib",
+      "file": "skills/site-qa-audit/.claude-plugin/plugin.json",
+      "line": 1,
+      "note": "плагин Claude Code «site-qa-audit»"
+    },
+    {
+      "kind": "lib",
+      "file": "skills/site-qa-audit/scripts/node/e2e/shim/@playwright/test/package.json",
+      "line": 5,
+      "note": "main/exports пакета @playwright/test"
+    },
+    {
+      "kind": "lib",
+      "file": "skills/typesafe-triage/.claude-plugin/plugin.json",
+      "line": 1,
+      "note": "плагин Claude Code «typesafe-triage»"
+    },
+    {
+      "kind": "cli",
+      "file": "shared/scripts/miniyaml.py",
+      "line": 261,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "shared/scripts/qa_attachments.py",
+      "line": 215,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "shared/scripts/qa_clips.py",
+      "line": 650,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "shared/scripts/qa_export.py",
+      "line": 154,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "shared/scripts/qa_force.py",
+      "line": 165,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "shared/scripts/qa_gitignore.py",
+      "line": 461,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "shared/scripts/qa_issueforms.py",
+      "line": 358,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "shared/scripts/qa_known.py",
+      "line": 224,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "shared/scripts/runjournal.py",
+      "line": 148,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "shared/scripts/skill_sums.py",
+      "line": 92,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "tools/lib/skillsrepo.py",
+      "line": 354,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "skills/android-qa-audit/scripts/adb_helpers.py",
+      "line": 2492,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "skills/android-qa-audit/scripts/annotate_android.py",
+      "line": 378,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "skills/android-qa-audit/scripts/apk_info.py",
+      "line": 677,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "skills/android-qa-audit/scripts/attachments.py",
+      "line": 57,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "skills/android-qa-audit/scripts/avd_manager.py",
+      "line": 920,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "skills/android-qa-audit/scripts/build_report.py",
+      "line": 560,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "skills/android-qa-audit/scripts/check_env.py",
+      "line": 470,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "skills/android-qa-audit/scripts/direct_publish.py",
+      "line": 31,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "skills/android-qa-audit/scripts/export_results.py",
+      "line": 77,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "skills/android-qa-audit/scripts/finding.py",
+      "line": 419,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "skills/android-qa-audit/scripts/fingerprint.py",
+      "line": 190,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "skills/android-qa-audit/scripts/gitignore_helper.py",
+      "line": 39,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "skills/android-qa-audit/scripts/grpc_emu.py",
+      "line": 625,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "skills/android-qa-audit/scripts/guard.py",
+      "line": 860,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "skills/android-qa-audit/scripts/ingest_findings.py",
+      "line": 36,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "skills/android-qa-audit/scripts/intake.py",
+      "line": 513,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "skills/android-qa-audit/scripts/issue_forms.py",
+      "line": 18,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "skills/android-qa-audit/scripts/journal.py",
+      "line": 13,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "skills/android-qa-audit/scripts/known_docs.py",
+      "line": 16,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "skills/android-qa-audit/scripts/masking.py",
+      "line": 100,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "skills/android-qa-audit/scripts/matrix.py",
+      "line": 405,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "skills/android-qa-audit/scripts/recheck.py",
+      "line": 43,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "skills/android-qa-audit/scripts/render_draft.py",
+      "line": 572,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "skills/android-qa-audit/scripts/sdkutil.py",
+      "line": 538,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "skills/android-qa-audit/scripts/validate_findings.py",
+      "line": 136,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "skills/product-strategy/scripts/assemble_strategy.py",
+      "line": 667,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "skills/product-strategy/scripts/build_all.py",
+      "line": 169,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "skills/product-strategy/scripts/build_deck_json.py",
+      "line": 555,
+      "note": "Python: if __name__ == '__main__'"
+    },
+    {
+      "kind": "cli",
+      "file": "skills/product-strategy/scripts/build_design_refs_readme.py",
+      "line": 177,
+      "note": "Python: if __name__ == '__main__'"
+    }
+  ],
+  "routes": [],
+  "features": [
+    {
+      "name": "Подкоманды CLI adb_helpers.py: job-run",
+      "evidence": [
+        {
+          "file": "skills/android-qa-audit/scripts/adb_helpers.py",
+          "line": 2447
+        }
+      ],
+      "ui_visible": "yes",
+      "kind": "cli"
+    },
+    {
+      "name": "Подкоманды CLI annotate_android.py: render, batch, box, check, sheet",
+      "evidence": [
+        {
+          "file": "skills/android-qa-audit/scripts/annotate_android.py",
+          "line": 313
+        },
+        {
+          "file": "skills/android-qa-audit/scripts/annotate_android.py",
+          "line": 320
+        },
+        {
+          "file": "skills/android-qa-audit/scripts/annotate_android.py",
+          "line": 325
+        },
+        {
+          "file": "skills/android-qa-audit/scripts/annotate_android.py",
+          "line": 331
+        },
+        {
+          "file": "skills/android-qa-audit/scripts/annotate_android.py",
+          "line": 332
+        }
+      ],
+      "ui_visible": "yes",
+      "kind": "cli"
+    },
+    {
+      "name": "Подкоманды CLI apk_info.py: analyze, installed, summary, build-apks",
+      "evidence": [
+        {
+          "file": "skills/android-qa-audit/scripts/apk_info.py",
+          "line": 649
+        },
+        {
+          "file": "skills/android-qa-audit/scripts/apk_info.py",
+          "line": 651
+        },
+        {
+          "file": "skills/android-qa-audit/scripts/apk_info.py",
+          "line": 660
+        },
+        {
+          "file": "skills/android-qa-audit/scripts/apk_info.py",
+          "line": 662
+        }
+      ],
+      "ui_visible": "yes",
+      "kind": "cli"
+    },
+    {
+      "name": "Подкоманды CLI avd_manager.py: list, images, profiles, create, install-image, start, wait-boot, snapshot, stop, delete, cleanup",
+      "evidence": [
+        {
+          "file": "skills/android-qa-audit/scripts/avd_manager.py",
+          "line": 851
+        },
+        {
+          "file": "skills/android-qa-audit/scripts/avd_manager.py",
+          "line": 852
+        },
+        {
+          "file": "skills/android-qa-audit/scripts/avd_manager.py",
+          "line": 856
+        },
+        {
+          "file": "skills/android-qa-audit/scripts/avd_manager.py",
+          "line": 859
+        },
+        {
+          "file": "skills/android-qa-audit/scripts/avd_manager.py",
+          "line": 860
+        }
+      ],
+      "ui_visible": "yes",
+      "kind": "cli"
+    },
+    {
+      "name": "Подкоманды CLI browser_mode.py: show, set, mcp",
+      "evidence": [
+        {
+          "file": "skills/site-qa-audit/scripts/browser_mode.py",
+          "line": 168
+        },
+        {
+          "file": "skills/site-qa-audit/scripts/browser_mode.py",
+          "line": 173
+        },
+        {
+          "file": "skills/site-qa-audit/scripts/browser_mode.py",
+          "line": 180
+        }
+      ],
+      "ui_visible": "yes",
+      "kind": "cli"
+    },
+    {
+      "name": "Подкоманды CLI claims.py: extract, plan, set",
+      "evidence": [
+        {
+          "file": "skills/site-qa-audit/scripts/claims.py",
+          "line": 418
+        },
+        {
+          "file": "skills/site-qa-audit/scripts/claims.py",
+          "line": 424
+        },
+        {
+          "file": "skills/site-qa-audit/scripts/claims.py",
+          "line": 433
+        }
+      ],
+      "ui_visible": "yes",
+      "kind": "cli"
+    },
+    {
+      "name": "Подкоманды CLI clip_android.py: clip-rolling-run",
+      "evidence": [
+        {
+          "file": "skills/android-qa-audit/scripts/clip_android.py",
+          "line": 1620
+        }
+      ],
+      "ui_visible": "yes",
+      "kind": "cli"
+    },
+    {
+      "name": "Подкоманды CLI clips.py: finalize, check, viewed, list, sheet, caps, policy, settings, ignore",
+      "evidence": [
+        {
+          "file": "skills/site-qa-audit/scripts/clips.py",
+          "line": 478
+        },
+        {
+          "file": "skills/site-qa-audit/scripts/clips.py",
+          "line": 494
+        },
+        {
+          "file": "skills/site-qa-audit/scripts/clips.py",
+          "line": 498
+        },
+        {
+          "file": "skills/site-qa-audit/scripts/clips.py",
+          "line": 503
+        },
+        {
+          "file": "skills/site-qa-audit/scripts/clips.py",
+          "line": 506
+        }
+      ],
+      "ui_visible": "yes",
+      "kind": "cli"
+    },
+    {
+      "name": "Подкоманды CLI finding.py: add, shot, viewed, clip, clip-viewed, list",
+      "evidence": [
+        {
+          "file": "skills/android-qa-audit/scripts/finding.py",
+          "line": 358
+        },
+        {
+          "file": "skills/android-qa-audit/scripts/finding.py",
+          "line": 385
+        },
+        {
+          "file": "skills/android-qa-audit/scripts/finding.py",
+          "line": 395
+        },
+        {
+          "file": "skills/android-qa-audit/scripts/finding.py",
+          "line": 399
+        },
+        {
+          "file": "skills/android-qa-audit/scripts/finding.py",
+          "line": 407
+        }
+      ],
+      "ui_visible": "yes",
+      "kind": "cli"
+    },
+    {
+      "name": "Подкоманды CLI fingerprint.py: compute, dedupe, match, one",
+      "evidence": [
+        {
+          "file": "skills/android-qa-audit/scripts/fingerprint.py",
+          "line": 166
+        },
+        {
+          "file": "skills/android-qa-audit/scripts/fingerprint.py",
+          "line": 167
+        },
+        {
+          "file": "skills/android-qa-audit/scripts/fingerprint.py",
+          "line": 168
+        },
+        {
+          "file": "skills/android-qa-audit/scripts/fingerprint.py",
+          "line": 173
+        }
+      ],
+      "ui_visible": "yes",
+      "kind": "cli"
+    },
+    {
+      "name": "Подкоманды CLI fingerprint.py: match, one",
+      "evidence": [
+        {
+          "file": "skills/site-qa-audit/scripts/fingerprint.py",
+          "line": 207
+        },
+        {
+          "file": "skills/site-qa-audit/scripts/fingerprint.py",
+          "line": 213
+        }
+      ],
+      "ui_visible": "yes",
+      "kind": "cli"
+    },
+    {
+      "name": "Подкоманды CLI grpc_emu.py: discovery, status",
+      "evidence": [
+        {
+          "file": "skills/android-qa-audit/scripts/grpc_emu.py",
+          "line": 608
+        },
+        {
+          "file": "skills/android-qa-audit/scripts/grpc_emu.py",
+          "line": 610
+        }
+      ],
+      "ui_visible": "yes",
+      "kind": "cli"
+    },
+    {
+      "name": "Подкоманды CLI intake.py: from-text",
+      "evidence": [
+        {
+          "file": "skills/android-qa-audit/scripts/intake.py",
+          "line": 465
+        },
+        {
+          "file": "skills/site-qa-audit/scripts/intake.py",
+          "line": 396
+        }
+      ],
+      "ui_visible": "yes",
+      "kind": "cli"
+    },
+    {
+      "name": "Подкоманды CLI intake.py: questions, open, detect, track, from-text, show",
+      "evidence": [
+        {
+          "file": "skills/product-strategy/scripts/intake.py",
+          "line": 726
+        },
+        {
+          "file": "skills/product-strategy/scripts/intake.py",
+          "line": 728
+        },
+        {
+          "file": "skills/product-strategy/scripts/intake.py",
+          "line": 739
+        },
+        {
+          "file": "skills/product-strategy/scripts/intake.py",
+          "line": 742
+        },
+        {
+          "file": "skills/product-strategy/scripts/intake.py",
+          "line": 747
+        }
+      ],
+      "ui_visible": "yes",
+      "kind": "cli"
+    },
+    {
+      "name": "Подкоманды CLI journal.py: init, todo, done, note, decide, status",
+      "evidence": [
+        {
+          "file": "skills/site-qa-audit/scripts/journal.py",
+          "line": 81
+        },
+        {
+          "file": "skills/site-qa-audit/scripts/journal.py",
+          "line": 85
+        },
+        {
+          "file": "skills/site-qa-audit/scripts/journal.py",
+          "line": 88
+        },
+        {
+          "file": "skills/site-qa-audit/scripts/journal.py",
+          "line": 92
+        },
+        {
+          "file": "skills/site-qa-audit/scripts/journal.py",
+          "line": 95
+        }
+      ],
+      "ui_visible": "yes",
+      "kind": "cli"
+    },
+    {
+      "name": "Подкоманды CLI local_app.py: copy, url",
+      "evidence": [
+        {
+          "file": "skills/site-qa-audit/scripts/local_app.py",
+          "line": 94
+        },
+        {
+          "file": "skills/site-qa-audit/scripts/local_app.py",
+          "line": 103
+        }
+      ],
+      "ui_visible": "yes",
+      "kind": "cli"
+    },
+    {
+      "name": "Подкоманды CLI matrix.py: build, show, variants",
+      "evidence": [
+        {
+          "file": "skills/android-qa-audit/scripts/matrix.py",
+          "line": 377
+        },
+        {
+          "file": "skills/android-qa-audit/scripts/matrix.py",
+          "line": 384
+        },
+        {
+          "file": "skills/android-qa-audit/scripts/matrix.py",
+          "line": 386
+        }
+      ],
+      "ui_visible": "yes",
+      "kind": "cli"
+    },
+    {
+      "name": "Подкоманды CLI qa_clips.py: compress, gif, poster, sheet, probe, check",
+      "evidence": [
+        {
+          "file": "shared/scripts/qa_clips.py",
+          "line": 599
+        },
+        {
+          "file": "shared/scripts/qa_clips.py",
+          "line": 608
+        },
+        {
+          "file": "shared/scripts/qa_clips.py",
+          "line": 615
+        },
+        {
+          "file": "shared/scripts/qa_clips.py",
+          "line": 619
+        },
+        {
+          "file": "shared/scripts/qa_clips.py",
+          "line": 625
+        }
+      ],
+      "ui_visible": "yes",
+      "kind": "cli"
+    },
+    {
+      "name": "Подкоманды CLI qa_issueforms.py: fetch, show",
+      "evidence": [
+        {
+          "file": "shared/scripts/qa_issueforms.py",
+          "line": 299
+        },
+        {
+          "file": "shared/scripts/qa_issueforms.py",
+          "line": 302
+        },
+        {
+          "file": "skills/android-qa-audit/scripts/shared/qa_issueforms.py",
+          "line": 299
+        },
+        {
+          "file": "skills/android-qa-audit/scripts/shared/qa_issueforms.py",
+          "line": 302
+        }
+      ],
+      "ui_visible": "yes",
+      "kind": "cli"
+    },
+    {
+      "name": "Подкоманды CLI qa_known.py: fetch, check, set",
+      "evidence": [
+        {
+          "file": "shared/scripts/qa_known.py",
+          "line": 183
+        },
+        {
+          "file": "shared/scripts/qa_known.py",
+          "line": 187
+        },
+        {
+          "file": "shared/scripts/qa_known.py",
+          "line": 192
+        },
+        {
+          "file": "skills/android-qa-audit/scripts/shared/qa_known.py",
+          "line": 183
+        },
+        {
+          "file": "skills/android-qa-audit/scripts/shared/qa_known.py",
+          "line": 187
+        }
+      ],
+      "ui_visible": "yes",
+      "kind": "cli"
+    },
+    {
+      "name": "Подкоманды CLI read_templates.py: fetch, parse, render",
+      "evidence": [
+        {
+          "file": "skills/site-qa-audit/scripts/read_templates.py",
+          "line": 305
+        },
+        {
+          "file": "skills/site-qa-audit/scripts/read_templates.py",
+          "line": 310
+        },
+        {
+          "file": "skills/site-qa-audit/scripts/read_templates.py",
+          "line": 312
+        }
+      ],
+      "ui_visible": "yes",
+      "kind": "cli"
+    },
+    {
+      "name": "Подкоманды CLI runjournal.py: init, todo, done, note, status",
+      "evidence": [
+        {
+          "file": "shared/scripts/runjournal.py",
+          "line": 81
+        },
+        {
+          "file": "shared/scripts/runjournal.py",
+          "line": 85
+        },
+        {
+          "file": "shared/scripts/runjournal.py",
+          "line": 88
+        },
+        {
+          "file": "shared/scripts/runjournal.py",
+          "line": 92
+        },
+        {
+          "file": "shared/scripts/runjournal.py",
+          "line": 95
+        }
+      ],
+      "ui_visible": "yes",
+      "kind": "cli"
+    },
+    {
+      "name": "Подкоманды CLI strategy_track.py: discover, check, set, unset, link, unlink, ask-list, apply-answers, report, apply-to-strategy",
+      "evidence": [
+        {
+          "file": "skills/product-strategy/scripts/strategy_track.py",
+          "line": 2704
+        },
+        {
+          "file": "skills/product-strategy/scripts/strategy_track.py",
+          "line": 2711
+        },
+        {
+          "file": "skills/product-strategy/scripts/strategy_track.py",
+          "line": 2727
+        },
+        {
+          "file": "skills/product-strategy/scripts/strategy_track.py",
+          "line": 2737
+        },
+        {
+          "file": "skills/product-strategy/scripts/strategy_track.py",
+          "line": 2742
+        }
+      ],
+      "ui_visible": "yes",
+      "kind": "cli"
+    },
+    {
+      "name": "Подкоманды CLI thread_coverage.py: build, summary, again",
+      "evidence": [
+        {
+          "file": "skills/site-qa-audit/scripts/thread_coverage.py",
+          "line": 302
+        },
+        {
+          "file": "skills/site-qa-audit/scripts/thread_coverage.py",
+          "line": 305
+        },
+        {
+          "file": "skills/site-qa-audit/scripts/thread_coverage.py",
+          "line": 308
+        }
+      ],
+      "ui_visible": "yes",
+      "kind": "cli"
+    },
+    {
+      "name": "Плагин «android-qa-audit»",
+      "evidence": [
+        {
+          "file": "skills/android-qa-audit/.claude-plugin/plugin.json",
+          "line": 2
+        }
+      ],
+      "ui_visible": "yes",
+      "kind": "plugin"
+    },
+    {
+      "name": "Плагин «product-strategy»",
+      "evidence": [
+        {
+          "file": "skills/product-strategy/.claude-plugin/plugin.json",
+          "line": 2
+        }
+      ],
+      "ui_visible": "yes",
+      "kind": "plugin"
+    },
+    {
+      "name": "Плагин «site-qa-audit»",
+      "evidence": [
+        {
+          "file": "skills/site-qa-audit/.claude-plugin/plugin.json",
+          "line": 2
+        }
+      ],
+      "ui_visible": "yes",
+      "kind": "plugin"
+    },
+    {
+      "name": "Плагин «typesafe-triage»",
+      "evidence": [
+        {
+          "file": "skills/typesafe-triage/.claude-plugin/plugin.json",
+          "line": 2
+        }
+      ],
+      "ui_visible": "yes",
+      "kind": "plugin"
+    }
+  ],
+  "i18n": {
+    "locales": [],
+    "files": [],
+    "libraries": []
+  },
+  "integrations": {
+    "analytics": [],
+    "payments": [
+      "CloudPayments",
+      "Robokassa",
+      "T-Bank (Tinkoff) Acquiring",
+      "YooKassa"
+    ],
+    "auth": [],
+    "ads": [],
+    "crash": [],
+    "feature_flags": []
+  },
+  "integrations_evidence": {
+    "analytics": {
+      "Amplitude": [
+        {
+          "file": "skills/product-strategy/scripts/repo_scan.py",
+          "line": 153,
+          "source": "code",
+          "weak": true
+        }
+      ],
+      "AppMetrica": [
+        {
+          "file": "skills/product-strategy/scripts/repo_scan.py",
+          "line": 163,
+          "source": "code",
+          "weak": true
+        }
+      ],
+      "Google Analytics / GTM": [
+        {
+          "file": "skills/product-strategy/tests/test_scan.py",
+          "line": 44,
+          "source": "code",
+          "weak": true
+        },
+        {
+          "file": "skills/product-strategy/tests/test_scan.py",
+          "line": 215,
+          "source": "code",
+          "weak": true
+        }
+      ],
+      "Mixpanel": [
+        {
+          "file": "skills/product-strategy/tests/test_scan.py",
+          "line": 68,
+          "source": "code",
+          "weak": true
+        }
+      ],
+      "Segment": [
+        {
+          "file": "skills/product-strategy/scripts/repo_scan.py",
+          "line": 156,
+          "source": "code",
+          "weak": true
+        }
+      ],
+      "Yandex Metrica": [
+        {
+          "file": "skills/product-strategy/tests/test_scan.py",
+          "line": 214,
+          "source": "code",
+          "weak": true
+        }
+      ]
+    },
+    "payments": {
+      "CloudPayments": [
+        {
+          "file": "skills/product-strategy/scripts/node/audit_site.mjs",
+          "line": 284,
+          "source": "code"
+        },
+        {
+          "file": "skills/site-qa-audit/scripts/node/clip.js",
+          "line": 75,
+          "source": "code"
+        },
+        {
+          "file": "skills/site-qa-audit/scripts/url_guard.py",
+          "line": 58,
+          "source": "code"
+        },
+        {
+          "file": "skills/product-strategy/scripts/repo_scan.py",
+          "line": 172,
+          "source": "code",
+          "weak": true
+        }
+      ],
+      "RevenueCat": [
+        {
+          "file": "skills/product-strategy/scripts/repo_scan.py",
+          "line": 173,
+          "source": "code",
+          "weak": true
+        }
+      ],
+      "Robokassa": [
+        {
+          "file": "skills/site-qa-audit/scripts/url_guard.py",
+          "line": 59,
+          "source": "code"
+        }
+      ],
+      "Stripe": [
+        {
+          "file": "skills/product-strategy/scripts/repo_scan.py",
+          "line": 168,
+          "source": "code",
+          "weak": true
+        },
+        {
+          "file": "skills/product-strategy/scripts/repo_scan.py",
+          "line": 169,
+          "source": "code",
+          "weak": true
+        },
+        {
+          "file": "skills/product-strategy/tests/test_scan.py",
+          "line": 214,
+          "source": "code",
+          "weak": true
+        }
+      ],
+      "T-Bank (Tinkoff) Acquiring": [
+        {
+          "file": "skills/site-qa-audit/scripts/url_guard.py",
+          "line": 59,
+          "source": "code"
+        },
+        {
+          "file": "skills/site-qa-audit/scripts/url_guard.py",
+          "line": 83,
+          "source": "code"
+        }
+      ],
+      "YooKassa": [
+        {
+          "file": "skills/product-strategy/scripts/node/audit_site.mjs",
+          "line": 283,
+          "source": "code"
+        },
+        {
+          "file": "skills/site-qa-audit/scripts/node/clip.js",
+          "line": 75,
+          "source": "code"
+        },
+        {
+          "file": "skills/site-qa-audit/scripts/url_guard.py",
+          "line": 57,
+          "source": "code"
+        },
+        {
+          "file": "skills/site-qa-audit/scripts/url_guard.py",
+          "line": 58,
+          "source": "code"
+        },
+        {
+          "file": "skills/site-qa-audit/scripts/url_guard.py",
+          "line": 82,
+          "source": "code"
+        },
+        {
+          "file": "skills/product-strategy/scripts/repo_scan.py",
+          "line": 171,
+          "source": "code",
+          "weak": true
+        },
+        {
+          "file": "skills/product-strategy/scripts/repo_scan.py",
+          "line": 230,
+          "source": "code",
+          "weak": true
+        }
+      ]
+    },
+    "auth": {},
+    "ads": {
+      "AppLovin": [
+        {
+          "file": "skills/product-strategy/scripts/repo_scan.py",
+          "line": 203,
+          "source": "code",
+          "weak": true
+        }
+      ],
+      "Google AdSense": [
+        {
+          "file": "skills/product-strategy/scripts/repo_scan.py",
+          "line": 199,
+          "source": "code",
+          "weak": true
+        }
+      ],
+      "Yandex Ads": [
+        {
+          "file": "skills/product-strategy/scripts/repo_scan.py",
+          "line": 201,
+          "source": "code",
+          "weak": true
+        }
+      ]
+    },
+    "crash": {
+      "Sentry": [
+        {
+          "file": "skills/product-strategy/scripts/repo_scan.py",
+          "line": 207,
+          "source": "code",
+          "weak": true
+        },
+        {
+          "file": "skills/product-strategy/tests/test_scan.py",
+          "line": 31,
+          "source": "code",
+          "weak": true
+        },
+        {
+          "file": "skills/product-strategy/tests/test_scan.py",
+          "line": 215,
+          "source": "code",
+          "weak": true
+        }
+      ]
+    },
+    "feature_flags": {
+      "Свои фича-флаги (эвристика)": [
+        {
+          "file": "skills/product-strategy/scripts/repo_scan.py",
+          "line": 215,
+          "source": "code",
+          "weak": true
+        },
+        {
+          "file": "skills/product-strategy/scripts/repo_scan.py",
+          "line": 216,
+          "source": "code",
+          "weak": true
+        },
+        {
+          "file": "skills/product-strategy/scripts/repo_scan.py",
+          "line": 217,
+          "source": "code",
+          "weak": true
+        },
+        {
+          "file": "skills/product-strategy/scripts/repo_scan.py",
+          "line": 218,
+          "source": "code",
+          "weak": true
+        },
+        {
+          "file": "skills/product-strategy/scripts/repo_scan.py",
+          "line": 219,
+          "source": "code",
+          "weak": true
+        },
+        {
+          "file": "skills/product-strategy/scripts/repo_scan.py",
+          "line": 220,
+          "source": "code",
+          "weak": true
+        },
+        {
+          "file": "skills/product-strategy/scripts/repo_scan.py",
+          "line": 221,
+          "source": "code",
+          "weak": true
+        },
+        {
+          "file": "skills/product-strategy/scripts/repo_scan.py",
+          "line": 222,
+          "source": "code",
+          "weak": true
+        }
+      ]
+    }
+  },
+  "quality": {
+    "tests": {
+      "files": 97,
+      "frameworks": [
+        "playwright",
+        "pytest"
+      ]
+    },
+    "ci": [],
+    "lint": [],
+    "docker": false,
+    "deploy": []
+  },
+  "docs": {
+    "readme": "README.md",
+    "changelog": "CHANGELOG.md",
+    "docs_dirs": [
+      "docs"
+    ],
+    "other": []
+  },
+  "git": {
+    "commits": 181,
+    "first": "2026-10-07",
+    "last": "2026-10-10",
+    "authors": 1,
+    "commits_90d": 181,
+    "tags": [
+      "product-strategy/v1.2.0",
+      "android-qa-audit/v1.5.1",
+      "product-strategy/v1.1.1",
+      "site-qa-audit/v1.7.1",
+      "typesafe-triage/v2.9.3",
+      "android-qa-audit/v1.5.0",
+      "site-qa-audit/v1.7.0",
+      "product-strategy/v1.1.0",
+      "product-strategy/v1.0.0",
+      "typesafe-triage/v2.9.2",
+      "typesafe-triage/v2.9.1",
+      "typesafe-triage/v2.9.0",
+      "typesafe-triage/v2.8.1",
+      "typesafe-triage/v2.8.0",
+      "typesafe-triage/v2.7.0",
+      "typesafe-triage/v2.6.1",
+      "typesafe-triage/v2.6.0",
+      "typesafe-triage/v2.5.0",
+      "android-qa-audit/v1.4.0",
+      "site-qa-audit/v1.6.0",
+      "typesafe-triage/v2.4.2",
+      "typesafe-triage/v2.4.1",
+      "android-qa-audit/v1.3.0",
+      "site-qa-audit/v1.5.0",
+      "typesafe-triage/v2.4.0",
+      "android-qa-audit/v1.2.0",
+      "site-qa-audit/v1.4.0",
+      "typesafe-triage/v2.3.0",
+      "android-qa-audit/v1.1.0",
+      "site-qa-audit/v1.3.0",
+      "typesafe-triage/v2.2.0",
+      "typesafe-triage/v2.1.2",
+      "typesafe-triage/v2.1.1",
+      "typesafe-triage/v2.1.0",
+      "site-qa-audit/v1.1.0",
+      "site-qa-audit/v1.0.3",
+      "site-qa-audit/v1.0.2",
+      "site-qa-audit/v1.0.1",
+      "site-qa-audit/v1.0.0"
+    ],
+    "monthly": {
+      "2026-10": 181
+    },
+    "tags_total": 39,
+    "tags_recent": [
+      {
+        "tag": "product-strategy/v1.2.0",
+        "date": "2026-10-10"
+      },
+      {
+        "tag": "android-qa-audit/v1.5.1",
+        "date": "2026-10-10"
+      },
+      {
+        "tag": "product-strategy/v1.1.1",
+        "date": "2026-10-10"
+      },
+      {
+        "tag": "site-qa-audit/v1.7.1",
+        "date": "2026-10-10"
+      },
+      {
+        "tag": "typesafe-triage/v2.9.3",
+        "date": "2026-10-10"
+      },
+      {
+        "tag": "android-qa-audit/v1.5.0",
+        "date": "2026-10-10"
+      },
+      {
+        "tag": "site-qa-audit/v1.7.0",
+        "date": "2026-10-10"
+      },
+      {
+        "tag": "product-strategy/v1.1.0",
+        "date": "2026-10-10"
+      },
+      {
+        "tag": "product-strategy/v1.0.0",
+        "date": "2026-10-10"
+      },
+      {
+        "tag": "typesafe-triage/v2.9.2",
+        "date": "2026-10-09"
+      },
+      {
+        "tag": "typesafe-triage/v2.9.1",
+        "date": "2026-10-09"
+      },
+      {
+        "tag": "typesafe-triage/v2.9.0",
+        "date": "2026-10-09"
+      },
+      {
+        "tag": "typesafe-triage/v2.8.1",
+        "date": "2026-10-09"
+      },
+      {
+        "tag": "typesafe-triage/v2.8.0",
+        "date": "2026-10-09"
+      },
+      {
+        "tag": "typesafe-triage/v2.7.0",
+        "date": "2026-10-09"
+      }
+    ]
+  },
+  "todo_markers": 19,
+  "todo_top_files": [
+    {
+      "file": "skills/product-strategy/tests/test_scan.py",
+      "count": 8
+    },
+    {
+      "file": "skills/product-strategy/scripts/repo_scan.py",
+      "count": 6
+    },
+    {
+      "file": "skills/site-qa-audit/scripts/e2e_stub.py",
+      "count": 3
+    },
+    {
+      "file": "skills/product-strategy/scripts/check_registry.py",
+      "count": 1
+    },
+    {
+      "file": "skills/site-qa-audit/tests/test_v140.sh",
+      "count": 1
+    }
+  ],
+  "prices": [
+    {
+      "file": "skills/android-qa-audit/scripts/guard.py",
+      "line": 705,
+      "value": 199,
+      "currency": "RUB",
+      "context": "text",
+      "kind": "literal",
+      "currency_from": "literal"
+    },
+    {
+      "file": "skills/product-strategy/scripts/build_html.py",
+      "line": 2121,
+      "value": 2,
+      "currency": "USD",
+      "context": "cost",
+      "kind": "constant",
+      "currency_from": "project"
+    },
+    {
+      "file": "skills/product-strategy/scripts/model.py",
+      "line": 69,
+      "value": 12,
+      "currency": "USD",
+      "context": "price_month[value]",
+      "kind": "table",
+      "currency_from": "nearby"
+    },
+    {
+      "file": "skills/product-strategy/scripts/model.py",
+      "line": 70,
+      "value": 29,
+      "currency": "USD",
+      "context": "price_one_time[value]",
+      "kind": "table",
+      "currency_from": "file"
+    },
+    {
+      "file": "skills/product-strategy/scripts/model.py",
+      "line": 141,
+      "value": 6,
+      "currency": "USD",
+      "context": "fixed_cost_month",
+      "kind": "constant",
+      "currency_from": "nearby"
+    },
+    {
+      "file": "skills/product-strategy/scripts/model.py",
+      "line": 142,
+      "value": 12,
+      "currency": "USD",
+      "context": "fixed_cost_month",
+      "kind": "constant",
+      "currency_from": "nearby"
+    },
+    {
+      "file": "skills/product-strategy/scripts/repo_scan.py",
+      "line": 711,
+      "value": 390,
+      "currency": "RUB",
+      "context": "PRICE_PRO",
+      "kind": "constant",
+      "currency_from": "file"
+    },
+    {
+      "file": "skills/product-strategy/scripts/repo_scan.py",
+      "line": 711,
+      "value": 9.99,
+      "currency": "RUB",
+      "context": "price",
+      "kind": "constant",
+      "currency_from": "file"
+    },
+    {
+      "file": "skills/product-strategy/scripts/repo_scan.py",
+      "line": 711,
+      "value": 490,
+      "currency": "RUB",
+      "context": "priceMonthly",
+      "kind": "constant",
+      "currency_from": "file"
+    },
+    {
+      "file": "skills/product-strategy/scripts/repo_scan.py",
+      "line": 720,
+      "value": 390,
+      "currency": "RUB",
+      "context": "в add",
+      "kind": "literal",
+      "currency_from": "literal"
+    },
+    {
+      "file": "skills/product-strategy/scripts/repo_scan.py",
+      "line": 720,
+      "value": 9.99,
+      "currency": "USD",
+      "context": "в add",
+      "kind": "literal",
+      "period": "month",
+      "currency_from": "literal"
+    },
+    {
+      "file": "skills/product-strategy/scripts/repo_scan.py",
+      "line": 720,
+      "value": 5,
+      "currency": "EUR",
+      "context": "в add",
+      "kind": "literal",
+      "currency_from": "literal"
+    },
+    {
+      "file": "skills/product-strategy/scripts/score.py",
+      "line": 42,
+      "value": 2,
+      "currency": "USD",
+      "context": "cost",
+      "kind": "constant",
+      "currency_from": "project"
+    },
+    {
+      "file": "skills/product-strategy/scripts/score.py",
+      "line": 57,
+      "value": 3.6,
+      "currency": "USD",
+      "context": "expensive_cost",
+      "kind": "constant",
+      "currency_from": "project"
+    },
+    {
+      "file": "skills/typesafe-triage/scripts/test_typesafe_feedback.py",
+      "line": 101,
+      "value": 3,
+      "currency": "USD",
+      "context": "cost",
+      "kind": "constant",
+      "currency_from": "file"
+    },
+    {
+      "file": "skills/typesafe-triage/scripts/triage_report.py",
+      "line": 18,
+      "value": 0.04,
+      "currency": "USD",
+      "context": "PRICE_PER_MTOK_USD",
+      "kind": "constant",
+      "currency_from": "key"
+    },
+    {
+      "file": "skills/typesafe-triage/scripts/typesafe_guard.py",
+      "line": 27,
+      "value": 0.04,
+      "currency": "USD",
+      "context": "PRICE_PER_MTOK_USD",
+      "kind": "constant",
+      "currency_from": "key"
+    },
+    {
+      "file": "skills/typesafe-triage/scripts/typesafe_guard.py",
+      "line": 44,
+      "value": 2,
+      "currency": "USD",
+      "context": "monthly_budget_usd",
+      "kind": "constant",
+      "currency_from": "key"
+    }
+  ],
+  "trials": [],
+  "platform_compat": {
+    "declared": [
+      "macos",
+      "windows"
+    ],
+    "declared_sources": [
+      {
+        "platform": "windows",
+        "file": "README.md",
+        "line": 20,
+        "source": "readme"
+      },
+      {
+        "platform": "macos",
+        "file": "README.md",
+        "line": 20,
+        "source": "readme"
+      },
+      {
+        "platform": "windows",
+        "file": "README.md",
+        "line": 73,
+        "source": "readme"
+      }
+    ],
+    "unix_only": [
+      {
+        "module": "os.getloadavg",
+        "file": "skills/android-qa-audit/scripts/adb_helpers.py",
+        "line": 1938,
+        "guarded": true
+      },
+      {
+        "module": "os.getuid",
+        "file": "skills/android-qa-audit/scripts/grpc_emu.py",
+        "line": 576,
+        "guarded": true
+      },
+      {
+        "module": "signal.SIGKILL",
+        "file": "skills/typesafe-triage/scripts/test_typesafe_hook_skip.py",
+        "line": 222,
+        "guarded": true
+      }
+    ],
+    "windows_only": [
+      {
+        "module": "ctypes.windll",
+        "file": "skills/android-qa-audit/scripts/sdkutil.py",
+        "line": 342,
+        "guarded": true
+      },
+      {
+        "module": "ctypes.windll",
+        "file": "skills/site-qa-audit/scripts/tabs.py",
+        "line": 106,
+        "guarded": true
+      }
+    ],
+    "mismatch": false,
+    "note": "",
+    "checked": "Python: импорты и вызовы ОС; защита — try/except, if по платформе, hasattr/getattr"
+  },
+  "secrets_skipped": [],
+  "notes": [
+    "skills/product-strategy/scripts/repo_scan.py: упомянуто 12 разных сервисов — похоже на список вендоров, учтено как слабый сигнал",
+    "skills/product-strategy/tests/test_scan.py: упомянуто 6 разных сервисов — похоже на список вендоров, учтено как слабый сигнал",
+    "ещё 70 Python-скриптов с __main__ не перечислены",
+    "интеграции только в тестах/примерах/документации или списках вендоров (слабый сигнал, не включены): analytics: Amplitude; analytics: AppMetrica; analytics: Google Analytics / GTM; analytics: Mixpanel; analytics: Segment; analytics: Yandex Metrica; payments: RevenueCat; payments: Stripe; ads: AppLovin; ads: Google AdSense; ads: Yandex Ads; crash: Sentry; feature_flags: Свои фича-флаги (эвристика)",
+    "секреты не читались: файлы из secrets_skipped пропущены по имени (файлы данных и конфигов с secret/token/password в имени)"
+  ],
+  "scan": {
+    "date": "2026-10-10",
+    "duration_s": 1.63,
+    "files_seen": 544,
+    "files_read": 527,
+    "skipped": {
+      "unknown_type": 16,
+      "binary_or_lock": 1
+    },
+    "truncated": false,
+    "max_files": 20000,
+    "max_file_bytes": 1000000,
+    "tool": "repo_scan.py",
+    "source": "git",
+    "files_listed": 555,
+    "tracked": 544,
+    "untracked": 11,
+    "files_not_visited": 0,
+    "skipped_dirs": [
+      {
+        "path": ".playwright-mcp",
+        "reason": "vendor",
+        "files": 11
+      }
+    ],
+    "skipped_dirs_total": 1,
+    "skipped_dirs_by_reason": {
+      "vendor": 1
+    },
+    "warnings": []
+  }
+}

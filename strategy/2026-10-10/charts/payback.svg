@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 569" width="960" height="569" role="img" font-family="system-ui, -apple-system, &#39;Segoe UI&#39;, Roboto, &#39;Helvetica Neue&#39;, Arial, sans-serif">
+<title>Безубыточность по времени за 6 мес. не достигается; базовый: 0,0 новых платящих, 0 ₽ выручки против 432 ч разработчика (≈ 648 000 ₽)</title>
+<desc>Сплошная — накопленная валовая выручка, пунктир — стоимость времени разработчика (ёмкость × ставка 1 500 ₽/ч) плюс постоянные затраты. Денежная «безубыточность» при нулевом бюджете вводит в заблуждение — сравнивается время.</desc>
+<rect x="0" y="0" width="960" height="569" fill="#FFFFFF"/>
+<text x="24" y="42.0" font-size="18" font-weight="700" fill="#1F2328">Безубыточность по времени за 6 мес. не достигается; базовый: 0,0 новых платящих, 0 ₽</text>
+<text x="24" y="65.4" font-size="18" font-weight="700" fill="#1F2328">выручки против 432 ч разработчика (≈ 648 000 ₽)</text>
+<text x="24" y="102.4" font-size="13" fill="#57606A">Сплошная — накопленная валовая выручка, пунктир — стоимость времени разработчика (ёмкость × ставка 1 500 ₽/ч) плюс</text>
+<text x="24" y="120.6" font-size="13" fill="#57606A">постоянные затраты. Денежная «безубыточность» при нулевом бюджете вводит в заблуждение — сравнивается время.</text>
+<line x1="104.0" y1="441.2" x2="786.0" y2="441.2" stroke="#E4E7EB" stroke-width="1"/>
+<text x="98.0" y="445.2" font-size="11" fill="#57606A" text-anchor="end">0</text>
+<line x1="104.0" y1="365.7" x2="786.0" y2="365.7" stroke="#E4E7EB" stroke-width="1"/>
+<text x="98.0" y="369.7" font-size="11" fill="#57606A" text-anchor="end">200 000</text>
+<line x1="104.0" y1="290.2" x2="786.0" y2="290.2" stroke="#E4E7EB" stroke-width="1"/>
+<text x="98.0" y="294.2" font-size="11" fill="#57606A" text-anchor="end">400 000</text>
+<line x1="104.0" y1="214.7" x2="786.0" y2="214.7" stroke="#E4E7EB" stroke-width="1"/>
+<text x="98.0" y="218.7" font-size="11" fill="#57606A" text-anchor="end">600 000</text>
+<line x1="104.0" y1="139.2" x2="786.0" y2="139.2" stroke="#E4E7EB" stroke-width="1"/>
+<text x="98.0" y="143.2" font-size="11" fill="#57606A" text-anchor="end">800 000</text>
+<text x="104.0" y="457.2" font-size="11" fill="#57606A" text-anchor="middle">1</text>
+<text x="240.4" y="457.2" font-size="11" fill="#57606A" text-anchor="middle">2</text>
+<text x="376.8" y="457.2" font-size="11" fill="#57606A" text-anchor="middle">3</text>
+<text x="513.2" y="457.2" font-size="11" fill="#57606A" text-anchor="middle">4</text>
+<text x="649.6" y="457.2" font-size="11" fill="#57606A" text-anchor="middle">5</text>
+<text x="786.0" y="457.2" font-size="11" fill="#57606A" text-anchor="middle">6</text>
+<polyline points="104.0,400.4 240.4,359.7 376.8,318.9 513.2,278.1 649.6,237.4 786.0,196.6" fill="none" stroke="#57606A" stroke-width="1.8" stroke-dasharray="6 4"/>
+<polyline points="104.0,441.2 240.4,441.2 376.8,441.2 513.2,441.2 649.6,441.2 786.0,441.2" fill="none" stroke="#D55E00" stroke-width="2.4" stroke-linejoin="round"/>
+<polyline points="104.0,441.2 240.4,441.2 376.8,441.2 513.2,441.2 649.6,441.2 786.0,441.2" fill="none" stroke="#0072B2" stroke-width="2.4" stroke-linejoin="round"/>
+<polyline points="104.0,441.2 240.4,441.2 376.8,441.2 513.2,441.2 649.6,441.2 786.0,441.2" fill="none" stroke="#009E73" stroke-width="2.4" stroke-linejoin="round"/>
+<text x="794.0" y="200.6" font-size="11" fill="#57606A" text-anchor="start" font-weight="600">время: 648 000 ₽</text>
+<text x="794.0" y="445.2" font-size="11" fill="#0072B2" text-anchor="start" font-weight="600">базовый: 0 ₽</text>
+<text x="794.0" y="460.2" font-size="11" fill="#009E73" text-anchor="start" font-weight="600">оптимистичный: 0 ₽</text>
+<text x="794.0" y="475.2" font-size="11" fill="#D55E00" text-anchor="start" font-weight="600">пессимистичный: 0 ₽</text>
+<text x="445.0" y="475.2" font-size="12" fill="#1F2328" text-anchor="middle">Месяц</text>
+<rect x="104.0" y="490.2" width="12.0" height="12.0" rx="2" fill="#57606A"/>
+<text x="122.0" y="499.2" font-size="12" fill="#1F2328" text-anchor="start">стоимость времени (пунктир)</text>
+<rect x="327.7" y="490.2" width="12.0" height="12.0" rx="2" fill="#D55E00"/>
+<text x="345.7" y="499.2" font-size="12" fill="#1F2328" text-anchor="start">выручка: пессимистичный</text>
+<rect x="525.9" y="490.2" width="12.0" height="12.0" rx="2" fill="#0072B2"/>
+<text x="543.9" y="499.2" font-size="12" fill="#1F2328" text-anchor="start">выручка: базовый</text>
+<rect x="670.2" y="490.2" width="12.0" height="12.0" rx="2" fill="#009E73"/>
+<text x="688.2" y="499.2" font-size="12" fill="#1F2328" text-anchor="start">выручка: оптимистичный</text>
+<text x="24" y="540.6" font-size="11" fill="#57606A">Источник: data/model.json (solo.scenarios.*.monthly, RUB) [допущение]</text>
+</svg>

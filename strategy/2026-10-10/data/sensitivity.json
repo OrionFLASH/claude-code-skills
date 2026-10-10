@@ -1,0 +1,302 @@
+{
+  "tornado": [
+    {
+      "param": "composite.wsjf",
+      "low_rank_shift": 1.671,
+      "low_top_overlap": 20,
+      "high_rank_shift": 1.452,
+      "high_top_overlap": 19,
+      "swing": 3.123
+    },
+    {
+      "param": "composite.risk_adjusted",
+      "low_rank_shift": 1.699,
+      "low_top_overlap": 19,
+      "high_rank_shift": 1.37,
+      "high_top_overlap": 20,
+      "swing": 3.069
+    },
+    {
+      "param": "composite.rice",
+      "low_rank_shift": 1.671,
+      "low_top_overlap": 19,
+      "high_rank_shift": 1.041,
+      "high_top_overlap": 20,
+      "swing": 2.712
+    },
+    {
+      "param": "composite.ice",
+      "low_rank_shift": 1.288,
+      "low_top_overlap": 20,
+      "high_rank_shift": 0.986,
+      "high_top_overlap": 20,
+      "swing": 2.274
+    },
+    {
+      "param": "cost.cost",
+      "low_rank_shift": 0.575,
+      "low_top_overlap": 19,
+      "high_rank_shift": 0.658,
+      "high_top_overlap": 20,
+      "swing": 1.233
+    },
+    {
+      "param": "cost.effort_days",
+      "low_rank_shift": 0.466,
+      "low_top_overlap": 20,
+      "high_rank_shift": 0.493,
+      "high_top_overlap": 19,
+      "swing": 0.959
+    },
+    {
+      "param": "cost.time_to_result",
+      "low_rank_shift": 0.603,
+      "low_top_overlap": 20,
+      "high_rank_shift": 0.329,
+      "high_top_overlap": 20,
+      "swing": 0.932
+    },
+    {
+      "param": "value.activation",
+      "low_rank_shift": 0.384,
+      "low_top_overlap": 20,
+      "high_rank_shift": 0.384,
+      "high_top_overlap": 20,
+      "swing": 0.768
+    },
+    {
+      "param": "value.demand",
+      "low_rank_shift": 0.356,
+      "low_top_overlap": 20,
+      "high_rank_shift": 0.411,
+      "high_top_overlap": 20,
+      "swing": 0.767
+    },
+    {
+      "param": "value.revenue",
+      "low_rank_shift": 0.356,
+      "low_top_overlap": 20,
+      "high_rank_shift": 0.411,
+      "high_top_overlap": 19,
+      "swing": 0.767
+    },
+    {
+      "param": "cost.dependencies",
+      "low_rank_shift": 0.466,
+      "low_top_overlap": 20,
+      "high_rank_shift": 0.219,
+      "high_top_overlap": 20,
+      "swing": 0.685
+    },
+    {
+      "param": "cost.money",
+      "low_rank_shift": 0.384,
+      "low_top_overlap": 20,
+      "high_rank_shift": 0.274,
+      "high_top_overlap": 20,
+      "swing": 0.658
+    },
+    {
+      "param": "value.reach",
+      "low_rank_shift": 0.411,
+      "low_top_overlap": 20,
+      "high_rank_shift": 0.247,
+      "high_top_overlap": 20,
+      "swing": 0.658
+    },
+    {
+      "param": "value.moat",
+      "low_rank_shift": 0.356,
+      "low_top_overlap": 20,
+      "high_rank_shift": 0.301,
+      "high_top_overlap": 20,
+      "swing": 0.657
+    },
+    {
+      "param": "risk.legal",
+      "low_rank_shift": 0.329,
+      "low_top_overlap": 20,
+      "high_rank_shift": 0.274,
+      "high_top_overlap": 20,
+      "swing": 0.603
+    },
+    {
+      "param": "value.seo",
+      "low_rank_shift": 0.301,
+      "low_top_overlap": 20,
+      "high_rank_shift": 0.274,
+      "high_top_overlap": 20,
+      "swing": 0.575
+    },
+    {
+      "param": "risk.risk",
+      "low_rank_shift": 0.219,
+      "low_top_overlap": 20,
+      "high_rank_shift": 0.274,
+      "high_top_overlap": 20,
+      "swing": 0.493
+    },
+    {
+      "param": "value.virality",
+      "low_rank_shift": 0.219,
+      "low_top_overlap": 20,
+      "high_rank_shift": 0.247,
+      "high_top_overlap": 20,
+      "swing": 0.466
+    },
+    {
+      "param": "value.conversion",
+      "low_rank_shift": 0.11,
+      "low_top_overlap": 20,
+      "high_rank_shift": 0.329,
+      "high_top_overlap": 20,
+      "swing": 0.439
+    },
+    {
+      "param": "risk.tech",
+      "low_rank_shift": 0.219,
+      "low_top_overlap": 20,
+      "high_rank_shift": 0.219,
+      "high_top_overlap": 20,
+      "swing": 0.438
+    },
+    {
+      "param": "value.value",
+      "low_rank_shift": 0.11,
+      "low_top_overlap": 20,
+      "high_rank_shift": 0.274,
+      "high_top_overlap": 20,
+      "swing": 0.384
+    },
+    {
+      "param": "value.fit",
+      "low_rank_shift": 0.137,
+      "low_top_overlap": 20,
+      "high_rank_shift": 0.219,
+      "high_top_overlap": 20,
+      "swing": 0.356
+    },
+    {
+      "param": "value.impact",
+      "low_rank_shift": 0.11,
+      "low_top_overlap": 20,
+      "high_rank_shift": 0.219,
+      "high_top_overlap": 20,
+      "swing": 0.329
+    },
+    {
+      "param": "value.acquisition",
+      "low_rank_shift": 0.164,
+      "low_top_overlap": 20,
+      "high_rank_shift": 0.164,
+      "high_top_overlap": 20,
+      "swing": 0.328
+    },
+    {
+      "param": "value.season",
+      "low_rank_shift": 0.137,
+      "low_top_overlap": 20,
+      "high_rank_shift": 0.164,
+      "high_top_overlap": 20,
+      "swing": 0.301
+    },
+    {
+      "param": "risk.platform",
+      "low_rank_shift": 0.164,
+      "low_top_overlap": 20,
+      "high_rank_shift": 0.11,
+      "high_top_overlap": 20,
+      "swing": 0.274
+    },
+    {
+      "param": "value.retention",
+      "low_rank_shift": 0.027,
+      "low_top_overlap": 20,
+      "high_rank_shift": 0.247,
+      "high_top_overlap": 20,
+      "swing": 0.274
+    },
+    {
+      "param": "risk.ip",
+      "low_rank_shift": 0.164,
+      "low_top_overlap": 20,
+      "high_rank_shift": 0.082,
+      "high_top_overlap": 20,
+      "swing": 0.246
+    },
+    {
+      "param": "value.trust",
+      "low_rank_shift": 0.082,
+      "low_top_overlap": 20,
+      "high_rank_shift": 0.164,
+      "high_top_overlap": 20,
+      "swing": 0.246
+    },
+    {
+      "param": "risk.privacy",
+      "low_rank_shift": 0.11,
+      "low_top_overlap": 20,
+      "high_rank_shift": 0.11,
+      "high_top_overlap": 20,
+      "swing": 0.22
+    },
+    {
+      "param": "risk.reputation",
+      "low_rank_shift": 0.137,
+      "low_top_overlap": 20,
+      "high_rank_shift": 0.082,
+      "high_top_overlap": 20,
+      "swing": 0.219
+    }
+  ],
+  "top20_stability": 0.95,
+  "runs": 62,
+  "top_n": 20,
+  "factors": [
+    0.5,
+    1.5
+  ],
+  "top20_base": [
+    "P001",
+    "P004",
+    "P017",
+    "P018",
+    "P019",
+    "P024",
+    "P029",
+    "P030",
+    "P032",
+    "P033",
+    "P042",
+    "P043",
+    "P044",
+    "P046",
+    "P050",
+    "P059",
+    "P060",
+    "P063",
+    "P069",
+    "P070"
+  ],
+  "always_top20": [
+    "P001",
+    "P004",
+    "P017",
+    "P018",
+    "P019",
+    "P024",
+    "P029",
+    "P030",
+    "P032",
+    "P033",
+    "P042",
+    "P043",
+    "P044",
+    "P046",
+    "P050",
+    "P059",
+    "P060",
+    "P069",
+    "P070"
+  ]
+}
