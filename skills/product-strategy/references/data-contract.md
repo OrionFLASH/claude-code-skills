@@ -32,14 +32,16 @@
   "product": {"name": "", "url": "", "local_run": "auto|command|none", "run_command": "", "type": "auto|saas|consumer|devtool|oss|content|game|bot|mobile|desktop|other", "known_facts": ""},
   "strategy": {"kind": "growth|gtm|monetization|tech-roadmap|oss-community|full", "goal": "", "depth": "quick|standard|deep|exhaustive",
                "proposals_min": 100, "horizon_months": 12, "vision_years": 3, "markets": ["ru", "en"],
-               "budget": {"variants": ["zero", "small", "medium"], "note": ""}, "paid_tier": "auto|yes|no", "constraints": ""},
+               "budget": {"variants": ["zero", "small", "medium"], "note": ""}, "paid_tier": "auto|yes|no", "constraints": "",
+               "categories_na": ["localization"]},
   "scope": {"repo_analysis": true, "app_run": true, "competitors": true, "competitors_min": 10, "communities": true, "keywords": true,
             "events": true, "legal": true, "issues": true, "design_mockups": true, "mockups_min": 12, "design_refs": true,
             "unit_economics": true, "experiments": 8, "specs_top": 10, "kanban_cards": 40},
   "sources": {"repo": true, "issues": true, "web_search": true, "web_search_budget_per_hour": 100, "analytics_exports": [],
               "owner_docs": [], "competitor_list": [], "other": ""},
   "formats": {"html": true, "xlsx": true, "pptx": true, "pdf": true, "md": true},
-  "tools": {"typesafe": "auto|on|off", "browser": "auto|playwright|chrome|none", "subagents": true, "max_parallel_agents": 5},
+  "tools": {"typesafe": "auto|on|off", "browser": "auto|playwright|chrome|none", "subagents": true, "max_parallel_agents": 5,
+            "install": "local-auto|ask|never"},
   "output": {"dir": "/abs/<OUT>", "inside_repo": true, "git_branch": "docs/strategy-YYYY-MM-DD"},
   "language": "ru",
   "autopilot": false,
@@ -100,6 +102,8 @@
   "merged_from": ["G1-03", "G4-11"]
 }
 ```
+Необязательные поля шкал для формулы уверенности: `scores.testability` (1–5, можно ли дёшево проверить) и `scores.spread` (1–5, разброс оценок экспертов/агентов). `strategy.categories_na` — категории, неприменимые к продукту: минимумы для них не проверяются (причину — в отчёт).
+
 Шкалы 1–5; `cost` и `risk`: 1 — дёшево/безопасно, 5 — дорого/опасно. Подшкалы `reach…season` необязательны (по умолчанию = `value`). `horizon`: now — 0–3 мес, next — 3–12 мес, later — 1–2 года, vision — 2+ года.
 
 ## data/scores.json (пишет `score.py`)
@@ -143,3 +147,17 @@ Markdown, разделы `## N. Заголовок` (порядок — `referen
 
 ## data/typesafe-jev.json (необязательно, `typesafe_eval.py`)
 `{"model": "jev", "date", "questions": [{"key", "text", "kind": "p|score|choice"}], "items": {"P001": {"p_success": 0.0, "p_user_value": 0.0, "risk": 0.0, "…": …}}, "skipped": "причина|null"}`. Ключ — только из переменной `TYPESAFE_API_KEY`, в файлы не пишется.
+
+## Дополнительные поля и файлы (1.0)
+Скрипты пишут больше, чем требует схема выше; поля только добавляются, существующие не меняются. Читатели (веб-страница, XLSX, колода) используют их, если они есть.
+- `data/repo-scan.json`: `repo.remote_host|is_git|readme_title|readme_summary`, `stack.data_languages|dependencies_count|large_files_bytes`, `routes[].framework|kind(page|api)|method`, `features[].kind`, `i18n.libraries`, `quality.deploy`, `docs.other`, `git.tags_total|tags_recent`, `integrations_evidence{cat:{name:[{file,line,source,weak}]}}`, `todo_top_files`, `scan{seconds,files,truncated}`. `entrypoints[].kind` дополнительно: `extension|plugin|game`.
+- `data/scores.json`: дублирует `title, category, evidence_class, horizon, kano` и пишет `value_index, cost_index, risk_index, effort_days_mid, reach_units, cost_of_delay, n_*` (нормированные метрики).
+- `data/weights.json`: схема — `references/scoring.md` (композит `{"composite": {rice, ice, wsjf, risk_adj}}`, подшкалы `value|cost|risk`).
+- `data/sensitivity.json`: дополнительно `*_top_overlap, swing, top_n, always_top20`.
+- `data/model.json`: `currency, revenue_model, arppu, ltv_cac, breakeven_month, totals`; в `monthly[]` — `cum_margin, cum_cost, visitors, signups, marketing`. Параметры — `build/model-params.json`.
+- `data/sources.json`: `status` — фактический HTTP-код (200/403/404…) или `null`; анти-бот помечается в `note`. `check_links.py` пишет `data/links-check.csv` (`url, status, verdict, final_url, checked, origins`).
+- `data/competitors.json`: `shot_error` (строка или null), `shot_blocked` пишется всегда.
+- `charts/charts-index.json`: ключи `effort-impact, bubble, metrics-heatmap, radar-top10, pareto, tornado, dist-category, dist-evidence, dist-horizon, gantt, funnel, forecast-fan, cac-ltv, payback, keywords-volume, events-calendar, competitors-heatmap`; секции `scores|registry|plan|model|market`. Гант — ключ `gantt`.
+- Служебные: `build/merge-report.json` (merge_proposals), `data/registry-check.json` (check_registry), `data/issues.json` + `data/issues-demand.csv` + `research/issues-demand.md` (issues_export), `data/site-audit.json` (audit_site), `data/mockups-check.json` (shoot_mockups), `build/deck.json` + `build/deck.html` (колода: `{meta, slides[{type: title|section|bullets|image|stats|table|card, appendix, notes, sources}]}`).
+- Вставка блок-схемы в `research/strategy.md`: `![[flow:<key>]]` (ключ из `data/flows.json`).
+- Фрагменты параллельных агентов: `data/sources-<group>.json`, `data/competitors-cards-<N>.json`, `build/parts/*.md` — оркестратор сводит их в основные файлы.

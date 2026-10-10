@@ -40,10 +40,26 @@ def _pick_category(rnd):
     return CATEGORIES[0][0]
 
 
+def _quota_categories(n, rnd):
+    """Категории по квотам (минимумы check_registry выполняются), остаток — по весам, порядок перемешан."""
+    import math
+    quota = {cat: max(1, math.ceil(n * w)) for cat, w in CATEGORIES}
+    while sum(quota.values()) > n:                 # лишнее снимаем с самых крупных категорий, минимумы не трогаем
+        big = max(quota, key=lambda c: quota[c] - n * dict(CATEGORIES)[c])
+        quota[big] -= 1
+    cats = [c for c, k in quota.items() for _ in range(k)]
+    while len(cats) < n:
+        cats.append(_pick_category(rnd))
+    rnd.shuffle(cats)
+    return cats
+
+
 def proposals(n, rnd):
     out = []
+    seen = {}
+    cats = _quota_categories(n, rnd)
     for i in range(1, n + 1):
-        cat = _pick_category(rnd) if i > len(CATEGORIES) else CATEGORIES[i - 1][0]
+        cat = cats[i - 1]
         obj = rnd.choice(OBJECTS[cat])
         cls = rnd.choices("ABCD", weights=[35, 32, 22, 11])[0]
         value, cost, risk = rnd.randint(1, 5), rnd.randint(1, 5), rnd.randint(1, 4)
@@ -51,7 +67,7 @@ def proposals(n, rnd):
         horizon = rnd.choices(["now", "next", "later", "vision"], weights=[30, 40, 20, 10])[0]
         out.append({
             "id": "P%03d" % i,
-            "title": "%s %s" % (rnd.choice(VERBS), obj),
+            "title": _unique_title("%s %s" % (rnd.choice(VERBS), obj), seen),
             "category": cat,
             "segment": rnd.choice(["новые пользователи", "активные пользователи", "команды", "англоязычный рынок"]),
             "description": "Демо: %s — что именно сделать, в каком объёме и для кого." % obj,
@@ -83,6 +99,11 @@ def proposals(n, rnd):
             "merged_from": [],
         })
     return out
+
+
+def _unique_title(t, seen):
+    seen[t] = seen.get(t, 0) + 1
+    return t if seen[t] == 1 else "%s (вариант %d)" % (t, seen[t])
 
 
 def write(out, rel, obj):

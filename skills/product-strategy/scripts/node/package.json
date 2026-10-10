@@ -1,0 +1,14 @@
+{
+  "name": "product-strategy-node",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Локальные Node-модули скилла product-strategy: PPTX (pptxgenjs) и PDF/скриншоты (playwright). Ставятся в <OUT>/build/node через check_env.py --install-node, не глобально.",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "playwright": "1.64.0",
+    "pptxgenjs": "4.0.1"
+  }
+}
