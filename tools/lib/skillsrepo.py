@@ -142,6 +142,19 @@ def _sums():
     return skill_sums
 
 
+LICENSE_FILE = ROOT / "LICENSE"
+LICENSE_SPDX = "PolyForm-Noncommercial-1.0.0"
+
+
+def vendor_license(skill):
+    """Лицензия едет вместе с плагином: при установке из маркетплейса копируется только папка скила, корневого LICENSE там нет."""
+    if LICENSE_FILE.exists():
+        dst = skill / "LICENSE"
+        if not dst.exists() or dst.read_bytes() != LICENSE_FILE.read_bytes():
+            shutil.copyfile(LICENSE_FILE, dst)
+            print(f"license: LICENSE -> {dst.relative_to(ROOT)}")
+
+
 def refresh_sums(skill):
     """Скилы с файлом SHA256SUMS (2.6.0, #48: проверяемость обновлений) — пересчитать суммы после vendor_shared."""
     if (skill / "SHA256SUMS").exists():
@@ -156,6 +169,7 @@ def sync(names=None):
     plugins = {p["name"]: p for p in market.get("plugins", [])}
     for skill in skill_dirs(names):
         vendor_shared(skill)
+        vendor_license(skill)
         info = plugin_info(skill)
         refresh_sums(skill)
         entry = plugins.get(info["name"], {})
@@ -167,6 +181,8 @@ def sync(names=None):
         })
         if "keywords" in info:
             entry["keywords"] = info["keywords"]
+        if info.get("license"):
+            entry["license"] = info["license"]
         plugins[info["name"]] = entry
     market["plugins"] = [plugins[k] for k in sorted(plugins)]
     dump_json(MARKETPLACE, market)
@@ -246,6 +262,18 @@ def validate(names=None):
                 e(f"нет файла {req}")
         if not (skill / "tests").is_dir():
             e("нет папки tests/")
+        if LICENSE_FILE.exists():
+            lf = skill / "LICENSE"
+            if not lf.exists():
+                e("нет файла LICENSE (копия корневого: tools/validate.sh --fix)")
+            elif lf.read_bytes() != LICENSE_FILE.read_bytes():
+                e("LICENSE отличается от корневого — запустите tools/validate.sh --fix")
+            try:
+                lic = plugin_info(skill).get("license")
+            except Exception:
+                lic = None
+            if lic != LICENSE_SPDX:
+                e(f'в plugin.json нет "license": "{LICENSE_SPDX}"')
         skill_md = skill / "SKILL.md"
         if skill_md.exists():
             fm = parse_frontmatter(skill_md.read_text(encoding="utf-8"))

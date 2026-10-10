@@ -346,3 +346,10 @@ product-strategy 1.0.0 влит в main, тег запушен, плагин у�
 - [x] #91 брифы, локаль ru, профиль zero-budget-solo
 - [x] #92 интеграция (build_all, SKILL.md, контракт, INSTALL), 189 тестов, сквозной прогон на реальных данных (smoke 27/0), версия 1.1.0
 - [ ] выпуск: влить в main, тег, установить, проверить установленную копию, удалить ветки
+
+## 2026-10-10 (18) лицензия репозитория — PolyForm Noncommercial 1.0.0
+- [x] LICENSE (корень и папка каждого скила), license в plugin.json, раздел в README, правило в CONVENTIONS, проверка и копирование в tools/validate.sh
+- [x] Патч-релизы: typesafe-triage 2.9.3, site-qa-audit 1.7.1, android-qa-audit 1.5.1, product-strategy 1.1.1; тесты всех зелёные
+- [x] Ролики QA: site-qa-audit 1.7.0, android-qa-audit 1.5.0 выпущены и установлены; живая запись на установленной копии
+### Где остановился
+Всё влито в main, теги стоят, плагины обновлены (новая сессия или /reload-plugins). Открытых пунктов нет. Если нужна менее строгая лицензия (разрешить коммерческое использование без права конкурировать) — заменить текст в LICENSE на PolyForm Shield 1.0.0 и константу LICENSE_SPDX в tools/lib/skillsrepo.py, затем tools/validate.sh --fix.
