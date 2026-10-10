@@ -63,6 +63,9 @@ def init(out):
     if not tp.exists():
         tp.write_text("# STRATEGY_TASKS — чек-лист прогона стратегии\n\nФазы — в build/STATUS.md; здесь — найденные по дороге задачи.\n\n"
                       "- [ ] фаза 0–9 по build/STATUS.md\n\n## Где остановился\n\n—\n", encoding="utf-8")
+    if cfg and not (cfg.get("output") or {}).get("inside_repo", True):
+        print("ВНИМАНИЕ: результат лежит ВНЕ репозитория (в git проекта не попадёт). Если нужна папка внутри репозитория: "
+              "init_run.py %s --relocate <repo>/strategy/<дата> --repo <repo> --inside-repo" % out, file=sys.stderr)
     print("OUT=%s" % out)
     return 0
 

@@ -373,6 +373,7 @@ def test_node_scripts_exit_3_without_modules(tmp_path, bare):
     if (SCRIPTS / "node" / "node_modules").exists() or (bare / "build" / "node" / "node_modules").exists():
         pytest.skip("модули лежат рядом со скриптом или в <OUT>/build/node")
     env = {k: v for k, v in os.environ.items() if k != "PS_NODE_DIR"}
+    env["HOME"] = env["USERPROFILE"] = str(tmp_path / "home")          # кэш ~/.cache/product-strategy/node не должен подхватываться
     for script, mod in (("build_pptx.mjs", "pptxgenjs"), ("deck_pdf.mjs", "playwright")):
         r = run_node(script, bare, str(tmp_path / "empty"), env=env)
         assert r.returncode == 3, (script, r.stderr)
