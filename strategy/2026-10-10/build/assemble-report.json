@@ -1,0 +1,168 @@
+{
+  "ok": true,
+  "date": "2026-10-10",
+  "mode": "parts",
+  "written": false,
+  "checked_only": false,
+  "strategy": "research/strategy.md",
+  "previous_saved": null,
+  "parts": [
+    "build/parts/strategy-01.md",
+    "build/parts/strategy-02.md",
+    "build/parts/strategy-06.md",
+    "build/parts/strategy-10.md",
+    "build/parts/strategy-14.md"
+  ],
+  "section_source": {
+    "1": "build/parts/strategy-01.md",
+    "2": "build/parts/strategy-02.md",
+    "3": "build/parts/strategy-02.md",
+    "4": "build/parts/strategy-02.md",
+    "5": "build/parts/strategy-02.md",
+    "6": "build/parts/strategy-06.md",
+    "7": "build/parts/strategy-06.md",
+    "8": "build/parts/strategy-06.md",
+    "9": "build/parts/strategy-06.md",
+    "10": "build/parts/strategy-10.md",
+    "11": "build/parts/strategy-10.md",
+    "12": "build/parts/strategy-10.md",
+    "13": "build/parts/strategy-10.md",
+    "14": "build/parts/strategy-14.md",
+    "15": "build/parts/strategy-14.md",
+    "16": "build/parts/strategy-14.md",
+    "17": "build/parts/strategy-14.md"
+  },
+  "sections_present": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17
+  ],
+  "sections_missing": [],
+  "words": {
+    "1": 760,
+    "2": 1077,
+    "3": 1121,
+    "4": 909,
+    "5": 641,
+    "6": 1376,
+    "7": 1088,
+    "8": 1068,
+    "9": 820,
+    "10": 1483,
+    "11": 835,
+    "12": 729,
+    "13": 826,
+    "14": 1662,
+    "15": 716,
+    "16": 330,
+    "17": 517
+  },
+  "words_total": 15958,
+  "substituted": {
+    "rank": 8,
+    "deprank": 36
+  },
+  "mockups_resolved": [],
+  "mockups_removed": [],
+  "mockups_inserted": [],
+  "markers": {
+    "chart": 16,
+    "mockup": 0,
+    "ref": 0,
+    "flow": 0
+  },
+  "urls_checked": 38,
+  "unlabeled_numbers": {
+    "count": 12,
+    "examples": [
+      {
+        "line": 758,
+        "section": 12,
+        "text": "| 3 | первые прогоны с отчётом | < 60 % | 90-дневная точка | стоп новых функций, чинить установку |"
+      },
+      {
+        "line": 808,
+        "section": 14,
+        "text": "| 1 | 10.10–09.11.2026 | 8,4 | 8,1 | 96 % |"
+      },
+      {
+        "line": 809,
+        "section": 14,
+        "text": "| 2 | 10.11–09.12.2026 | 8,4 | 8,4 | 100 % |"
+      },
+      {
+        "line": 810,
+        "section": 14,
+        "text": "| 3 | 10.12.2026–09.01.2027 | 8,4 | 8,0 | 95 % |"
+      },
+      {
+        "line": 811,
+        "section": 14,
+        "text": "| 4 | 10.01–09.02.2027 | 8,4 | 7,5 | 89 % |"
+      },
+      {
+        "line": 812,
+        "section": 14,
+        "text": "| 5 | 10.02–09.03.2027 | 8,4 | 8,25 | 98 % |"
+      },
+      {
+        "line": 813,
+        "section": 14,
+        "text": "| 6 | 10.03–09.04.2027 | 8,4 | 8,25 | 98 % |"
+      },
+      {
+        "line": 814,
+        "section": 14,
+        "text": "| **Итого** | | 50,4 | 48,5 | 96 % |"
+      },
+      {
+        "line": 861,
+        "section": 14,
+        "text": "| G23 | 9 | Стоимость прогона (P001) | ошибка ≤ 50 % | — |"
+      },
+      {
+        "line": 899,
+        "section": 14,
+        "text": "**Месяцы 7–12:** вторая волна по воротам и удержание флагмана — решение по P024 на 2027-04-10, дельта в 100 % повторных прогонов (P004), пов"
+      },
+      {
+        "line": 978,
+        "section": 16,
+        "text": "2. Лимит превышен — доводим начатое; вопросы внешних пользователей — из резерва 30 %."
+      },
+      {
+        "line": 1020,
+        "section": 17,
+        "text": "- **Ёмкость** — дни разработчика в месяц; в план идёт 70 %."
+      }
+    ]
+  },
+  "errors": [],
+  "warnings": [
+    {
+      "code": "unlabeled_numbers",
+      "message": "12 фрагментов с числами (%, деньги) без метки [факт|оценка|допущение] — проверьте вручную",
+      "severity": "warning"
+    }
+  ],
+  "notes": [],
+  "counts": {
+    "errors": 0,
+    "warnings": 1,
+    "notes": 0
+  }
+}

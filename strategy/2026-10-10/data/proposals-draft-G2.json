@@ -1,0 +1,2089 @@
+[
+  {
+    "id": "G2-01",
+    "title": "Заполнить метаданные репозитория: темы GitHub, описание, social preview",
+    "category": "acquisition",
+    "segment": "Разработчики и QA, ищущие скилы Claude Code через поиск и темы GitHub",
+    "description": "Владелец добавляет в репозиторий OrionFLASH/claude-code-skills темы (claude-code, claude-code-plugin, agent-skills, qa, accessibility, android-testing), переписывает описание под ценность и грузит картинку social preview.",
+    "rationale": "Темы — штатный механизм обзора репозиториев по предметной области; сейчас тем нет (topics: []), а описание «Мои скилы…» не говорит, что даёт продукт. Правка занимает час, ban-риска нет.",
+    "evidence": [
+      {
+        "kind": "docs",
+        "url": "https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/classifying-your-repository-with-topics",
+        "file": null,
+        "title": "GitHub Docs: Classifying your repository with topics",
+        "note": "Темы позволяют исследовать репозитории по предметной области.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "repo",
+        "url": null,
+        "file": "claude-code-skills-strategy/2026-10-10/data/repo-facts.json:17",
+        "title": "repo-facts: topics пусты, описание «Мои скилы…»",
+        "note": "topics: [], описание без ценности",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "A",
+    "current_feature": "нет: темы пусты и описание личное (data/repo-facts.json:17; research/product-understanding.md:28)",
+    "effect_kpi": [
+      {
+        "kpi": "Переходы на репозиторий из поиска и тем GitHub",
+        "direction": "up",
+        "range": "+5..20 просмотров в неделю [допущение: база 36 просмотров за 14 дней]",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Выбрать 8–12 тем",
+        "where": "Settings → About → Topics",
+        "how": "Сверить с темами соседних репозиториев (gstack, awesome-claude-code)",
+        "doc_url": null
+      },
+      {
+        "what": "Переписать описание в одну фразу ценности",
+        "where": "Settings → About",
+        "how": "Например «QA сайта и Android, стратегия роста и выбор модели: 4 скила для Claude Code»",
+        "doc_url": null
+      },
+      {
+        "what": "Загрузить social preview 1280×640",
+        "where": "Settings → Social preview",
+        "how": "Название, 4 скила, команда установки",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [],
+    "effort_days": [
+      0.2,
+      0.5
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Платных каналов нет."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 1,
+      "reputation": 1,
+      "note": "Обратимо за минуты."
+    },
+    "time_to_first_result_days": 3,
+    "cheap_test": "Через 2 недели сравнить Insights → Traffic: referrers и просмотры с темами и без.",
+    "scores": {
+      "value": 3,
+      "cost": 1,
+      "risk": 1,
+      "confidence": 3,
+      "reach": 2,
+      "acquisition": 3,
+      "seo": 3,
+      "virality": 1,
+      "season": 1,
+      "trust": 2
+    },
+    "kano": "linear",
+    "horizon": "now",
+    "horizon_years": 0,
+    "tags": [
+      "github",
+      "seo"
+    ],
+    "mockup": null,
+    "source_group": "G2"
+  },
+  {
+    "id": "G2-02",
+    "title": "Подать плагины в официальный каталог anthropics/claude-plugins-official",
+    "category": "acquisition",
+    "segment": "Все пользователи Claude Code, открывающие /plugin → Discover",
+    "description": "Владелец отправляет через форму приёма по одному плагину (начать с site-qa-audit и typesafe-triage), приложив README с демо, список проверок и описание мер безопасности.",
+    "rationale": "Официальный каталог — главный канал обнаружения (37,6 тыс. звёзд), ban-риск 1. Критерии «качество и безопасность» открыты в общем виде, поэтому заявка сильнее с README-витриной и описанием guard/dry-run.",
+    "evidence": [
+      {
+        "kind": "docs",
+        "url": "https://github.com/anthropics/claude-plugins-official",
+        "file": null,
+        "title": "claude-plugins-official README: форма приёма",
+        "note": "Внешние плагины подают через форму; нужны стандарты качества и безопасности.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "research",
+        "url": null,
+        "file": "claude-code-skills-strategy/2026-10-10/data/communities.json",
+        "title": "communities.json: правила каталога",
+        "note": "Форма приёма, ban_risk 1, критерии не детализированы",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "A",
+    "current_feature": "нет: в официальный каталог не подавались (research/product-understanding.md:28; marketplace только свой .claude-plugin/marketplace.json)",
+    "effect_kpi": [
+      {
+        "kpi": "Установки из официального каталога",
+        "direction": "up",
+        "range": "0 → десятки/мес при одобрении",
+        "label": "допущение"
+      },
+      {
+        "kpi": "Доля одобренных заявок",
+        "direction": "up",
+        "range": "0 → 1–2 из 4",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Прочитать текущие критерии",
+        "where": "README каталога → форма",
+        "how": "Открыть clau.de/plugin-directory-submission, выписать требования",
+        "doc_url": "https://clau.de/plugin-directory-submission"
+      },
+      {
+        "what": "Выбрать порядок: site-qa-audit, затем typesafe-triage",
+        "where": "Форма",
+        "how": "По одному плагину на заявку",
+        "doc_url": null
+      },
+      {
+        "what": "Приложить ссылки на README, INSTALL, SECURITY-описание guard",
+        "where": "Форма",
+        "how": "Использовать витрину из G2-13",
+        "doc_url": null
+      },
+      {
+        "what": "Зафиксировать ответ и замечания",
+        "where": "Своя заметка",
+        "how": "Исправить и подать повторно",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [
+      "G2-13"
+    ],
+    "effort_days": [
+      1,
+      3
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Платных каналов нет."
+    },
+    "risks": {
+      "legal": 3,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 1,
+      "reputation": 1,
+      "note": "Совместимость лицензии PolyForm NC с приёмом каталога не проверена; возможен отказ."
+    },
+    "time_to_first_result_days": 14,
+    "cheap_test": "Подать site-qa-audit одним плагином и посмотреть ответ.",
+    "scores": {
+      "value": 5,
+      "cost": 2,
+      "risk": 2,
+      "confidence": 3,
+      "reach": 4,
+      "acquisition": 5,
+      "seo": 2,
+      "virality": 2,
+      "season": 2
+    },
+    "kano": "delight",
+    "horizon": "now",
+    "horizon_years": 0,
+    "tags": [
+      "catalog"
+    ],
+    "mockup": null,
+    "source_group": "G2"
+  },
+  {
+    "id": "G2-03",
+    "title": "Подать по одному плагину в awesome-claude-code после 21.10.2026",
+    "category": "acquisition",
+    "segment": "Читатели крупнейшего списка Claude Code (55,4 тыс. звёзд)",
+    "description": "Владелец подаёт через веб-форму issue (человеком, не gh CLI и не PR) отдельную заявку на каждый плагин: сухое описание в одну строку без эмодзи и рекламы.",
+    "rationale": "Список принимает ресурсы старше 14 дней с активной разработкой или от 100 звёзд; наш репозиторий создан 2026-10-07 [допущение: дата допуска 2026-10-21], звёзд нет. ban_risk 2.",
+    "evidence": [
+      {
+        "kind": "docs",
+        "url": "https://raw.githubusercontent.com/hesreallyhim/awesome-claude-code/main/CONTRIBUTING.md",
+        "file": null,
+        "title": "awesome-claude-code CONTRIBUTING",
+        "note": "Подача через форму issue; ресурс старше 14 дней или от 100 звёзд; один ресурс на заявку.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "community",
+        "url": "https://github.com/hesreallyhim/awesome-claude-code",
+        "file": null,
+        "title": "awesome-claude-code (репозиторий)",
+        "note": "55,4 тыс. звёзд на 2026-10-10",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "A",
+    "current_feature": "нет: в списке нас нет (research/communities.md:22)",
+    "effect_kpi": [
+      {
+        "kpi": "Переходы из awesome-claude-code",
+        "direction": "up",
+        "range": "+20..100 в месяц [допущение]",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Дождаться 2026-10-21 и перечитать CONTRIBUTING",
+        "where": "README/CONTRIBUTING списка",
+        "how": "Проверить, не изменились ли условия",
+        "doc_url": null
+      },
+      {
+        "what": "Подготовить 4 описания по одной строке",
+        "where": "Черновик",
+        "how": "Что делает, без рекламы",
+        "doc_url": null
+      },
+      {
+        "what": "Подать заявки человеком через форму, с паузой между ними",
+        "where": "Issue form списка",
+        "how": "Не использовать gh CLI/PR",
+        "doc_url": null
+      },
+      {
+        "what": "Отслеживать ответ",
+        "where": "Issue",
+        "how": "Не просить поддержку голосами",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [
+      "G2-13"
+    ],
+    "effort_days": [
+      0.5,
+      1.5
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Платных каналов нет."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 2,
+      "privacy": 1,
+      "tech": 1,
+      "reputation": 2,
+      "note": "Нарушение формата заявки → отказ; отбор курируемый, ответ не гарантирован."
+    },
+    "time_to_first_result_days": 21,
+    "cheap_test": "Подать site-qa-audit; считать отказ нормальным исходом.",
+    "scores": {
+      "value": 4,
+      "cost": 1,
+      "risk": 2,
+      "confidence": 3,
+      "reach": 4,
+      "acquisition": 4,
+      "seo": 2,
+      "virality": 2,
+      "season": 3
+    },
+    "kano": "linear",
+    "horizon": "now",
+    "horizon_years": 0,
+    "tags": [
+      "catalog",
+      "awesome"
+    ],
+    "mockup": null,
+    "source_group": "G2"
+  },
+  {
+    "id": "G2-04",
+    "title": "Проверить и подтвердить присутствие во всех автоиндексах каталогов скилов",
+    "category": "acquisition",
+    "segment": "Пользователи, ищущие скилы в сторонних витринах",
+    "description": "Владелец проверяет, находятся ли 4 плагина на claudemarketplaces.com, claudepluginhub.com, vibeindex.ai и подобных, и исправляет marketplace.json и plugin.json (описания, ключевые слова), а при отсутствии в индексе пишет редактору.",
+    "rationale": "claudemarketplaces.com формы подачи не имеет: краулеры находят валидные маркетплейсы на GitHub. У нас валидный .claude-plugin/marketplace.json и keywords у плагинов, но индексация не проверена.",
+    "evidence": [
+      {
+        "kind": "docs",
+        "url": "https://claudemarketplaces.com/about",
+        "file": null,
+        "title": "claudemarketplaces.com: about",
+        "note": "Формы нет: краулеры находят маркетплейсы на GitHub; спорные проверяет редактор.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "repo",
+        "url": null,
+        "file": ".claude-plugin/marketplace.json:13",
+        "title": "marketplace.json: плагины с keywords и лицензией",
+        "note": "Есть keywords и license",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "A",
+    "current_feature": "частично: валидный marketplace.json есть (.claude-plugin/marketplace.json:1), индексация не проверялась",
+    "effect_kpi": [
+      {
+        "kpi": "Число каталогов, где виден маркетплейс",
+        "direction": "up",
+        "range": "0 подтверждено → 3–4",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Поиск по названию в каждом каталоге",
+        "where": "claudemarketplaces.com, claudepluginhub.com, vibeindex.ai",
+        "how": "Записать найден/не найден",
+        "doc_url": null
+      },
+      {
+        "what": "Привести описания к одной фразе ценности",
+        "where": "marketplace.json, plugin.json",
+        "how": "Короче, чем длинные списки функций",
+        "doc_url": null
+      },
+      {
+        "what": "При отсутствии — письмо редактору",
+        "where": "Контакт на странице about",
+        "how": "Без просьб о продвижении",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [],
+    "effort_days": [
+      0.3,
+      1
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Платных каналов нет."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 1,
+      "reputation": 1,
+      "note": "Данные в каталогах чужие, влиять можно только на источник."
+    },
+    "time_to_first_result_days": 7,
+    "cheap_test": "Проверить поиском по названию за час.",
+    "scores": {
+      "value": 2,
+      "cost": 1,
+      "risk": 1,
+      "confidence": 3,
+      "reach": 2,
+      "acquisition": 2,
+      "seo": 2,
+      "virality": 1,
+      "season": 1
+    },
+    "kano": "linear",
+    "horizon": "now",
+    "horizon_years": 0,
+    "tags": [
+      "catalog"
+    ],
+    "mockup": null,
+    "source_group": "G2"
+  },
+  {
+    "id": "G2-05",
+    "title": "Страницы-ответы на узкие RU/EN-запросы с низкой конкуренцией в docs/",
+    "category": "acquisition",
+    "segment": "Разработчики и QA, ищущие «android QA adb», «issues из аудита», «effort субагентов»",
+    "description": "Написать 6–8 коротких страниц-ответов в docs/answers/ (вопрос → ответ → команда установки): Android QA через adb, черновики GitHub issues из находок QA, как задать model и effort субагенту, как установить маркетплейс плагинов.",
+    "rationale": "По оценке выдачи кластеры «issues из находок QA» (конкуренция 2,5) и «Android QA» (2,7) слабо закрыты; про effort субагентов пишут мало. Файлы Markdown репозитория индексируются без сайта.",
+    "evidence": [
+      {
+        "kind": "research",
+        "url": null,
+        "file": "claude-code-skills-strategy/2026-10-10/research/keywords.md:11",
+        "title": "keywords.md: кластеры с низкой конкуренцией",
+        "note": "Issues из находок QA 2,5; Android QA 2,7; объёмов нет",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "docs",
+        "url": "https://docs.humanlayer.com/reference/subagent-models",
+        "file": null,
+        "title": "HumanLayer: модели и effort субагентов",
+        "note": "inherit effort не задаёт (из пересказа поиска)",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "C",
+    "current_feature": "нет: отдельных страниц-ответов в репозитории нет (проверено docs/, README.md)",
+    "effect_kpi": [
+      {
+        "kpi": "Органические визиты на страницы docs/answers",
+        "direction": "up",
+        "range": "+10..50 в месяц [допущение]",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Выбрать 6 запросов с competition ≤ 3",
+        "where": "data/keywords.json",
+        "how": "Взять en и ru варианты",
+        "doc_url": null
+      },
+      {
+        "what": "Писать страницу: вопрос, ответ в 3 строки, шаги, команда установки",
+        "where": "docs/answers/*.md",
+        "how": "Без рекламы; честные ограничения",
+        "doc_url": null
+      },
+      {
+        "what": "Добавить ссылки из README",
+        "where": "README.md",
+        "how": "Раздел «Частые вопросы»",
+        "doc_url": null
+      },
+      {
+        "what": "Через 6 недель проверить показы",
+        "where": "Google Search Console, если подключён сайт",
+        "how": "Иначе GitHub Traffic → popular content",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [],
+    "effort_days": [
+      3,
+      6
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Платных каналов нет."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 1,
+      "reputation": 1,
+      "note": "Спрос в числах неизвестен."
+    },
+    "time_to_first_result_days": 42,
+    "cheap_test": "Написать 2 страницы и сравнить GitHub Traffic через 3 недели.",
+    "scores": {
+      "value": 3,
+      "cost": 3,
+      "risk": 1,
+      "confidence": 2,
+      "reach": 3,
+      "acquisition": 3,
+      "seo": 3,
+      "virality": 1,
+      "season": 1
+    },
+    "kano": "linear",
+    "horizon": "next",
+    "horizon_years": 0,
+    "tags": [
+      "seo",
+      "docs"
+    ],
+    "mockup": null,
+    "source_group": "G2"
+  },
+  {
+    "id": "G2-06",
+    "title": "Технический разбор хука UserPromptSubmit для выбора модели и effort на dev.to",
+    "category": "acquisition",
+    "segment": "Разработчики Claude Code, считающие токены",
+    "description": "Владелец публикует статью с кодом: как хук добавляет заметку «модель × effort × действие», какие ограничения (смена модели ломает кэш), честные цифры; ссылка на репозиторий вторична.",
+    "rationale": "Спрос подтверждён: issue anthropics/claude-code #43326 (40 👍). dev.to допускает технический пост с кодом при собственном содержании. Конкурент-хук имеет 102 звезды — тема живая.",
+    "evidence": [
+      {
+        "kind": "community",
+        "url": "https://github.com/anthropics/claude-code/issues/43326",
+        "file": null,
+        "title": "Issue #43326: автовыбор модели и effort",
+        "note": "Запрос на автоподбор модели и effort по сложности задачи.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "docs",
+        "url": "https://dev.to/terms",
+        "file": null,
+        "title": "DEV Community Terms: Content Policy",
+        "note": "Нельзя писать главным образом ради продвижения; нужно собственное содержание.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "B",
+    "current_feature": "частично: хук и триаж есть в skills/typesafe-triage (README.md:15), статей нет",
+    "effect_kpi": [
+      {
+        "kpi": "Переходы в репозиторий со статьи",
+        "direction": "up",
+        "range": "+50..300 за статью [допущение]",
+        "label": "допущение"
+      },
+      {
+        "kpi": "Звёзды",
+        "direction": "up",
+        "range": "+2..10 [допущение]",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Собрать измерения и ограничения",
+        "where": "skills/typesafe-triage/",
+        "how": "Журнал фактов, честные границы",
+        "doc_url": null
+      },
+      {
+        "what": "Написать статью с кодом хука",
+        "where": "dev.to (личный аккаунт)",
+        "how": "Заголовок про задачу, не про продукт",
+        "doc_url": null
+      },
+      {
+        "what": "Опубликовать самим владельцем и ответить на комментарии",
+        "where": "dev.to",
+        "how": "Не просить голосов",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [
+      "G2-14"
+    ],
+    "effort_days": [
+      2,
+      4
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Платных каналов нет."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 1,
+      "reputation": 2,
+      "note": "Читаться как реклама, если мало содержания."
+    },
+    "time_to_first_result_days": 10,
+    "cheap_test": "Выложить черновик знакомому разработчику и спросить, полезно ли без репозитория.",
+    "scores": {
+      "value": 3,
+      "cost": 2,
+      "risk": 2,
+      "confidence": 3,
+      "reach": 3,
+      "acquisition": 3,
+      "seo": 2,
+      "virality": 2,
+      "season": 1
+    },
+    "kano": "delight",
+    "horizon": "now",
+    "horizon_years": 0,
+    "tags": [
+      "content",
+      "dev.to"
+    ],
+    "mockup": null,
+    "source_group": "G2"
+  },
+  {
+    "id": "G2-07",
+    "title": "Кейс на vc.ru: стратегия роста по репозиторию — что нашлось у самого проекта",
+    "category": "acquisition",
+    "segment": "Основатели, продакты и соло-разработчики из RU-аудитории",
+    "description": "Владелец публикует разбор: product-strategy прогнал стратегию по собственному репозиторию — что нашлось, цифры, ошибки; без коммерческих призывов.",
+    "rationale": "vc.ru допускает ссылки на собственные ресурсы, пока они полезны и не коммерческие; наш продукт бесплатный и NC. Конкуренты в нише заканчивают на документе, у нас — реестр и отслеживание.",
+    "evidence": [
+      {
+        "kind": "docs",
+        "url": "https://vc.ru/rules",
+        "file": null,
+        "title": "vc.ru: правила",
+        "note": "Ссылки на свои ресурсы допускаются, если полезны и не коммерческие.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "competitor",
+        "url": "https://claudskills.com/skills/codebase-audit-and-roadmap/",
+        "file": null,
+        "title": "codebase-audit-and-roadmap",
+        "note": "Лёгкий аналог: аудит и дорожная карта одним проходом",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "B",
+    "current_feature": "нет: публикаций о продукте нет",
+    "effect_kpi": [
+      {
+        "kpi": "Переходы с vc.ru",
+        "direction": "up",
+        "range": "+30..200 [допущение]",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Подготовить обезличенную версию стратегии",
+        "where": "Папка прогона",
+        "how": "Убрать личные пути и данные",
+        "doc_url": null
+      },
+      {
+        "what": "Написать статью с цифрами и ошибками",
+        "where": "vc.ru",
+        "how": "Без призывов, без отзывов за награду",
+        "doc_url": null
+      },
+      {
+        "what": "Опубликовать самим и ответить в комментариях",
+        "where": "vc.ru",
+        "how": "Раскрыть авторство",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [
+      "G2-15"
+    ],
+    "effort_days": [
+      2,
+      4
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Платных каналов нет."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 2,
+      "privacy": 1,
+      "tech": 1,
+      "reputation": 2,
+      "note": "ban_risk 3; блог, читающийся как реклама, ограничивают."
+    },
+    "time_to_first_result_days": 14,
+    "cheap_test": "Прочитать правила и показать черновик 2–3 знакомым.",
+    "scores": {
+      "value": 3,
+      "cost": 2,
+      "risk": 3,
+      "confidence": 3,
+      "reach": 3,
+      "acquisition": 3,
+      "seo": 2,
+      "virality": 2,
+      "season": 1
+    },
+    "kano": "delight",
+    "horizon": "next",
+    "horizon_years": 0,
+    "tags": [
+      "content",
+      "ru"
+    ],
+    "mockup": null,
+    "source_group": "G2"
+  },
+  {
+    "id": "G2-08",
+    "title": "Запуск в формате «покажи проект»: Show HN, затем Product Hunt",
+    "category": "acquisition",
+    "segment": "Англоязычные разработчики и мейкеры",
+    "description": "После README-витрины и GIF владелец публикует один Show HN (site-qa-audit как главный) и отдельный запуск на Product Hunt, без просьб о голосах.",
+    "rationale": "Show HN разрешён для готового проекта, который можно попробовать без регистрации; Product Hunt просит личный аккаунт и запрещает просить апвоты. Лучше после 21.10 и после витрины, иначе всплеск уйдёт впустую.",
+    "evidence": [
+      {
+        "kind": "community",
+        "url": "https://news.ycombinator.com/showhn.html",
+        "file": null,
+        "title": "Show HN Guidelines",
+        "note": "Проект можно попробовать без регистрации; нельзя просить голосов.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "community",
+        "url": "https://www.producthunt.com/launch",
+        "file": null,
+        "title": "Product Hunt: launch guide",
+        "note": "Нужен личный аккаунт; нельзя прямо просить апвоты (пересказ в communities.json).",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "B",
+    "current_feature": "нет: запусков не было",
+    "effect_kpi": [
+      {
+        "kpi": "Визиты в день запуска",
+        "direction": "up",
+        "range": "+200..2000 [допущение]",
+        "label": "допущение"
+      },
+      {
+        "kpi": "Установки за неделю",
+        "direction": "up",
+        "range": "+5..30 [допущение]",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Проверить правила Show HN и PH",
+        "where": "news.ycombinator.com/showhn.html",
+        "how": "Перечитать накануне",
+        "doc_url": null
+      },
+      {
+        "what": "Подготовить заголовок и первый комментарий",
+        "where": "Черновик",
+        "how": "Что делает, ограничения, лицензия NC открыто",
+        "doc_url": null
+      },
+      {
+        "what": "Опубликовать самим, отвечать в первые часы",
+        "where": "Show HN",
+        "how": "Один пост",
+        "doc_url": null
+      },
+      {
+        "what": "Product Hunt через 1–2 недели",
+        "where": "PH",
+        "how": "Личный аккаунт",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [
+      "G2-13",
+      "G2-14",
+      "G2-16"
+    ],
+    "effort_days": [
+      2,
+      4
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Платных каналов нет."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 3,
+      "privacy": 1,
+      "tech": 1,
+      "reputation": 3,
+      "note": "ban_risk 3; лицензия не OSI может вызвать критику; без демо-GIF запуск слабый."
+    },
+    "time_to_first_result_days": 30,
+    "cheap_test": "Один Show HN; метрика — установки по Traffic и звёзды за неделю.",
+    "scores": {
+      "value": 4,
+      "cost": 2,
+      "risk": 3,
+      "confidence": 3,
+      "reach": 4,
+      "acquisition": 4,
+      "seo": 1,
+      "virality": 3,
+      "season": 2
+    },
+    "kano": "delight",
+    "horizon": "next",
+    "horizon_years": 0,
+    "tags": [
+      "launch"
+    ],
+    "mockup": null,
+    "source_group": "G2"
+  },
+  {
+    "id": "G2-09",
+    "title": "Пост «QA-находки → черновики issues» к GitHub Universe 28–29.10.2026",
+    "category": "acquisition",
+    "segment": "Разработчики и QA, следящие за агентными рабочими процессами в дни конференции",
+    "description": "Владелец публикует пост и демо (GIF) про то, чего нет ни у одного из 15 конкурентов: находки QA превращаются в черновики GitHub issues по формам репозитория, с перепроверкой.",
+    "rationale": "Находки → issues не заявлены ни у одного из 15 конкурентов; GitHub Universe проходит 28–29.10 в Сан-Франциско и поднимает интерес к агентам. Окно закрывается через 18 дней, поэтому нужен только материал, а не новая функция.",
+    "evidence": [
+      {
+        "kind": "research",
+        "url": "https://github.blog/author/arielkanter/",
+        "file": null,
+        "title": "events: GitHub Universe 2026, 28–29 октября",
+        "note": "Конференция GitHub 28–29.10.2026, Fort Mason",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "research",
+        "url": null,
+        "file": "claude-code-skills-strategy/2026-10-10/research/competitors.md:39",
+        "title": "competitors.md: матрица функций",
+        "note": "Находки → черновики issues: 0 из 15 конкурентов",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "B",
+    "current_feature": "есть сама функция (черновики issues по формам: README.md:14), публикаций нет",
+    "effect_kpi": [
+      {
+        "kpi": "Переходы с поста",
+        "direction": "up",
+        "range": "+50..300 [допущение]",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Записать 20-секундный ролик находки → черновик",
+        "where": "shared/scripts/qa_clips.py",
+        "how": "Взять тренировочный сайт с разрешением на тесты",
+        "doc_url": null
+      },
+      {
+        "what": "Написать пост 300–500 слов",
+        "where": "dev.to или блог владельца",
+        "how": "Показать механику и ограничения",
+        "doc_url": null
+      },
+      {
+        "what": "Опубликовать 27–29.10",
+        "where": "Площадка по G2-06",
+        "how": "Не просить голосов",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [
+      "G2-14"
+    ],
+    "effort_days": [
+      2,
+      3
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Платных каналов нет."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 1,
+      "reputation": 2,
+      "note": "Календарь: окно 18 дней."
+    },
+    "time_to_first_result_days": 18,
+    "cheap_test": "Выложить пост и сравнить Traffic с базой 36 просмотров за 14 дней.",
+    "scores": {
+      "value": 3,
+      "cost": 2,
+      "risk": 2,
+      "confidence": 3,
+      "reach": 3,
+      "acquisition": 3,
+      "seo": 1,
+      "virality": 2,
+      "season": 5
+    },
+    "kano": "delight",
+    "horizon": "now",
+    "horizon_years": 0,
+    "tags": [
+      "event",
+      "content"
+    ],
+    "mockup": null,
+    "source_group": "G2"
+  },
+  {
+    "id": "G2-10",
+    "title": "Подать заявки на доклады: HighLoad++, Saint HighLoad++ и профильные QA-митапы",
+    "category": "acquisition",
+    "segment": "RU-инженеры и QA на конференциях",
+    "description": "Владелец готовит тезисы «QA-агенты: от находки до issue» и «выбор модели и effort в Claude Code» и подаёт их в программные комитеты и на митапы.",
+    "rationale": "HighLoad++ 2026 (30.11–04.12) и Saint HighLoad++ (июнь 2027) — события календаря; доклад даёт долгие ссылки и контакты. Дата HighLoad++ подозрительно длинная, сверить; срок подачи на 2026 может быть закрыт.",
+    "evidence": [
+      {
+        "kind": "research",
+        "url": "https://highload.ru/",
+        "file": null,
+        "title": "HighLoad++ (официальный сайт)",
+        "note": "Московская конференция 30.11–04.12.2026 (дату сверить)",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "research",
+        "url": null,
+        "file": "claude-code-skills-strategy/2026-10-10/research/events.md:27",
+        "title": "events.md: окна возможностей",
+        "note": "Подать доклад или митап по QA-агентам и выбору модели",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "C",
+    "current_feature": "нет: докладов нет",
+    "effect_kpi": [
+      {
+        "kpi": "Принятые доклады",
+        "direction": "up",
+        "range": "0 → 1 за год",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Проверить сроки подачи",
+        "where": "highload.ru",
+        "how": "Решить, 2026 или 2027",
+        "doc_url": null
+      },
+      {
+        "what": "Написать тезисы на 2 темы",
+        "where": "Черновик",
+        "how": "С живым показом на тренировочном сайте",
+        "doc_url": null
+      },
+      {
+        "what": "Подать заявки и записать ответы",
+        "where": "Форма CFP",
+        "how": "Учесть, что платформа выступления должна разрешать личную демонстрацию",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [
+      "G2-14"
+    ],
+    "effort_days": [
+      2,
+      5
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Платных каналов нет."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 1,
+      "reputation": 1,
+      "note": "Отказ вероятен: опыта выступлений нет."
+    },
+    "time_to_first_result_days": 60,
+    "cheap_test": "Подать одни тезисы на ближайший митап.",
+    "scores": {
+      "value": 3,
+      "cost": 3,
+      "risk": 1,
+      "confidence": 2,
+      "reach": 2,
+      "acquisition": 3,
+      "seo": 1,
+      "virality": 2,
+      "season": 3
+    },
+    "kano": "delight",
+    "horizon": "later",
+    "horizon_years": 1,
+    "tags": [
+      "event",
+      "ru"
+    ],
+    "mockup": null,
+    "source_group": "G2"
+  },
+  {
+    "id": "G2-11",
+    "title": "Присутствие в showcase-ветках: мегатред Built with Claude и Discord Anthropic",
+    "category": "acquisition",
+    "segment": "Пользователи Claude Code в англоязычных сообществах",
+    "description": "Владелец после чтения правил размещает один короткий пост в мегатреде Built with Claude (r/ClaudeAI) и в showcase-канале Discord, если он есть; затем отвечает на вопросы, а не рекламирует.",
+    "rationale": "Мегатред — штатный формат показа проектов при малой карме; правила Rule 7 не прочитаны, Discord-правил нет, поэтому предложение условное и дешёвое.",
+    "evidence": [
+      {
+        "kind": "community",
+        "url": "https://redlib.groet-infra.nl/r/ClaudeAI/comments/1sly3jm/built_with_claude_project_showcase_megathread/oq1cg2n/?context=3",
+        "file": null,
+        "title": "r/ClaudeAI: мегатред Built with Claude",
+        "note": "Проекты направляют в мегатред Built with Claude (фрагмент зеркала).",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "C",
+    "current_feature": "нет: присутствия нет",
+    "effect_kpi": [
+      {
+        "kpi": "Переходы из сообществ",
+        "direction": "up",
+        "range": "+10..50 [допущение]",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Прочитать правила и Rule 7 вручную",
+        "where": "reddit.com/r/ClaudeAI",
+        "how": "Reddit недоступен ИИ-инструментам",
+        "doc_url": null
+      },
+      {
+        "what": "Написать пост по шаблону мегатреда",
+        "where": "Мегатред",
+        "how": "Что делает, чем отличается, ограничения",
+        "doc_url": null
+      },
+      {
+        "what": "Отвечать на вопросы 3 дня",
+        "where": "Тред",
+        "how": "Только по существу",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [
+      "G2-14"
+    ],
+    "effort_days": [
+      0.5,
+      1.5
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Платных каналов нет."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 3,
+      "privacy": 1,
+      "tech": 1,
+      "reputation": 3,
+      "note": "ban_risk 3; правила не проверены первоисточником."
+    },
+    "time_to_first_result_days": 7,
+    "cheap_test": "Один пост; при удалении — не повторять.",
+    "scores": {
+      "value": 2,
+      "cost": 1,
+      "risk": 3,
+      "confidence": 2,
+      "reach": 2,
+      "acquisition": 2,
+      "seo": 1,
+      "virality": 2,
+      "season": 1
+    },
+    "kano": "linear",
+    "horizon": "next",
+    "horizon_years": 0,
+    "tags": [
+      "community"
+    ],
+    "mockup": null,
+    "source_group": "G2"
+  },
+  {
+    "id": "G2-12",
+    "title": "Развести бренд с daymade/claude-code-skills: уникальное имя в выдаче и каталогах",
+    "category": "acquisition",
+    "segment": "Все, кто ищет «claude-code-skills»",
+    "description": "Проверить поиск по имени «claude-code-skills» и решить: добавить уникальный префикс/слоган (например, в описании и README), а переименование маркетплейса оформить отдельным решением с оценкой поломки install-команд.",
+    "rationale": "Репозиторий daymade/claude-code-skills (≈1,5 тыс. звёзд, MIT, «Professional Claude Code skills marketplace») носит то же имя; в брендовой выдаче нас вытеснят. Переименование ломает ссылки и установку, поэтому сначала дешёвые меры.",
+    "evidence": [
+      {
+        "kind": "competitor",
+        "url": "https://github.com/daymade/claude-code-skills",
+        "file": null,
+        "title": "daymade/claude-code-skills",
+        "note": "Публичный маркетплейс с тем же именем, ≈1,5k звёзд, MIT.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "competitor",
+        "url": "https://claudemarketplaces.com/skills/daymade/claude-code-skills/marketplace-dev",
+        "file": null,
+        "title": "claudemarketplaces: marketplace-dev (daymade)",
+        "note": "Страница каталога на тот же репозиторий",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "A",
+    "current_feature": "нет: имя generic, уникального слогана нет (README.md:1-3)",
+    "effect_kpi": [
+      {
+        "kpi": "Доля брендовой выдачи по имени проекта",
+        "direction": "up",
+        "range": "нас в топ-10 по точному имени [допущение]",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Поиск по «claude-code-skills» и «OrionFLASH claude-code-skills»",
+        "where": "Google, GitHub",
+        "how": "Записать, кто выше",
+        "doc_url": null
+      },
+      {
+        "what": "Добавить слоган/префикс в описание и заголовок README",
+        "where": "README.md, About",
+        "how": "Не менять имя маркетплейса",
+        "doc_url": null
+      },
+      {
+        "what": "Оформить переименование как отдельное решение",
+        "where": "Заметка владельца",
+        "how": "Оценить поломку команды /plugin marketplace add",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [],
+    "effort_days": [
+      0.5,
+      2
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Платных каналов нет."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 1,
+      "reputation": 2,
+      "note": "Переименование необратимо ломает установки; в рамках шага не делается."
+    },
+    "time_to_first_result_days": 7,
+    "cheap_test": "Проверить поиск за 15 минут.",
+    "scores": {
+      "value": 3,
+      "cost": 2,
+      "risk": 2,
+      "confidence": 3,
+      "reach": 3,
+      "acquisition": 3,
+      "seo": 3,
+      "virality": 1,
+      "season": 1
+    },
+    "kano": "linear",
+    "horizon": "now",
+    "horizon_years": 0,
+    "tags": [
+      "brand"
+    ],
+    "mockup": null,
+    "source_group": "G2"
+  },
+  {
+    "id": "G2-13",
+    "title": "Переделать README в витрину: ценность в одной фразе, GIF, установка в три строки",
+    "category": "conversion",
+    "segment": "Посетители репозитория, решающие за минуту, ставить ли",
+    "description": "Верх README: фраза ценности, GIF/скриншот на скил, команды /plugin marketplace add и install, требования, ссылка на честные ограничения; таблицу и подробности — ниже.",
+    "rationale": "Сейчас README начинается «Личная коллекция скилов» (README.md:3), без скриншота; у gstack и tzachbon установка в одну команду и демо. Посетитель без цели уходит за 30 секунд.",
+    "evidence": [
+      {
+        "kind": "repo",
+        "url": null,
+        "file": "README.md:3",
+        "title": "README.md: начало",
+        "note": "Начинается с «Личная коллекция скилов…», без скриншотов",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "competitor",
+        "url": "https://github.com/garrytan/gstack",
+        "file": null,
+        "title": "gstack и claude-model-router-hook: вход",
+        "note": "Установка одной командой, демо/пример вывода в README (из карточек).",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "B",
+    "current_feature": "нет: README без GIF/скриншота (README.md:1-17; research/product-understanding.md:32)",
+    "effect_kpi": [
+      {
+        "kpi": "Конверсия визит → звезда/установка",
+        "direction": "up",
+        "range": "+1..3 п.п. [допущение: база не измерялась]",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Написать верхний блок",
+        "where": "README.md",
+        "how": "Фраза ценности, GIF, 3 строки установки",
+        "doc_url": null
+      },
+      {
+        "what": "Разделить по скилам: что даёт, пример промпта, время",
+        "where": "README.md",
+        "how": "По одной карточке",
+        "doc_url": null
+      },
+      {
+        "what": "Вынести подробности установки вниз",
+        "where": "README.md → INSTALL.md",
+        "how": "Не дублировать",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [
+      "G2-14"
+    ],
+    "effort_days": [
+      1,
+      3
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Платных каналов нет."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 1,
+      "reputation": 1,
+      "note": "Только документация."
+    },
+    "time_to_first_result_days": 3,
+    "cheap_test": "Показать новый верх 3 знакомым и спросить «что делает проект?».",
+    "scores": {
+      "value": 4,
+      "cost": 2,
+      "risk": 1,
+      "confidence": 4,
+      "reach": 5,
+      "activation": 4,
+      "conversion": 3,
+      "trust": 3
+    },
+    "kano": "must",
+    "horizon": "now",
+    "horizon_years": 0,
+    "tags": [
+      "readme",
+      "conversion"
+    ],
+    "mockup": null,
+    "source_group": "G2"
+  },
+  {
+    "id": "G2-14",
+    "title": "Сделать GIF и ролики первой минуты из реальных прогонов существующими утилитами",
+    "category": "conversion",
+    "segment": "Посетители, не готовые ставить без просмотра",
+    "description": "Записать по одному короткому ролику на скил (сайт: находка → черновик issue; Android: сценарий на эмуляторе; триаж: заметка ДЕЙСТВИЕ; стратегия: страница) и собрать GIF до 1,5 МБ утилитой to_gif.",
+    "rationale": "Утилита qa_clips.to_gif уже даёт GIF для находок, но в README роликов нет. Затрат на хостинг нет: GIF и PNG лежат в репозитории.",
+    "evidence": [
+      {
+        "kind": "repo",
+        "url": null,
+        "file": "shared/scripts/qa_clips.py:12",
+        "title": "shared/scripts/qa_clips.py: to_gif",
+        "note": "Утилита делает mp4 и GIF для коротких роликов",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "docs",
+        "url": "https://docs.github.com/en/site-policy/acceptable-use-policies/github-acceptable-use-policies",
+        "file": null,
+        "title": "GitHub AUP: реклама в README допустима",
+        "note": "Рекламный текст в README допустим, если относится к проекту (communities.json).",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "C",
+    "current_feature": "частично: инструмент есть (shared/scripts/qa_clips.py:12), готовых роликов в README нет",
+    "effect_kpi": [
+      {
+        "kpi": "Досмотры и переходы к установке",
+        "direction": "up",
+        "range": "+10..30% к конверсии README [допущение]",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Выбрать сценарии на тренировочных сайтах и пустом приложении",
+        "where": "Локально",
+        "how": "Без чужих данных",
+        "doc_url": null
+      },
+      {
+        "what": "Записать и сжать",
+        "where": "qa_clips.compress/to_gif",
+        "how": "≤1,5 МБ на GIF",
+        "doc_url": null
+      },
+      {
+        "what": "Положить в docs/media и вставить в README",
+        "where": "README.md",
+        "how": "С подписью, что показано",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [],
+    "effort_days": [
+      2,
+      4
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Платных каналов нет."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 1,
+      "reputation": 1,
+      "note": "Не показывать чужие сайты и ключи."
+    },
+    "time_to_first_result_days": 5,
+    "cheap_test": "Сделать один GIF для site-qa-audit.",
+    "scores": {
+      "value": 4,
+      "cost": 2,
+      "risk": 1,
+      "confidence": 3,
+      "reach": 4,
+      "activation": 3,
+      "conversion": 3,
+      "trust": 3
+    },
+    "kano": "delight",
+    "horizon": "now",
+    "horizon_years": 0,
+    "tags": [
+      "media"
+    ],
+    "mockup": null,
+    "source_group": "G2"
+  },
+  {
+    "id": "G2-15",
+    "title": "Опубликовать демо-отчёты: пример QA-отчёта и страницы стратегии без установки",
+    "category": "conversion",
+    "segment": "Скептики, желающие увидеть результат до установки",
+    "description": "Положить в docs/examples обезличенные результаты: HTML-отчёт site-qa-audit по тренировочному сайту и страницу стратегии product-strategy (результат этого прогона по собственному репозиторию), с оговоркой «пример».",
+    "rationale": "Результат — главный аргумент для скилов процесса. Демо-отчётов в открытом виде нет; страница стратегии по самому проекту уже существует.",
+    "evidence": [
+      {
+        "kind": "research",
+        "url": null,
+        "file": null,
+        "title": "Нет открытых примеров вывода",
+        "note": "Вывод: результат нельзя оценить без установки (логический вывод из README.md:1-17).",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "D",
+    "current_feature": "нет: примеров в репозитории нет (research/product-understanding.md:58)",
+    "effect_kpi": [
+      {
+        "kpi": "Переходы к установке после просмотра примера",
+        "direction": "up",
+        "range": "+0,5..2 п.п. [допущение]",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Выбрать тренировочный сайт, разрешающий тесты",
+        "where": "Условия сайта",
+        "how": "Не использовать чужие продуктовые сайты",
+        "doc_url": null
+      },
+      {
+        "what": "Прогнать отчёт, убрать личные пути",
+        "where": "docs/examples/",
+        "how": "Проверить на секреты",
+        "doc_url": null
+      },
+      {
+        "what": "Взять страницу стратегии как вторую витрину",
+        "where": "deliverables/",
+        "how": "Убрать абсолютные пути",
+        "doc_url": null
+      },
+      {
+        "what": "Ссылки из README и карточек каталогов",
+        "where": "README.md",
+        "how": "",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [],
+    "effort_days": [
+      2,
+      5
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Платных каналов нет."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 2,
+      "tech": 1,
+      "reputation": 1,
+      "note": "Не утечь личные пути и ключи."
+    },
+    "time_to_first_result_days": 7,
+    "cheap_test": "Опубликовать один отчёт и посмотреть клики по ссылке.",
+    "scores": {
+      "value": 4,
+      "cost": 3,
+      "risk": 2,
+      "confidence": 2,
+      "reach": 3,
+      "activation": 4,
+      "conversion": 3,
+      "trust": 4
+    },
+    "kano": "delight",
+    "horizon": "now",
+    "horizon_years": 0,
+    "tags": [
+      "demo"
+    ],
+    "mockup": null,
+    "source_group": "G2"
+  },
+  {
+    "id": "G2-16",
+    "title": "Quickstart «первый результат за 5 минут» для каждого скила: промпт и ожидаемый вывод",
+    "category": "conversion",
+    "segment": "Новые пользователи после установки",
+    "description": "На каждый скил — страница из трёх шагов: установка, готовый промпт (например, smoke по тренировочному сайту), что появится в папке результатов и сколько займёт.",
+    "rationale": "Сейчас установка site-qa-audit требует npm install и playwright (README.md:44) и чтения INSTALL.md; у конкурентов вход одной командой. Первый успех должен быть быстрым и дешёвым (smoke, ограничение страниц).",
+    "evidence": [
+      {
+        "kind": "repo",
+        "url": null,
+        "file": "README.md:44",
+        "title": "README.md: что делать после обновления",
+        "note": "site-qa-audit требует npm install и playwright",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "competitor",
+        "url": "https://github.com/tzachbon/claude-model-router-hook",
+        "file": null,
+        "title": "Конкуренты: вход в одну команду",
+        "note": "npx skills add, curl-установка, один SKILL.md (competitors.md).",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "B",
+    "current_feature": "частично: промпты в INSTALL.md и пример smoke (skills/site-qa-audit/README.md:69), общего quickstart нет",
+    "effect_kpi": [
+      {
+        "kpi": "Доля установивших, дошедших до первого отчёта",
+        "direction": "up",
+        "range": "+10..20 п.п. [допущение]",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Определить минимальный сценарий на скил",
+        "where": "skills/*/README.md",
+        "how": "Smoke и лимит страниц",
+        "doc_url": null
+      },
+      {
+        "what": "Написать quickstart",
+        "where": "docs/quickstart/*.md",
+        "how": "Время и ожидаемые файлы",
+        "doc_url": null
+      },
+      {
+        "what": "Проверить на чистой машине",
+        "where": "Новая учётка",
+        "how": "Записать ошибки",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [],
+    "effort_days": [
+      2,
+      4
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Платных каналов нет."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 1,
+      "reputation": 1,
+      "note": "Только документация; проверка на чистой машине."
+    },
+    "time_to_first_result_days": 7,
+    "cheap_test": "Попросить знакомого пройти quickstart и засечь время.",
+    "scores": {
+      "value": 4,
+      "cost": 2,
+      "risk": 1,
+      "confidence": 3,
+      "reach": 4,
+      "activation": 4,
+      "conversion": 2,
+      "trust": 3
+    },
+    "kano": "must",
+    "horizon": "now",
+    "horizon_years": 0,
+    "tags": [
+      "onboarding"
+    ],
+    "mockup": null,
+    "source_group": "G2"
+  },
+  {
+    "id": "G2-17",
+    "title": "Блок «кому подходит, что потребуется, сколько стоит прогон, лицензия» на входе README",
+    "category": "conversion",
+    "segment": "Решающие, ставить ли, включая корпоративных пользователей",
+    "description": "Короткая таблица в README: требования, примерная нагрузка (числа из прогонов, помеченные как оценка), лицензия NC и что она значит для компании, что скил не делает.",
+    "rationale": "Доверие у конкурентов подрывают скрытые стоимости (код во внешний сервис #3102, 23 тыс. токенов за сессию). У нас лицензия NC и тяжёлый запуск; честный блок снижает отказ после установки.",
+    "evidence": [
+      {
+        "kind": "community",
+        "url": "https://github.com/garrytan/gstack/issues",
+        "file": null,
+        "title": "gstack issues: отправка кода без запроса (#3102)",
+        "note": "Жалоба на передачу кода внешнему сервису (по research/competitors.md).",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "community",
+        "url": "https://aiweekly.co/alerts/claude-code-skills-waste-23k-tokens-per-session",
+        "file": null,
+        "title": "AI Weekly: скилы тратят 23K токенов за сессию",
+        "note": "Оценка одного автора",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "B",
+    "current_feature": "частично: лицензия описана внизу README (README.md:79-89), требований и стоимости наверху нет",
+    "effect_kpi": [
+      {
+        "kpi": "Доля отказов после установки",
+        "direction": "down",
+        "range": "−5..15% [допущение]",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Собрать числа",
+        "where": "Журналы прогонов",
+        "how": "Метка «оценка»",
+        "doc_url": null
+      },
+      {
+        "what": "Написать таблицу",
+        "where": "README.md",
+        "how": "Требования, нагрузка, лицензия, ограничения",
+        "doc_url": null
+      },
+      {
+        "what": "Согласовать с текстом лицензии",
+        "where": "LICENSE",
+        "how": "Не давать юридических гарантий",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [],
+    "effort_days": [
+      1,
+      2
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Платных каналов нет."
+    },
+    "risks": {
+      "legal": 2,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 1,
+      "reputation": 1,
+      "note": "Не заявлять сверх лицензии."
+    },
+    "time_to_first_result_days": 3,
+    "cheap_test": "Показать таблицу трём пользователям.",
+    "scores": {
+      "value": 3,
+      "cost": 1,
+      "risk": 2,
+      "confidence": 3,
+      "reach": 4,
+      "activation": 3,
+      "conversion": 2,
+      "trust": 4
+    },
+    "kano": "linear",
+    "horizon": "now",
+    "horizon_years": 0,
+    "tags": [
+      "trust"
+    ],
+    "mockup": null,
+    "source_group": "G2"
+  },
+  {
+    "id": "G2-18",
+    "title": "Листинг в реестре Tessl и skills.sh с публичными оценками качества и безопасности",
+    "category": "partnerships",
+    "segment": "Пользователи, выбирающие скилы по оценкам",
+    "description": "Проверить индексацию 4 скилов в Tessl и skills.sh, доработать SKILL.md по замечаниям оценки качества и приложить результат в README.",
+    "rationale": "Реестр Tessl показывает у openai android-emulator-qa качество 74/93% и проход Snyk; такие метки — готовое доверие, а у нас внешних оценок нет.",
+    "evidence": [
+      {
+        "kind": "competitor",
+        "url": "https://tessl.io/registry/skills/github/openai/plugins/android-emulator-qa",
+        "file": null,
+        "title": "Tessl: android-emulator-qa",
+        "note": "Показаны Quality 74 (93% best practices) и Security Passed (Snyk).",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "competitor",
+        "url": "https://www.skills.sh/smithery/ai/android-emulator-qa",
+        "file": null,
+        "title": "skills.sh: Android Emulator QA",
+        "note": "Скил распространяется через skills.sh (из поиска).",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "A",
+    "current_feature": "нет: внешних оценок нет (research/competitors.md:66)",
+    "effect_kpi": [
+      {
+        "kpi": "Публичная оценка качества скилов",
+        "direction": "up",
+        "range": "нет → ≥70 [допущение]",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Найти свои скилы в реестрах",
+        "where": "tessl.io, skills.sh",
+        "how": "Записать статус",
+        "doc_url": null
+      },
+      {
+        "what": "Исправить замечания к SKILL.md",
+        "where": "skills/*/SKILL.md",
+        "how": "Размер и ясность",
+        "doc_url": null
+      },
+      {
+        "what": "Добавить бейдж/ссылку",
+        "where": "README.md",
+        "how": "",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [
+      "G2-13"
+    ],
+    "effort_days": [
+      1,
+      4
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Платных каналов нет."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 2,
+      "reputation": 1,
+      "note": "Оценки чужие; формат Claude-хуков может не поддерживаться."
+    },
+    "time_to_first_result_days": 21,
+    "cheap_test": "Проверить, есть ли страница скила в Tessl.",
+    "scores": {
+      "value": 3,
+      "cost": 2,
+      "risk": 2,
+      "confidence": 3,
+      "acquisition": 3,
+      "reach": 3,
+      "moat": 2,
+      "trust": 4
+    },
+    "kano": "linear",
+    "horizon": "next",
+    "horizon_years": 0,
+    "tags": [
+      "registry"
+    ],
+    "mockup": null,
+    "source_group": "G2"
+  },
+  {
+    "id": "G2-19",
+    "title": "Договориться с TypeSafe о взаимной витрине: typesafe-triage как пример на Jev",
+    "category": "partnerships",
+    "segment": "Пользователи TypeSafe и Claude Code",
+    "description": "Владелец пишет команде TypeSafe с просьбой упомянуть typesafe-triage как пример применения System One в репозитории typesafe-ai/skills или в документации; взамен — ссылка и совместимость.",
+    "rationale": "typesafe-ai/skills — 2,7 тыс. звёзд, MIT, в нём одна собственная скил; сторонних примеров нет. Наш typesafe-triage и product-strategy используют Jev, каталог AAS уже содержит jev-use, то есть тема тиражируется.",
+    "evidence": [
+      {
+        "kind": "community",
+        "url": "https://github.com/typesafe-ai/skills",
+        "file": null,
+        "title": "typesafe-ai/skills",
+        "note": "≈2,7 тыс. звёзд, MIT, один скил от организации.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "repo",
+        "url": null,
+        "file": "skills/product-strategy/INSTALL.md:177",
+        "title": "product-strategy INSTALL: связка с typesafe-ai/skills",
+        "note": "Скил ставится из typesafe-ai/skills",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "B",
+    "current_feature": "нет: упоминаний нет",
+    "effect_kpi": [
+      {
+        "kpi": "Переходы от TypeSafe",
+        "direction": "up",
+        "range": "+10..100 [допущение]",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Найти контакт и правила вклада",
+        "where": "typesafe-ai/skills",
+        "how": "README, Issues",
+        "doc_url": null
+      },
+      {
+        "what": "Подготовить короткое письмо с примером",
+        "where": "Письмо",
+        "how": "Что делает, чем полезно им",
+        "doc_url": null
+      },
+      {
+        "what": "Предложить ссылку/раздел «Примеры»",
+        "where": "Issue или письмо",
+        "how": "Не требовать",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [
+      "G2-13"
+    ],
+    "effort_days": [
+      0.5,
+      2
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Платных каналов нет."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 1,
+      "reputation": 2,
+      "note": "Могут не ответить."
+    },
+    "time_to_first_result_days": 30,
+    "cheap_test": "Одно письмо или issue-вопрос.",
+    "scores": {
+      "value": 3,
+      "cost": 1,
+      "risk": 1,
+      "confidence": 3,
+      "acquisition": 3,
+      "reach": 2,
+      "moat": 2
+    },
+    "kano": "linear",
+    "horizon": "next",
+    "horizon_years": 0,
+    "tags": [
+      "partner"
+    ],
+    "mockup": null,
+    "source_group": "G2"
+  },
+  {
+    "id": "G2-20",
+    "title": "Заявки в тематические awesome-списки смежных экосистем: Playwright, a11y, Android",
+    "category": "partnerships",
+    "segment": "Аудитория смежных открытых проектов",
+    "description": "Владелец готовит по одной заявке в awesome-playwright (раздел AI & Agents) и в аналогичные списки по a11y и Android, предлагая site-qa-audit и android-qa-audit как примеры.",
+    "rationale": "awesome-playwright (≈1,6 тыс. звёзд) принимает вклады и содержит раздел AI & Agents; site-qa-audit строится на Playwright.",
+    "evidence": [
+      {
+        "kind": "community",
+        "url": "https://github.com/mxschmitt/awesome-playwright",
+        "file": null,
+        "title": "awesome-playwright",
+        "note": "Список инструментов на Playwright, раздел AI & Agents, вклады приветствуются.",
+        "checked": "2026-10-10"
+      },
+      {
+        "kind": "competitor",
+        "url": "https://playwright.dev/docs/test-agents",
+        "file": null,
+        "title": "Playwright: Test agents",
+        "note": "Официальные агенты тестов Playwright",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "A",
+    "current_feature": "нет: в смежных списках нас нет",
+    "effect_kpi": [
+      {
+        "kpi": "Переходы из смежных списков",
+        "direction": "up",
+        "range": "+10..60 [допущение]",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Прочитать CONTRIBUTING списков",
+        "where": "GitHub",
+        "how": "Условия, формат",
+        "doc_url": null
+      },
+      {
+        "what": "Подготовить строку по правилам",
+        "where": "PR/issue человеком",
+        "how": "Одна строка без рекламы",
+        "doc_url": null
+      },
+      {
+        "what": "Подать и отследить",
+        "where": "PR",
+        "how": "Перепроверить лицензионные условия",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [
+      "G2-13",
+      "G2-15"
+    ],
+    "effort_days": [
+      0.5,
+      2
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Платных каналов нет."
+    },
+    "risks": {
+      "legal": 2,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 1,
+      "reputation": 1,
+      "note": "Список может требовать OSI-лицензию."
+    },
+    "time_to_first_result_days": 30,
+    "cheap_test": "Подать одну заявку.",
+    "scores": {
+      "value": 3,
+      "cost": 1,
+      "risk": 1,
+      "confidence": 3,
+      "acquisition": 3,
+      "reach": 3,
+      "moat": 2
+    },
+    "kano": "linear",
+    "horizon": "later",
+    "horizon_years": 1,
+    "tags": [
+      "awesome"
+    ],
+    "mockup": null,
+    "source_group": "G2"
+  },
+  {
+    "id": "G2-21",
+    "title": "Предложить преподавателям QA учебное использование: лабораторные на скилах (разрешено NC)",
+    "category": "partnerships",
+    "segment": "Преподаватели курсов и вузов, QA-школы",
+    "description": "Подготовить методичку «лабораторная по QA с ИИ-агентом» на site-qa-audit и разослать 5–10 преподавателям и школам; лицензия NC допускает учебное использование.",
+    "rationale": "README прямо разрешает учебные, исследовательские и некоммерческие цели, поэтому образовательный сегмент доступен без смены лицензии, а студентов приходится приглашать вручную.",
+    "evidence": [
+      {
+        "kind": "repo",
+        "url": null,
+        "file": "README.md:85",
+        "title": "README: лицензия",
+        "note": "Разрешены личные, учебные и некоммерческие цели.",
+        "checked": "2026-10-10"
+      }
+    ],
+    "evidence_class": "D",
+    "current_feature": "нет: материалов для преподавателей нет",
+    "effect_kpi": [
+      {
+        "kpi": "Учебные использования",
+        "direction": "up",
+        "range": "0 → 2–5 курсов [допущение]",
+        "label": "допущение"
+      }
+    ],
+    "steps": [
+      {
+        "what": "Написать методичку",
+        "where": "docs/education/",
+        "how": "Цель, шаги, критерии",
+        "doc_url": null
+      },
+      {
+        "what": "Составить список контактов",
+        "where": "Своя заметка",
+        "how": "Только публичные контакты",
+        "doc_url": null
+      },
+      {
+        "what": "Разослать и собрать отклики",
+        "where": "Письма",
+        "how": "Без спама",
+        "doc_url": null
+      }
+    ],
+    "dependencies": [
+      "G2-16"
+    ],
+    "effort_days": [
+      3,
+      7
+    ],
+    "cost_money": {
+      "min": 0,
+      "max": 0,
+      "currency": "RUB",
+      "note": "Платных каналов нет."
+    },
+    "risks": {
+      "legal": 1,
+      "ip": 1,
+      "platform": 1,
+      "privacy": 1,
+      "tech": 1,
+      "reputation": 1,
+      "note": "Маленький охват, ручная работа."
+    },
+    "time_to_first_result_days": 60,
+    "cheap_test": "Отправить методичку 3 преподавателям.",
+    "scores": {
+      "value": 2,
+      "cost": 3,
+      "risk": 2,
+      "confidence": 2,
+      "acquisition": 2,
+      "reach": 2,
+      "moat": 3
+    },
+    "kano": "indifferent",
+    "horizon": "later",
+    "horizon_years": 1,
+    "tags": [
+      "education"
+    ],
+    "mockup": null,
+    "source_group": "G2"
+  }
+]

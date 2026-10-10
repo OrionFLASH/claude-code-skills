@@ -1,0 +1,34 @@
+{
+  "ok": true,
+  "dry_run": false,
+  "old": "<OLD_OUT>",
+  "new": "/Users/orionflash/dev/MyProject/claude-code-skills/strategy/2026-10-10",
+  "replacement": "strategy/2026-10-10",
+  "mode": "относительно репозитория",
+  "actions": [
+    "скопировано <OLD_OUT> → /Users/orionflash/dev/MyProject/claude-code-skills/strategy/2026-10-10"
+  ],
+  "files_scanned": 126,
+  "files_changed": 2,
+  "replacements": 5,
+  "remaining": [],
+  "remaining_total": 0,
+  "large_or_binary_with_old_path": [],
+  "skipped": [],
+  "changed_files": [
+    {
+      "file": "build/env.json",
+      "replacements": 4
+    },
+    {
+      "file": "build/run-config.json",
+      "replacements": 1
+    }
+  ],
+  "updated": [
+    "build/run-config.json: output.dir, inside_repo, git_branch, repo.path",
+    ".gitignore: добавлено node_modules/",
+    "build/STATUS.md: запись о переносе"
+  ],
+  "rebuild_command": "python3 /Users/orionflash/.claude/plugins/cache/claude-code-skills/product-strategy/1.2.0/scripts/build_all.py strategy/2026-10-10"
+}

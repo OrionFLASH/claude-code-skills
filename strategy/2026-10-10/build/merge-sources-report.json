@@ -1,0 +1,541 @@
+{
+  "ok": true,
+  "date": "2026-10-10",
+  "dry_run": false,
+  "before": 130,
+  "fragments": 104,
+  "after": 130,
+  "added": [],
+  "merged": [
+    {
+      "url": "https://news.ycombinator.com/showhn.html",
+      "into": "https://news.ycombinator.com/showhn.html",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://news.ycombinator.com/newsguidelines.html",
+      "into": "https://news.ycombinator.com/newsguidelines.html",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://habr.com/ru/docs/help/rules/",
+      "into": "https://habr.com/ru/docs/help/rules/",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://vc.ru/rules",
+      "into": "https://vc.ru/rules",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://www.producthunt.com/launch",
+      "into": "https://www.producthunt.com/launch",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://dev.to/terms",
+      "into": "https://dev.to/terms",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://lobste.rs/about",
+      "into": "https://lobste.rs/about",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://github.com/hesreallyhim/awesome-claude-code",
+      "into": "https://github.com/hesreallyhim/awesome-claude-code",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/hesreallyhim/awesome-claude-code/main/CONTRIBUTING.md",
+      "into": "https://raw.githubusercontent.com/hesreallyhim/awesome-claude-code/main/CONTRIBUTING.md",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://github.com/anthropics/claude-plugins-official",
+      "into": "https://github.com/anthropics/claude-plugins-official",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://claudemarketplaces.com/about",
+      "into": "https://claudemarketplaces.com/about",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://changelog.com/news/submit",
+      "into": "https://changelog.com/news/submit",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://telegram.org/tos",
+      "into": "https://telegram.org/tos",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://docs.github.com/en/site-policy/acceptable-use-policies/github-acceptable-use-policies",
+      "into": "https://docs.github.com/en/site-policy/acceptable-use-policies/github-acceptable-use-policies",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://pikabu.ru/information/rules",
+      "into": "https://pikabu.ru/information/rules",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://pikabu.ru/information/adrules",
+      "into": "https://pikabu.ru/information/adrules",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://redlib.groet-infra.nl/r/ClaudeAI/comments/1sly3jm/built_with_claude_project_showcase_megathread/oq1cg2n/?context=3",
+      "into": "https://redlib.groet-infra.nl/r/ClaudeAI/comments/1sly3jm/built_with_claude_project_showcase_megathread/oq1cg2n/?context=3",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://hashnode.com/guidelines",
+      "into": "https://hashnode.com/guidelines",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://stackoverflow.com/help/promotion",
+      "into": "https://stackoverflow.com/help/promotion",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://redlib.hackliberty.org/r/softwaretesting",
+      "into": "https://redlib.hackliberty.org/r/softwaretesting",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://thehiveindex.com/communities/side-project/",
+      "into": "https://thehiveindex.com/communities/side-project/",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://redlib.hbubli.cc/r/androiddev/s/w1T0bZ4NHD",
+      "into": "https://redlib.hbubli.cc/r/androiddev/s/w1T0bZ4NHD",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://www.unisender.com/ru/blog/tgstat-chto-ehto-za-servis-i-chem-on-polezen/",
+      "into": "https://www.unisender.com/ru/blog/tgstat-chto-ehto-za-servis-i-chem-on-polezen/",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://www.unisender.com/ru/blog/dzen-dlya-biznesa-glavnoe-o-ploschadke/",
+      "into": "https://www.unisender.com/ru/blog/dzen-dlya-biznesa-glavnoe-o-ploschadke/",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://qna.habr.com/q/1392000",
+      "into": "https://qna.habr.com/q/1392000",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://infostart.ru/1c/articles/2058025/",
+      "into": "https://infostart.ru/1c/articles/2058025/",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://thectoclub.com/nl/carriere/beste-softwaretestgemeenschappen/",
+      "into": "https://thectoclub.com/nl/carriere/beste-softwaretestgemeenschappen/",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://signup.tldr.tech/ai",
+      "into": "https://signup.tldr.tech/ai",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://artificial-intelligence-wiki.com/ai-research/ai-news-and-trends/ai-discord-servers-guide/",
+      "into": "https://artificial-intelligence-wiki.com/ai-research/ai-news-and-trends/ai-discord-servers-guide/",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://www.indiehackers.com/rules",
+      "into": "https://www.indiehackers.com/rules",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://vk.com/terms",
+      "into": "https://vk.com/terms",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://www.reddit.com/r/ClaudeCode/",
+      "into": "https://www.reddit.com/r/ClaudeCode/",
+      "from": "data/sources-communities.json"
+    },
+    {
+      "url": "https://github.com/OrionFLASH/claude-code-skills",
+      "into": "https://github.com/OrionFLASH/claude-code-skills",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://github.com/tzachbon/claude-model-router-hook",
+      "into": "https://github.com/tzachbon/claude-model-router-hook",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://github.com/garrytan/gstack",
+      "into": "https://github.com/garrytan/gstack",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://github.com/musistudio/claude-code-router",
+      "into": "https://github.com/musistudio/claude-code-router",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://github.com/openai/plugins",
+      "into": "https://github.com/openai/plugins",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://github.com/anthropics/knowledge-work-plugins",
+      "into": "https://github.com/anthropics/knowledge-work-plugins",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://github.com/anthropics/claude-plugins-official",
+      "into": "https://github.com/anthropics/claude-plugins-official",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://skillselion.com/skills/openai/plugins/android-emulator-qa",
+      "into": "https://skillselion.com/skills/openai/plugins/android-emulator-qa",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://www.claudepluginhub.com/marketplaces/deventually-a11y-wcag22",
+      "into": "https://www.claudepluginhub.com/marketplaces/deventually-a11y-wcag22",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://claudeskills.info/skills/sickn33/agentic-awesome-skills/accesslint-audit/",
+      "into": "https://claudeskills.info/skills/sickn33/agentic-awesome-skills/accesslint-audit/",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://claudemarketplaces.com/skills/firecrawl/firecrawl-workflows/firecrawl-qa",
+      "into": "https://claudemarketplaces.com/skills/firecrawl/firecrawl-workflows/firecrawl-qa",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://testers.ai/claude.html",
+      "into": "https://testers.ai/claude.html",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://claudskills.com/skills/codebase-audit-and-roadmap/",
+      "into": "https://claudskills.com/skills/codebase-audit-and-roadmap/",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://github.com/CursorTouch/Android-MCP",
+      "into": "https://github.com/CursorTouch/Android-MCP",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://github.com/deventually/a11y-plugin",
+      "into": "https://github.com/deventually/a11y-plugin",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://agentskills.io/home",
+      "into": "https://agentskills.io/home",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://tessl.io/registry/skills/github/openai/plugins/android-emulator-qa",
+      "into": "https://tessl.io/registry/skills/github/openai/plugins/android-emulator-qa",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://ru.beincrypto.com/top-skilov-dlya-claude-code/",
+      "into": "https://ru.beincrypto.com/top-skilov-dlya-claude-code/",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://github.com/garrytan/gstack/issues",
+      "into": "https://github.com/garrytan/gstack/issues",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://github.com/firecrawl/firecrawl-workflows",
+      "into": "https://github.com/firecrawl/firecrawl-workflows",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://playwright.dev/docs/test-agents",
+      "into": "https://playwright.dev/docs/test-agents",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://code.claude.com/docs/en/model-config",
+      "into": "https://code.claude.com/docs/en/model-config",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://github.com/sickn33/agentic-awesome-skills",
+      "into": "https://github.com/sickn33/agentic-awesome-skills",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://wavect.io/blog/claude-model-router-hooks-vs-proxy/",
+      "into": "https://wavect.io/blog/claude-model-router-hooks-vs-proxy/",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://api.github.com/repos/tzachbon/claude-model-router-hook",
+      "into": "https://api.github.com/repos/tzachbon/claude-model-router-hook",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://api.github.com/repos/garrytan/gstack",
+      "into": "https://api.github.com/repos/garrytan/gstack",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://api.github.com/repos/musistudio/claude-code-router",
+      "into": "https://api.github.com/repos/musistudio/claude-code-router",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://api.github.com/repos/deventually/a11y-plugin",
+      "into": "https://api.github.com/repos/deventually/a11y-plugin",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://api.github.com/repos/CursorTouch/Android-MCP",
+      "into": "https://api.github.com/repos/CursorTouch/Android-MCP",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://api.github.com/repos/anthropics/knowledge-work-plugins",
+      "into": "https://api.github.com/repos/anthropics/knowledge-work-plugins",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://api.github.com/repos/openai/plugins",
+      "into": "https://api.github.com/repos/openai/plugins",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://github.com/anthropics/claude-code/issues/43326",
+      "into": "https://github.com/anthropics/claude-code/issues/43326",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://qa.tech/pricing",
+      "into": "https://qa.tech/pricing",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://aiweekly.co/alerts/claude-code-skills-waste-23k-tokens-per-session",
+      "into": "https://aiweekly.co/alerts/claude-code-skills-waste-23k-tokens-per-session",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://benzatine.com/news-room/garry-tans-ai-journey-love-and-controversy-surrounding-his-claude-code-release",
+      "into": "https://benzatine.com/news-room/garry-tans-ai-journey-love-and-controversy-surrounding-his-claude-code-release",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://newreleases.io/project/github/musistudio/claude-code-router/release/v3.0.10",
+      "into": "https://newreleases.io/project/github/musistudio/claude-code-router/release/v3.0.10",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://claudemarketplaces.com/skills/garrytan/gstack/qa",
+      "into": "https://claudemarketplaces.com/skills/garrytan/gstack/qa",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://designrevision.com/blog/awesome-claude-code-plugins",
+      "into": "https://designrevision.com/blog/awesome-claude-code-plugins",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://www.datacamp.com/ru/tutorial/how-to-build-claude-code-plugins",
+      "into": "https://www.datacamp.com/ru/tutorial/how-to-build-claude-code-plugins",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://habr.com/ru/posts/986194",
+      "into": "https://habr.com/ru/posts/986194",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://aipure.ai/ru/products/agenticqa",
+      "into": "https://aipure.ai/ru/products/agenticqa",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://www.mindstudio.ai/blog/context-rot-claude-code-skills-bloated-files",
+      "into": "https://www.mindstudio.ai/blog/context-rot-claude-code-skills-bloated-files",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://code.claude.com/docs/ru/discover-plugins",
+      "into": "https://code.claude.com/docs/ru/discover-plugins",
+      "from": "data/sources-competitors.json"
+    },
+    {
+      "url": "https://github.blog/author/arielkanter/",
+      "into": "https://github.blog/author/arielkanter/",
+      "from": "data/sources-events.json"
+    },
+    {
+      "url": "https://hacktoberfest.com/questions/",
+      "into": "https://hacktoberfest.com/questions/",
+      "from": "data/sources-events.json"
+    },
+    {
+      "url": "https://developer.android.com/google/play/requirements/target-sdk",
+      "into": "https://developer.android.com/google/play/requirements/target-sdk",
+      "from": "data/sources-events.json"
+    },
+    {
+      "url": "https://highload.ru/",
+      "into": "https://highload.ru/",
+      "from": "data/sources-events.json"
+    },
+    {
+      "url": "https://www.gibsondunn.com/eu-ai-act-omnibus-agreement-postponed-high-risk-deadlines-and-other-key-changes/",
+      "into": "https://www.gibsondunn.com/eu-ai-act-omnibus-agreement-postponed-high-risk-deadlines-and-other-key-changes/",
+      "from": "data/sources-events.json"
+    },
+    {
+      "url": "https://buh.ru/news/utverzhden-poryadok-perenosa-vykhodnykh-dney-v-2027-godu.html",
+      "into": "https://buh.ru/news/utverzhden-poryadok-perenosa-vykhodnykh-dney-v-2027-godu.html",
+      "from": "data/sources-events.json"
+    },
+    {
+      "url": "https://claude.com/code-with-claude",
+      "into": "https://claude.com/code-with-claude",
+      "from": "data/sources-events.json"
+    },
+    {
+      "url": "https://io.google/",
+      "into": "https://io.google/",
+      "from": "data/sources-events.json"
+    },
+    {
+      "url": "https://www.jdsupra.com/legalnews/department-of-justice-delays-compliance-2688927/",
+      "into": "https://www.jdsupra.com/legalnews/department-of-justice-delays-compliance-2688927/",
+      "from": "data/sources-events.json"
+    },
+    {
+      "url": "https://outside.so/when-is/when-is-google-io-2027",
+      "into": "https://outside.so/when-is/when-is-google-io-2027",
+      "from": "data/sources-events.json"
+    },
+    {
+      "url": "https://github.com/OrionFLASH/claude-code-skills",
+      "into": "https://github.com/OrionFLASH/claude-code-skills",
+      "from": "data/sources-events.json"
+    },
+    {
+      "url": "https://agentskills.io/",
+      "into": "https://agentskills.io/",
+      "from": "data/sources-keywords.json"
+    },
+    {
+      "url": "https://code.claude.com/docs/en/subagents",
+      "into": "https://code.claude.com/docs/en/subagents",
+      "from": "data/sources-keywords.json"
+    },
+    {
+      "url": "https://docs.humanlayer.com/reference/subagent-models",
+      "into": "https://docs.humanlayer.com/reference/subagent-models",
+      "from": "data/sources-keywords.json"
+    },
+    {
+      "url": "https://claudemarketplaces.com/skills/daymade/claude-code-skills/marketplace-dev",
+      "into": "https://claudemarketplaces.com/skills/daymade/claude-code-skills/marketplace-dev",
+      "from": "data/sources-keywords.json"
+    },
+    {
+      "url": "https://skills.joseconti.com/",
+      "into": "https://skills.joseconti.com/",
+      "from": "data/sources-keywords.json"
+    },
+    {
+      "url": "https://www.vibeindex.ai/marketplaces/jeremylongshore/claude-code-plugins-plus-skills",
+      "into": "https://www.vibeindex.ai/marketplaces/jeremylongshore/claude-code-plugins-plus-skills",
+      "from": "data/sources-keywords.json"
+    },
+    {
+      "url": "https://claudeskills.info/skills/fugazi/test-automation-skills-agents/a11y-playwright-testing/",
+      "into": "https://claudeskills.info/skills/fugazi/test-automation-skills-agents/a11y-playwright-testing/",
+      "from": "data/sources-keywords.json"
+    },
+    {
+      "url": "https://claudeskills.info/skills/sickn33/agentic-awesome-skills/accesslint-audit/",
+      "into": "https://claudeskills.info/skills/sickn33/agentic-awesome-skills/accesslint-audit/",
+      "from": "data/sources-keywords.json"
+    },
+    {
+      "url": "https://github.com/Anjos2/mcp-android-emulator",
+      "into": "https://github.com/Anjos2/mcp-android-emulator",
+      "from": "data/sources-keywords.json"
+    },
+    {
+      "url": "https://www.skills.sh/smithery/ai/android-emulator-qa",
+      "into": "https://www.skills.sh/smithery/ai/android-emulator-qa",
+      "from": "data/sources-keywords.json"
+    },
+    {
+      "url": "https://dtf.ru/top_rating/4130214-reyting-neyrosetey-dlya-audita-sayta",
+      "into": "https://dtf.ru/top_rating/4130214-reyting-neyrosetey-dlya-audita-sayta",
+      "from": "data/sources-keywords.json"
+    },
+    {
+      "url": "https://habr.com/en/articles/993174",
+      "into": "https://habr.com/en/articles/993174",
+      "from": "data/sources-keywords.json"
+    },
+    {
+      "url": "https://habr.com/en/articles/1011524",
+      "into": "https://habr.com/en/articles/1011524",
+      "from": "data/sources-keywords.json"
+    },
+    {
+      "url": "https://www.datacamp.com/ru/tutorial/how-to-build-claude-code-plugins",
+      "into": "https://www.datacamp.com/ru/tutorial/how-to-build-claude-code-plugins",
+      "from": "data/sources-keywords.json"
+    },
+    {
+      "url": "https://claudemarketplaces.com/skills/phuryn/pm-skills/product-strategy",
+      "into": "https://claudemarketplaces.com/skills/phuryn/pm-skills/product-strategy",
+      "from": "data/sources-keywords.json"
+    },
+    {
+      "url": "https://github.com/GetBindu/awesome-claude-code-and-skills",
+      "into": "https://github.com/GetBindu/awesome-claude-code-and-skills",
+      "from": "data/sources-keywords.json"
+    },
+    {
+      "url": "https://designrevision.com/blog/awesome-claude-code-skills",
+      "into": "https://designrevision.com/blog/awesome-claude-code-skills",
+      "from": "data/sources-keywords.json"
+    },
+    {
+      "url": "https://systemprompt.io/guides/claude-code-cost-optimisation",
+      "into": "https://systemprompt.io/guides/claude-code-cost-optimisation",
+      "from": "data/sources-keywords.json"
+    }
+  ],
+  "dropped": [],
+  "retitled": [],
+  "renumbered": {},
+  "fragment_files": [
+    "data/sources-communities.json",
+    "data/sources-competitors.json",
+    "data/sources-events.json",
+    "data/sources-keywords.json"
+  ],
+  "warnings": []
+}

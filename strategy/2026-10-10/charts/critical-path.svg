@@ -1,0 +1,143 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 811" width="1160" height="811" role="img" font-family="system-ui, -apple-system, &#39;Segoe UI&#39;, Roboto, &#39;Helvetica Neue&#39;, Arial, sans-serif">
+<title>Критический путь к топ-20: 4 шага — P030 → P029 → P069 → P018</title>
+<desc>Цепочка с наибольшей суммой composite, ведущая в топ-20 (выделена). Стрелка — «нужно сделать до»; пунктирная рамка — предпосылка вне топа (4). Порядок работ — dep_rank, а не rank.</desc>
+<rect x="0" y="0" width="1160" height="811" fill="#FFFFFF"/>
+<text x="24" y="42.0" font-size="18" font-weight="700" fill="#1F2328">Критический путь к топ-20: 4 шага — P030 → P029 → P069 → P018</text>
+<text x="24" y="79.0" font-size="13" fill="#57606A">Цепочка с наибольшей суммой composite, ведущая в топ-20 (выделена). Стрелка — «нужно сделать до»; пунктирная рамка — предпосылка вне топа (4). Порядок</text>
+<text x="24" y="97.2" font-size="13" fill="#57606A">работ — dep_rank, а не rank.</text>
+<path d="M 557.0 150.1 C 724.8 150.1, 724.8 150.1, 886.5 150.1" fill="none" stroke="#9AA1A9" stroke-width="1.2"/>
+<polygon points="892.5,150.1 884.5,145.6 884.5,154.6" fill="#9AA1A9"/>
+<path d="M 267.5 496.1 C 580.0 496.1, 580.0 150.1, 886.5 150.1" fill="none" stroke="#9AA1A9" stroke-width="1.2"/>
+<polygon points="892.5,150.1 884.5,145.6 884.5,154.6" fill="#9AA1A9"/>
+<path d="M 267.5 669.0 C 580.0 669.0, 580.0 150.1, 886.5 150.1" fill="none" stroke="#9AA1A9" stroke-width="1.2"/>
+<polygon points="892.5,150.1 884.5,145.6 884.5,154.6" fill="#9AA1A9"/>
+<path d="M 557.0 150.1 C 724.8 150.1, 724.8 229.8, 886.5 229.8" fill="none" stroke="#9AA1A9" stroke-width="1.2"/>
+<polygon points="892.5,229.8 884.5,225.3 884.5,234.3" fill="#9AA1A9"/>
+<path d="M 846.5 150.1 C 869.5 150.1, 869.5 229.8, 886.5 229.8" fill="none" stroke="#9AA1A9" stroke-width="1.2"/>
+<polygon points="892.5,229.8 884.5,225.3 884.5,234.3" fill="#9AA1A9"/>
+<path d="M 267.5 496.1 C 580.0 496.1, 580.0 229.8, 886.5 229.8" fill="none" stroke="#9AA1A9" stroke-width="1.2"/>
+<polygon points="892.5,229.8 884.5,225.3 884.5,234.3" fill="#9AA1A9"/>
+<path d="M 267.5 582.5 C 290.5 582.5, 290.5 229.8, 307.5 229.8" fill="none" stroke="#9AA1A9" stroke-width="1.2"/>
+<polygon points="313.5,229.8 305.5,225.3 305.5,234.3" fill="#9AA1A9"/>
+<path d="M 557.0 150.1 C 724.8 150.1, 724.8 302.8, 886.5 302.8" fill="none" stroke="#9AA1A9" stroke-width="1.2"/>
+<polygon points="892.5,302.8 884.5,298.3 884.5,307.3" fill="#9AA1A9"/>
+<path d="M 846.5 150.1 C 869.5 150.1, 869.5 302.8, 886.5 302.8" fill="none" stroke="#9AA1A9" stroke-width="1.2"/>
+<polygon points="892.5,302.8 884.5,298.3 884.5,307.3" fill="#9AA1A9"/>
+<path d="M 267.5 150.1 C 580.0 150.1, 580.0 302.8, 886.5 302.8" fill="none" stroke="#9AA1A9" stroke-width="1.2"/>
+<polygon points="892.5,302.8 884.5,298.3 884.5,307.3" fill="#9AA1A9"/>
+<path d="M 267.5 323.1 C 580.0 323.1, 580.0 302.8, 886.5 302.8" fill="none" stroke="#9AA1A9" stroke-width="1.2"/>
+<polygon points="892.5,302.8 884.5,298.3 884.5,307.3" fill="#9AA1A9"/>
+<path d="M 267.5 409.6 C 580.0 409.6, 580.0 302.8, 886.5 302.8" fill="none" stroke="#9AA1A9" stroke-width="1.2"/>
+<polygon points="892.5,302.8 884.5,298.3 884.5,307.3" fill="#9AA1A9"/>
+<path d="M 557.0 309.6 C 724.8 309.6, 724.8 302.8, 886.5 302.8" fill="none" stroke="#9AA1A9" stroke-width="1.2"/>
+<polygon points="892.5,302.8 884.5,298.3 884.5,307.3" fill="#9AA1A9"/>
+<path d="M 557.0 150.1 C 724.8 150.1, 724.8 382.6, 886.5 382.6" fill="none" stroke="#9AA1A9" stroke-width="1.2"/>
+<polygon points="892.5,382.6 884.5,378.1 884.5,387.1" fill="#9AA1A9"/>
+<path d="M 846.5 150.1 C 869.5 150.1, 869.5 382.6, 886.5 382.6" fill="none" stroke="#9AA1A9" stroke-width="1.2"/>
+<polygon points="892.5,382.6 884.5,378.1 884.5,387.1" fill="#9AA1A9"/>
+<path d="M 557.0 309.6 C 724.8 309.6, 724.8 382.6, 886.5 382.6" fill="none" stroke="#9AA1A9" stroke-width="1.2"/>
+<polygon points="892.5,382.6 884.5,378.1 884.5,387.1" fill="#9AA1A9"/>
+<path d="M 267.5 323.1 C 435.2 323.1, 435.2 236.6, 597.0 236.6" fill="none" stroke="#9AA1A9" stroke-width="1.2"/>
+<polygon points="603.0,236.6 595.0,232.1 595.0,241.1" fill="#9AA1A9"/>
+<path d="M 557.0 396.1 C 580.0 396.1, 580.0 236.6, 597.0 236.6" fill="none" stroke="#9AA1A9" stroke-width="1.2"/>
+<polygon points="603.0,236.6 595.0,232.1 595.0,241.1" fill="#9AA1A9"/>
+<path d="M 267.5 236.6 C 290.5 236.6, 290.5 309.6, 307.5 309.6" fill="none" stroke="#9AA1A9" stroke-width="1.2"/>
+<polygon points="313.5,309.6 305.5,305.1 305.5,314.1" fill="#9AA1A9"/>
+<path d="M 267.5 323.1 C 290.5 323.1, 290.5 396.1, 307.5 396.1" fill="none" stroke="#9AA1A9" stroke-width="1.2"/>
+<polygon points="313.5,396.1 305.5,391.6 305.5,400.6" fill="#9AA1A9"/>
+<path d="M 557.0 150.1 C 580.0 150.1, 580.0 150.1, 597.0 150.1" fill="none" stroke="#D55E00" stroke-width="2.6"/>
+<polygon points="603.0,150.1 595.0,145.6 595.0,154.6" fill="#D55E00"/>
+<path d="M 267.5 409.6 C 290.5 409.6, 290.5 150.1, 307.5 150.1" fill="none" stroke="#D55E00" stroke-width="2.6"/>
+<polygon points="313.5,150.1 305.5,145.6 305.5,154.6" fill="#D55E00"/>
+<path d="M 846.5 150.1 C 869.5 150.1, 869.5 150.1, 886.5 150.1" fill="none" stroke="#D55E00" stroke-width="2.6"/>
+<polygon points="892.5,150.1 884.5,145.6 884.5,154.6" fill="#D55E00"/>
+<rect x="24.0" y="113.8" width="243.5" height="72.5" rx="6" fill="#FFFFFF" stroke="#0072B2" stroke-width="1.2"/>
+<text x="32.0" y="129.8" font-size="11" fill="#1F2328" text-anchor="start" font-weight="600">P032 · ранг 5 · порядок 11</text>
+<text x="32.0" y="145.8" font-size="11" fill="#1F2328" text-anchor="start">Quickstart «первый результат за 5</text>
+<text x="32.0" y="159.3" font-size="11" fill="#1F2328" text-anchor="start">минут» для каждого скила: промпт и</text>
+<text x="32.0" y="172.9" font-size="11" fill="#1F2328" text-anchor="start">ожидаемый вывод</text>
+<rect x="24.0" y="200.3" width="243.5" height="72.5" rx="6" fill="#FFFFFF" stroke="#0072B2" stroke-width="1.2"/>
+<text x="32.0" y="216.3" font-size="11" fill="#1F2328" text-anchor="start" font-weight="600">P070 · ранг 7 · порядок 10</text>
+<text x="32.0" y="232.3" font-size="11" fill="#1F2328" text-anchor="start">Статический хостинг демо на GitHub</text>
+<text x="32.0" y="245.8" font-size="11" fill="#1F2328" text-anchor="start">Pages: страница стратегии и индекс</text>
+<text x="32.0" y="259.4" font-size="11" fill="#1F2328" text-anchor="start">примеров</text>
+<rect x="24.0" y="286.8" width="243.5" height="72.5" rx="6" fill="#FFFFFF" stroke="#0072B2" stroke-width="1.2"/>
+<text x="32.0" y="302.8" font-size="11" fill="#1F2328" text-anchor="start" font-weight="600">P043 · ранг 8 · порядок 7</text>
+<text x="32.0" y="318.8" font-size="11" fill="#1F2328" text-anchor="start">Еженедельный снимок публичных</text>
+<text x="32.0" y="332.3" font-size="11" fill="#1F2328" text-anchor="start">сигналов GitHub в CSV: просмотры,</text>
+<text x="32.0" y="345.9" font-size="11" fill="#1F2328" text-anchor="start">клоны, источники, звёзды</text>
+<rect x="24.0" y="373.3" width="243.5" height="72.5" rx="6" fill="#FAECE0" stroke="#D55E00" stroke-width="2"/>
+<text x="32.0" y="389.3" font-size="11" fill="#D55E00" text-anchor="start" font-weight="600">P030 · ранг 10 · порядок 1</text>
+<text x="32.0" y="405.3" font-size="11" fill="#1F2328" text-anchor="start">Сделать GIF и ролики первой минуты</text>
+<text x="32.0" y="418.8" font-size="11" fill="#1F2328" text-anchor="start">из реальных прогонов</text>
+<text x="32.0" y="432.4" font-size="11" fill="#1F2328" text-anchor="start">существующими утилитами</text>
+<rect x="24.0" y="459.8" width="243.5" height="72.5" rx="6" fill="#FFFFFF" stroke="#0072B2" stroke-width="1.2"/>
+<text x="32.0" y="475.8" font-size="11" fill="#1F2328" text-anchor="start" font-weight="600">P042 · ранг 14 · порядок 4</text>
+<text x="32.0" y="491.8" font-size="11" fill="#1F2328" text-anchor="start">Решение по лицензии: NC, двойная</text>
+<text x="32.0" y="505.3" font-size="11" fill="#1F2328" text-anchor="start">лицензия или открытие части скилов —</text>
+<text x="32.0" y="518.9" font-size="11" fill="#1F2328" text-anchor="start">с оценкой рисков</text>
+<rect x="24.0" y="546.3" width="243.5" height="72.5" rx="6" fill="#FFFFFF" stroke="#9AA1A9" stroke-width="1.2" stroke-dasharray="5 4"/>
+<text x="32.0" y="562.3" font-size="11" fill="#1F2328" text-anchor="start" font-weight="600">P035 · ранг 23 · порядок 16</text>
+<text x="32.0" y="578.3" font-size="11" fill="#1F2328" text-anchor="start">Включить Discussions и публичную</text>
+<text x="32.0" y="591.8" font-size="11" fill="#1F2328" text-anchor="start">дорожную карту с ответом «вы</text>
+<text x="32.0" y="605.4" font-size="11" fill="#1F2328" text-anchor="start">просили — сделано»</text>
+<rect x="24.0" y="632.8" width="243.5" height="72.5" rx="6" fill="#FFFFFF" stroke="#9AA1A9" stroke-width="1.2" stroke-dasharray="5 4"/>
+<text x="32.0" y="648.8" font-size="11" fill="#1F2328" text-anchor="start" font-weight="600">P054 · ранг 26 · порядок 5</text>
+<text x="32.0" y="664.8" font-size="11" fill="#1F2328" text-anchor="start">Английские описания и ключевые</text>
+<text x="32.0" y="678.3" font-size="11" fill="#1F2328" text-anchor="start">слова плагинов в plugin.json и</text>
+<text x="32.0" y="691.9" font-size="11" fill="#1F2328" text-anchor="start">marketplace.json</text>
+<rect x="313.5" y="113.8" width="243.5" height="72.5" rx="6" fill="#FAECE0" stroke="#D55E00" stroke-width="2"/>
+<text x="321.5" y="129.8" font-size="11" fill="#D55E00" text-anchor="start" font-weight="600">P029 · ранг 2 · порядок 2</text>
+<text x="321.5" y="145.8" font-size="11" fill="#1F2328" text-anchor="start">Переделать README в витрину:</text>
+<text x="321.5" y="159.3" font-size="11" fill="#1F2328" text-anchor="start">ценность в одной фразе, GIF,</text>
+<text x="321.5" y="172.9" font-size="11" fill="#1F2328" text-anchor="start">установка в три строки</text>
+<rect x="313.5" y="200.3" width="243.5" height="59.0" rx="6" fill="#FFFFFF" stroke="#0072B2" stroke-width="1.2"/>
+<text x="321.5" y="216.3" font-size="11" fill="#1F2328" text-anchor="start" font-weight="600">P046 · ранг 12 · порядок 17</text>
+<text x="321.5" y="232.3" font-size="11" fill="#1F2328" text-anchor="start">Опросы спроса в Discussions: лицензия,</text>
+<text x="321.5" y="245.8" font-size="11" fill="#1F2328" text-anchor="start">переносимость, языки, приоритеты</text>
+<rect x="313.5" y="273.3" width="243.5" height="72.5" rx="6" fill="#FFFFFF" stroke="#9AA1A9" stroke-width="1.2" stroke-dasharray="5 4"/>
+<text x="321.5" y="289.3" font-size="11" fill="#1F2328" text-anchor="start" font-weight="600">P031 · ранг 22 · порядок 15</text>
+<text x="321.5" y="305.3" font-size="11" fill="#1F2328" text-anchor="start">Опубликовать демо-отчёты: пример</text>
+<text x="321.5" y="318.8" font-size="11" fill="#1F2328" text-anchor="start">QA-отчёта и страницы стратегии без</text>
+<text x="321.5" y="332.4" font-size="11" fill="#1F2328" text-anchor="start">установки</text>
+<rect x="313.5" y="359.8" width="243.5" height="72.5" rx="6" fill="#FFFFFF" stroke="#9AA1A9" stroke-width="1.2" stroke-dasharray="5 4"/>
+<text x="321.5" y="375.8" font-size="11" fill="#1F2328" text-anchor="start" font-weight="600">P047 · ранг 49 · порядок 21</text>
+<text x="321.5" y="391.8" font-size="11" fill="#1F2328" text-anchor="start">Прокси принятия: еженедельный поиск</text>
+<text x="321.5" y="405.3" font-size="11" fill="#1F2328" text-anchor="start">упоминаний репозитория в чужих</text>
+<text x="321.5" y="418.9" font-size="11" fill="#1F2328" text-anchor="start">настройках и форках</text>
+<rect x="603.0" y="113.8" width="243.5" height="72.5" rx="6" fill="#FAECE0" stroke="#D55E00" stroke-width="2"/>
+<text x="611.0" y="129.8" font-size="11" fill="#D55E00" text-anchor="start" font-weight="600">P069 · ранг 4 · порядок 3</text>
+<text x="611.0" y="145.8" font-size="11" fill="#1F2328" text-anchor="start">Англоязычная витрина: README.en.md</text>
+<text x="611.0" y="159.3" font-size="11" fill="#1F2328" text-anchor="start">с тем же верхом, что у</text>
+<text x="611.0" y="172.9" font-size="11" fill="#1F2328" text-anchor="start">README-витрины</text>
+<rect x="603.0" y="200.3" width="243.5" height="72.5" rx="6" fill="#FFFFFF" stroke="#0072B2" stroke-width="1.2"/>
+<text x="611.0" y="216.3" font-size="11" fill="#1F2328" text-anchor="start" font-weight="600">P044 · ранг 19 · порядок 22</text>
+<text x="611.0" y="232.3" font-size="11" fill="#1F2328" text-anchor="start">Северная звезда и контрольные точки</text>
+<text x="611.0" y="245.8" font-size="11" fill="#1F2328" text-anchor="start">30/60/90 дней с порогами</text>
+<text x="611.0" y="259.4" font-size="11" fill="#1F2328" text-anchor="start">«продолжать/свернуть»</text>
+<rect x="892.5" y="113.8" width="243.5" height="72.5" rx="6" fill="#FAECE0" stroke="#D55E00" stroke-width="2"/>
+<text x="900.5" y="129.8" font-size="11" fill="#D55E00" text-anchor="start" font-weight="600">P018 · ранг 1 · порядок 6</text>
+<text x="900.5" y="145.8" font-size="11" fill="#1F2328" text-anchor="start">Подать плагины в официальный</text>
+<text x="900.5" y="159.3" font-size="11" fill="#1F2328" text-anchor="start">каталог</text>
+<text x="900.5" y="172.9" font-size="11" fill="#1F2328" text-anchor="start">anthropics/claude-plugins-official</text>
+<rect x="892.5" y="200.3" width="243.5" height="59.0" rx="6" fill="#FFFFFF" stroke="#0072B2" stroke-width="1.2"/>
+<text x="900.5" y="216.3" font-size="11" fill="#1F2328" text-anchor="start" font-weight="600">P019 · ранг 3 · порядок 8</text>
+<text x="900.5" y="232.3" font-size="11" fill="#1F2328" text-anchor="start">Подать по одному плагину в</text>
+<text x="900.5" y="245.8" font-size="11" fill="#1F2328" text-anchor="start">awesome-claude-code после 21.10.2026</text>
+<rect x="892.5" y="273.3" width="243.5" height="59.0" rx="6" fill="#FFFFFF" stroke="#0072B2" stroke-width="1.2"/>
+<text x="900.5" y="289.3" font-size="11" fill="#1F2328" text-anchor="start" font-weight="600">P024 · ранг 15 · порядок 18</text>
+<text x="900.5" y="305.3" font-size="11" fill="#1F2328" text-anchor="start">Запуск в формате «покажи проект»:</text>
+<text x="900.5" y="318.8" font-size="11" fill="#1F2328" text-anchor="start">Show HN, затем Product Hunt</text>
+<rect x="892.5" y="346.3" width="243.5" height="72.5" rx="6" fill="#FFFFFF" stroke="#0072B2" stroke-width="1.2"/>
+<text x="900.5" y="362.3" font-size="11" fill="#1F2328" text-anchor="start" font-weight="600">P050 · ранг 18 · порядок 24</text>
+<text x="900.5" y="378.3" font-size="11" fill="#1F2328" text-anchor="start">Заявки в тематические</text>
+<text x="900.5" y="391.8" font-size="11" fill="#1F2328" text-anchor="start">awesome-списки смежных экосистем:</text>
+<text x="900.5" y="405.4" font-size="11" fill="#1F2328" text-anchor="start">Playwright, a11y, Android</text>
+<rect x="24.0" y="732.3" width="12.0" height="12.0" rx="2" fill="#D55E00"/>
+<text x="42.0" y="741.3" font-size="12" fill="#1F2328" text-anchor="start">критический путь</text>
+<rect x="171.6" y="732.3" width="12.0" height="12.0" rx="2" fill="#0072B2"/>
+<text x="189.6" y="741.3" font-size="12" fill="#1F2328" text-anchor="start">в топ-20</text>
+<rect x="260.6" y="732.3" width="12.0" height="12.0" rx="2" fill="#9AA1A9"/>
+<text x="278.6" y="741.3" font-size="12" fill="#1F2328" text-anchor="start">вне топа (пунктир)</text>
+<text x="24" y="782.7" font-size="11" fill="#57606A">Источник: data/critical-path.json, data/scores.json (score.py: blocked_by, dep_rank)</text>
+</svg>

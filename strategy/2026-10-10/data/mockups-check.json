@@ -1,0 +1,15 @@
+{
+  "date": "2026-10-10",
+  "tool": "shoot_mockups.mjs",
+  "summary": {
+    "total": 0,
+    "ok": 0,
+    "failed": 0,
+    "no_badge": 0,
+    "external": 0,
+    "overflow": 0,
+    "console": 0,
+    "not_shot": 0
+  },
+  "items": []
+}

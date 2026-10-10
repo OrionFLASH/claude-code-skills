@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 499" width="960" height="499" role="img" font-family="system-ui, -apple-system, &#39;Segoe UI&#39;, Roboto, &#39;Helvetica Neue&#39;, Arial, sans-serif">
+<title>Веер прогноза: через 6 мес. от 1 до 130 активных пользователей, базовый — 12</title>
+<desc>Полоса — диапазон между пессимистичным и оптимистичным сценариями, линия — базовый; допущения в build/model-params.json.</desc>
+<rect x="0" y="0" width="960" height="499" fill="#FFFFFF"/>
+<text x="24" y="42.0" font-size="18" font-weight="700" fill="#1F2328">Веер прогноза: через 6 мес. от 1 до 130 активных пользователей, базовый — 12</text>
+<text x="24" y="79.0" font-size="13" fill="#57606A">Полоса — диапазон между пессимистичным и оптимистичным сценариями, линия — базовый; допущения в build/model-params.json.</text>
+<line x1="84.0" y1="379.6" x2="926.0" y2="379.6" stroke="#E4E7EB" stroke-width="1"/>
+<text x="78.0" y="383.6" font-size="11" fill="#57606A" text-anchor="end">0</text>
+<line x1="84.0" y1="285.6" x2="926.0" y2="285.6" stroke="#E4E7EB" stroke-width="1"/>
+<text x="78.0" y="289.6" font-size="11" fill="#57606A" text-anchor="end">50</text>
+<line x1="84.0" y1="191.6" x2="926.0" y2="191.6" stroke="#E4E7EB" stroke-width="1"/>
+<text x="78.0" y="195.6" font-size="11" fill="#57606A" text-anchor="end">100</text>
+<line x1="84.0" y1="97.6" x2="926.0" y2="97.6" stroke="#E4E7EB" stroke-width="1"/>
+<text x="78.0" y="101.6" font-size="11" fill="#57606A" text-anchor="end">150</text>
+<text x="84.0" y="395.6" font-size="11" fill="#57606A" text-anchor="middle">1</text>
+<text x="252.4" y="395.6" font-size="11" fill="#57606A" text-anchor="middle">2</text>
+<text x="420.8" y="395.6" font-size="11" fill="#57606A" text-anchor="middle">3</text>
+<text x="589.2" y="395.6" font-size="11" fill="#57606A" text-anchor="middle">4</text>
+<text x="757.6" y="395.6" font-size="11" fill="#57606A" text-anchor="middle">5</text>
+<text x="926.0" y="395.6" font-size="11" fill="#57606A" text-anchor="middle">6</text>
+<polygon points="84.0,321.7 252.4,274.7 420.8,235.0 589.2,199.7 757.6,167.0 926.0,135.2 926.0,377.3 757.6,377.3 589.2,377.5 420.8,377.7 252.4,378.1 84.0,378.7" fill="#0072B2" fill-opacity="0.160"/>
+<polyline points="84.0,378.7 252.4,378.1 420.8,377.7 589.2,377.5 757.6,377.3 926.0,377.3" fill="none" stroke="#D55E00" stroke-width="1.4" stroke-linejoin="round"/>
+<polyline points="84.0,321.7 252.4,274.7 420.8,235.0 589.2,199.7 757.6,167.0 926.0,135.2" fill="none" stroke="#009E73" stroke-width="1.4" stroke-linejoin="round"/>
+<polyline points="84.0,372.1 252.4,367.0 420.8,363.6 589.2,361.0 757.6,358.9 926.0,357.0" fill="none" stroke="#0072B2" stroke-width="2.6" stroke-linejoin="round"/>
+<text x="505.0" y="413.6" font-size="12" fill="#1F2328" text-anchor="middle">Месяц</text>
+<rect x="84.0" y="428.6" width="12.0" height="12.0" rx="2" fill="#009E73"/>
+<text x="102.0" y="437.6" font-size="12" fill="#1F2328" text-anchor="start">оптимистичный</text>
+<rect x="217.2" y="428.6" width="12.0" height="12.0" rx="2" fill="#0072B2"/>
+<text x="235.2" y="437.6" font-size="12" fill="#1F2328" text-anchor="start">базовый</text>
+<rect x="303.6" y="428.6" width="12.0" height="12.0" rx="2" fill="#D55E00"/>
+<text x="321.6" y="437.6" font-size="12" fill="#1F2328" text-anchor="start">пессимистичный</text>
+<rect x="444.0" y="428.6" width="12.0" height="12.0" rx="2" fill="#CCE3F0"/>
+<text x="462.0" y="437.6" font-size="12" fill="#1F2328" text-anchor="start">диапазон</text>
+<text x="24" y="470.6" font-size="11" fill="#57606A">Источник: data/model.json (monthly.users) [допущение]</text>
+</svg>

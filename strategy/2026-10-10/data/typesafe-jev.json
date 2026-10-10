@@ -1,0 +1,1519 @@
+{
+  "model": "jev-1.13.0",
+  "date": "2026-10-10",
+  "questions": [
+    {
+      "key": "p_success",
+      "text": "Насколько вероятно, что при разумной реализации это предложение даст заметный измеримый результат по своей целевой метрике в пределах горизонта стратегии?",
+      "kind": "p"
+    },
+    {
+      "key": "p_user_value",
+      "text": "Получат ли пользователи продукта от этого предложения ощутимую пользу (решённую задачу, сэкономленное время, новую возможность)?",
+      "kind": "p"
+    },
+    {
+      "key": "risk",
+      "text": "Есть ли у предложения существенный юридический, лицензионный, платформенный, приватностный, репутационный или технический риск?",
+      "kind": "p"
+    },
+    {
+      "key": "p_fit",
+      "text": "Соответствует ли предложение позиционированию продукта и цели стратегии из контекста?",
+      "kind": "p"
+    },
+    {
+      "key": "p_cheap_test",
+      "text": "Можно ли проверить гипотезу дёшево — за одну-две недели без крупной разработки?",
+      "kind": "p"
+    },
+    {
+      "key": "p_acquisition",
+      "text": "Приведёт ли предложение новых пользователей (поиск, сообщества, вирусность, партнёры)?",
+      "kind": "p"
+    },
+    {
+      "key": "p_revenue",
+      "text": "Повысит ли предложение выручку или конверсию в оплату?",
+      "kind": "p"
+    },
+    {
+      "key": "impact",
+      "text": "Ожидаемое влияние предложения на рост продукта (аудитория, активация, удержание, выручка) в пределах горизонта.",
+      "kind": "score"
+    },
+    {
+      "key": "effort",
+      "text": "Сколько работы потребует реализация для небольшой команды?",
+      "kind": "score"
+    },
+    {
+      "key": "kano",
+      "text": "К какому классу модели Кано относится предложение для пользователей?",
+      "kind": "choice"
+    }
+  ],
+  "items": {
+    "P001": {
+      "p_success": 0.68,
+      "p_user_value": 0.79,
+      "risk": 0.39,
+      "p_fit": 0.84,
+      "p_cheap_test": 0.9,
+      "p_acquisition": 0.14,
+      "p_revenue": 0.68,
+      "impact": 3.14,
+      "impact_conf": 0.74,
+      "effort": 2.12,
+      "effort_conf": 0.88,
+      "kano": "must",
+      "kano_probs": {
+        "must": 0.7,
+        "linear": 0.21,
+        "delight": 0.09,
+        "indifferent": 0.0
+      }
+    },
+    "P002": {
+      "p_success": 0.58,
+      "p_user_value": 0.75,
+      "risk": 0.61,
+      "p_fit": 0.79,
+      "p_cheap_test": 0.85,
+      "p_acquisition": 0.15,
+      "p_revenue": 0.33,
+      "impact": 2.87,
+      "impact_conf": 0.72,
+      "effort": 2.41,
+      "effort_conf": 0.67,
+      "kano": "must",
+      "kano_probs": {
+        "must": 0.53,
+        "linear": 0.37,
+        "delight": 0.09,
+        "indifferent": 0.01
+      }
+    },
+    "P003": {
+      "p_success": 0.63,
+      "p_user_value": 0.75,
+      "risk": 0.41,
+      "p_fit": 0.77,
+      "p_cheap_test": 0.87,
+      "p_acquisition": 0.28,
+      "p_revenue": 0.31,
+      "impact": 2.98,
+      "impact_conf": 0.73,
+      "effort": 2.08,
+      "effort_conf": 0.93,
+      "kano": "linear",
+      "kano_probs": {
+        "must": 0.38,
+        "linear": 0.42,
+        "delight": 0.19,
+        "indifferent": 0.01
+      }
+    },
+    "P004": {
+      "p_success": 0.51,
+      "p_user_value": 0.73,
+      "risk": 0.25,
+      "p_fit": 0.53,
+      "p_cheap_test": 0.89,
+      "p_acquisition": 0.12,
+      "p_revenue": 0.28,
+      "impact": 2.58,
+      "impact_conf": 0.61,
+      "effort": 2.1,
+      "effort_conf": 0.91,
+      "kano": "linear",
+      "kano_probs": {
+        "must": 0.25,
+        "linear": 0.48,
+        "delight": 0.27,
+        "indifferent": 0.0
+      }
+    },
+    "P005": {
+      "p_success": 0.53,
+      "p_user_value": 0.75,
+      "risk": 0.51,
+      "p_fit": 0.72,
+      "p_cheap_test": 0.91,
+      "p_acquisition": 0.23,
+      "p_revenue": 0.33,
+      "impact": 2.57,
+      "impact_conf": 0.61,
+      "effort": 2.38,
+      "effort_conf": 0.68,
+      "kano": "delight",
+      "kano_probs": {
+        "must": 0.22,
+        "linear": 0.23,
+        "delight": 0.55,
+        "indifferent": 0.0
+      }
+    },
+    "P006": {
+      "p_success": 0.63,
+      "p_user_value": 0.74,
+      "risk": 0.61,
+      "p_fit": 0.85,
+      "p_cheap_test": 0.81,
+      "p_acquisition": 0.19,
+      "p_revenue": 0.42,
+      "impact": 2.93,
+      "impact_conf": 0.78,
+      "effort": 2.76,
+      "effort_conf": 0.65,
+      "kano": "linear",
+      "kano_probs": {
+        "must": 0.17,
+        "linear": 0.51,
+        "delight": 0.32,
+        "indifferent": 0.0
+      }
+    },
+    "P007": {
+      "p_success": 0.45,
+      "p_user_value": 0.68,
+      "risk": 0.7,
+      "p_fit": 0.55,
+      "p_cheap_test": 0.91,
+      "p_acquisition": 0.19,
+      "p_revenue": 0.37,
+      "impact": 2.43,
+      "impact_conf": 0.62,
+      "effort": 2.06,
+      "effort_conf": 0.94,
+      "kano": "linear",
+      "kano_probs": {
+        "must": 0.34,
+        "linear": 0.45,
+        "delight": 0.2,
+        "indifferent": 0.01
+      }
+    },
+    "P008": {
+      "p_success": 0.65,
+      "p_user_value": 0.77,
+      "risk": 0.44,
+      "p_fit": 0.77,
+      "p_cheap_test": 0.85,
+      "p_acquisition": 0.14,
+      "p_revenue": 0.35,
+      "impact": 3.15,
+      "impact_conf": 0.69,
+      "effort": 2.42,
+      "effort_conf": 0.65,
+      "kano": "must",
+      "kano_probs": {
+        "must": 0.46,
+        "linear": 0.42,
+        "delight": 0.12,
+        "indifferent": 0.0
+      }
+    },
+    "P009": {
+      "p_success": 0.7,
+      "p_user_value": 0.76,
+      "risk": 0.18,
+      "p_fit": 0.86,
+      "p_cheap_test": 0.91,
+      "p_acquisition": 0.11,
+      "p_revenue": 0.4,
+      "impact": 2.57,
+      "impact_conf": 0.63,
+      "effort": 2.04,
+      "effort_conf": 0.96,
+      "kano": "linear",
+      "kano_probs": {
+        "must": 0.23,
+        "linear": 0.44,
+        "delight": 0.33,
+        "indifferent": 0.0
+      }
+    },
+    "P010": {
+      "p_success": 0.43,
+      "p_user_value": 0.66,
+      "risk": 0.36,
+      "p_fit": 0.66,
+      "p_cheap_test": 0.87,
+      "p_acquisition": 0.16,
+      "p_revenue": 0.31,
+      "impact": 2.52,
+      "impact_conf": 0.54,
+      "effort": 2.01,
+      "effort_conf": 0.99,
+      "kano": "must",
+      "kano_probs": {
+        "must": 0.95,
+        "linear": 0.04,
+        "delight": 0.01,
+        "indifferent": 0.0
+      }
+    },
+    "P011": {
+      "p_success": 0.41,
+      "p_user_value": 0.6,
+      "risk": 0.57,
+      "p_fit": 0.53,
+      "p_cheap_test": 0.85,
+      "p_acquisition": 0.19,
+      "p_revenue": 0.32,
+      "impact": 2.3,
+      "impact_conf": 0.69,
+      "effort": 2.07,
+      "effort_conf": 0.93,
+      "kano": "delight",
+      "kano_probs": {
+        "must": 0.04,
+        "linear": 0.33,
+        "delight": 0.61,
+        "indifferent": 0.02
+      }
+    },
+    "P012": {
+      "p_success": 0.52,
+      "p_user_value": 0.69,
+      "risk": 0.33,
+      "p_fit": 0.77,
+      "p_cheap_test": 0.88,
+      "p_acquisition": 0.12,
+      "p_revenue": 0.48,
+      "impact": 2.41,
+      "impact_conf": 0.65,
+      "effort": 2.05,
+      "effort_conf": 0.96,
+      "kano": "linear",
+      "kano_probs": {
+        "must": 0.08,
+        "linear": 0.52,
+        "delight": 0.4,
+        "indifferent": 0.0
+      }
+    },
+    "P013": {
+      "p_success": 0.26,
+      "p_user_value": 0.39,
+      "risk": 0.85,
+      "p_fit": 0.59,
+      "p_cheap_test": 0.89,
+      "p_acquisition": 0.08,
+      "p_revenue": 0.2,
+      "impact": 1.93,
+      "impact_conf": 0.75,
+      "effort": 2.11,
+      "effort_conf": 0.88,
+      "kano": "delight",
+      "kano_probs": {
+        "must": 0.32,
+        "linear": 0.19,
+        "delight": 0.41,
+        "indifferent": 0.08
+      }
+    },
+    "P014": {
+      "p_success": 0.57,
+      "p_user_value": 0.71,
+      "risk": 0.45,
+      "p_fit": 0.82,
+      "p_cheap_test": 0.91,
+      "p_acquisition": 0.12,
+      "p_revenue": 0.24,
+      "impact": 2.85,
+      "impact_conf": 0.7,
+      "effort": 2.07,
+      "effort_conf": 0.94,
+      "kano": "linear",
+      "kano_probs": {
+        "must": 0.15,
+        "linear": 0.5,
+        "delight": 0.35,
+        "indifferent": 0.0
+      }
+    },
+    "P015": {
+      "p_success": 0.45,
+      "p_user_value": 0.49,
+      "risk": 0.51,
+      "p_fit": 0.39,
+      "p_cheap_test": 0.89,
+      "p_acquisition": 0.12,
+      "p_revenue": 0.16,
+      "impact": 2.08,
+      "impact_conf": 0.77,
+      "effort": 2.5,
+      "effort_conf": 0.58,
+      "kano": "delight",
+      "kano_probs": {
+        "must": 0.18,
+        "linear": 0.36,
+        "delight": 0.44,
+        "indifferent": 0.02
+      }
+    },
+    "P016": {
+      "p_success": 0.41,
+      "p_user_value": 0.63,
+      "risk": 0.33,
+      "p_fit": 0.69,
+      "p_cheap_test": 0.9,
+      "p_acquisition": 0.22,
+      "p_revenue": 0.35,
+      "impact": 2.08,
+      "impact_conf": 0.92,
+      "effort": 2.02,
+      "effort_conf": 0.97,
+      "kano": "linear",
+      "kano_probs": {
+        "must": 0.3,
+        "linear": 0.5,
+        "delight": 0.19,
+        "indifferent": 0.01
+      }
+    },
+    "P017": {
+      "p_success": 0.64,
+      "p_user_value": 0.4,
+      "risk": 0.09,
+      "p_fit": 0.9,
+      "p_cheap_test": 0.95,
+      "p_acquisition": 0.77,
+      "p_revenue": 0.28,
+      "impact": 2.31,
+      "impact_conf": 0.73,
+      "effort": 1.01,
+      "effort_conf": 0.99,
+      "kano": "must",
+      "kano_probs": {
+        "must": 0.77,
+        "linear": 0.17,
+        "delight": 0.01,
+        "indifferent": 0.05
+      }
+    },
+    "P018": {
+      "p_success": 0.61,
+      "p_user_value": 0.53,
+      "risk": 0.75,
+      "p_fit": 0.84,
+      "p_cheap_test": 0.91,
+      "p_acquisition": 0.78,
+      "p_revenue": 0.33,
+      "impact": 3.61,
+      "impact_conf": 0.62,
+      "effort": 1.94,
+      "effort_conf": 0.93,
+      "kano": "linear",
+      "kano_probs": {
+        "must": 0.19,
+        "linear": 0.47,
+        "delight": 0.32,
+        "indifferent": 0.02
+      }
+    },
+    "P019": {
+      "p_success": 0.39,
+      "p_user_value": 0.28,
+      "risk": 0.44,
+      "p_fit": 0.81,
+      "p_cheap_test": 0.92,
+      "p_acquisition": 0.75,
+      "p_revenue": 0.2,
+      "impact": 2.12,
+      "impact_conf": 0.82,
+      "effort": 1.64,
+      "effort_conf": 0.62,
+      "kano": "linear",
+      "kano_probs": {
+        "must": 0.07,
+        "linear": 0.39,
+        "delight": 0.23,
+        "indifferent": 0.31
+      }
+    },
+    "P020": {
+      "p_success": 0.48,
+      "p_user_value": 0.37,
+      "risk": 0.26,
+      "p_fit": 0.86,
+      "p_cheap_test": 0.95,
+      "p_acquisition": 0.76,
+      "p_revenue": 0.37,
+      "impact": 2.3,
+      "impact_conf": 0.74,
+      "effort": 1.23,
+      "effort_conf": 0.82,
+      "kano": "must",
+      "kano_probs": {
+        "must": 0.49,
+        "linear": 0.3,
+        "delight": 0.02,
+        "indifferent": 0.19
+      }
+    },
+    "P021": {
+      "p_success": 0.48,
+      "p_user_value": 0.61,
+      "risk": 0.16,
+      "p_fit": 0.8,
+      "p_cheap_test": 0.8,
+      "p_acquisition": 0.71,
+      "p_revenue": 0.21,
+      "impact": 2.08,
+      "impact_conf": 0.92,
+      "effort": 2.11,
+      "effort_conf": 0.9,
+      "kano": "linear",
+      "kano_probs": {
+        "must": 0.1,
+        "linear": 0.65,
+        "delight": 0.21,
+        "indifferent": 0.04
+      }
+    },
+    "P022": {
+      "p_success": 0.51,
+      "p_user_value": 0.41,
+      "risk": 0.35,
+      "p_fit": 0.77,
+      "p_cheap_test": 0.91,
+      "p_acquisition": 0.75,
+      "p_revenue": 0.23,
+      "impact": 2.23,
+      "impact_conf": 0.81,
+      "effort": 1.99,
+      "effort_conf": 0.95,
+      "kano": "linear",
+      "kano_probs": {
+        "must": 0.09,
+        "linear": 0.47,
+        "delight": 0.39,
+        "indifferent": 0.05
+      }
+    },
+    "P023": {
+      "p_success": 0.56,
+      "p_user_value": 0.29,
+      "risk": 0.61,
+      "p_fit": 0.8,
+      "p_cheap_test": 0.91,
+      "p_acquisition": 0.72,
+      "p_revenue": 0.17,
+      "impact": 2.52,
+      "impact_conf": 0.57,
+      "effort": 2.02,
+      "effort_conf": 0.96,
+      "kano": "delight",
+      "kano_probs": {
+        "must": 0.04,
+        "linear": 0.21,
+        "delight": 0.43,
+        "indifferent": 0.32
+      }
+    },
+    "P024": {
+      "p_success": 0.71,
+      "p_user_value": 0.41,
+      "risk": 0.81,
+      "p_fit": 0.82,
+      "p_cheap_test": 0.9,
+      "p_acquisition": 0.88,
+      "p_revenue": 0.32,
+      "impact": 3.0,
+      "impact_conf": 0.79,
+      "effort": 2.0,
+      "effort_conf": 0.97,
+      "kano": "indifferent",
+      "kano_probs": {
+        "must": 0.22,
+        "linear": 0.22,
+        "delight": 0.25,
+        "indifferent": 0.31
+      }
+    },
+    "P025": {
+      "p_success": 0.66,
+      "p_user_value": 0.25,
+      "risk": 0.28,
+      "p_fit": 0.86,
+      "p_cheap_test": 0.95,
+      "p_acquisition": 0.76,
+      "p_revenue": 0.28,
+      "impact": 2.32,
+      "impact_conf": 0.72,
+      "effort": 1.97,
+      "effort_conf": 0.97,
+      "kano": "delight",
+      "kano_probs": {
+        "must": 0.07,
+        "linear": 0.06,
+        "delight": 0.85,
+        "indifferent": 0.02
+      }
+    },
+    "P026": {
+      "p_success": 0.3,
+      "p_user_value": 0.2,
+      "risk": 0.28,
+      "p_fit": 0.67,
+      "p_cheap_test": 0.88,
+      "p_acquisition": 0.63,
+      "p_revenue": 0.24,
+      "impact": 1.84,
+      "impact_conf": 0.82,
+      "effort": 2.07,
+      "effort_conf": 0.92,
+      "kano": "indifferent",
+      "kano_probs": {
+        "must": 0.0,
+        "linear": 0.09,
+        "delight": 0.38,
+        "indifferent": 0.53
+      }
+    },
+    "P027": {
+      "p_success": 0.37,
+      "p_user_value": 0.25,
+      "risk": 0.76,
+      "p_fit": 0.7,
+      "p_cheap_test": 0.93,
+      "p_acquisition": 0.73,
+      "p_revenue": 0.24,
+      "impact": 1.96,
+      "impact_conf": 0.94,
+      "effort": 1.2,
+      "effort_conf": 0.85,
+      "kano": "delight",
+      "kano_probs": {
+        "must": 0.03,
+        "linear": 0.22,
+        "delight": 0.38,
+        "indifferent": 0.37
+      }
+    },
+    "P028": {
+      "p_success": 0.45,
+      "p_user_value": 0.36,
+      "risk": 0.41,
+      "p_fit": 0.82,
+      "p_cheap_test": 0.95,
+      "p_acquisition": 0.56,
+      "p_revenue": 0.31,
+      "impact": 2.26,
+      "impact_conf": 0.73,
+      "effort": 1.46,
+      "effort_conf": 0.62,
+      "kano": "must",
+      "kano_probs": {
+        "must": 0.51,
+        "linear": 0.2,
+        "delight": 0.08,
+        "indifferent": 0.21
+      }
+    },
+    "P029": {
+      "p_success": 0.72,
+      "p_user_value": 0.67,
+      "risk": 0.14,
+      "p_fit": 0.89,
+      "p_cheap_test": 0.94,
+      "p_acquisition": 0.22,
+      "p_revenue": 0.54,
+      "impact": 2.83,
+      "impact_conf": 0.74,
+      "effort": 1.77,
+      "effort_conf": 0.8,
+      "kano": "must",
+      "kano_probs": {
+        "must": 0.83,
+        "linear": 0.14,
+        "delight": 0.03,
+        "indifferent": 0.0
+      }
+    },
+    "P030": {
+      "p_success": 0.66,
+      "p_user_value": 0.66,
+      "risk": 0.26,
+      "p_fit": 0.87,
+      "p_cheap_test": 0.93,
+      "p_acquisition": 0.22,
+      "p_revenue": 0.65,
+      "impact": 2.5,
+      "impact_conf": 0.58,
+      "effort": 2.02,
+      "effort_conf": 0.95,
+      "kano": "delight",
+      "kano_probs": {
+        "must": 0.16,
+        "linear": 0.38,
+        "delight": 0.45,
+        "indifferent": 0.01
+      }
+    },
+    "P031": {
+      "p_success": 0.61,
+      "p_user_value": 0.57,
+      "risk": 0.35,
+      "p_fit": 0.87,
+      "p_cheap_test": 0.92,
+      "p_acquisition": 0.26,
+      "p_revenue": 0.61,
+      "impact": 2.48,
+      "impact_conf": 0.6,
+      "effort": 2.0,
+      "effort_conf": 0.94,
+      "kano": "linear",
+      "kano_probs": {
+        "must": 0.13,
+        "linear": 0.44,
+        "delight": 0.42,
+        "indifferent": 0.01
+      }
+    },
+    "P032": {
+      "p_success": 0.75,
+      "p_user_value": 0.84,
+      "risk": 0.17,
+      "p_fit": 0.9,
+      "p_cheap_test": 0.89,
+      "p_acquisition": 0.11,
+      "p_revenue": 0.63,
+      "impact": 3.09,
+      "impact_conf": 0.81,
+      "effort": 2.18,
+      "effort_conf": 0.83,
+      "kano": "must",
+      "kano_probs": {
+        "must": 0.75,
+        "linear": 0.17,
+        "delight": 0.08,
+        "indifferent": 0.0
+      }
+    },
+    "P033": {
+      "p_success": 0.6,
+      "p_user_value": 0.75,
+      "risk": 0.44,
+      "p_fit": 0.85,
+      "p_cheap_test": 0.93,
+      "p_acquisition": 0.14,
+      "p_revenue": 0.56,
+      "impact": 2.59,
+      "impact_conf": 0.62,
+      "effort": 1.68,
+      "effort_conf": 0.72,
+      "kano": "must",
+      "kano_probs": {
+        "must": 0.88,
+        "linear": 0.11,
+        "delight": 0.01,
+        "indifferent": 0.0
+      }
+    },
+    "P034": {
+      "p_success": 0.59,
+      "p_user_value": 0.66,
+      "risk": 0.48,
+      "p_fit": 0.83,
+      "p_cheap_test": 0.9,
+      "p_acquisition": 0.18,
+      "p_revenue": 0.19,
+      "impact": 2.52,
+      "impact_conf": 0.56,
+      "effort": 1.86,
+      "effort_conf": 0.88,
+      "kano": "must",
+      "kano_probs": {
+        "must": 0.9,
+        "linear": 0.06,
+        "delight": 0.03,
+        "indifferent": 0.01
+      }
+    },
+    "P035": {
+      "p_success": 0.68,
+      "p_user_value": 0.75,
+      "risk": 0.28,
+      "p_fit": 0.87,
+      "p_cheap_test": 0.95,
+      "p_acquisition": 0.21,
+      "p_revenue": 0.25,
+      "impact": 2.67,
+      "impact_conf": 0.69,
+      "effort": 1.85,
+      "effort_conf": 0.88,
+      "kano": "linear",
+      "kano_probs": {
+        "must": 0.3,
+        "linear": 0.39,
+        "delight": 0.31,
+        "indifferent": 0.0
+      }
+    },
+    "P036": {
+      "p_success": 0.48,
+      "p_user_value": 0.36,
+      "risk": 0.46,
+      "p_fit": 0.75,
+      "p_cheap_test": 0.88,
+      "p_acquisition": 0.12,
+      "p_revenue": 0.19,
+      "impact": 2.16,
+      "impact_conf": 0.82,
+      "effort": 2.01,
+      "effort_conf": 0.97,
+      "kano": "delight",
+      "kano_probs": {
+        "must": 0.02,
+        "linear": 0.17,
+        "delight": 0.76,
+        "indifferent": 0.05
+      }
+    },
+    "P037": {
+      "p_success": 0.5,
+      "p_user_value": 0.58,
+      "risk": 0.21,
+      "p_fit": 0.85,
+      "p_cheap_test": 0.92,
+      "p_acquisition": 0.07,
+      "p_revenue": 0.27,
+      "impact": 2.11,
+      "impact_conf": 0.91,
+      "effort": 2.03,
+      "effort_conf": 0.95,
+      "kano": "delight",
+      "kano_probs": {
+        "must": 0.0,
+        "linear": 0.11,
+        "delight": 0.88,
+        "indifferent": 0.01
+      }
+    },
+    "P038": {
+      "p_success": 0.66,
+      "p_user_value": 0.79,
+      "risk": 0.24,
+      "p_fit": 0.89,
+      "p_cheap_test": 0.92,
+      "p_acquisition": 0.11,
+      "p_revenue": 0.31,
+      "impact": 2.97,
+      "impact_conf": 0.81,
+      "effort": 2.02,
+      "effort_conf": 0.97,
+      "kano": "linear",
+      "kano_probs": {
+        "must": 0.2,
+        "linear": 0.55,
+        "delight": 0.25,
+        "indifferent": 0.0
+      }
+    },
+    "P039": {
+      "p_success": 0.55,
+      "p_user_value": 0.53,
+      "risk": 0.31,
+      "p_fit": 0.81,
+      "p_cheap_test": 0.9,
+      "p_acquisition": 0.08,
+      "p_revenue": 0.22,
+      "impact": 2.4,
+      "impact_conf": 0.66,
+      "effort": 1.79,
+      "effort_conf": 0.82,
+      "kano": "must",
+      "kano_probs": {
+        "must": 0.88,
+        "linear": 0.08,
+        "delight": 0.02,
+        "indifferent": 0.02
+      }
+    },
+    "P040": {
+      "p_success": 0.32,
+      "p_user_value": 0.13,
+      "risk": 0.61,
+      "p_fit": 0.68,
+      "p_cheap_test": 0.77,
+      "p_acquisition": 0.12,
+      "p_revenue": 0.51,
+      "impact": 1.77,
+      "impact_conf": 0.8,
+      "effort": 1.65,
+      "effort_conf": 0.7,
+      "kano": "indifferent",
+      "kano_probs": {
+        "must": 0.01,
+        "linear": 0.03,
+        "delight": 0.15,
+        "indifferent": 0.81
+      }
+    },
+    "P041": {
+      "p_success": 0.25,
+      "p_user_value": 0.16,
+      "risk": 0.22,
+      "p_fit": 0.33,
+      "p_cheap_test": 0.89,
+      "p_acquisition": 0.09,
+      "p_revenue": 0.23,
+      "impact": 1.59,
+      "impact_conf": 0.63,
+      "effort": 1.53,
+      "effort_conf": 0.58,
+      "kano": "indifferent",
+      "kano_probs": {
+        "must": 0.02,
+        "linear": 0.07,
+        "delight": 0.35,
+        "indifferent": 0.56
+      }
+    },
+    "P042": {
+      "p_success": 0.5,
+      "p_user_value": 0.38,
+      "risk": 0.92,
+      "p_fit": 0.72,
+      "p_cheap_test": 0.91,
+      "p_acquisition": 0.18,
+      "p_revenue": 0.65,
+      "impact": 3.61,
+      "impact_conf": 0.48,
+      "effort": 2.04,
+      "effort_conf": 0.95,
+      "kano": "indifferent",
+      "kano_probs": {
+        "must": 0.35,
+        "linear": 0.17,
+        "delight": 0.04,
+        "indifferent": 0.44
+      }
+    },
+    "P043": {
+      "p_success": 0.53,
+      "p_user_value": 0.48,
+      "risk": 0.2,
+      "p_fit": 0.66,
+      "p_cheap_test": 0.94,
+      "p_acquisition": 0.1,
+      "p_revenue": 0.16,
+      "impact": 2.24,
+      "impact_conf": 0.68,
+      "effort": 1.88,
+      "effort_conf": 0.89,
+      "kano": "linear",
+      "kano_probs": {
+        "must": 0.24,
+        "linear": 0.41,
+        "delight": 0.27,
+        "indifferent": 0.08
+      }
+    },
+    "P044": {
+      "p_success": 0.48,
+      "p_user_value": 0.12,
+      "risk": 0.24,
+      "p_fit": 0.77,
+      "p_cheap_test": 0.81,
+      "p_acquisition": 0.09,
+      "p_revenue": 0.16,
+      "impact": 2.7,
+      "impact_conf": 0.18,
+      "effort": 1.77,
+      "effort_conf": 0.8,
+      "kano": "indifferent",
+      "kano_probs": {
+        "must": 0.29,
+        "linear": 0.04,
+        "delight": 0.04,
+        "indifferent": 0.63
+      }
+    },
+    "P045": {
+      "p_success": 0.36,
+      "p_user_value": 0.38,
+      "risk": 0.6,
+      "p_fit": 0.73,
+      "p_cheap_test": 0.84,
+      "p_acquisition": 0.14,
+      "p_revenue": 0.16,
+      "impact": 2.17,
+      "impact_conf": 0.8,
+      "effort": 2.06,
+      "effort_conf": 0.96,
+      "kano": "delight",
+      "kano_probs": {
+        "must": 0.04,
+        "linear": 0.23,
+        "delight": 0.56,
+        "indifferent": 0.17
+      }
+    },
+    "P046": {
+      "p_success": 0.51,
+      "p_user_value": 0.22,
+      "risk": 0.28,
+      "p_fit": 0.83,
+      "p_cheap_test": 0.93,
+      "p_acquisition": 0.16,
+      "p_revenue": 0.26,
+      "impact": 2.4,
+      "impact_conf": 0.6,
+      "effort": 1.67,
+      "effort_conf": 0.68,
+      "kano": "indifferent",
+      "kano_probs": {
+        "must": 0.14,
+        "linear": 0.24,
+        "delight": 0.14,
+        "indifferent": 0.48
+      }
+    },
+    "P047": {
+      "p_success": 0.37,
+      "p_user_value": 0.07,
+      "risk": 0.44,
+      "p_fit": 0.69,
+      "p_cheap_test": 0.93,
+      "p_acquisition": 0.08,
+      "p_revenue": 0.08,
+      "impact": 1.43,
+      "impact_conf": 0.64,
+      "effort": 1.67,
+      "effort_conf": 0.71,
+      "kano": "indifferent",
+      "kano_probs": {
+        "must": 0.07,
+        "linear": 0.05,
+        "delight": 0.01,
+        "indifferent": 0.87
+      }
+    },
+    "P048": {
+      "p_success": 0.53,
+      "p_user_value": 0.58,
+      "risk": 0.47,
+      "p_fit": 0.84,
+      "p_cheap_test": 0.9,
+      "p_acquisition": 0.74,
+      "p_revenue": 0.48,
+      "impact": 2.48,
+      "impact_conf": 0.61,
+      "effort": 2.01,
+      "effort_conf": 0.94,
+      "kano": "linear",
+      "kano_probs": {
+        "must": 0.15,
+        "linear": 0.67,
+        "delight": 0.17,
+        "indifferent": 0.01
+      }
+    },
+    "P049": {
+      "p_success": 0.38,
+      "p_user_value": 0.34,
+      "risk": 0.32,
+      "p_fit": 0.8,
+      "p_cheap_test": 0.93,
+      "p_acquisition": 0.72,
+      "p_revenue": 0.26,
+      "impact": 2.19,
+      "impact_conf": 0.82,
+      "effort": 1.59,
+      "effort_conf": 0.63,
+      "kano": "delight",
+      "kano_probs": {
+        "must": 0.01,
+        "linear": 0.23,
+        "delight": 0.63,
+        "indifferent": 0.13
+      }
+    },
+    "P050": {
+      "p_success": 0.43,
+      "p_user_value": 0.26,
+      "risk": 0.48,
+      "p_fit": 0.78,
+      "p_cheap_test": 0.91,
+      "p_acquisition": 0.76,
+      "p_revenue": 0.27,
+      "impact": 2.13,
+      "impact_conf": 0.88,
+      "effort": 1.66,
+      "effort_conf": 0.66,
+      "kano": "delight",
+      "kano_probs": {
+        "must": 0.01,
+        "linear": 0.22,
+        "delight": 0.51,
+        "indifferent": 0.26
+      }
+    },
+    "P051": {
+      "p_success": 0.32,
+      "p_user_value": 0.32,
+      "risk": 0.22,
+      "p_fit": 0.67,
+      "p_cheap_test": 0.91,
+      "p_acquisition": 0.71,
+      "p_revenue": 0.18,
+      "impact": 1.96,
+      "impact_conf": 0.95,
+      "effort": 2.31,
+      "effort_conf": 0.73,
+      "kano": "delight",
+      "kano_probs": {
+        "must": 0.01,
+        "linear": 0.07,
+        "delight": 0.77,
+        "indifferent": 0.15
+      }
+    },
+    "P052": {
+      "p_success": 0.59,
+      "p_user_value": 0.74,
+      "risk": 0.31,
+      "p_fit": 0.84,
+      "p_cheap_test": 0.93,
+      "p_acquisition": 0.42,
+      "p_revenue": 0.46,
+      "impact": 2.75,
+      "impact_conf": 0.7,
+      "effort": 2.12,
+      "effort_conf": 0.88,
+      "kano": "must",
+      "kano_probs": {
+        "must": 0.83,
+        "linear": 0.15,
+        "delight": 0.02,
+        "indifferent": 0.0
+      }
+    },
+    "P053": {
+      "p_success": 0.44,
+      "p_user_value": 0.56,
+      "risk": 0.23,
+      "p_fit": 0.74,
+      "p_cheap_test": 0.88,
+      "p_acquisition": 0.13,
+      "p_revenue": 0.31,
+      "impact": 2.39,
+      "impact_conf": 0.67,
+      "effort": 2.43,
+      "effort_conf": 0.62,
+      "kano": "must",
+      "kano_probs": {
+        "must": 0.88,
+        "linear": 0.1,
+        "delight": 0.01,
+        "indifferent": 0.01
+      }
+    },
+    "P054": {
+      "p_success": 0.57,
+      "p_user_value": 0.72,
+      "risk": 0.15,
+      "p_fit": 0.86,
+      "p_cheap_test": 0.93,
+      "p_acquisition": 0.43,
+      "p_revenue": 0.37,
+      "impact": 2.57,
+      "impact_conf": 0.52,
+      "effort": 1.34,
+      "effort_conf": 0.73,
+      "kano": "must",
+      "kano_probs": {
+        "must": 0.8,
+        "linear": 0.17,
+        "delight": 0.03,
+        "indifferent": 0.0
+      }
+    },
+    "P055": {
+      "p_success": 0.53,
+      "p_user_value": 0.71,
+      "risk": 0.66,
+      "p_fit": 0.75,
+      "p_cheap_test": 0.87,
+      "p_acquisition": 0.43,
+      "p_revenue": 0.38,
+      "impact": 2.56,
+      "impact_conf": 0.61,
+      "effort": 3.01,
+      "effort_conf": 0.94,
+      "kano": "delight",
+      "kano_probs": {
+        "must": 0.02,
+        "linear": 0.26,
+        "delight": 0.71,
+        "indifferent": 0.01
+      }
+    },
+    "P056": {
+      "p_success": 0.63,
+      "p_user_value": 0.73,
+      "risk": 0.72,
+      "p_fit": 0.78,
+      "p_cheap_test": 0.8,
+      "p_acquisition": 0.67,
+      "p_revenue": 0.76,
+      "impact": 3.06,
+      "impact_conf": 0.73,
+      "effort": 3.44,
+      "effort_conf": 0.62,
+      "kano": "delight",
+      "kano_probs": {
+        "must": 0.02,
+        "linear": 0.44,
+        "delight": 0.53,
+        "indifferent": 0.01
+      }
+    },
+    "P057": {
+      "p_success": 0.57,
+      "p_user_value": 0.69,
+      "risk": 0.44,
+      "p_fit": 0.76,
+      "p_cheap_test": 0.86,
+      "p_acquisition": 0.36,
+      "p_revenue": 0.54,
+      "impact": 2.75,
+      "impact_conf": 0.73,
+      "effort": 2.29,
+      "effort_conf": 0.76,
+      "kano": "linear",
+      "kano_probs": {
+        "must": 0.07,
+        "linear": 0.51,
+        "delight": 0.41,
+        "indifferent": 0.01
+      }
+    },
+    "P058": {
+      "p_success": 0.15,
+      "p_user_value": 0.39,
+      "risk": 0.85,
+      "p_fit": 0.32,
+      "p_cheap_test": 0.89,
+      "p_acquisition": 0.16,
+      "p_revenue": 0.31,
+      "impact": 1.32,
+      "impact_conf": 0.73,
+      "effort": 3.13,
+      "effort_conf": 0.88,
+      "kano": "delight",
+      "kano_probs": {
+        "must": 0.01,
+        "linear": 0.16,
+        "delight": 0.51,
+        "indifferent": 0.32
+      }
+    },
+    "P059": {
+      "p_success": 0.5,
+      "p_user_value": 0.43,
+      "risk": 0.34,
+      "p_fit": 0.61,
+      "p_cheap_test": 0.89,
+      "p_acquisition": 0.12,
+      "p_revenue": 0.22,
+      "impact": 2.31,
+      "impact_conf": 0.71,
+      "effort": 2.14,
+      "effort_conf": 0.88,
+      "kano": "must",
+      "kano_probs": {
+        "must": 0.75,
+        "linear": 0.06,
+        "delight": 0.04,
+        "indifferent": 0.15
+      }
+    },
+    "P060": {
+      "p_success": 0.62,
+      "p_user_value": 0.79,
+      "risk": 0.65,
+      "p_fit": 0.81,
+      "p_cheap_test": 0.88,
+      "p_acquisition": 0.12,
+      "p_revenue": 0.36,
+      "impact": 2.76,
+      "impact_conf": 0.72,
+      "effort": 2.11,
+      "effort_conf": 0.9,
+      "kano": "must",
+      "kano_probs": {
+        "must": 0.96,
+        "linear": 0.02,
+        "delight": 0.02,
+        "indifferent": 0.0
+      }
+    },
+    "P061": {
+      "p_success": 0.53,
+      "p_user_value": 0.53,
+      "risk": 0.33,
+      "p_fit": 0.68,
+      "p_cheap_test": 0.91,
+      "p_acquisition": 0.07,
+      "p_revenue": 0.16,
+      "impact": 2.15,
+      "impact_conf": 0.74,
+      "effort": 2.06,
+      "effort_conf": 0.94,
+      "kano": "must",
+      "kano_probs": {
+        "must": 0.83,
+        "linear": 0.02,
+        "delight": 0.01,
+        "indifferent": 0.14
+      }
+    },
+    "P062": {
+      "p_success": 0.61,
+      "p_user_value": 0.52,
+      "risk": 0.36,
+      "p_fit": 0.76,
+      "p_cheap_test": 0.89,
+      "p_acquisition": 0.15,
+      "p_revenue": 0.28,
+      "impact": 2.65,
+      "impact_conf": 0.59,
+      "effort": 2.24,
+      "effort_conf": 0.79,
+      "kano": "must",
+      "kano_probs": {
+        "must": 0.43,
+        "linear": 0.37,
+        "delight": 0.13,
+        "indifferent": 0.07
+      }
+    },
+    "P063": {
+      "p_success": 0.65,
+      "p_user_value": 0.72,
+      "risk": 0.35,
+      "p_fit": 0.8,
+      "p_cheap_test": 0.89,
+      "p_acquisition": 0.09,
+      "p_revenue": 0.28,
+      "impact": 2.7,
+      "impact_conf": 0.65,
+      "effort": 2.71,
+      "effort_conf": 0.72,
+      "kano": "must",
+      "kano_probs": {
+        "must": 0.85,
+        "linear": 0.13,
+        "delight": 0.01,
+        "indifferent": 0.01
+      }
+    },
+    "P064": {
+      "p_success": 0.55,
+      "p_user_value": 0.28,
+      "risk": 0.69,
+      "p_fit": 0.57,
+      "p_cheap_test": 0.87,
+      "p_acquisition": 0.08,
+      "p_revenue": 0.16,
+      "impact": 2.03,
+      "impact_conf": 0.82,
+      "effort": 3.03,
+      "effort_conf": 0.94,
+      "kano": "indifferent",
+      "kano_probs": {
+        "must": 0.16,
+        "linear": 0.08,
+        "delight": 0.01,
+        "indifferent": 0.75
+      }
+    },
+    "P065": {
+      "p_success": 0.48,
+      "p_user_value": 0.62,
+      "risk": 0.59,
+      "p_fit": 0.69,
+      "p_cheap_test": 0.87,
+      "p_acquisition": 0.18,
+      "p_revenue": 0.2,
+      "impact": 2.74,
+      "impact_conf": 0.53,
+      "effort": 2.48,
+      "effort_conf": 0.6,
+      "kano": "must",
+      "kano_probs": {
+        "must": 0.7,
+        "linear": 0.21,
+        "delight": 0.02,
+        "indifferent": 0.07
+      }
+    },
+    "P066": {
+      "p_success": 0.37,
+      "p_user_value": 0.19,
+      "risk": 0.59,
+      "p_fit": 0.33,
+      "p_cheap_test": 0.82,
+      "p_acquisition": 0.05,
+      "p_revenue": 0.09,
+      "impact": 1.54,
+      "impact_conf": 0.58,
+      "effort": 3.22,
+      "effort_conf": 0.8,
+      "kano": "indifferent",
+      "kano_probs": {
+        "must": 0.28,
+        "linear": 0.1,
+        "delight": 0.02,
+        "indifferent": 0.6
+      }
+    },
+    "P067": {
+      "p_success": 0.46,
+      "p_user_value": 0.66,
+      "risk": 0.32,
+      "p_fit": 0.79,
+      "p_cheap_test": 0.87,
+      "p_acquisition": 0.14,
+      "p_revenue": 0.25,
+      "impact": 2.52,
+      "impact_conf": 0.55,
+      "effort": 2.13,
+      "effort_conf": 0.88,
+      "kano": "must",
+      "kano_probs": {
+        "must": 0.97,
+        "linear": 0.02,
+        "delight": 0.01,
+        "indifferent": 0.0
+      }
+    },
+    "P068": {
+      "p_success": 0.36,
+      "p_user_value": 0.43,
+      "risk": 0.76,
+      "p_fit": 0.66,
+      "p_cheap_test": 0.88,
+      "p_acquisition": 0.48,
+      "p_revenue": 0.36,
+      "impact": 2.65,
+      "impact_conf": 0.38,
+      "effort": 3.25,
+      "effort_conf": 0.77,
+      "kano": "delight",
+      "kano_probs": {
+        "must": 0.03,
+        "linear": 0.4,
+        "delight": 0.46,
+        "indifferent": 0.11
+      }
+    },
+    "P069": {
+      "p_success": 0.71,
+      "p_user_value": 0.76,
+      "risk": 0.34,
+      "p_fit": 0.88,
+      "p_cheap_test": 0.92,
+      "p_acquisition": 0.77,
+      "p_revenue": 0.48,
+      "impact": 3.33,
+      "impact_conf": 0.63,
+      "effort": 1.79,
+      "effort_conf": 0.82,
+      "kano": "must",
+      "kano_probs": {
+        "must": 0.86,
+        "linear": 0.12,
+        "delight": 0.02,
+        "indifferent": 0.0
+      }
+    },
+    "P070": {
+      "p_success": 0.6,
+      "p_user_value": 0.62,
+      "risk": 0.49,
+      "p_fit": 0.83,
+      "p_cheap_test": 0.94,
+      "p_acquisition": 0.26,
+      "p_revenue": 0.38,
+      "impact": 2.46,
+      "impact_conf": 0.62,
+      "effort": 1.7,
+      "effort_conf": 0.72,
+      "kano": "must",
+      "kano_probs": {
+        "must": 0.39,
+        "linear": 0.22,
+        "delight": 0.38,
+        "indifferent": 0.01
+      }
+    },
+    "P071": {
+      "p_success": 0.22,
+      "p_user_value": 0.48,
+      "risk": 0.87,
+      "p_fit": 0.69,
+      "p_cheap_test": 0.89,
+      "p_acquisition": 0.57,
+      "p_revenue": 0.19,
+      "impact": 1.62,
+      "impact_conf": 0.49,
+      "effort": 3.37,
+      "effort_conf": 0.67,
+      "kano": "delight",
+      "kano_probs": {
+        "must": 0.01,
+        "linear": 0.11,
+        "delight": 0.64,
+        "indifferent": 0.24
+      }
+    },
+    "P072": {
+      "p_success": 0.32,
+      "p_user_value": 0.42,
+      "risk": 0.68,
+      "p_fit": 0.65,
+      "p_cheap_test": 0.89,
+      "p_acquisition": 0.41,
+      "p_revenue": 0.23,
+      "impact": 2.36,
+      "impact_conf": 0.57,
+      "effort": 3.11,
+      "effort_conf": 0.86,
+      "kano": "delight",
+      "kano_probs": {
+        "must": 0.13,
+        "linear": 0.13,
+        "delight": 0.51,
+        "indifferent": 0.23
+      }
+    },
+    "P073": {
+      "p_success": 0.49,
+      "p_user_value": 0.65,
+      "risk": 0.84,
+      "p_fit": 0.67,
+      "p_cheap_test": 0.76,
+      "p_acquisition": 0.54,
+      "p_revenue": 0.43,
+      "impact": 3.52,
+      "impact_conf": 0.42,
+      "effort": 3.15,
+      "effort_conf": 0.87,
+      "kano": "linear",
+      "kano_probs": {
+        "must": 0.15,
+        "linear": 0.47,
+        "delight": 0.35,
+        "indifferent": 0.03
+      }
+    }
+  },
+  "skipped": null
+}

@@ -1,0 +1,164 @@
+[
+ {
+  "date": "2026-10-10",
+  "date_end": "2026-10-31",
+  "title": "Hacktoberfest 2026",
+  "kind": "community",
+  "relevance": "PR больше не поощряются, фокус на open-source AI: тема для поста/демо, но не повод просить PR; точные даты внутри октября сайт не называет",
+  "source": "https://hacktoberfest.com/questions/",
+  "verified": true
+ },
+ {
+  "date": "2026-10-28",
+  "date_end": "2026-10-29",
+  "title": "GitHub Universe 2026 (San Francisco)",
+  "kind": "conference",
+  "relevance": "Анонсы GitHub (агенты, Copilot, Actions) влияют на CI и тему issues-черновиков; окно для публикации с привязкой к агентным воркфлоу",
+  "source": "https://github.blog/author/arielkanter/",
+  "verified": true
+ },
+ {
+  "date": "2026-11-01",
+  "date_end": null,
+  "title": "Google Play: крайний срок продления target API 36",
+  "kind": "policy",
+  "relevance": "Для android-qa-audit: тема 'проверка APK перед дедлайном target API', раздел в README и пост",
+  "source": "https://developer.android.com/google/play/requirements/target-sdk",
+  "verified": true
+ },
+ {
+  "date": "2026-11-30",
+  "date_end": "2026-12-04",
+  "title": "HighLoad++ 2026 (Москва)",
+  "kind": "conference",
+  "relevance": "Крупнейшая RU-конференция разработчиков: заявка на доклад/митап, аудитория QA и бэкенд; по сайту организатора, проверить перед планами",
+  "source": "https://highload.ru/",
+  "verified": true
+ },
+ {
+  "date": "2026-12-02",
+  "date_end": null,
+  "title": "EU AI Act: окончание переходного периода Art. 50(2) и Art. 5 по Digital Omnibus",
+  "kind": "policy",
+  "relevance": "Для typesafe-triage и product-strategy: правовой раздел о маркировке ИИ-контента; дата из предварительного соглашения, до публикации в Official Journal не окончательна",
+  "source": "https://www.gibsondunn.com/eu-ai-act-omnibus-agreement-postponed-high-risk-deadlines-and-other-key-changes/",
+  "verified": false
+ },
+ {
+  "date": "2026-12-31",
+  "date_end": "2027-01-10",
+  "title": "Новогодние каникулы РФ 2026-2027",
+  "kind": "holiday",
+  "relevance": "Спад активности RU-сообществ: выпуск релизов до 25.12, посты не планировать на каникулы",
+  "source": "https://buh.ru/news/utverzhden-poryadok-perenosa-vykhodnykh-dney-v-2027-godu.html",
+  "verified": true
+ },
+ {
+  "date": "2027-02-21",
+  "date_end": "2027-02-23",
+  "title": "Праздничные выходные РФ (23 февраля)",
+  "kind": "holiday",
+  "relevance": "Спад публикаций в RU-сообществах; постановление Правительства РФ № 1187",
+  "source": "https://buh.ru/news/utverzhden-poryadok-perenosa-vykhodnykh-dney-v-2027-godu.html",
+  "verified": true
+ },
+ {
+  "date": "2027-03-06",
+  "date_end": "2027-03-08",
+  "title": "Праздничные выходные РФ (8 марта)",
+  "kind": "holiday",
+  "relevance": "Спад RU-активности; постановление № 1187",
+  "source": "https://buh.ru/news/utverzhden-poryadok-perenosa-vykhodnykh-dney-v-2027-godu.html",
+  "verified": true
+ },
+ {
+  "date": "2027-04-26",
+  "date_end": null,
+  "title": "ADA Title II: срок WCAG 2.1 AA для публичных образований от 50 000 жителей",
+  "kind": "policy",
+  "relevance": "Сезон спроса на a11y-аудит для site-qa-audit в США; срок по сводке юрфирмы, правило interim, возможны изменения",
+  "source": "https://www.jdsupra.com/legalnews/department-of-justice-delays-compliance-2688927/",
+  "verified": false
+ },
+ {
+  "date": "2027-05-01",
+  "date_end": "2027-05-10",
+  "title": "Майские праздники РФ 2027",
+  "kind": "holiday",
+  "relevance": "1-3 и 8-10 мая выходные: пауза RU-публикаций",
+  "source": "https://buh.ru/news/utverzhden-poryadok-perenosa-vykhodnykh-dney-v-2027-godu.html",
+  "verified": true
+ },
+ {
+  "date": "2027-05-06",
+  "date_end": null,
+  "title": "Code with Claude 2027 (ориентировочно, повтор мая 2026)",
+  "kind": "conference",
+  "relevance": "Анонсы Claude Code (плагины, хуки, модели) напрямую влияют на все 4 скила; в 2026 были 6 мая, 19 мая, 10 июня; на 2027 не объявлено",
+  "source": "https://claude.com/code-with-claude",
+  "verified": false
+ },
+ {
+  "date": "2027-05-12",
+  "date_end": null,
+  "title": "Google I/O 2027 (ориентировочно)",
+  "kind": "conference",
+  "relevance": "Релизы Android и Gemini влияют на android-qa-audit; дата только по неофициальному счётчику, официально не объявлена",
+  "source": "https://www.jdsupra.com/legalnews/department-of-justice-delays-compliance-2688927/",
+  "verified": false
+ },
+ {
+  "date": "2027-06-01",
+  "date_end": null,
+  "title": "Saint HighLoad++ 2027 (июнь, точная дата не названа)",
+  "kind": "conference",
+  "relevance": "Площадка для доклада RU; точная дата не объявлена",
+  "source": "https://highload.ru/",
+  "verified": false
+ },
+ {
+  "date": "2027-06-12",
+  "date_end": "2027-06-14",
+  "title": "Праздничные выходные РФ (12 июня)",
+  "kind": "holiday",
+  "relevance": "Пауза RU-публикаций",
+  "source": "https://buh.ru/news/utverzhden-poryadok-perenosa-vykhodnykh-dney-v-2027-godu.html",
+  "verified": true
+ },
+ {
+  "date": "2027-10-07",
+  "date_end": null,
+  "title": "Годовщина репозитория claude-code-skills (создан 2026-10-07)",
+  "kind": "anniversary",
+  "relevance": "Повод для итогового поста и ретроспективы релизов",
+  "source": "https://github.com/OrionFLASH/claude-code-skills",
+  "verified": true
+ },
+ {
+  "date": "2027-11-04",
+  "date_end": "2027-11-07",
+  "title": "Праздничные выходные РФ (День народного единства)",
+  "kind": "holiday",
+  "relevance": "Пауза RU-публикаций",
+  "source": "https://buh.ru/news/utverzhden-poryadok-perenosa-vykhodnykh-dney-v-2027-godu.html",
+  "verified": true
+ },
+ {
+  "date": "2027-12-02",
+  "date_end": null,
+  "title": "EU AI Act: высокорисковые системы Annex III (по Digital Omnibus)",
+  "kind": "policy",
+  "relevance": "Горизонт видения: возможный спрос на аудит ИИ-систем; дата из предварительного соглашения",
+  "source": "https://www.gibsondunn.com/eu-ai-act-omnibus-agreement-postponed-high-risk-deadlines-and-other-key-changes/",
+  "verified": false
+ },
+ {
+  "date": "2028-08-02",
+  "date_end": null,
+  "title": "EU AI Act: Annex I высокорисковые продукты (по Digital Omnibus)",
+  "kind": "policy",
+  "relevance": "Горизонт видения; дата не окончательна до публикации",
+  "source": "https://www.gibsondunn.com/eu-ai-act-omnibus-agreement-postponed-high-risk-deadlines-and-other-key-changes/",
+  "verified": false
+ }
+]

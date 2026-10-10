@@ -1,0 +1,141 @@
+{
+  "version": 1,
+  "value": {
+    "value": 2.0,
+    "reach": 1.0,
+    "impact": 1.0,
+    "acquisition": 0.8,
+    "activation": 1.0,
+    "conversion": 1.0,
+    "retention": 1.0,
+    "revenue": 1.0,
+    "virality": 0.6,
+    "seo": 0.6,
+    "trust": 0.6,
+    "moat": 0.8,
+    "fit": 0.8,
+    "demand": 1.0,
+    "season": 0.4
+  },
+  "cost": {
+    "cost": 2.0,
+    "effort_days": 1.5,
+    "money": 0.8,
+    "time_to_result": 0.8,
+    "dependencies": 0.4
+  },
+  "risk": {
+    "risk": 2.0,
+    "legal": 1.2,
+    "ip": 1.0,
+    "platform": 1.0,
+    "privacy": 1.2,
+    "tech": 0.8,
+    "reputation": 1.0
+  },
+  "composite": {
+    "rice": 0.3,
+    "ice": 0.2,
+    "wsjf": 0.25,
+    "risk_adjusted": 0.25
+  },
+  "evidence_confidence": {
+    "A": 1.0,
+    "B": 0.8,
+    "C": 0.55,
+    "D": 0.35
+  },
+  "confidence_mix": {
+    "evidence": 0.6,
+    "testability": 0.25,
+    "agreement": 0.15
+  },
+  "reach_units": {
+    "1": 50,
+    "2": 300,
+    "3": 1250,
+    "4": 6000,
+    "5": 20000
+  },
+  "impact_map": {
+    "1": 0.25,
+    "2": 0.5,
+    "3": 1.0,
+    "4": 2.0,
+    "5": 3.0
+  },
+  "risk_adjust_max": 0.5,
+  "maps": {
+    "effort_days": [
+      2,
+      5,
+      15,
+      40
+    ],
+    "money": [
+      0,
+      500,
+      5000,
+      25000
+    ],
+    "time_to_result": [
+      7,
+      30,
+      90,
+      180
+    ],
+    "dependencies": [
+      0,
+      1,
+      2,
+      3
+    ]
+  },
+  "priority": {
+    "p0_share": 0.15,
+    "p1_until": 0.4,
+    "p2_until": 0.7,
+    "p0_quadrants": [
+      "quick_win",
+      "big_bet"
+    ]
+  },
+  "labels": {
+    "important_value": 3.6,
+    "effective_quantile": 0.75,
+    "expensive_cost": 3.6,
+    "expensive_money": 10000,
+    "risky_risk": 3.0,
+    "fast_days": 14,
+    "slow_days": 90,
+    "strategic_moat": 4,
+    "strategic_horizons": [
+      "next",
+      "later",
+      "vision"
+    ],
+    "tempting_value": 3.3,
+    "tempting_confidence": 0.55
+  },
+  "sensitivity": {
+    "factors": [
+      0.5,
+      1.5
+    ],
+    "groups": [
+      "composite",
+      "value",
+      "cost",
+      "risk"
+    ],
+    "top_n": 20
+  },
+  "dependency": {
+    "unlock_bonus": 0.1,
+    "decay": 0.5,
+    "bonus_cap": 0.15,
+    "critical_top_n": 20,
+    "warn_top": 20,
+    "warn_below": 60
+  }
+}

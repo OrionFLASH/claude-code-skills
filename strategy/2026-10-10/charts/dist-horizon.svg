@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 281" width="860" height="281" role="img" font-family="system-ui, -apple-system, &#39;Segoe UI&#39;, Roboto, &#39;Helvetica Neue&#39;, Arial, sans-serif">
+<title>Горизонты: 59 из 73 предложений — на ближайший год</title>
+<desc>Сейчас — 0–3 мес., дальше — 3–12 мес., позже — 1–2 года, видение — 2+ года.</desc>
+<rect x="0" y="0" width="860" height="281" fill="#FFFFFF"/>
+<text x="24" y="42.0" font-size="18" font-weight="700" fill="#1F2328">Горизонты: 59 из 73 предложений — на ближайший год</text>
+<text x="24" y="79.0" font-size="13" fill="#57606A">Сейчас — 0–3 мес., дальше — 3–12 мес., позже — 1–2 года, видение — 2+ года.</text>
+<line x1="254.0" y1="93.6" x2="254.0" y2="205.6" stroke="#E4E7EB" stroke-width="1"/>
+<text x="254.0" y="221.6" font-size="11" fill="#57606A" text-anchor="middle">0</text>
+<line x1="384.5" y1="93.6" x2="384.5" y2="205.6" stroke="#E4E7EB" stroke-width="1"/>
+<text x="384.5" y="221.6" font-size="11" fill="#57606A" text-anchor="middle">10</text>
+<line x1="515.0" y1="93.6" x2="515.0" y2="205.6" stroke="#E4E7EB" stroke-width="1"/>
+<text x="515.0" y="221.6" font-size="11" fill="#57606A" text-anchor="middle">20</text>
+<line x1="645.5" y1="93.6" x2="645.5" y2="205.6" stroke="#E4E7EB" stroke-width="1"/>
+<text x="645.5" y="221.6" font-size="11" fill="#57606A" text-anchor="middle">30</text>
+<line x1="776.0" y1="93.6" x2="776.0" y2="205.6" stroke="#E4E7EB" stroke-width="1"/>
+<text x="776.0" y="221.6" font-size="11" fill="#57606A" text-anchor="middle">40</text>
+<text x="24.0" y="112.1" font-size="12" fill="#1F2328" text-anchor="start">Сейчас (0–3 мес.)</text>
+<rect x="254.0" y="98.6" width="456.8" height="18.0" rx="2" fill="#0072B2"/>
+<text x="716.8" y="111.6" font-size="12" fill="#1F2328" text-anchor="start">35</text>
+<text x="24.0" y="140.1" font-size="12" fill="#1F2328" text-anchor="start">Дальше (3–12 мес.)</text>
+<rect x="254.0" y="126.6" width="313.2" height="18.0" rx="2" fill="#2E8BC0"/>
+<text x="573.2" y="139.6" font-size="12" fill="#1F2328" text-anchor="start">24</text>
+<text x="24.0" y="168.1" font-size="12" fill="#1F2328" text-anchor="start">Позже (1–2 года)</text>
+<rect x="254.0" y="154.6" width="130.5" height="18.0" rx="2" fill="#5CA5CE"/>
+<text x="390.5" y="167.6" font-size="12" fill="#1F2328" text-anchor="start">10</text>
+<text x="24.0" y="196.1" font-size="12" fill="#1F2328" text-anchor="start">Видение (2+ года)</text>
+<rect x="254.0" y="182.6" width="52.2" height="18.0" rx="2" fill="#8ABEDC"/>
+<text x="312.2" y="195.6" font-size="12" fill="#1F2328" text-anchor="start">4</text>
+<text x="24" y="252.6" font-size="11" fill="#57606A">Источник: data/proposals.json (horizon)</text>
+</svg>

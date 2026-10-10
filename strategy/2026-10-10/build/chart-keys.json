@@ -1,0 +1,27 @@
+{
+  "available": [
+    "effort-impact",
+    "bubble",
+    "metrics-heatmap",
+    "radar-top10",
+    "pareto",
+    "tornado",
+    "dist-category",
+    "dist-evidence",
+    "dist-horizon",
+    "critical-path",
+    "channel-mix",
+    "kpi-tree",
+    "funnel",
+    "forecast-fan",
+    "cac-ltv",
+    "payback",
+    "keywords-clusters",
+    "events-calendar",
+    "competitors-heatmap"
+  ],
+  "skipped": {
+    "gantt": "нет data/gantt.json (фаза 7; график строится сразу после её записи)",
+    "keywords-volume": "в data/keywords.json нет объёмов — используйте keywords-clusters"
+  }
+}

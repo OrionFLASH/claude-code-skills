@@ -1,0 +1,310 @@
+{
+  "order": [
+    "P030",
+    "P029",
+    "P069",
+    "P018"
+  ],
+  "edges": [
+    [
+      "P029",
+      "P018"
+    ],
+    [
+      "P069",
+      "P018"
+    ],
+    [
+      "P042",
+      "P018"
+    ],
+    [
+      "P054",
+      "P018"
+    ],
+    [
+      "P030",
+      "P029"
+    ],
+    [
+      "P029",
+      "P019"
+    ],
+    [
+      "P069",
+      "P019"
+    ],
+    [
+      "P042",
+      "P019"
+    ],
+    [
+      "P029",
+      "P069"
+    ],
+    [
+      "P035",
+      "P046"
+    ],
+    [
+      "P029",
+      "P024"
+    ],
+    [
+      "P069",
+      "P024"
+    ],
+    [
+      "P032",
+      "P024"
+    ],
+    [
+      "P043",
+      "P024"
+    ],
+    [
+      "P030",
+      "P024"
+    ],
+    [
+      "P031",
+      "P024"
+    ],
+    [
+      "P029",
+      "P050"
+    ],
+    [
+      "P069",
+      "P050"
+    ],
+    [
+      "P031",
+      "P050"
+    ],
+    [
+      "P043",
+      "P044"
+    ],
+    [
+      "P047",
+      "P044"
+    ],
+    [
+      "P070",
+      "P031"
+    ],
+    [
+      "P043",
+      "P047"
+    ]
+  ],
+  "top_n": 20,
+  "value": 3.170002,
+  "nodes": [
+    {
+      "id": "P018",
+      "rank": 1,
+      "dep_rank": 6,
+      "title": "Подать плагины в официальный каталог anthropics/claude-plugins-official",
+      "in_top": true,
+      "critical": true
+    },
+    {
+      "id": "P029",
+      "rank": 2,
+      "dep_rank": 2,
+      "title": "Переделать README в витрину: ценность в одной фразе, GIF, установка в три строки",
+      "in_top": true,
+      "critical": true
+    },
+    {
+      "id": "P019",
+      "rank": 3,
+      "dep_rank": 8,
+      "title": "Подать по одному плагину в awesome-claude-code после 21.10.2026",
+      "in_top": true,
+      "critical": false
+    },
+    {
+      "id": "P069",
+      "rank": 4,
+      "dep_rank": 3,
+      "title": "Англоязычная витрина: README.en.md с тем же верхом, что у README-витрины",
+      "in_top": true,
+      "critical": true
+    },
+    {
+      "id": "P032",
+      "rank": 5,
+      "dep_rank": 11,
+      "title": "Quickstart «первый результат за 5 минут» для каждого скила: промпт и ожидаемый вывод",
+      "in_top": true,
+      "critical": false
+    },
+    {
+      "id": "P033",
+      "rank": 6,
+      "dep_rank": 12,
+      "title": "Блок «кому подходит, что потребуется, сколько стоит прогон, лицензия» на входе README",
+      "in_top": true,
+      "critical": false
+    },
+    {
+      "id": "P070",
+      "rank": 7,
+      "dep_rank": 10,
+      "title": "Статический хостинг демо на GitHub Pages: страница стратегии и индекс примеров",
+      "in_top": true,
+      "critical": false
+    },
+    {
+      "id": "P043",
+      "rank": 8,
+      "dep_rank": 7,
+      "title": "Еженедельный снимок публичных сигналов GitHub в CSV: просмотры, клоны, источники, звёзды",
+      "in_top": true,
+      "critical": false
+    },
+    {
+      "id": "P059",
+      "rank": 9,
+      "dep_rank": 9,
+      "title": "CI в GitHub Actions: validate и тесты на Linux, macOS и Windows",
+      "in_top": true,
+      "critical": false
+    },
+    {
+      "id": "P030",
+      "rank": 10,
+      "dep_rank": 1,
+      "title": "Сделать GIF и ролики первой минуты из реальных прогонов существующими утилитами",
+      "in_top": true,
+      "critical": true
+    },
+    {
+      "id": "P060",
+      "rank": 11,
+      "dep_rank": 14,
+      "title": "Node-зависимости плагинов без ручного npm install после каждого обновления",
+      "in_top": true,
+      "critical": false
+    },
+    {
+      "id": "P046",
+      "rank": 12,
+      "dep_rank": 17,
+      "title": "Опросы спроса в Discussions: лицензия, переносимость, языки, приоритеты",
+      "in_top": true,
+      "critical": false
+    },
+    {
+      "id": "P004",
+      "rank": 13,
+      "dep_rank": 13,
+      "title": "Дельта между прогонами: новые, исправленные и вернувшиеся находки",
+      "in_top": true,
+      "critical": false
+    },
+    {
+      "id": "P042",
+      "rank": 14,
+      "dep_rank": 4,
+      "title": "Решение по лицензии: NC, двойная лицензия или открытие части скилов — с оценкой рисков",
+      "in_top": true,
+      "critical": false
+    },
+    {
+      "id": "P024",
+      "rank": 15,
+      "dep_rank": 18,
+      "title": "Запуск в формате «покажи проект»: Show HN, затем Product Hunt",
+      "in_top": true,
+      "critical": false
+    },
+    {
+      "id": "P001",
+      "rank": 16,
+      "dep_rank": 20,
+      "title": "Оценка объёма и стоимости прогона до старта и лимит бюджета",
+      "in_top": true,
+      "critical": false
+    },
+    {
+      "id": "P017",
+      "rank": 17,
+      "dep_rank": 23,
+      "title": "Заполнить метаданные репозитория: темы GitHub, описание, social preview",
+      "in_top": true,
+      "critical": false
+    },
+    {
+      "id": "P050",
+      "rank": 18,
+      "dep_rank": 24,
+      "title": "Заявки в тематические awesome-списки смежных экосистем: Playwright, a11y, Android",
+      "in_top": true,
+      "critical": false
+    },
+    {
+      "id": "P044",
+      "rank": 19,
+      "dep_rank": 22,
+      "title": "Северная звезда и контрольные точки 30/60/90 дней с порогами «продолжать/свернуть»",
+      "in_top": true,
+      "critical": false
+    },
+    {
+      "id": "P063",
+      "rank": 20,
+      "dep_rank": 19,
+      "title": "Диета SKILL.md: критичные правила в первых 5 тыс. токенов, детали — в references",
+      "in_top": true,
+      "critical": false
+    },
+    {
+      "id": "P031",
+      "rank": 22,
+      "dep_rank": 15,
+      "title": "Опубликовать демо-отчёты: пример QA-отчёта и страницы стратегии без установки",
+      "in_top": false,
+      "critical": false
+    },
+    {
+      "id": "P035",
+      "rank": 23,
+      "dep_rank": 16,
+      "title": "Включить Discussions и публичную дорожную карту с ответом «вы просили — сделано»",
+      "in_top": false,
+      "critical": false
+    },
+    {
+      "id": "P054",
+      "rank": 26,
+      "dep_rank": 5,
+      "title": "Английские описания и ключевые слова плагинов в plugin.json и marketplace.json",
+      "in_top": false,
+      "critical": false
+    },
+    {
+      "id": "P047",
+      "rank": 49,
+      "dep_rank": 21,
+      "title": "Прокси принятия: еженедельный поиск упоминаний репозитория в чужих настройках и форках",
+      "in_top": false,
+      "critical": false
+    }
+  ],
+  "cycles": [],
+  "dropped_edges": [],
+  "unknown": [],
+  "warnings": [],
+  "params": {
+    "unlock_bonus": 0.1,
+    "decay": 0.5,
+    "bonus_cap": 0.15,
+    "critical_top_n": 20,
+    "warn_top": 20,
+    "warn_below": 60
+  }
+}

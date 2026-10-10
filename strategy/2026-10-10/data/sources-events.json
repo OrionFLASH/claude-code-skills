@@ -1,0 +1,101 @@
+[
+ {
+  "id": "SE001",
+  "url": "https://github.blog/author/arielkanter/",
+  "title": "GitHub blog: GitHub Universe 2026, 28-29 октября, Fort Mason, San Francisco",
+  "date_checked": "2026-10-10",
+  "used_for": "даты Universe",
+  "status": null,
+  "note": ""
+ },
+ {
+  "id": "SE002",
+  "url": "https://hacktoberfest.com/questions/",
+  "title": "Hacktoberfest 2026 FAQ (DigitalOcean, MLH, DEV)",
+  "date_checked": "2026-10-10",
+  "used_for": "формат и сроки Hacktoberfest 2026",
+  "status": null,
+  "note": ""
+ },
+ {
+  "id": "SE003",
+  "url": "https://developer.android.com/google/play/requirements/target-sdk",
+  "title": "Google Play: Target API level requirements",
+  "date_checked": "2026-10-10",
+  "used_for": "дедлайн target API 36, продление до 2026-11-01",
+  "status": null,
+  "note": ""
+ },
+ {
+  "id": "SE004",
+  "url": "https://highload.ru/",
+  "title": "HighLoad++ (официальный сайт организатора)",
+  "date_checked": "2026-10-10",
+  "used_for": "даты HighLoad++ 2026 и Saint HighLoad++ 2027",
+  "status": null,
+  "note": ""
+ },
+ {
+  "id": "SE005",
+  "url": "https://www.gibsondunn.com/eu-ai-act-omnibus-agreement-postponed-high-risk-deadlines-and-other-key-changes/",
+  "title": "Gibson Dunn: EU AI Act Omnibus Agreement (юрфирма, вторичный источник; текст в Official Journal на 2026-10-10 не проверен)",
+  "date_checked": "2026-10-10",
+  "used_for": "сроки AI Act после Digital Omnibus",
+  "status": null,
+  "note": "вторичный источник"
+ },
+ {
+  "id": "SE006",
+  "url": "https://buh.ru/news/utverzhden-poryadok-perenosa-vykhodnykh-dney-v-2027-godu.html",
+  "title": "БУХ.1С: постановление Правительства РФ № 1187 от 17.09.2026 (перенос выходных 2027); оригинал: http://static.government.ru/media/files/Rcbz6Xcgzzt7GLO5H0Ib0b1uNU5ARsKQ.pdf",
+  "date_checked": "2026-10-10",
+  "used_for": "нерабочие праздничные дни РФ 2027",
+  "status": null,
+  "note": ""
+ },
+ {
+  "id": "SE007",
+  "url": "https://claude.com/code-with-claude",
+  "title": "Anthropic: Code with Claude (официальная страница)",
+  "date_checked": "2026-10-10",
+  "used_for": "даты 2026 и отсутствие объявления 2027",
+  "status": null,
+  "note": ""
+ },
+ {
+  "id": "SE008",
+  "url": "https://io.google/",
+  "title": "Google I/O (официальный сайт)",
+  "date_checked": "2026-10-10",
+  "used_for": "отсутствие объявленной даты I/O 2027",
+  "status": null,
+  "note": ""
+ },
+ {
+  "id": "SE009",
+  "url": "https://www.jdsupra.com/legalnews/department-of-justice-delays-compliance-2688927/",
+  "title": "JD Supra: DOJ delays ADA Title II web accessibility deadlines (юр. сводка; interim final rule 2026-04-20)",
+  "date_checked": "2026-10-10",
+  "used_for": "срок ADA Title II 2027-04-26",
+  "status": null,
+  "note": "вторичный источник; не открывалась, только сводка поиска"
+ },
+ {
+  "id": "SE010",
+  "url": "https://outside.so/when-is/when-is-google-io-2027",
+  "title": "outside.so: when is Google I/O 2027 (неофициальный счётчик)",
+  "date_checked": "2026-10-10",
+  "used_for": "только ориентир даты I/O 2027",
+  "status": null,
+  "note": "неофициальный"
+ },
+ {
+  "id": "SE011",
+  "url": "https://github.com/OrionFLASH/claude-code-skills",
+  "title": "Репозиторий OrionFLASH/claude-code-skills (дата создания 2026-10-07 из брифа и product-understanding.md)",
+  "date_checked": "2026-10-10",
+  "used_for": "годовщина репозитория",
+  "status": null,
+  "note": ""
+ }
+]

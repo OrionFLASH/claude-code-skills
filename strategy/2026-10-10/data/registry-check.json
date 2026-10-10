@@ -1,0 +1,130 @@
+{
+  "ok": true,
+  "date": "2026-10-10",
+  "demo": false,
+  "total": 73,
+  "min": 50,
+  "profile": "zero-budget-solo",
+  "categories_na": [],
+  "by_category": {
+    "product": 16,
+    "acquisition": 12,
+    "conversion": 6,
+    "retention": 6,
+    "monetization": 3,
+    "analytics": 5,
+    "partnerships": 4,
+    "localization": 4,
+    "new_lines": 5,
+    "platform": 12
+  },
+  "category_minimums": {
+    "product": {
+      "pct": 30,
+      "required": 15,
+      "actual": 16,
+      "na": false,
+      "optional": false,
+      "note": "",
+      "ok": true
+    },
+    "acquisition": {
+      "pct": 20,
+      "required": 10,
+      "actual": 12,
+      "na": false,
+      "optional": false,
+      "note": "",
+      "ok": true
+    },
+    "conversion": {
+      "pct": 8,
+      "required": 4,
+      "actual": 6,
+      "na": false,
+      "optional": false,
+      "note": "",
+      "ok": true
+    },
+    "retention": {
+      "pct": 8,
+      "required": 4,
+      "actual": 6,
+      "na": false,
+      "optional": false,
+      "note": "",
+      "ok": true
+    },
+    "monetization": {
+      "pct": 8,
+      "required": 0,
+      "actual": 3,
+      "na": false,
+      "optional": true,
+      "note": "профиль zero-budget-solo: минимум по запросу (strategy.categories_required)",
+      "ok": true
+    },
+    "analytics": {
+      "pct": 6,
+      "required": 3,
+      "actual": 5,
+      "na": false,
+      "optional": false,
+      "note": "",
+      "ok": true
+    },
+    "partnerships": {
+      "pct": 6,
+      "required": 0,
+      "actual": 4,
+      "na": false,
+      "optional": true,
+      "note": "профиль zero-budget-solo: минимум по запросу (strategy.categories_required)",
+      "ok": true
+    },
+    "localization": {
+      "pct": 5,
+      "required": 3,
+      "actual": 4,
+      "na": false,
+      "optional": false,
+      "note": "профиль zero-budget-solo: минимум применяется (рынков больше одного)",
+      "ok": true
+    },
+    "new_lines": {
+      "pct": 3,
+      "required": 0,
+      "actual": 5,
+      "na": false,
+      "optional": true,
+      "note": "профиль zero-budget-solo: минимум по запросу (strategy.categories_required)",
+      "ok": true
+    }
+  },
+  "evidence_classes": {
+    "A": 29,
+    "B": 19,
+    "C": 14,
+    "D": 11
+  },
+  "ab_share": 0.6575,
+  "ab_external_share": 0.6575,
+  "ab_internal_share": 0.0,
+  "evidence_sides": {
+    "external": 90,
+    "internal": 63,
+    "none": 1
+  },
+  "by_horizon": {
+    "now": 35,
+    "next": 24,
+    "later": 10,
+    "vision": 4
+  },
+  "errors": [],
+  "warnings": [
+    "цитаты из одного источника в нескольких предложениях (https://docs.github.com/en/discussions/collaborating-with-your-community-using-discussions/about-discussions): P035, P046"
+  ],
+  "dependency_warnings": [],
+  "dependency_cycles": []
+}

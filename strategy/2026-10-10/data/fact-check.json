@@ -1,0 +1,138 @@
+[
+ {
+  "fact": "Использование TypeSafe/Jev как уникальное преимущество typesafe-triage",
+  "phase1_value": "уникально (в документах не упоминались аналоги)",
+  "agent_value": "каталог sickn33/agentic-awesome-skills содержит скил jev-use (маршрутизация шагов суждения к модели суждения)",
+  "source": "агент-конкуренты: github.com/sickn33/agentic-awesome-skills, 2026-10-10",
+  "resolved_value": "не уникально; приоритет — собственный движок триажа (модель×effort×действие), а не обёртка над Jev",
+  "note": "подробности jev-use не изучены"
+ },
+ {
+  "fact": "Лицензия репозитория",
+  "phase1_value": "PolyForm Noncommercial 1.0.0",
+  "agent_value": "repo_scan: custom/unknown; GitHub API: other (не SPDX)",
+  "source": "repo-facts.json, LICENSE",
+  "resolved_value": "PolyForm Noncommercial 1.0.0 (GitHub не распознаёт как SPDX — тоже рычаг: SPDX-тег отсутствует)",
+  "note": "влияет на видимость в поиске по лицензии"
+ },
+ {
+  "fact": "Цены/тарифы продукта",
+  "phase1_value": "нет",
+  "agent_value": "repo_facts нашёл 18 чисел",
+  "source": "repo-facts.json",
+  "resolved_value": "константы тестов/моделей; цен продукта нет",
+  "note": ""
+ },
+ {
+  "fact": "Дата допуска в awesome-claude-code",
+  "phase1_value": "—",
+  "agent_value": "форма доступна после 2026-10-21 (создан +14 дней) или от 100 звёзд",
+  "source": "агент-сообщества",
+  "resolved_value": null,
+  "note": "[допущение] дата выведена из даты создания репозитория; проверить правило в README списка"
+ },
+ {
+  "fact": "Даты HighLoad++ 2026",
+  "phase1_value": "—",
+  "agent_value": "30.11–04.12.2026 (аномально длинная)",
+  "source": "highload.ru через агента",
+  "resolved_value": null,
+  "note": "сверить на странице"
+ },
+ {
+  "fact": "Поддержка language: ru|en в скилах",
+  "phase1_value": "заявлена как опция",
+  "agent_value": "только пишется в конфиг (site-qa-audit/scripts/intake.py:231); build_report.py:234 и android build_report.py:121 используют русские заголовки безусловно",
+  "source": "агент G3",
+  "resolved_value": "язык отчётов фактически не переключается",
+  "note": "предложение P-локализация; проверить по коду"
+ },
+ {
+  "fact": "GitHub Sponsors",
+  "phase1_value": "типовой вариант спонсорства",
+  "agent_value": "Россия не в списке поддерживаемых регионов (docs.github.com, about-github-sponsors)",
+  "source": "агент G3",
+  "resolved_value": "для владельца в РФ не подходит без проверки региона",
+  "note": "[допущение] регион владельца — РФ; вопрос владельцу"
+ },
+ {
+  "fact": "Грант NLnet / Claude for OSS",
+  "phase1_value": "гранты как вариант",
+  "agent_value": "NLnet требует открытую лицензию и не заинтересован в AI-generated проектах; Claude for OSS: звёзды не критерий (claude.com/open-source-max)",
+  "source": "агент G3",
+  "resolved_value": "NLnet закрыт; Claude for OSS — проверить критерии",
+  "note": ""
+ },
+ {
+  "fact": "GitHub Discussions",
+  "phase1_value": "не проверялось",
+  "agent_value": "hasDiscussionsEnabled=false",
+  "source": "gh repo view, агент G3",
+  "resolved_value": "выключены",
+  "note": ""
+ },
+ {
+  "fact": "Автоустановка Node-зависимостей плагинов",
+  "phase1_value": "README: ручной npm install после обновления",
+  "agent_value": "платформа ставит сама, если package.json в корне плагина; у нас в scripts/node/",
+  "source": "агент G1, code.claude.com/docs/en/plugins-reference",
+  "resolved_value": "README.md:44 прав, причина — расположение package.json",
+  "note": ""
+ },
+ {
+  "fact": "Коллизия имени с daymade/claude-code-skills",
+  "phase1_value": "не замечена",
+  "agent_value": "репозиторий daymade/claude-code-skills (≈1,5k звёзд, MIT, то же название)",
+  "source": "агент G2",
+  "resolved_value": "риск поиска/узнаваемости",
+  "note": "P-brand"
+ },
+ {
+  "fact": "Площадки с непроверенными правилами",
+  "phase1_value": "16 из 30 (отчёт агента сообществ)",
+  "agent_value": "19 из 30 (rules_verified=false в data/communities.json)",
+  "source": "агент A (разделы 2–5), data/communities.json",
+  "resolved_value": "19 из 30",
+  "note": "в тексте стратегии 19"
+ },
+ {
+  "fact": "Лицензия в манифестах (SPDX)",
+  "phase1_value": "«нет SPDX-лицензии»",
+  "agent_value": "PolyForm-Noncommercial-1.0.0 указан во всех манифестах (marketplace.json:30,55,73,87), есть в списке SPDX; GitHub показывает NOASSERTION/Other",
+  "source": "агент аудита пробелов",
+  "resolved_value": "SPDX-идентификатор есть; GitHub его не распознаёт",
+  "note": "в тексте — «Other» по repo-facts"
+ },
+ {
+  "fact": "Денежные величины модели",
+  "phase1_value": "равны нулю",
+  "agent_value": "в model.json остались заглушки расходов: fixed_cost_month 0/190/380 ₽, hourly_rate 1500 ₽, time_cost 648000 ₽",
+  "source": "агент B",
+  "resolved_value": "использовать как допущения «заменить»; 648000 ₽ не использовать",
+  "note": ""
+ },
+ {
+  "fact": "Python для CI",
+  "phase1_value": "3.9 и 3.12 для всех",
+  "agent_value": "product-strategy требует 3.10+ (INSTALL.md:132, check_env.py:165); site-qa-audit: INSTALL 3.8+, SKILL.md 3.9+",
+  "source": "агент специфик.",
+  "resolved_value": "матрица CI по минимальным версиям скилов",
+  "note": ""
+ },
+ {
+  "fact": "Ссылка INSTALL.md в README",
+  "phase1_value": "INSTALL.md у 4 скилов",
+  "agent_value": "корневой README.md:20 ссылается на три",
+  "source": "агент специфик.",
+  "resolved_value": "INSTALL у 4, ссылка в README — на 3 (исправить в P029)",
+  "note": ""
+ },
+ {
+  "fact": "Ставка 2: трудозатраты",
+  "phase1_value": "≈16 дней без P047",
+  "agent_value": "P044 заблокирован P047 → 17,65 дня",
+  "source": "агент C",
+  "resolved_value": "17,65 дня",
+  "note": ""
+ }
+]

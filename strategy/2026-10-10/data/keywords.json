@@ -1,0 +1,740 @@
+[
+ {
+  "query": "claude code plugin marketplace",
+  "lang": "en",
+  "cluster": "Каталоги и маркетплейсы плагинов",
+  "intent": "navigational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 5
+ },
+ {
+  "query": "claude code skills marketplace",
+  "lang": "en",
+  "cluster": "Каталоги и маркетплейсы плагинов",
+  "intent": "navigational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 5
+ },
+ {
+  "query": "best claude code skills",
+  "lang": "en",
+  "cluster": "Каталоги и маркетплейсы плагинов",
+  "intent": "navigational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 5
+ },
+ {
+  "query": "awesome claude code skills",
+  "lang": "en",
+  "cluster": "Каталоги и маркетплейсы плагинов",
+  "intent": "navigational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 5
+ },
+ {
+  "query": "claude code marketplace add github repo",
+  "lang": "en",
+  "cluster": "Каталоги и маркетплейсы плагинов",
+  "intent": "navigational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 4
+ },
+ {
+  "query": "how to install claude code plugins",
+  "lang": "en",
+  "cluster": "Каталоги и маркетплейсы плагинов",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 5
+ },
+ {
+  "query": "claude code plugin directory",
+  "lang": "en",
+  "cluster": "Каталоги и маркетплейсы плагинов",
+  "intent": "navigational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 4
+ },
+ {
+  "query": "плагины claude code",
+  "lang": "ru",
+  "cluster": "Каталоги и маркетплейсы плагинов",
+  "intent": "navigational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "скилы claude code",
+  "lang": "ru",
+  "cluster": "Каталоги и маркетплейсы плагинов",
+  "intent": "navigational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "маркетплейс плагинов claude code",
+  "lang": "ru",
+  "cluster": "Каталоги и маркетплейсы плагинов",
+  "intent": "navigational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 2
+ },
+ {
+  "query": "лучшие скилы для claude code",
+  "lang": "ru",
+  "cluster": "Каталоги и маркетплейсы плагинов",
+  "intent": "navigational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "как установить плагин в claude code",
+  "lang": "ru",
+  "cluster": "Каталоги и маркетплейсы плагинов",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "what are claude code skills",
+  "lang": "en",
+  "cluster": "Что такое скилы и как писать",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 5
+ },
+ {
+  "query": "how to create a claude code skill",
+  "lang": "en",
+  "cluster": "Что такое скилы и как писать",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 5
+ },
+ {
+  "query": "SKILL.md format",
+  "lang": "en",
+  "cluster": "Что такое скилы и как писать",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 4
+ },
+ {
+  "query": "claude code skills vs plugins",
+  "lang": "en",
+  "cluster": "Что такое скилы и как писать",
+  "intent": "commercial",
+  "volume": null,
+  "volume_source": null,
+  "competition": 4
+ },
+ {
+  "query": "claude code skills vs slash commands",
+  "lang": "en",
+  "cluster": "Что такое скилы и как писать",
+  "intent": "commercial",
+  "volume": null,
+  "volume_source": null,
+  "competition": 4
+ },
+ {
+  "query": "agent skills standard",
+  "lang": "en",
+  "cluster": "Что такое скилы и как писать",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 4
+ },
+ {
+  "query": "agentskills.io specification",
+  "lang": "en",
+  "cluster": "Что такое скилы и как писать",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "скилы claude code что это",
+  "lang": "ru",
+  "cluster": "Что такое скилы и как писать",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "как создать скилл для claude code",
+  "lang": "ru",
+  "cluster": "Что такое скилы и как писать",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "чем скилл отличается от плагина claude code",
+  "lang": "ru",
+  "cluster": "Что такое скилы и как писать",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 2
+ },
+ {
+  "query": "claude code хуки UserPromptSubmit",
+  "lang": "ru",
+  "cluster": "Что такое скилы и как писать",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 2
+ },
+ {
+  "query": "claude code QA skill",
+  "lang": "en",
+  "cluster": "QA сайта и веб-тесты через агента",
+  "intent": "commercial",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "claude code website testing playwright",
+  "lang": "en",
+  "cluster": "QA сайта и веб-тесты через агента",
+  "intent": "commercial",
+  "volume": null,
+  "volume_source": null,
+  "competition": 4
+ },
+ {
+  "query": "AI agent end to end testing website",
+  "lang": "en",
+  "cluster": "QA сайта и веб-тесты через агента",
+  "intent": "commercial",
+  "volume": null,
+  "volume_source": null,
+  "competition": 5
+ },
+ {
+  "query": "ai website qa audit",
+  "lang": "en",
+  "cluster": "QA сайта и веб-тесты через агента",
+  "intent": "commercial",
+  "volume": null,
+  "volume_source": null,
+  "competition": 4
+ },
+ {
+  "query": "claude code find bugs on website",
+  "lang": "en",
+  "cluster": "QA сайта и веб-тесты через агента",
+  "intent": "commercial",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "QA сайта с помощью ИИ",
+  "lang": "ru",
+  "cluster": "QA сайта и веб-тесты через агента",
+  "intent": "commercial",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "нейросеть для аудита сайта",
+  "lang": "ru",
+  "cluster": "QA сайта и веб-тесты через агента",
+  "intent": "commercial",
+  "volume": null,
+  "volume_source": null,
+  "competition": 4
+ },
+ {
+  "query": "автоматическое тестирование сайта нейросетью",
+  "lang": "ru",
+  "cluster": "QA сайта и веб-тесты через агента",
+  "intent": "commercial",
+  "volume": null,
+  "volume_source": null,
+  "competition": 4
+ },
+ {
+  "query": "claude code playwright mcp тестирование",
+  "lang": "ru",
+  "cluster": "QA сайта и веб-тесты через агента",
+  "intent": "commercial",
+  "volume": null,
+  "volume_source": null,
+  "competition": 2
+ },
+ {
+  "query": "AI accessibility audit playwright",
+  "lang": "en",
+  "cluster": "Доступность a11y и WCAG с ИИ",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 4
+ },
+ {
+  "query": "claude code accessibility audit skill",
+  "lang": "en",
+  "cluster": "Доступность a11y и WCAG с ИИ",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "WCAG 2.2 audit with AI agent",
+  "lang": "en",
+  "cluster": "Доступность a11y и WCAG с ИИ",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 4
+ },
+ {
+  "query": "axe-core playwright accessibility testing",
+  "lang": "en",
+  "cluster": "Доступность a11y и WCAG с ИИ",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 5
+ },
+ {
+  "query": "аудит доступности сайта WCAG ИИ",
+  "lang": "ru",
+  "cluster": "Доступность a11y и WCAG с ИИ",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "проверка доступности сайта автоматически",
+  "lang": "ru",
+  "cluster": "Доступность a11y и WCAG с ИИ",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 4
+ },
+ {
+  "query": "claude code lighthouse audit",
+  "lang": "en",
+  "cluster": "Производительность и SEO-аудит агентом",
+  "intent": "commercial",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "claude code SEO audit skill",
+  "lang": "en",
+  "cluster": "Производительность и SEO-аудит агентом",
+  "intent": "commercial",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "ai website performance audit agent",
+  "lang": "en",
+  "cluster": "Производительность и SEO-аудит агентом",
+  "intent": "commercial",
+  "volume": null,
+  "volume_source": null,
+  "competition": 4
+ },
+ {
+  "query": "SEO аудит сайта нейросетью",
+  "lang": "ru",
+  "cluster": "Производительность и SEO-аудит агентом",
+  "intent": "commercial",
+  "volume": null,
+  "volume_source": null,
+  "competition": 4
+ },
+ {
+  "query": "claude code аудит скорости сайта",
+  "lang": "ru",
+  "cluster": "Производительность и SEO-аудит агентом",
+  "intent": "commercial",
+  "volume": null,
+  "volume_source": null,
+  "competition": 1
+ },
+ {
+  "query": "generate github issues from bug report ai",
+  "lang": "en",
+  "cluster": "Черновики issues из находок QA",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "claude code create github issues from audit",
+  "lang": "en",
+  "cluster": "Черновики issues из находок QA",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 2
+ },
+ {
+  "query": "автоматическое создание issues на GitHub из отчёта",
+  "lang": "ru",
+  "cluster": "Черновики issues из находок QA",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 2
+ },
+ {
+  "query": "AI bug report to github issue draft",
+  "lang": "en",
+  "cluster": "Черновики issues из находок QA",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "android QA agent adb emulator",
+  "lang": "en",
+  "cluster": "Android QA через adb и эмулятор",
+  "intent": "commercial",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "claude code android emulator testing",
+  "lang": "en",
+  "cluster": "Android QA через adb и эмулятор",
+  "intent": "commercial",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "test android apk with ai agent",
+  "lang": "en",
+  "cluster": "Android QA через adb и эмулятор",
+  "intent": "commercial",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "adb mcp server claude",
+  "lang": "en",
+  "cluster": "Android QA через adb и эмулятор",
+  "intent": "commercial",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "тестирование android приложения с помощью ИИ",
+  "lang": "ru",
+  "cluster": "Android QA через adb и эмулятор",
+  "intent": "commercial",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "тестирование apk на эмуляторе автоматически",
+  "lang": "ru",
+  "cluster": "Android QA через adb и эмулятор",
+  "intent": "commercial",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "claude code android тестирование",
+  "lang": "ru",
+  "cluster": "Android QA через adb и эмулятор",
+  "intent": "commercial",
+  "volume": null,
+  "volume_source": null,
+  "competition": 1
+ },
+ {
+  "query": "claude code model selection",
+  "lang": "en",
+  "cluster": "Выбор модели и effort",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 5
+ },
+ {
+  "query": "claude code model routing",
+  "lang": "en",
+  "cluster": "Выбор модели и effort",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 4
+ },
+ {
+  "query": "claude subagent model effort",
+  "lang": "en",
+  "cluster": "Выбор модели и effort",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "opus vs sonnet vs haiku for coding",
+  "lang": "en",
+  "cluster": "Выбор модели и effort",
+  "intent": "commercial",
+  "volume": null,
+  "volume_source": null,
+  "competition": 5
+ },
+ {
+  "query": "reduce claude code token cost",
+  "lang": "en",
+  "cluster": "Выбор модели и effort",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 5
+ },
+ {
+  "query": "claude code reasoning effort levels",
+  "lang": "en",
+  "cluster": "Выбор модели и effort",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 4
+ },
+ {
+  "query": "CLAUDE_CODE_SUBAGENT_MODEL",
+  "lang": "en",
+  "cluster": "Выбор модели и effort",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "какую модель claude выбрать для кода",
+  "lang": "ru",
+  "cluster": "Выбор модели и effort",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "как сэкономить токены claude code",
+  "lang": "ru",
+  "cluster": "Выбор модели и effort",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "claude code effort что это",
+  "lang": "ru",
+  "cluster": "Выбор модели и effort",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 2
+ },
+ {
+  "query": "claude code hooks UserPromptSubmit",
+  "lang": "en",
+  "cluster": "Хуки и автоматизация Claude Code",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 4
+ },
+ {
+  "query": "claude code hook route prompt to model",
+  "lang": "en",
+  "cluster": "Хуки и автоматизация Claude Code",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 2
+ },
+ {
+  "query": "claude code hooks примеры",
+  "lang": "ru",
+  "cluster": "Хуки и автоматизация Claude Code",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 2
+ },
+ {
+  "query": "AI product strategy from repo",
+  "lang": "en",
+  "cluster": "Стратегия продукта по репозиторию",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 2
+ },
+ {
+  "query": "claude code product roadmap skill",
+  "lang": "en",
+  "cluster": "Стратегия продукта по репозиторию",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "generate product roadmap from codebase ai",
+  "lang": "en",
+  "cluster": "Стратегия продукта по репозиторию",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 2
+ },
+ {
+  "query": "RICE ICE WSJF prioritization ai tool",
+  "lang": "en",
+  "cluster": "Стратегия продукта по репозиторию",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 4
+ },
+ {
+  "query": "стратегия развития продукта с помощью ИИ",
+  "lang": "ru",
+  "cluster": "Стратегия продукта по репозиторию",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "как составить роадмап для open source проекта",
+  "lang": "ru",
+  "cluster": "Стратегия продукта по репозиторию",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "claude code product manager skills",
+  "lang": "en",
+  "cluster": "Стратегия продукта по репозиторию",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "how to promote open source project github",
+  "lang": "en",
+  "cluster": "Продвижение open source и devtool",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 5
+ },
+ {
+  "query": "how to get first github stars",
+  "lang": "en",
+  "cluster": "Продвижение open source и devtool",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 5
+ },
+ {
+  "query": "как продвигать open source проект",
+  "lang": "ru",
+  "cluster": "Продвижение open source и devtool",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "как набрать звёзды на github",
+  "lang": "ru",
+  "cluster": "Продвижение open source и devtool",
+  "intent": "informational",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "claude code skills vs cursor rules",
+  "lang": "en",
+  "cluster": "Альтернативы и сравнения",
+  "intent": "commercial",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "agent skills codex gemini cli cursor compatibility",
+  "lang": "en",
+  "cluster": "Альтернативы и сравнения",
+  "intent": "commercial",
+  "volume": null,
+  "volume_source": null,
+  "competition": 3
+ },
+ {
+  "query": "альтернатива claude code плагины",
+  "lang": "ru",
+  "cluster": "Альтернативы и сравнения",
+  "intent": "commercial",
+  "volume": null,
+  "volume_source": null,
+  "competition": 2
+ },
+ {
+  "query": "AI QA tools alternatives to QA Wolf Octomind",
+  "lang": "en",
+  "cluster": "Альтернативы и сравнения",
+  "intent": "commercial",
+  "volume": null,
+  "volume_source": null,
+  "competition": 4
+ }
+]

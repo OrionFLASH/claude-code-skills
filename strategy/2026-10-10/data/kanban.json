@@ -1,0 +1,1129 @@
+{
+  "columns": [
+    {
+      "name": "Идеи",
+      "wip": null
+    },
+    {
+      "name": "Проверка",
+      "wip": 5
+    },
+    {
+      "name": "Готово к разработке",
+      "wip": 10
+    },
+    {
+      "name": "В работе",
+      "wip": 2
+    },
+    {
+      "name": "Запуск",
+      "wip": 2
+    },
+    {
+      "name": "Измерение",
+      "wip": 6
+    },
+    {
+      "name": "Закрыто",
+      "wip": null
+    }
+  ],
+  "cards": [
+    {
+      "id": "P032",
+      "title": "Quickstart «первый результат за 5 минут» для каждого скила: промпт и ожидаемый вывод",
+      "column": "Идеи",
+      "goal": "Новый пользователь получает первый результат за пять минут по готовому сценарию",
+      "steps": [
+        "Определить минимальный сценарий на скил — skills/*/README.md",
+        "Написать quickstart — docs/quickstart/*.md",
+        "Проверить на чистой машине — Новая учётка",
+        "Поправка аудита: строить на готовых сценариях (dry-run-todomvc у site-qa-audit, make_demo.py у product-strategy)"
+      ],
+      "kpi": "Доля установивших, дошедших до первого отчёта: +10..20 п.п. [допущение]",
+      "links": [
+        "https://github.com/tzachbon/claude-model-router-hook"
+      ],
+      "tags": [
+        "onboarding",
+        "conversion",
+        "ставка 1",
+        "G12"
+      ],
+      "priority": "P0",
+      "effort_days": [
+        2,
+        4
+      ]
+    },
+    {
+      "id": "P031",
+      "title": "Опубликовать демо-отчёты: пример QA-отчёта и страницы стратегии без установки",
+      "column": "Идеи",
+      "goal": "Показать результат QA и стратегии без установки — условие Show HN",
+      "steps": [
+        "Выбрать тренировочный сайт, разрешающий тесты — Условия сайта",
+        "Прогнать отчёт, убрать личные пути — docs/examples/",
+        "Взять страницу стратегии как вторую витрину — deliverables/",
+        "Ссылки из README и карточек каталогов — README.md",
+        "Поправка аудита: QA-отчёт — Markdown (report.md, summary.md), зависимость от P005 не нужна; страница стратегии — после сборки прогона"
+      ],
+      "kpi": "Переходы к установке после просмотра примера: +0,5..2 п.п. [допущение]",
+      "links": [],
+      "tags": [
+        "demo",
+        "conversion",
+        "ставка 1",
+        "G12"
+      ],
+      "priority": "P1",
+      "effort_days": [
+        2,
+        5
+      ]
+    },
+    {
+      "id": "P060",
+      "title": "Node-зависимости плагинов без ручного npm install после каждого обновления",
+      "column": "Идеи",
+      "goal": "Ноль ручных шагов после обновления плагина: один механизм Node для трёх скилов",
+      "steps": [
+        "Проверить условия автоустановки на тестовом плагине — skills/site-qa-audit/",
+        "Переместить package.json/lock в корень плагина или добавить SessionStart-хук в DATA — skills/site-qa-audit/hooks/hooks.json",
+        "Подправить пути запуска node-скриптов (NODE_PATH) — skills/site-qa-audit/scripts/node/lib.js, scripts/*.py",
+        "То же для android-qa-audit (аннотации) — skills/android-qa-audit/scripts/node/",
+        "Обновить README и INSTALL, тест на чистой установке — README.md, skills/*/INSTALL.md",
+        "Поправка аудита (К5): включить product-strategy, один механизм на три скила с Node (кэш или ${CLAUDE_PLUGIN_DATA})"
+      ],
+      "kpi": "Ручных шагов после обновления плагина (site-qa-audit): 3 → 0..1 [факт]; Доля установок, где браузерные скрипты запускаются с первого раза: по обращениям [допущение]",
+      "links": [
+        "https://code.claude.com/docs/en/plugins/loading",
+        "https://code.claude.com/docs/en/plugins/components"
+      ],
+      "tags": [
+        "platform",
+        "ставка 3",
+        "G14"
+      ],
+      "priority": "P0",
+      "effort_days": [
+        3,
+        6
+      ]
+    },
+    {
+      "id": "P063",
+      "title": "Диета SKILL.md: критичные правила в первых 5 тыс. токенов, детали — в references",
+      "column": "Идеи",
+      "goal": "Критичные правила скила переживают сжатие контекста",
+      "steps": [
+        "Разметить в SKILL.md блоки «нельзя терять» и «справочное» — skills/*/SKILL.md",
+        "Перенести таблицы скриптов и редкие режимы в references/ с условиями чтения — skills/*/references/",
+        "Добавить проверку размера в validate (знаки/строки, предупреждение) — tools/lib/skillsrepo.py",
+        "Прогнать eval срабатывания до и после — skills/*/evals/",
+        "Записать изменение в CHANGELOG и поднять версии — skills/*/CHANGELOG.md",
+        "Поправка аудита: порог в знаках или токенах, не в строках; проверка до/после — dry-run, каталогов evals/ нет"
+      ],
+      "kpi": "Доля критичных правил внутри первых 5 000 токенов: → 100 % [оценка]; Размер SKILL.md (знаков), site-qa-audit: 37,9 тыс. → ≤ 19 тыс. [оценка]",
+      "links": [
+        "https://code.claude.com/docs/en/skills",
+        "https://www.mindstudio.ai/blog/context-rot-claude-code-skills-bloated-files"
+      ],
+      "tags": [
+        "platform",
+        "ставка 3",
+        "G15"
+      ],
+      "priority": "P1",
+      "effort_days": [
+        4,
+        8
+      ]
+    },
+    {
+      "id": "P047",
+      "title": "Прокси принятия: еженедельный поиск упоминаний репозитория в чужих настройках и форках",
+      "column": "Идеи",
+      "goal": "Считать внешние упоминания и форки как прокси установок",
+      "steps": [
+        "Выбрать запросы — tools/stats_snapshot.py (P043)",
+        "Вести счётчик — тот же CSV",
+        "Разобрать вручную — раз в месяц"
+      ],
+      "kpi": "внешних упоминаний репозитория: 0 → 3–10 за 90 дней [допущение]",
+      "links": [
+        "https://code.claude.com/docs/en/plugins/host-marketplace"
+      ],
+      "tags": [
+        "adoption",
+        "proxy",
+        "analytics",
+        "ставка 2",
+        "G17"
+      ],
+      "priority": "P2",
+      "effort_days": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": "P044",
+      "title": "Северная звезда и контрольные точки 30/60/90 дней с порогами «продолжать/свернуть»",
+      "column": "Идеи",
+      "goal": "Пороги «продолжать / свернуть» на 30/60/90 дней по North Star",
+      "steps": [
+        "Выбрать метрику — data/north-star.json в папке стратегии",
+        "Нарисовать дерево — research/",
+        "Записать пороги — таблица 30/60/90 дней"
+      ],
+      "kpi": "решений по каналам, принятых по данным: все ключевые решения квартала [оценка]; недель до решения «продолжать/свернуть»: ≤ 9 [допущение]",
+      "links": [],
+      "tags": [
+        "north-star",
+        "decision",
+        "analytics",
+        "ставка 2",
+        "G17"
+      ],
+      "priority": "P1",
+      "effort_days": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": "P067",
+      "title": "Безопасность проекта: SECURITY.md, проверка зависимостей, контрольные суммы всех скилов",
+      "column": "Идеи",
+      "goal": "Безопасность перед всплеском внимания: SECURITY.md, Dependabot, секрет-скан",
+      "steps": [
+        "Написать SECURITY.md — SECURITY.md",
+        "Подключить Dependabot для скриптов Node — .github/dependabot.yml",
+        "Секрет-скан и аудит зависимостей в CI — .github/workflows/ci.yml",
+        "Распространить skill_sums на все скилы — shared/scripts/skill_sums.py, tools/lib/skillsrepo.py",
+        "Абзац «что делают скрипты» в README — README.md"
+      ],
+      "kpi": "Скилов с проверяемыми контрольными суммами: 1 → 4 [факт]; Время реакции на сообщение об уязвимости: определён срок (например 7 дней) [допущение]",
+      "links": [
+        "https://code.claude.com/docs/en/plugins/loading"
+      ],
+      "tags": [
+        "platform",
+        "ставка 3",
+        "G20"
+      ],
+      "priority": "P2",
+      "effort_days": [
+        2,
+        5
+      ]
+    },
+    {
+      "id": "P050",
+      "title": "Заявки в тематические awesome-списки смежных экосистем: Playwright, a11y, Android",
+      "column": "Идеи",
+      "goal": "Переходы из смежных awesome-списков (Playwright, a11y, Android)",
+      "steps": [
+        "Прочитать CONTRIBUTING списков — GitHub",
+        "Подготовить строку по правилам — PR/issue человеком",
+        "Подать и отследить — PR"
+      ],
+      "kpi": "Переходы из смежных списков: +10..60 [допущение]",
+      "links": [
+        "https://github.com/mxschmitt/awesome-playwright",
+        "https://playwright.dev/docs/test-agents"
+      ],
+      "tags": [
+        "awesome",
+        "partnerships",
+        "ставка 2",
+        "G20"
+      ],
+      "priority": "P1",
+      "effort_days": [
+        0.5,
+        2
+      ]
+    },
+    {
+      "id": "P004",
+      "title": "Дельта между прогонами: новые, исправленные и вернувшиеся находки",
+      "column": "Идеи",
+      "goal": "Повторный прогон отвечает «что изменилось» за минуту",
+      "steps": [
+        "Определить ключ цели и место history.json — skills/site-qa-audit/references/run-files.md",
+        "Реализовать compare в fingerprint.py: fingerprint → статус — skills/site-qa-audit/scripts/fingerprint.py",
+        "Вывести блок и строку дельты в отчёт — skills/site-qa-audit/scripts/build_report.py, templates/run-report.md",
+        "Обновлять history.json при финализации прогона — shared/scripts/qa_export.py",
+        "Тесты: три синтетических прогона — skills/site-qa-audit/tests/"
+      ],
+      "kpi": "Время на ответ «что изменилось с прошлого раза»: 10 мин → 1 мин [допущение]; Доля повторных прогонов с дельтой в отчёте: 0 → 100 % [факт]",
+      "links": [
+        "https://github.com/deventually/a11y-plugin"
+      ],
+      "tags": [
+        "product",
+        "ставка 3",
+        "G21"
+      ],
+      "priority": "P1",
+      "effort_days": [
+        3,
+        6
+      ]
+    },
+    {
+      "id": "P038",
+      "title": "Рецепты регулярного запуска скилов: loop.md и routines для еженедельного повтора",
+      "column": "Идеи",
+      "goal": "Привычка регулярного запуска: рецепты loop.md с дельтой из P004",
+      "steps": [
+        "Проверить рецепты вручную — локальный Claude Code",
+        "Написать три loop.md — skills/*/templates/loop.md",
+        "Описать в INSTALL.md — раздел «Регулярный запуск»",
+        "Поправка аудита (К6): рецепт для сайта — с дельтой из P004"
+      ],
+      "kpi": "доля пользователей с повторным запуском за 30 дней: +10–15 п.п. [допущение]; прогонов на пользователя в месяц: 1 → 3–4 [допущение]",
+      "links": [
+        "https://code.claude.com/docs/en/scheduled-tasks"
+      ],
+      "tags": [
+        "schedule",
+        "habit",
+        "retention",
+        "G21"
+      ],
+      "priority": "P1",
+      "effort_days": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "P061",
+      "title": "validate: claude plugin validate --strict, линтер SKILL.md и ночная проверка дрейфа",
+      "column": "Идеи",
+      "goal": "Ловить поломки формата плагинов до релиза",
+      "steps": [
+        "Добавить вызов claude plugin validate [--strict] в validate.sh/ps1 — tools/validate.sh, tools/validate.ps1",
+        "Правила спецификации в skillsrepo.validate — tools/lib/skillsrepo.py",
+        "Сократить описания у скилов с запасом < 50 знаков — skills/*/SKILL.md",
+        "Ночной workflow против последнего Claude Code — .github/workflows/drift.yml",
+        "Тесты нового кода валидатора — shared/tests/, tools/"
+      ],
+      "kpi": "Классы поломок формата, ловимых до релиза: +3..5 [допущение]; Запас длины description у самого длинного скила (знаков): ≥ 100 [оценка]",
+      "links": [
+        "https://code.claude.com/docs/en/plugins-reference",
+        "https://agentskills.io/home"
+      ],
+      "tags": [
+        "platform",
+        "ставка 3",
+        "G22"
+      ],
+      "priority": "P2",
+      "effort_days": [
+        2,
+        5
+      ]
+    },
+    {
+      "id": "P001",
+      "title": "Оценка объёма и стоимости прогона до старта и лимит бюджета",
+      "column": "Идеи",
+      "goal": "Пользователь знает стоимость прогона до старта и держит лимит",
+      "steps": [
+        "Описать формулу оценки: исполнители × средний расход на исполнителя × глубина — skills/site-qa-audit/references/depth-matrix.md",
+        "Добавить секцию `budget` в шаблон конфига и разбор в intake — skills/site-qa-audit/templates/run-config.example.yaml, scripts/intake.py",
+        "Показ оценки в раунде «глубина» и повторный вопрос при превышении 80 % — skills/site-qa-audit/references/intake.md",
+        "Записывать факт расхода в журнал прогона — shared/scripts/runjournal.py",
+        "Повторить в android-qa-audit и product-strategy — skills/android-qa-audit, skills/product-strategy"
+      ],
+      "kpi": "Доля пользователей, дошедших от установки до первого завершённого прогона: +5..10 п.п. [допущение]; Доля прогонов, превысивших заявленный лимит: < 10 % [допущение]",
+      "links": [
+        "https://code.claude.com/docs/en/headless",
+        "https://aiweekly.co/alerts/claude-code-skills-waste-23k-tokens-per-session"
+      ],
+      "tags": [
+        "product",
+        "ставка 3",
+        "G23"
+      ],
+      "priority": "P1",
+      "effort_days": [
+        3,
+        6
+      ]
+    },
+    {
+      "id": "P048",
+      "title": "Листинг в реестре Tessl и skills.sh с публичными оценками качества и безопасности",
+      "column": "Идеи",
+      "goal": "Публичная оценка качества скилов в реестрах после диеты SKILL.md",
+      "steps": [
+        "Найти свои скилы в реестрах — tessl.io, skills.sh",
+        "Исправить замечания к SKILL.md — skills/*/SKILL.md",
+        "Добавить бейдж/ссылку — README.md",
+        "Поправка аудита (К7): листинг с публичной оценкой — после диеты P063"
+      ],
+      "kpi": "Публичная оценка качества скилов: нет → ≥70 [допущение]",
+      "links": [
+        "https://tessl.io/registry/skills/github/openai/plugins/android-emulator-qa",
+        "https://www.skills.sh/smithery/ai/android-emulator-qa"
+      ],
+      "tags": [
+        "registry",
+        "partnerships",
+        "G24"
+      ],
+      "priority": "P1",
+      "effort_days": [
+        1,
+        4
+      ]
+    },
+    {
+      "id": "P049",
+      "title": "Договориться с TypeSafe о взаимной витрине: typesafe-triage как пример на Jev",
+      "column": "Идеи",
+      "goal": "Взаимная витрина с TypeSafe: typesafe-triage как пример на Jev",
+      "steps": [
+        "Найти контакт и правила вклада — typesafe-ai/skills",
+        "Подготовить короткое письмо с примером — Письмо",
+        "Предложить ссылку/раздел «Примеры» — Issue или письмо"
+      ],
+      "kpi": "Переходы от TypeSafe: +10..100 [допущение]",
+      "links": [
+        "https://github.com/typesafe-ai/skills"
+      ],
+      "tags": [
+        "partner",
+        "partnerships",
+        "G24"
+      ],
+      "priority": "P1",
+      "effort_days": [
+        0.5,
+        2
+      ]
+    },
+    {
+      "id": "P022",
+      "title": "Технический разбор хука UserPromptSubmit для выбора модели и effort на dev.to",
+      "column": "Идеи",
+      "goal": "Технический разбор хука выбора модели для англоязычной аудитории",
+      "steps": [
+        "Собрать измерения и ограничения — skills/typesafe-triage/",
+        "Написать статью с кодом хука — dev.to (личный аккаунт)",
+        "Опубликовать самим владельцем и ответить на комментарии — dev.to"
+      ],
+      "kpi": "Переходы в репозиторий со статьи: +50..300 за статью [допущение]; Звёзды: +2..10 [допущение]",
+      "links": [
+        "https://github.com/anthropics/claude-code/issues/43326",
+        "https://dev.to/terms"
+      ],
+      "tags": [
+        "content",
+        "dev.to",
+        "acquisition",
+        "G25"
+      ],
+      "priority": "P2",
+      "effort_days": [
+        2,
+        4
+      ]
+    },
+    {
+      "id": "P023",
+      "title": "Кейс на vc.ru: стратегия роста по репозиторию — что нашлось у самого проекта",
+      "column": "Идеи",
+      "goal": "Кейс стратегии по собственному репозиторию для русскоязычной аудитории",
+      "steps": [
+        "Подготовить обезличенную версию стратегии — Папка прогона",
+        "Написать статью с цифрами и ошибками — vc.ru",
+        "Опубликовать самим и ответить в комментариях — vc.ru"
+      ],
+      "kpi": "Переходы с vc.ru: +30..200 [допущение]",
+      "links": [
+        "https://vc.ru/rules",
+        "https://claudskills.com/skills/codebase-audit-and-roadmap/"
+      ],
+      "tags": [
+        "content",
+        "ru",
+        "acquisition",
+        "G25"
+      ],
+      "priority": "P2",
+      "effort_days": [
+        2,
+        4
+      ]
+    },
+    {
+      "id": "P002",
+      "title": "Неинтерактивный режим site-qa-audit для CI: код возврата и JSON-итог",
+      "column": "Идеи",
+      "goal": "site-qa-audit запускается в CI с кодом возврата",
+      "steps": [
+        "Определить схему summary.json (счётчики severity, статус, пути) — skills/site-qa-audit/templates/",
+        "Добавить в build_report.py запись summary.json и вычисление кода по порогу — skills/site-qa-audit/scripts/build_report.py",
+        "Обёртка запуска с --bare и --plugin-dir и проверкой plugin_errors — skills/site-qa-audit/scripts/ci_run.sh, ci_run.ps1",
+        "Раздел «CI» в INSTALL.md с примером workflow для GitHub Actions — skills/site-qa-audit/INSTALL.md",
+        "Тест на фикстуре: прогон отчёта → код возврата — skills/site-qa-audit/tests/"
+      ],
+      "kpi": "Число проектов, запускающих прогон из CI (по обращениям): 0 → 1..3 за квартал [допущение]; Время от идеи до настроенного CI-прогона: < 30 мин [оценка]",
+      "links": [
+        "https://code.claude.com/docs/en/headless"
+      ],
+      "tags": [
+        "product",
+        "ставка 3",
+        "G26"
+      ],
+      "priority": "P2",
+      "effort_days": [
+        4,
+        8
+      ]
+    },
+    {
+      "id": "P068",
+      "title": "Переносимое ядро: SKILL.md по Agent Skills и дымовой тест вне Claude Code",
+      "column": "Идеи",
+      "goal": "Скрипты скилов работают вне Claude Code — основа многолетней ставки «Переносимость»",
+      "steps": [
+        "Составить карту Claude-специфики по скилам — docs/portability.md",
+        "Проверить SKILL.md спецификацией и выровнять frontmatter — skills/*/SKILL.md",
+        "Дымовой тест скриптов без Claude Code — tests/portability/",
+        "Адаптерный слой для вопросов/делегирования — skills/*/references/adapters.md",
+        "Опробовать один скил в стороннем агенте — локально"
+      ],
+      "kpi": "Скилов, чьи скрипты проходят дымовой тест вне Claude Code: 0 → 2 [допущение]; Поддерживаемых клиентов: 1 → 3 [допущение]",
+      "links": [
+        "https://agentskills.io/home",
+        "https://github.com/garrytan/gstack"
+      ],
+      "tags": [
+        "platform",
+        "G28"
+      ],
+      "priority": "P1",
+      "effort_days": [
+        10,
+        25
+      ]
+    },
+    {
+      "id": "P025",
+      "title": "Пост «QA-находки → черновики issues» к GitHub Universe 28–29.10.2026",
+      "column": "Идеи",
+      "goal": "Пост к GitHub Universe — не берём: окно 28–29.10 не помещается в ёмкость месяца 1",
+      "steps": [
+        "Записать 20-секундный ролик находки → черновик — shared/scripts/qa_clips.py",
+        "Написать пост 300–500 слов — dev.to или блог владельца",
+        "Опубликовать 27–29.10 — Площадка по P022"
+      ],
+      "kpi": "Переходы с поста: +50..300 [допущение]",
+      "links": [
+        "https://github.blog/author/arielkanter/"
+      ],
+      "tags": [
+        "event",
+        "content",
+        "acquisition"
+      ],
+      "priority": "P1",
+      "effort_days": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "P006",
+      "title": "Режим «предложить патч»: diff по находке без автоприменения",
+      "column": "Идеи",
+      "goal": "Предлагать патч по находке без автоприменения — кандидат после внешнего спроса",
+      "steps": [
+        "Описать режим и запреты (только чтение чужих файлов, патч — файл, не изменение) — skills/site-qa-audit/references/fix-cycle.md",
+        "Шаблон вывода patch + пояснение + команда проверки — skills/site-qa-audit/templates/",
+        "Связать с e2e_stub.py: тест падает до патча — skills/site-qa-audit/scripts/e2e_stub.py",
+        "Добавить поле patch в finding.schema.json (необязательное) — skills/site-qa-audit/templates/finding.schema.json",
+        "Тест на фикстуре local-app — skills/site-qa-audit/tests/fixtures/"
+      ],
+      "kpi": "Доля подтверждённых находок с готовым патчем-черновиком: 0 → 30..50 % [допущение]; Время от находки до закрытого issue: -20..40 % [допущение]",
+      "links": [
+        "https://github.com/garrytan/gstack",
+        "https://claudeskills.info/skills/sickn33/agentic-awesome-skills/accesslint-audit/"
+      ],
+      "tags": [
+        "product"
+      ],
+      "priority": "P2",
+      "effort_days": [
+        6,
+        12
+      ]
+    },
+    {
+      "id": "P012",
+      "title": "typesafe-triage: учёт цены смены модели (кэш промпта) в рекомендации",
+      "column": "Идеи",
+      "goal": "typesafe-triage учитывает цену смены модели (кэш промпта)",
+      "steps": [
+        "Собрать из журнала фактов длину сеанса и частоту смен — skills/typesafe-triage/scripts/typesafe_triage.py",
+        "Ввести порог «смена выгодна» и эвристику в triage_heuristics — skills/typesafe-triage/scripts/triage_heuristics.py",
+        "Добавить строку цены в заметку и отчёт — skills/typesafe-triage/SKILL.md",
+        "Проверка на triage_cases.json — skills/typesafe-triage/scripts/triage_cases.json",
+        "Тесты — skills/typesafe-triage/scripts/"
+      ],
+      "kpi": "Доля советов «сменить модель», приведших к потере кэша без выгоды: по журналу фактов [допущение]; Экономия токенов против «всегда opus» в --report: измеряется честно [допущение]",
+      "links": [
+        "https://wavect.io/blog/claude-model-router-hooks-vs-proxy/",
+        "https://github.com/anthropics/claude-code/issues/43326"
+      ],
+      "tags": [
+        "product"
+      ],
+      "priority": "P2",
+      "effort_days": [
+        3,
+        6
+      ]
+    },
+    {
+      "id": "P052",
+      "title": "Английские INSTALL.md и README скилов: машинный перевод и контроль устаревания",
+      "column": "Идеи",
+      "goal": "Английские INSTALL.md и README скилов — по итогам опроса P046",
+      "steps": [
+        "Сделать глоссарий терминов — docs/glossary-ru-en.md",
+        "Перевести INSTALL.md и README — skills/*/INSTALL.en.md, README.en.md",
+        "Добавить проверку — tools/validate.sh",
+        "Дать ссылки — шапка русских файлов"
+      ],
+      "kpi": "доля англоязычных визитов репозитория: заметный рост при наличии EN-документации [допущение]; успешные установки EN-пользователей: измеримо через Issues/опрос P046 [допущение]",
+      "links": [
+        "https://github.com/garrytan/gstack"
+      ],
+      "tags": [
+        "i18n",
+        "docs",
+        "localization"
+      ],
+      "priority": "P2",
+      "effort_days": [
+        3,
+        6
+      ]
+    },
+    {
+      "id": "P009",
+      "title": "Пресеты run-config по типу сайта: лендинг, SaaS, магазин, блог, документация",
+      "column": "Идеи",
+      "goal": "Пресеты run-config по типу сайта — кандидат после первых внешних прогонов",
+      "steps": [
+        "Определить 5 типов сайтов и набор направлений для каждого — skills/site-qa-audit/references/depth-matrix.md",
+        "Создать файлы пресетов — skills/site-qa-audit/templates/presets/*.yaml",
+        "Предложение пресета в intake.py — skills/site-qa-audit/scripts/intake.py",
+        "Проверка пресетов валидатором конфига — skills/site-qa-audit/tests/",
+        "Описать пресеты в INSTALL/README скила — skills/site-qa-audit/README.md"
+      ],
+      "kpi": "Число вопросов в опросе до старта: -1..2 [оценка]; Доля прогонов, начатых с пресета: до 50 % [допущение]",
+      "links": [],
+      "tags": [
+        "product"
+      ],
+      "priority": "P2",
+      "effort_days": [
+        2,
+        4
+      ]
+    },
+    {
+      "id": "P018",
+      "title": "Подать плагины в официальный каталог anthropics/claude-plugins-official",
+      "column": "Проверка",
+      "goal": "Первый листинг в официальном каталоге: typesafe-triage сразу, site-qa-audit после P060",
+      "steps": [
+        "Прочитать текущие критерии — README каталога → форма",
+        "Выбрать порядок: site-qa-audit, затем typesafe-triage — Форма",
+        "Приложить ссылки на README, INSTALL, SECURITY-описание guard — Форма",
+        "Зафиксировать ответ и замечания — Своя заметка",
+        "Поправка аудита (К8): первым подавать typesafe-triage, site-qa-audit — после P060"
+      ],
+      "kpi": "Установки из официального каталога: 0 → десятки/мес при одобрении [допущение]; Доля одобренных заявок: 0 → 1–2 из 4 [допущение]",
+      "links": [
+        "https://github.com/anthropics/claude-plugins-official",
+        "https://clau.de/plugin-directory-submission"
+      ],
+      "tags": [
+        "catalog",
+        "acquisition",
+        "ставка 2",
+        "G10"
+      ],
+      "priority": "P0",
+      "effort_days": [
+        1,
+        3
+      ]
+    },
+    {
+      "id": "P019",
+      "title": "Подать по одному плагину в awesome-claude-code после 21.10.2026",
+      "column": "Проверка",
+      "goal": "Листинг в awesome-claude-code по правилам списка, по одному плагину на заявку",
+      "steps": [
+        "Дождаться 2026-10-21 и перечитать CONTRIBUTING — README/CONTRIBUTING списка",
+        "Подготовить 4 описания по одной строке — Черновик",
+        "Подать заявки человеком через форму, с паузой между ними — Issue form списка",
+        "Отслеживать ответ — Issue"
+      ],
+      "kpi": "Переходы из awesome-claude-code: +20..100 в месяц [допущение]",
+      "links": [
+        "https://raw.githubusercontent.com/hesreallyhim/awesome-claude-code/main/CONTRIBUTING.md",
+        "https://github.com/hesreallyhim/awesome-claude-code"
+      ],
+      "tags": [
+        "catalog",
+        "awesome",
+        "acquisition",
+        "ставка 2",
+        "G10"
+      ],
+      "priority": "P0",
+      "effort_days": [
+        0.5,
+        1.5
+      ]
+    },
+    {
+      "id": "P024",
+      "title": "Запуск в формате «покажи проект»: Show HN, затем Product Hunt",
+      "column": "Проверка",
+      "goal": "Один запуск Show HN, затем Product Hunt — только если ворота G18 пройдены",
+      "steps": [
+        "Проверить правила Show HN и PH — news.ycombinator.com/showhn.html",
+        "Подготовить заголовок и первый комментарий — Черновик",
+        "Опубликовать самим, отвечать в первые часы — Show HN",
+        "Product Hunt через 1–2 недели — PH"
+      ],
+      "kpi": "Визиты в день запуска: +200..2000 [допущение]; Установки за неделю: +5..30 [допущение]",
+      "links": [
+        "https://news.ycombinator.com/showhn.html",
+        "https://www.producthunt.com/launch"
+      ],
+      "tags": [
+        "launch",
+        "acquisition",
+        "ставка 2",
+        "G20"
+      ],
+      "priority": "P1",
+      "effort_days": [
+        2,
+        4
+      ]
+    },
+    {
+      "id": "P035",
+      "title": "Включить Discussions и публичную дорожную карту с ответом «вы просили — сделано»",
+      "column": "Проверка",
+      "goal": "Канал вопросов и публичная дорожная карта для первых внешних пользователей",
+      "steps": [
+        "Включить Discussions — Settings → Features репозитория",
+        "Опубликовать дорожную карту — Закреплённое обсуждение",
+        "Закрывать петлю — Релизные заметки и CHANGELOG",
+        "Поправка аудита (К2): открывать вместе с первыми внешними пользователями"
+      ],
+      "kpi": "повторные визиты автора вопроса: доля вернувшихся в тему +10–20 п.п. [допущение]; обсуждений в месяц: 0 → 3–5 [допущение]",
+      "links": [
+        "https://docs.github.com/en/discussions/collaborating-with-your-community-using-discussions/about-discussions"
+      ],
+      "tags": [
+        "community",
+        "retention",
+        "ставка 2",
+        "G16"
+      ],
+      "priority": "P1",
+      "effort_days": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": "P046",
+      "title": "Опросы спроса в Discussions: лицензия, переносимость, языки, приоритеты",
+      "column": "Проверка",
+      "goal": "Узнать у внешних, что им важно: лицензия, переносимость, язык, флагман",
+      "steps": [
+        "Подготовить вопросы — черновик в docs/",
+        "Опубликовать опрос — Discussions → Polls (после P035)",
+        "Записать итог — research/ стратегии",
+        "Поправка аудита (К2): запускать при пороге аудитории по снимкам P043"
+      ],
+      "kpi": "ответов на первый опрос: ≥ 10 за 14 дней при наличии аудитории [допущение]; решений развилок по данным: 3 из 3 [оценка]",
+      "links": [
+        "https://docs.github.com/en/discussions/collaborating-with-your-community-using-discussions/about-discussions"
+      ],
+      "tags": [
+        "survey",
+        "demand",
+        "analytics",
+        "ставка 2",
+        "G16"
+      ],
+      "priority": "P1",
+      "effort_days": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": "P029",
+      "title": "Переделать README в витрину: ценность в одной фразе, GIF, установка в три строки",
+      "column": "Готово к разработке",
+      "goal": "Верх README отвечает «что это, зачем, как поставить» за минуту",
+      "steps": [
+        "Написать верхний блок — README.md",
+        "Разделить по скилам: что даёт, пример промпта, время — README.md",
+        "Вынести подробности установки вниз — README.md → INSTALL.md",
+        "Поправка аудита (К4): P033 делается блоком внутри P029, одним изменением; фраза ценности — из P028"
+      ],
+      "kpi": "Конверсия визит → звезда/установка: +1..3 п.п. [допущение: база не измерялась]",
+      "links": [
+        "https://github.com/garrytan/gstack"
+      ],
+      "tags": [
+        "readme",
+        "conversion",
+        "conversion",
+        "ставка 1",
+        "G03"
+      ],
+      "priority": "P0",
+      "effort_days": [
+        1,
+        3
+      ]
+    },
+    {
+      "id": "P033",
+      "title": "Блок «кому подходит, что потребуется, сколько стоит прогон, лицензия» на входе README",
+      "column": "Готово к разработке",
+      "goal": "Честно показать требования, нагрузку прогона и лицензию до установки (блок внутри P029)",
+      "steps": [
+        "Собрать числа — Журналы прогонов",
+        "Написать таблицу — README.md",
+        "Согласовать с текстом лицензии — LICENSE",
+        "Поправка аудита (К4): блок внутри README-витрины P029, одним изменением"
+      ],
+      "kpi": "Доля отказов после установки: −5..15% [допущение]",
+      "links": [
+        "https://github.com/garrytan/gstack/issues",
+        "https://aiweekly.co/alerts/claude-code-skills-waste-23k-tokens-per-session"
+      ],
+      "tags": [
+        "trust",
+        "conversion",
+        "ставка 1",
+        "G03"
+      ],
+      "priority": "P0",
+      "effort_days": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": "P017",
+      "title": "Заполнить метаданные репозитория: темы GitHub, описание, social preview",
+      "column": "Готово к разработке",
+      "goal": "Репозиторий находится по темам GitHub и выглядит продуктом в выдаче и при пересылке ссылки",
+      "steps": [
+        "Выбрать 8–12 тем — Settings → About → Topics",
+        "Переписать описание в одну фразу ценности — Settings → About",
+        "Загрузить social preview 1280×640 — Settings → Social preview"
+      ],
+      "kpi": "Переходы на репозиторий из поиска и тем GitHub: +5..20 просмотров в неделю [допущение: база 36 просмотров за 14 дней]",
+      "links": [
+        "https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/classifying-your-repository-with-topics"
+      ],
+      "tags": [
+        "github",
+        "seo",
+        "acquisition",
+        "ставка 1",
+        "G03"
+      ],
+      "priority": "P1",
+      "effort_days": [
+        0.2,
+        0.5
+      ]
+    },
+    {
+      "id": "P043",
+      "title": "Еженедельный снимок публичных сигналов GitHub в CSV: просмотры, клоны, источники, звёзды",
+      "column": "Готово к разработке",
+      "goal": "Не терять историю трафика (GitHub хранит 14 дней) и проверять ставки по данным",
+      "steps": [
+        "Определить набор метрик — tools/stats_snapshot.py",
+        "Писать только чтение через gh — gh api repos/OrionFLASH/claude-code-skills/traffic/*",
+        "Складывать вне репозитория — ~/…/stats/claude-code-skills.csv",
+        "Запускать раз в неделю — /loop или routine (P038)",
+        "Поправка аудита: GitHub Releases нет — поле загрузок релизов убрать или пометить «появится с Releases»"
+      ],
+      "kpi": "покрытие воронки «визит → установка → вопрос» данными: 0 → 3 из 4 этапов [оценка]; потерянных недель истории трафика: все → 0 [факт]",
+      "links": [
+        "https://docs.github.com/en/rest/metrics/traffic"
+      ],
+      "tags": [
+        "measurement",
+        "zero-budget",
+        "analytics",
+        "ставка 2",
+        "G04"
+      ],
+      "priority": "P0",
+      "effort_days": [
+        1,
+        3
+      ]
+    },
+    {
+      "id": "P059",
+      "title": "CI в GitHub Actions: validate и тесты на Linux, macOS и Windows",
+      "column": "Готово к разработке",
+      "goal": "Каждый коммит проверен на Linux, macOS и Windows до внешних пользователей",
+      "steps": [
+        "Выбрать наборы, не требующие сети, браузера и эмулятора — skills/*/tests/unit.sh, skills/product-strategy/tests, skills/typesafe-triage/scripts",
+        "Создать workflow с матрицей ОС и версий Python 3.9 и 3.12 — .github/workflows/ci.yml",
+        "Починить расхождения Windows, найденные первым прогоном — tools/, shared/scripts/find-python.*, tests/*.sh",
+        "Закрепить версии действий по SHA — .github/workflows/ci.yml",
+        "Дописать в CONVENTIONS правило «PR зелёный перед merge» — CONVENTIONS.md"
+      ],
+      "kpi": "Доля коммитов в main с зелёной проверкой: 0 → 100 % [факт]; Платформы, подтверждённые автоматически: 0 → 3 [факт]",
+      "links": [
+        "https://docs.github.com/en/billing/managing-billing-for-your-products/about-billing-for-github-actions",
+        "https://github.com/garrytan/gstack/issues"
+      ],
+      "tags": [
+        "platform",
+        "ставка 3",
+        "G05"
+      ],
+      "priority": "P0",
+      "effort_days": [
+        3,
+        7
+      ]
+    },
+    {
+      "id": "P054",
+      "title": "Английские описания и ключевые слова плагинов в plugin.json и marketplace.json",
+      "column": "Готово к разработке",
+      "goal": "Англоязычный посетитель каталога и /plugin понимает назначение плагина",
+      "steps": [
+        "Написать EN-строки — marketplace.json, plugin.json",
+        "Запустить валидацию — claude plugin validate .",
+        "Поднять версии — plugin.json, CHANGELOG",
+        "Поправка аудита: английские keywords уже есть — нужны первая фраза description и displayName, из ключевых слов разве что a11y"
+      ],
+      "kpi": "доля EN-пользователей, понявших назначение плагина в каталоге: опрос P046: ≥ 70 % [допущение]",
+      "links": [
+        "https://code.claude.com/docs/en/plugin-marketplaces",
+        "https://code.claude.com/docs/en/plugins/host-marketplace"
+      ],
+      "tags": [
+        "i18n",
+        "metadata",
+        "localization",
+        "ставка 1",
+        "G06"
+      ],
+      "priority": "P1",
+      "effort_days": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "id": "P020",
+      "title": "Проверить и подтвердить присутствие во всех автоиндексах каталогов скилов",
+      "column": "Готово к разработке",
+      "goal": "Подтвердить, что маркетплейс виден в автоиндексах каталогов, и поправить описания",
+      "steps": [
+        "Поиск по названию в каждом каталоге — claudemarketplaces.com, claudepluginhub.com, vibeindex.ai",
+        "Привести описания к одной фразе ценности — marketplace.json, plugin.json",
+        "При отсутствии — письмо редактору — Контакт на странице about"
+      ],
+      "kpi": "Число каталогов, где виден маркетплейс: 0 подтверждено → 3–4 [допущение]",
+      "links": [
+        "https://claudemarketplaces.com/about"
+      ],
+      "tags": [
+        "catalog",
+        "acquisition",
+        "ставка 2",
+        "G06"
+      ],
+      "priority": "P2",
+      "effort_days": [
+        0.3,
+        1
+      ]
+    },
+    {
+      "id": "P069",
+      "title": "Англоязычная витрина: README.en.md с тем же верхом, что у README-витрины",
+      "column": "Готово к разработке",
+      "goal": "Англоязычные каналы ведут на понятную витрину с честной пометкой о языке отчётов",
+      "steps": [
+        "Перевести верх README-витрины после P029 — README.en.md",
+        "Ссылки RU ⇄ EN в первой строке обоих файлов — README.md, README.en.md",
+        "Честная языковая пометка — README.en.md → Limitations",
+        "Проверка свежести перевода — tools/lib/skillsrepo.py",
+        "Ссылаться на README.en.md в заявках и постах — заявки P018, P019, P050; пост P024 и P025"
+      ],
+      "kpi": "доля клонов от просмотров README в недели EN-запусков (снимки P043): +1..3 п.п. [допущение]; принятые заявки в англоязычные каталоги (P018, P019, P050): ≥ 1 из 3 [допущение]",
+      "links": [
+        "https://github.com/garrytan/gstack",
+        "https://github.com/tzachbon/claude-model-router-hook"
+      ],
+      "tags": [
+        "i18n",
+        "readme",
+        "prerequisite",
+        "localization",
+        "ставка 1",
+        "G08"
+      ],
+      "priority": "P0",
+      "effort_days": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": "P042",
+      "title": "Решение по лицензии: NC, двойная лицензия или открытие части скилов — с оценкой рисков",
+      "column": "Готово к разработке",
+      "goal": "Снять лицензионную неопределённость до подачи в каталоги",
+      "steps": [
+        "Собрать требования площадок — research/ стратегии",
+        "Описать три варианта — таблица решений",
+        "Спросить аудиторию — Discussions-опрос P046",
+        "Принять решение и обновить документы — LICENSE, plugin.json, marketplace.json, README, tools/validate.sh",
+        "Поправка аудита (К2): решать по матрице и правилам каталогов до P018, не дожидаясь опроса P046"
+      ],
+      "kpi": "допуск в каталоги и гранты, требующие OSI: решение принято к 30-му дню [оценка]; запросы коммерческой лицензии: 0 → 1–2 в год [допущение]",
+      "links": [
+        "https://nlnet.nl/propose/",
+        "https://github.com/garrytan/gstack"
+      ],
+      "tags": [
+        "license",
+        "decision",
+        "monetization",
+        "ставка 2",
+        "G09"
+      ],
+      "priority": "P1",
+      "effort_days": [
+        2,
+        5
+      ]
+    },
+    {
+      "id": "P070",
+      "title": "Статический хостинг демо на GitHub Pages: страница стратегии и индекс примеров",
+      "column": "Готово к разработке",
+      "goal": "Демо-страница и примеры открываются без установки и регистрации",
+      "steps": [
+        "Выбрать источник Pages — Settings → Pages",
+        "Собрать страницу стратегии облегчённой сборкой — build_html.py --lite → deliverables/assets/",
+        "Проверить скриншоты конкурентов — competitors/shots/ на странице",
+        "Положить QA-пример Markdown-ом — docs/examples/site-qa/",
+        "Индекс примеров в репозитории — docs/examples/README.md"
+      ],
+      "kpi": "просмотры docs/examples/README.md относительно просмотров README (popular paths, P043): ≥ 10 % [допущение]; доля посетителей, увидевших результат скила без установки: +10..20 п.п. [допущение]",
+      "links": [
+        "https://docs.github.com/en/repositories/working-with-files/using-files/working-with-non-code-files",
+        "https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-github-pages-site",
+        "https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits"
+      ],
+      "tags": [
+        "hosting",
+        "demo",
+        "prerequisite",
+        "conversion",
+        "ставка 1",
+        "G12"
+      ],
+      "priority": "P0",
+      "effort_days": [
+        0.5,
+        1.5
+      ]
+    },
+    {
+      "id": "P028",
+      "title": "Развести бренд с daymade/claude-code-skills: уникальное имя в выдаче и каталогах",
+      "column": "В работе",
+      "goal": "Одно имя и одна фраза ценности до первых листингов, чтобы не путали с daymade/claude-code-skills и не ломать команды установки",
+      "steps": [
+        "Поиск по «claude-code-skills» и «OrionFLASH claude-code-skills» — Google, GitHub",
+        "Добавить слоган/префикс в описание и заголовок README — README.md, About",
+        "Оформить переименование как отдельное решение — Заметка владельца"
+      ],
+      "kpi": "Доля брендовой выдачи по имени проекта: нас в топ-10 по точному имени [допущение]",
+      "links": [
+        "https://github.com/daymade/claude-code-skills",
+        "https://claudemarketplaces.com/skills/daymade/claude-code-skills/marketplace-dev"
+      ],
+      "tags": [
+        "brand",
+        "acquisition",
+        "ставка 1",
+        "G01"
+      ],
+      "priority": "P1",
+      "effort_days": [
+        0.5,
+        2
+      ]
+    },
+    {
+      "id": "P030",
+      "title": "Сделать GIF и ролики первой минуты из реальных прогонов существующими утилитами",
+      "column": "В работе",
+      "goal": "Посетитель за первые секунды видит результат каждого скила без установки",
+      "steps": [
+        "Выбрать сценарии на тренировочных сайтах и пустом приложении — Локально",
+        "Записать и сжать — qa_clips.compress/to_gif",
+        "Положить в docs/media и вставить в README — README.md"
+      ],
+      "kpi": "Досмотры и переходы к установке: +10..30% к конверсии README [допущение]",
+      "links": [
+        "https://docs.github.com/en/site-policy/acceptable-use-policies/github-acceptable-use-policies"
+      ],
+      "tags": [
+        "media",
+        "conversion",
+        "ставка 1",
+        "G02"
+      ],
+      "priority": "P0",
+      "effort_days": [
+        2,
+        4
+      ]
+    }
+  ]
+}
