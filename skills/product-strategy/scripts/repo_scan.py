@@ -330,10 +330,11 @@ def clean_remote(url):
 
 def git_info(repo):
     out = {"commits": 0, "first": "", "last": "", "authors": 0, "commits_90d": 0, "tags": [], "monthly": {}}
-    meta = {"remote": None, "remote_host": None, "default_branch": "", "is_git": False}
+    meta = {"remote": None, "remote_host": None, "default_branch": "", "is_git": False, "head": None}
     if git(repo, "rev-parse", "--is-inside-work-tree") is None:
         return out, meta
     meta["is_git"] = True
+    meta["head"] = (git(repo, "rev-parse", "HEAD") or "").strip() or None      # sha на момент скана: точка отсчёта для отслеживания выполнения
     rem = (git(repo, "remote", "get-url", "origin") or "").strip()
     if not rem:
         names = (git(repo, "remote") or "").split()
@@ -1953,7 +1954,7 @@ def build_result(s, repo, meta, git_stats, started):
     features = sorted(s.features.values(), key=lambda f: ({"page": 0, "screen": 1, "cli": 2, "bot": 3, "command": 4, "plugin": 5, "api": 6}.get(f["kind"], 9), f["name"]))
     result = {
         "repo": {"name": repo.name, "path": str(repo), "remote": meta["remote"], "default_branch": meta["default_branch"],
-                 "license": s.license, "remote_host": meta["remote_host"], "is_git": meta["is_git"],
+                 "license": s.license, "remote_host": meta["remote_host"], "is_git": meta["is_git"], "head": meta.get("head"),
                  "readme_title": title, "readme_summary": summary},
         "stack": {"languages": langs, "frameworks": sorted(s.frameworks), "package_managers": sorted(s.pm),
                   "manifests": s.manifests, "data_languages": dict(sorted(s.data_langs.items(), key=lambda kv: -kv[1])),
