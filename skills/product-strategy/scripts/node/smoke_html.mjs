@@ -16,6 +16,11 @@
 // Контраст ≥ 4,5:1 (крупный текст ≥ 3:1) по computed color для бейджей, тегов, подписей, ссылок — в светлой, тёмной и
 // «авто» при тёмной системной теме. WebKit берётся из playwright или из кэша ~/Library/Caches/ms-playwright
 // (webkit-*); нет WebKit — проверка «skip» с пояснением (условие окружения, --require all его не требует).
+// Режим «Отслеживание» (есть раздел #progress, т. е. data/progress.json): раздел и плитки, фильтр статуса и быстрые фильтры
+// реестра (число строк меняется), сортировка по статусу, поля статуса в CSV, карточка с блоком «Выполнение», Гант с
+// линией «Сегодня» внутри диаграммы на 1440 и 390 px, модалка задачи со статусами, переключатель Kanban «Как в плане / По
+// фактам», ссылки только https://github.com/, контраст статусных чипов в трёх темах, нет переполнения на 390 px.
+// Раздела нет — эти проверки «skip» по условию (страница без прогресса), --require all их не требует.
 // Lite-страница (build_html.py --lite): картинки assets/ рядом со страницей существуют и грузятся; локальные файлы
 // разрешены только внутри папки страницы, всё прочее — «внешний запрос».
 // Нет данных для проверки — она «skip» (не провал), если не перечислена в --require (all — любая пропущенная проверка
@@ -530,6 +535,171 @@ await check(page, 'author', async () => {
   return OK(a.meta + ' · ' + a.cp);
 });
 
+// ---------------------------------------------------------------- отслеживание выполнения (1.2): только если есть раздел #progress
+// Нет раздела — проверки «skip» по условию (страница собрана без data/progress.json), --require all их не требует.
+const NO_PG = 'нет раздела «Прогресс выполнения» — страница собрана без data/progress.json (режим отслеживания не запускался)';
+const HAS_PG = (await page.locator('section#progress').count()) > 0;
+const PG_SCOPE = '#progress, .dsec.pg, .kb-facts, #gantt';
+async function pgLinks(p) {   // внешние ссылки блоков прогресса — только https://github.com/…
+  return p.evaluate(scope => {
+    const bad = [], seen = new Set();
+    document.querySelectorAll(scope).forEach(root => root.querySelectorAll('a[href]').forEach(a => {
+      const h = a.getAttribute('href') || ''; if (seen.has(a)) return; seen.add(a);
+      if (/^[a-z][a-z0-9+.-]*:/i.test(h) && !/^https:\/\/github\.com\//.test(h)) bad.push(h.slice(0, 80));
+    }));
+    const reg = JSON.parse((document.getElementById('d-registry') || { textContent: '[]' }).textContent);
+    let n = 0;
+    for (const r of reg) { const g = r.pg; if (!g) continue;
+      for (const x of [...(g.issues || []), ...(g.prs || []), ...(g.commits || [])]) { if (!x.url) continue; n++; if (!/^https:\/\/github\.com\//.test(x.url)) bad.push('data: ' + x.url.slice(0, 80)); } }
+    return { bad, links: seen.size, dataLinks: n };
+  }, PG_SCOPE);
+}
+async function ganttToday(p) {
+  return p.evaluate(() => {
+    const g = document.querySelector('#gantt .gantt'), gin = g && g.querySelector('.gin'), line = gin && gin.querySelector('.gtoday'), lab = gin && gin.querySelector('.gtd');
+    if (!line) return { line: false };
+    const gb = gin.getBoundingClientRect(), lb = line.getBoundingClientRect(), tb = lab ? lab.getBoundingClientRect() : null;
+    const labelCol = (gin.querySelector('.grow .glabel') || gin.querySelector('.ghead .gl')).getBoundingClientRect();
+    const out = [];
+    if (lb.left < labelCol.right - 1 || lb.right > gb.right + 1) out.push(`линия x=${Math.round(lb.left - gb.left)} вне дорожки ${Math.round(labelCol.right - gb.left)}…${Math.round(gb.width)}`);
+    if (lb.top < gb.top - 1 || lb.bottom > gb.bottom + 1 || lb.height < gb.height * 0.8) out.push('линия не на всю высоту диаграммы');
+    if (tb && (tb.left < gb.left - 1 || tb.right > gb.right + 1)) out.push('подпись «Сегодня» за краем диаграммы');
+    const pls = [...gin.querySelectorAll('.gpl')], outPl = pls.filter(e => { const b = e.getBoundingClientRect(); return b.left < labelCol.right - 1 || b.right > gb.right + 1; }).length;
+    if (outPl) out.push('подписи статусов за краем дорожки: ' + outPl);
+    const icons = pls.filter(e => /[✓◐!▸·]/.test(e.textContent)).length;
+    if (pls.length && icons < pls.length) out.push('подпись статуса без значка');
+    const fills = gin.querySelectorAll('.gbar .gfill').length;
+    // показать линию в кадре: прокрутить рамку Ганта так, чтобы линия была видна
+    const glw = labelCol.width;
+    g.scrollLeft = Math.max(0, line.offsetLeft - glw - (g.clientWidth - glw) / 3);
+    return { line: true, x: Math.round(lb.left - gb.left), w: Math.round(gb.width), labels: pls.length, fills, out, pageW: document.documentElement.scrollWidth, vw: innerWidth };
+  });
+}
+await check(page, 'progress-section', async () => {
+  if (!HAS_PG) return SKIP(NO_PG, true);
+  const r = await page.evaluate(() => ({ tiles: document.querySelectorAll('#progress .pgk').length, nav: !!document.querySelector('nav.side a[data-sec="progress"]'),
+    chips: document.querySelectorAll('#progress .pst').length, bars: document.querySelectorAll('#progress .pgrow').length,
+    chart: !!document.querySelector('#progress svg.pgc'), leak: /progress:(start|end)/.test(document.querySelector('main').textContent),
+    pids: document.querySelectorAll('#progress a.pid').length }));
+  if (r.tiles < 6) return FAIL('плиток ' + r.tiles + ' (нужно 6: выполнено, в работе, отстаёт, заблокировано, вне стратегии, дата)');
+  if (!r.nav) return FAIL('нет пункта навигации «Прогресс выполнения»');
+  if (!r.chips) return FAIL('нет статусных чипов');
+  if (r.leak) return FAIL('маркеры автоблока <!-- progress:start/end --> попали в текст страницы');
+  await page.evaluate(() => document.getElementById('progress').scrollIntoView({ behavior: 'instant' }));
+  await shot(page, 'progress-section-light');
+  await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark')); await sleep(120);
+  await shot(page, 'progress-section-dark');
+  await page.evaluate(() => document.documentElement.removeAttribute('data-theme'));
+  // плитка со статусом (выполнено/заблокировано) → реестр с фильтром статуса
+  if (!await page.locator('#progress .pgk[data-st-go]').count()) return OK(`плиток ${r.tiles}, чипов ${r.chips}; плиток-фильтров нет (нет выполненных и заблокированных)`);
+  await page.locator('#progress .pgk[data-st-go]').first().click(); await sleep(120);
+  const f = await page.evaluate(() => { const s = document.querySelector('#registry select[data-f="status"]'); const rows = [...document.querySelectorAll('#tb tr.row')];
+    return { v: s ? s.value : null, n: rows.length, all: rows.every(x => x.dataset.st === (s && s.value)) }; });
+  await page.click('#reg-reset');
+  if (!f.v || !f.all) return FAIL('плитка не отфильтровала реестр: ' + JSON.stringify(f));
+  return OK(`плиток ${r.tiles}, чипов ${r.chips}, полос ${r.bars}, график ${r.chart ? 'есть' : 'нет'}, P-ссылок ${r.pids}; плитка → фильтр «${f.v}» (${f.n})`);
+});
+await check(page, 'progress-registry', async () => {
+  if (!HAS_PG) return SKIP(NO_PG, true);
+  const total = await page.locator('#tb tr.row').count();
+  const sel = page.locator('#registry select[data-f="status"]');
+  if (!await sel.count()) return FAIL('нет фильтра статуса в реестре');
+  const opts = await sel.evaluate(s => [...s.options].filter(o => o.value).map(o => ({ v: o.value, n: +((o.textContent.match(/\((\d+)\)\s*$/) || [])[1] || 0) })));
+  const done = [];
+  for (const o of opts) {
+    await sel.selectOption(o.v); await sleep(30);
+    const r = await page.evaluate(v => { const rows = [...document.querySelectorAll('#tb tr.row')]; return { n: rows.length, all: rows.every(x => x.dataset.st === v), cnt: document.getElementById('reg-count').textContent }; }, o.v);
+    if (r.n !== o.n || !r.all || !r.cnt.includes(String(r.n))) { await sel.selectOption(''); return FAIL(`статус ${o.v}: строк ${r.n}, в списке ${o.n}, счётчик «${r.cnt}»`); }
+    done.push(`${o.v}:${r.n}`);
+  }
+  await sel.selectOption('');
+  if (opts.length > 1 && !opts.some(o => o.n < total)) return FAIL('фильтр статуса не меняет число строк');
+  const quick = [];
+  for (const q of ['notdone', 'work', 'behind']) {
+    const b = page.locator(`#registry [data-qf="${q}"]`); if (!await b.count()) return FAIL('нет быстрого фильтра ' + q);
+    await b.click(); await sleep(30);
+    const r = await page.evaluate(q => { const reg = Object.fromEntries(JSON.parse(document.getElementById('d-registry').textContent).map(x => [x.id, x]));
+      const rows = [...document.querySelectorAll('#tb tr.row')].map(x => reg[x.dataset.id]);
+      const ok = rows.every(x => q === 'notdone' ? x.status && !['done', 'dropped', 'obsolete'].includes(x.status) : q === 'work' ? ['in_progress', 'partial'].includes(x.status) : (x.pg && x.pg.behind || []).length > 0);
+      return { n: rows.length, ok, pressed: document.querySelector(`#registry [data-qf="${q}"]`).getAttribute('aria-pressed') }; }, q);
+    await b.click(); await sleep(30);
+    if (!r.ok || r.pressed !== 'true') return FAIL(`быстрый фильтр ${q}: строк ${r.n}, условие ${r.ok}, нажат ${r.pressed}`);
+    quick.push(`${q}:${r.n}`);
+  }
+  // сортировка по статусу (порядок done → … → dropped) и колонка «Статус» с чипами
+  await page.locator('#reg-head th[data-k="status"]').click(); await sleep(30);
+  const vals = await page.$$eval('#tb tr.row', trs => trs.map(t => t.dataset.v));
+  const chips = await page.locator('#tb tr.row .pst').count();
+  if (!monotonic(vals, 1)) return FAIL('сортировка по статусу нарушена');
+  if (!chips) return FAIL('нет чипов статуса в колонке');
+  const [d1] = await Promise.all([page.waitForEvent('download'), page.click('#exp-csv')]);
+  const head = fs.readFileSync(await d1.path(), 'utf8').replace(/^﻿/, '').split(/\r\n/)[0];
+  await page.locator('#reg-head th[data-k="rank"], #reg-head th[data-k="id"]').first().click();
+  if (!/(^|,)status,status_confidence,status_source,issues,prs,last_commit/.test(head)) return FAIL('в CSV нет полей статуса: ' + head.slice(0, 200));
+  return OK(`статусы ${done.join(', ')}; быстрые ${quick.join(', ')}; сортировка по статусу, чипов ${chips}; CSV с полями статуса`);
+});
+await check(page, 'progress-card', async () => {
+  if (!HAS_PG) return SKIP(NO_PG, true);
+  const id = await page.evaluate(() => { const reg = JSON.parse(document.getElementById('d-registry').textContent);
+    const r = reg.find(x => x.pg && (x.pg.issues || []).length && (x.pg.commits || []).length) || reg.find(x => x.pg); return r ? r.id : null; });
+  if (!id) return FAIL('ни у одного предложения нет данных выполнения');
+  await page.evaluate(id => { location.hash = '#p=' + id; }, id);
+  await page.waitForSelector('#pm.open');
+  const r = await page.evaluate(() => { const s = document.querySelector('#pmbody .dsec.pg'); return s ? { h: (s.querySelector('h4') || {}).textContent, chip: !!s.querySelector('.pst'),
+    gh: s.querySelectorAll('a.gh').length, items: s.querySelectorAll('.pg-items li').length, head: !!document.querySelector('#pmchips .pst') } : null; });
+  await shot(page, 'progress-card');
+  if (!r) return FAIL(`в карточке ${id} нет блока «Выполнение»`);
+  if (r.h !== 'Выполнение' || !r.chip || !r.head) return FAIL('блок «Выполнение» без заголовка или чипа: ' + JSON.stringify(r));
+  const l = await pgLinks(page);
+  if (l.bad.length) return FAIL('ссылки не на https://github.com/: ' + l.bad.slice(0, 3).join(', '));
+  return OK(`${id}: «Выполнение», ссылок GitHub ${r.gh}, строк issues/PR/коммитов/кода ${r.items}`);
+});
+await check(page, 'progress-gantt-1440', async () => {
+  if (!HAS_PG) return SKIP(NO_PG, true);
+  if (!await page.locator('#gantt .gantt').count()) return SKIP('нет диаграммы Ганта');
+  await page.evaluate(() => { document.getElementById('gantt').scrollIntoView({ behavior: 'instant' }); });
+  const r = await ganttToday(page);
+  await sleep(100); await shot(page, 'progress-gantt-1440');
+  if (!r.line) return FAIL('нет линии «Сегодня»');
+  if (r.out.length) return FAIL(r.out.join('; '));
+  if (!r.fills) return FAIL('нет заливки полос по доле выполнения');
+  return OK(`линия «Сегодня» x=${r.x} из ${r.w} px, подписей статуса ${r.labels}, заливок ${r.fills}`);
+});
+await check(page, 'progress-gantt-modal', async () => {
+  if (!HAS_PG) return SKIP(NO_PG, true);
+  const row = page.locator('.grow[data-g] .gbar.gs-done, .grow[data-g] .gbar.gs-behind, .grow[data-g] .gbar.gs-on_track, .grow[data-g] .gbar.gs-partial, .grow[data-g] .gbar.gs-upcoming').first();
+  if (!await row.count()) return SKIP('нет полос со статусом');
+  await row.scrollIntoViewIfNeeded(); await row.click({ force: true });
+  await page.waitForSelector('#im.open');
+  const r = await page.evaluate(() => ({ gst: !!document.querySelector('#imbody .gst'), pst: document.querySelectorAll('#imbody .pst').length }));
+  if (!r.gst) return FAIL('в модалке задачи нет статуса выполнения');
+  return OK(`статус задачи и чипов предложений: ${r.pst}`);
+});
+await check(page, 'progress-kanban', async () => {
+  if (!HAS_PG) return SKIP(NO_PG, true);
+  if (!await page.locator('#kanban').count()) return SKIP('нет доски Kanban');
+  if (!await page.locator('label[for="kbv-facts"]').count()) return SKIP('нет data/kanban-progress.json — переключателя нет', true);
+  await page.evaluate(() => document.getElementById('kanban').scrollIntoView({ behavior: 'instant' }));
+  const vis = () => page.evaluate(() => ({ plan: !!document.querySelector('.kb-plan').getClientRects().length, facts: !!document.querySelector('.kb-facts').getClientRects().length }));
+  const v0 = await vis();
+  await page.click('label[for="kbv-facts"]'); await sleep(80);
+  const v1 = await vis();
+  const r = await page.evaluate(() => ({ cards: document.querySelectorAll('.kb-facts .kcard').length, moved: document.querySelectorAll('.kb-facts .kmoved').length, chips: document.querySelectorAll('.kb-facts .pst').length }));
+  await shot(page, 'progress-kanban-facts');
+  await page.click('label[for="kbv-plan"]'); await sleep(50);
+  const v2 = await vis();
+  if (!v0.plan || v0.facts) return FAIL('по умолчанию должна быть доска «Как в плане»');
+  if (v1.plan || !v1.facts) return FAIL('переключатель не показал доску «По фактам»');
+  if (!v2.plan || v2.facts) return FAIL('переключатель не вернул доску «Как в плане»');
+  return OK(`«По фактам»: карточек ${r.cards}, перенесено ${r.moved}, чипов ${r.chips}`);
+});
+await check(page, 'progress-links', async () => {
+  if (!HAS_PG) return SKIP(NO_PG, true);
+  const l = await pgLinks(page);
+  if (l.bad.length) return FAIL('ссылки не на https://github.com/: ' + l.bad.slice(0, 5).join(', '));
+  return OK(`ссылок в блоках прогресса ${l.links}, ссылок в данных ${l.dataLinks} — все https://github.com/ или внутренние`);
+});
+
 // ---------------------------------------------------------------- мобильная ширина 390 px
 const mctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, hasTouch: true });
 const mpage = await mctx.newPage();
@@ -589,6 +759,35 @@ await check(mpage, 'mobile-modal', async () => {
   await shot(mpage, 'mobile-modal');
   if (w.l < 0 || w.r > w.W) return FAIL('карточка шире экрана: ' + JSON.stringify(w));
   return OK(`карточка ${w.r - w.l}px`);
+});
+await check(mpage, 'progress-gantt-390', async () => {
+  if (!HAS_PG) return SKIP(NO_PG, true);
+  if (!await mpage.locator('#gantt .gantt').count()) return SKIP('нет диаграммы Ганта');
+  await mpage.evaluate(() => { const g = document.querySelector('#gantt .gantt'); g.scrollIntoView({ behavior: 'instant', block: 'start' }); window.scrollBy({ top: -80, behavior: 'instant' }); });
+  const r = await ganttToday(mpage);
+  await sleep(120); await shot(mpage, 'progress-gantt-390');
+  if (!r.line) return FAIL('нет линии «Сегодня»');
+  if (r.out.length) return FAIL(r.out.join('; '));
+  if (r.pageW > r.vw) return FAIL(`ширина документа ${r.pageW} > ${r.vw}`);
+  return OK(`линия «Сегодня» x=${r.x} из ${r.w} px внутри рамки, ширина ${r.pageW} ≤ ${r.vw}`);
+});
+await check(mpage, 'progress-mobile', async () => {
+  if (!HAS_PG) return SKIP(NO_PG, true);
+  await mpage.evaluate(() => document.getElementById('progress').scrollIntoView({ behavior: 'instant' })); await sleep(120);
+  const r = await mpage.evaluate(() => {
+    const W = document.documentElement.clientWidth;
+    const inScroller = el => { for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) { const o = getComputedStyle(p).overflowX; if (o === 'auto' || o === 'scroll' || o === 'hidden') return true; } return false; };
+    const bad = [...document.querySelectorAll('#progress *')].filter(el => { const b = el.getBoundingClientRect(); return b.width > 0 && b.right > W + 1 && !inScroller(el); })
+      .slice(0, 4).map(el => el.tagName.toLowerCase() + (typeof el.className === 'string' && el.className ? '.' + el.className.split(' ')[0] : ''));
+    return { sw: document.documentElement.scrollWidth, W, bad };
+  });
+  await shot(mpage, 'progress-section-390');
+  await mpage.evaluate(() => { const l = document.querySelector('label[for="kbv-facts"]'); if (l) { l.click(); document.getElementById('kanban').scrollIntoView({ behavior: 'instant' }); } }); await sleep(100);
+  await shot(mpage, 'progress-kanban-390');
+  const sw2 = await mpage.evaluate(() => document.documentElement.scrollWidth);
+  if (r.sw > r.W + 1 || sw2 > r.W + 1) return FAIL(`ширина документа ${Math.max(r.sw, sw2)} > ${r.W}`);
+  if (r.bad.length) return FAIL('за правым краем: ' + r.bad.join(', '));
+  return OK(`раздел на ${r.W} px без переполнения`);
 });
 
 // ---------------------------------------------------------------- геометрия: все раскрытые строки, окно P-id, таблицы, Гант
@@ -735,7 +934,10 @@ async function geometryPass(br, engine) {
 // ---------------------------------------------------------------- контраст ≥ 4,5:1 по computed color
 const CONTRAST_SELS = ['.b', '.tag', '.st', '.st-ok', '.st-bad', '.st-unk', '.ok', '.badge-concept', '.risk', '.kcount', '.muted', 'figcaption',
   '.zoom', 'main a', 'nav.side a', 'summary', '.lblh', '.cmeta', '.count', '.eyebrow', '.kpi .n', '.kpi .l', '.kpi .s', 'dl.kv dt', '.dsec h4',
-  '.gid', '.kid', '.gscale span', 'table.cm td', 'th', '.hsn', '.facts dt', '.lead', '.untitled', '.missing', 'code'];
+  '.gid', '.kid', '.gscale span', 'table.cm td', 'th', '.hsn', '.facts dt', '.lead', '.untitled', '.missing', 'code',
+  '.pst', '.gst', '.gpl', '.gtd', '.kmoved', '.pg-sub', '.pg-ok', '.pg-warn', '.pst-go', '.kbv-r+label'];
+// статусные чипы и подписи режима «Отслеживание» — отдельная проверка в трёх темах (доска «По фактам» включается)
+const PG_CONTRAST_SELS = ['.pst', '.gst', '.gpl', '.gtd', '.kmoved', '.pgk .n', '.pgk .l', '.pgk .s', '.pg-sub', '.pg-ok', '.pg-warn', '.pst-go b', '.kbv-r+label', 'a.gh'];
 function contrastInPage(sels) {
   const parse = s => { const m = /rgba?\(([^)]+)\)/.exec(s || ''); if (!m) return null; const p = m[1].split(/[\s,/]+/).filter(Boolean).map(parseFloat); return [p[0], p[1], p[2], p.length > 3 ? p[3] : 1]; };
   const lin = x => { x /= 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); };
@@ -793,6 +995,23 @@ async function contrastPass(br) {
       for (const f of r.fails) { const k = f.sel + '|' + f.fg + '|' + f.bg; if (!keys.has(k)) { keys.add(k); uniq.push(f); } }
       if (uniq.length) return FAIL(`${r.fails.length} из ${r.checked} ниже порога: ` + uniq.slice(0, 8).map(f => `${f.sel} «${f.text}» ${f.ratio}:1 (${f.fg} на ${f.bg})`).join('; '));
       return OK(`проверено элементов ${r.checked}, все ≥ 4,5:1 (крупный текст ≥ 3:1)`);
+    });
+  }
+  // статусные чипы прогресса: светлая, тёмная, «авто» при тёмной системной теме
+  await p.evaluate(() => { const l = document.querySelector('label[for="kbv-facts"]'); if (l) l.click(); });
+  for (const [name, attr, scheme] of [['progress-contrast-light', 'light', null], ['progress-contrast-dark', 'dark', null], ['progress-contrast-auto-dark', null, 'dark']]) {
+    await check(page, name, async () => {
+      if (!HAS_PG) return SKIP(NO_PG, true);
+      await p.emulateMedia({ colorScheme: scheme || 'light' });
+      await p.evaluate(a => { if (a) document.documentElement.setAttribute('data-theme', a); else document.documentElement.removeAttribute('data-theme'); }, attr);
+      await sleep(80);
+      const r = await p.evaluate(contrastInPage, PG_CONTRAST_SELS);
+      const chips = await p.evaluate(() => document.querySelectorAll('.pst').length);
+      if (!chips) return FAIL('нет статусных чипов');
+      const uniq = []; const keys = new Set();
+      for (const f of r.fails) { const k = f.sel + '|' + f.fg + '|' + f.bg; if (!keys.has(k)) { keys.add(k); uniq.push(f); } }
+      if (uniq.length) return FAIL(`${r.fails.length} из ${r.checked} ниже порога: ` + uniq.slice(0, 8).map(f => `${f.sel} «${f.text}» ${f.ratio}:1 (${f.fg} на ${f.bg})`).join('; '));
+      return OK(`чипов и подписей проверено ${r.checked}, все ≥ 4,5:1`);
     });
   }
   await c.close();

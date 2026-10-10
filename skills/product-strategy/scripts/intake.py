@@ -13,6 +13,13 @@
                                                       горизонт, рынки, форматы) → JSON overrides для --set; что найдено,
                                                       не переспрашивать
   intake.py show <run-config.json>                    сводка для подтверждения «старт»
+  intake.py detect --repo . [--json]                  есть ли прошлые стратегии репозитория (strategy/*/, ../<repo>-strategy/*/,
+                                                      PS_STRATEGY_DIR): кандидаты, выбор по умолчанию (самая свежая полная) и
+                                                      карточки AskUserQuestion («Режим», «Стратегия») для режима «Отслеживание»
+  intake.py track --repo . [--baseline OUT] [--mode track|update] [--set …]
+                                                      режим «Отслеживание»: проверить стратегию, дописать tracking в её run-config
+                                                      (mode, baseline), напечатать OUT=… и дальнейшие команды; без --baseline берётся
+                                                      выбор по умолчанию (автоопределение)
 
 answers.json — {"<header вопроса>": "<label выбранного варианта>" | ["label", …] | "свой текст"} (как вернул
 AskUserQuestion; «Other» — свой текст). --set — точечные пути: strategy.proposals_min=150, scope.competitors=false.
@@ -20,6 +27,7 @@ AskUserQuestion; «Other» — свой текст). --set — точечные 
 """
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -605,6 +613,113 @@ def _apply_sets(cfg, sets):
         cfg.setdefault("_explicit", []).append(k.strip())
 
 
+# ---------- режим «Отслеживание»: поиск прошлых стратегий ----------
+SKIP_DIRS = {"node_modules", "venv", ".venv", ".git", "site-packages", "__pycache__", "dist", "target", "vendor"}
+
+
+def _strategy_info(out):
+    """Сведения о папке стратегии по её run-config и данным; None, если это не стратегия."""
+    cfgp = Path(out) / "build" / "run-config.json"
+    if not cfgp.is_file():
+        return None
+    try:
+        cfg = json.loads(cfgp.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    data = Path(out) / "data"
+    n = None
+    try:
+        n = len(json.loads((data / "proposals.json").read_text(encoding="utf-8")))
+    except (OSError, ValueError):
+        pass
+    checked = None
+    try:
+        checked = json.loads((data / "progress.json").read_text(encoding="utf-8")).get("checked")
+    except (OSError, ValueError):
+        pass
+    return {"path": str(Path(out).resolve()), "created": cfg.get("created", ""), "product": (cfg.get("product") or {}).get("name", ""),
+            "proposals": n, "has_scores": (data / "scores.json").is_file(), "has_page": (Path(out) / "deliverables" / "index.html").is_file(),
+            "last_checked": checked, "inside_repo": bool((cfg.get("output") or {}).get("inside_repo")),
+            "complete": bool(n) and (data / "scores.json").is_file()}
+
+
+def find_strategies(repo):
+    """Прошлые стратегии: <repo>/strategy/*/, любые <repo>/**/build/run-config.json до глубины 3, <repo>/../<имя>-strategy/*/ и
+    PS_STRATEGY_DIR (папка стратегии или папка с ними). Самая свежая полная — recommended."""
+    repo = Path(repo).resolve()
+    roots, seen, found = [], set(), []
+    roots.append(repo / "strategy")
+    roots.append(repo.parent / ("%s-strategy" % repo.name))
+    env = os.environ.get("PS_STRATEGY_DIR")
+    if env:
+        roots.append(Path(env).expanduser())
+    cands = []
+    for r in roots:
+        if r.is_dir():
+            cands += [r] + [d for d in sorted(r.iterdir()) if d.is_dir()]
+    for base, dirs, _files in os.walk(repo):
+        depth = len(Path(base).relative_to(repo).parts)
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS and not d.startswith(".")] if depth < 4 else []
+        if (Path(base) / "build" / "run-config.json").is_file():
+            cands.append(Path(base))
+    for c in cands:
+        key = str(c.resolve())
+        if key in seen:
+            continue
+        seen.add(key)
+        info = _strategy_info(c)
+        if info:
+            found.append(info)
+    found.sort(key=lambda x: (x["complete"], x["created"], x["path"]), reverse=True)
+    for i, f in enumerate(found):
+        f["recommended"] = i == 0 and f["complete"]
+    return found
+
+
+def mode_cards(found, repo):
+    """Карточки AskUserQuestion: режим (если прошлые стратегии есть) и, если их несколько, какую контролировать."""
+    if not found:
+        return []
+    top = found[0]
+    label = "%s · %s · %s предложений" % (top["created"] or "без даты", top["product"] or "продукт", top["proposals"] if top["proposals"] is not None else "?")
+    cards = [{"header": "Режим", "question": "Найдена прошлая стратегия (%s). Что делаем?" % label, "multiSelect": False, "options": [
+        {"label": "Отследить выполнение (Recommended)", "description": "Сверить план с кодом, коммитами, issues и PR репозитория; статусы на таймлайне; корректировки"},
+        {"label": "Отследить и пересмотреть", "description": "То же и обновить текст стратегии: сделанное отметить, зависимости и приоритеты пересчитать"},
+        {"label": "Новая стратегия", "description": "Прошлая остаётся как есть; новый прогон с опросом"}]}]
+    if len(found) > 1:
+        opts = [{"label": ("%s · %s%s" % (f["created"] or "без даты", f["product"] or "продукт", " (Recommended)" if f["recommended"] else ""))[:60],
+                 "description": "%s предложений%s%s; %s" % (f["proposals"] if f["proposals"] is not None else "?", ", оценки есть" if f["has_scores"] else "",
+                                                          ", проверялась %s" % f["last_checked"] if f["last_checked"] else "", f["path"])}
+                for f in found[:4]]
+        cards.append({"header": "Стратегия", "question": "Какую стратегию использовать для контроля выполнения?", "multiSelect": False, "options": opts})
+    return cards
+
+
+def cmd_track(repo, baseline, mode, sets):
+    found = find_strategies(repo)
+    pick = None
+    if baseline:
+        info = _strategy_info(baseline)
+        if not info:
+            sys.exit("track: в %s нет build/run-config.json — это не папка стратегии" % baseline)
+        pick = info
+    else:
+        pick = next((f for f in found if f.get("recommended")), found[0] if found else None)
+    if not pick:
+        sys.exit("track: прошлых стратегий не найдено (strategy/*/, ../<repo>-strategy/*/, PS_STRATEGY_DIR). Нужна новая: intake.py questions")
+    if not pick["complete"]:
+        print("Предупреждение: в стратегии нет data/proposals.json или scores.json — сверка будет неполной", file=sys.stderr)
+    cfgp = Path(pick["path"]) / "build" / "run-config.json"
+    cfg = json.loads(cfgp.read_text(encoding="utf-8"))
+    cfg["tracking"] = {**(cfg.get("tracking") or {}), "mode": mode, "baseline": pick["path"], "last_checked": (cfg.get("tracking") or {}).get("last_checked")}
+    cfg["tracking"]["repo"] = str(Path(repo).resolve())
+    for s_ in sets or []:
+        k, _, v = s_.partition("=")
+        set_path(cfg, k.strip(), parse_value(v))
+    cfgp.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+    return pick, cfg
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -621,6 +736,14 @@ def main(argv=None):
             p.add_argument("--answers")
             p.add_argument("--from-askuser", help="ответ AskUserQuestion (JSON-строка, @файл или - для stdin)")
             p.add_argument("--open")
+    d = sub.add_parser("detect")
+    d.add_argument("--repo", default=".")
+    d.add_argument("--json", action="store_true")
+    tr = sub.add_parser("track")
+    tr.add_argument("--repo", default=".")
+    tr.add_argument("--baseline")
+    tr.add_argument("--mode", choices=["track", "update"], default="track")
+    tr.add_argument("--set", action="append", default=[])
     t = sub.add_parser("from-text")
     t.add_argument("text")
     s = sub.add_parser("show")
@@ -637,6 +760,28 @@ def main(argv=None):
         print("Несколько открытых вопросов (ответьте на любые, остальное — «пропустить»):")
         for i, (_k, text) in enumerate(OPEN_QUESTIONS, 1):
             print("%d. %s" % (i, text))
+        return 0
+    if a.cmd == "detect":
+        top, _ = git_info(a.repo)
+        found = find_strategies(top)
+        cards = mode_cards(found, top)
+        if a.json:
+            print(json.dumps({"repo": str(top), "found": found, "auto": next((f for f in found if f.get("recommended")), None), "cards": cards},
+                             ensure_ascii=False, indent=2))
+        elif not found:
+            print("Прошлых стратегий не найдено — режим «Новая стратегия» (intake.py questions).")
+        else:
+            print("Найдено стратегий: %d" % len(found))
+            for f in found:
+                print("  %s %s · %s · %s предложений%s · %s" % ("★" if f["recommended"] else " ", f["created"] or "без даты", f["product"] or "продукт",
+                                                              f["proposals"] if f["proposals"] is not None else "?", ", проверялась " + f["last_checked"] if f["last_checked"] else "", f["path"]))
+        return 0
+    if a.cmd == "track":
+        top, _ = git_info(a.repo)
+        pick, cfg = cmd_track(top, a.baseline, a.mode, a.set)
+        print("Режим: %s; стратегия: %s (%s, %s предложений)" % ("отследить и пересмотреть" if a.mode == "update" else "отследить выполнение", pick["path"], pick["created"], pick["proposals"]))
+        print("OUT=%s" % pick["path"])
+        print("Дальше: strategy_track.py check %s --repo %s" % (pick["path"], top))
         return 0
     if a.cmd == "from-text":
         print(json.dumps(from_text(a.text), ensure_ascii=False, indent=2))

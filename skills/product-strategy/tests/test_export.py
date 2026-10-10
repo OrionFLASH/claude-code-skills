@@ -161,6 +161,84 @@ def test_xlsx_opens_in_openpyxl(full):
     assert wb["Реестр"].auto_filter.ref.startswith("A1:")
 
 
+@pytest.fixture(scope="module")
+def tracked_xlsx(tmp_path_factory, full):
+    out = tmp_path_factory.mktemp("trk") / "out"
+    shutil.copytree(full, out)
+    r = run("make_progress_demo.py", out)
+    assert r.returncode == 0, r.stderr
+    r = run("build_xlsx.py", out)
+    assert r.returncode == 0, r.stderr
+    return out
+
+
+def cells(xml):
+    """{адрес: (стиль, формула|None, значение|None)} из листа (без разбора sharedStrings)."""
+    out = {}
+    for m in re.finditer(r'<c r="([A-Z]+\d+)"(?: s="(\d+)")?(?: t="(\w+)")?>(.*?)</c>', xml):
+        f = re.search(r"<f>(.*?)</f>", m.group(4))
+        v = re.search(r"<v>(.*?)</v>", m.group(4))
+        out[m.group(1)] = (int(m.group(2) or 0), f.group(1) if f else None, v.group(1) if v else None, m.group(3))
+    return out
+
+
+def test_xlsx_progress_sheet(tracked_xlsx):
+    z = xlsx_parts(tracked_xlsx / "deliverables/strategy.xlsx")
+    names = re.findall(r'<sheet name="([^"]+)"', z.read("xl/workbook.xml").decode())
+    assert names == ["Реестр", "Оценки", "Модель", "Источники", "KPI", "Kanban", "Конкуренты", "Гант", "Прогресс", "Таймлайн"]
+    pg = json.loads((tracked_xlsx / "data/progress.json").read_text(encoding="utf-8"))
+    n = len(pg["items"])
+    xml = sheet_xml(z, "Прогресс")
+    c = cells(xml)
+    strings = re.findall(r"<si><t[^>]*>(.*?)</t></si>", z.read("xl/sharedStrings.xml").decode(), re.S)   # строки с переводами строк
+    sv = lambda a: strings[int(c[a][2])] if a in c and c[a][3] == "s" else None
+    assert [sv(ref + "1") for ref in "ABCDEFGHIJKLM"] == ["ID", "Название", "Категория", "Приоритет", "Горизонт", "Статус", "Уверенность",
+                                                          "Источник", "Issues", "PR", "Последний коммит", "Заметка", "С какой даты"]
+    ru = {"done": "выполнено", "partial": "частично", "in_progress": "в работе", "planned": "запланировано", "not_started": "не начато",
+          "blocked": "заблокировано", "dropped": "исключено", "obsolete": "устарело", "unknown": "неясно"}
+    col_f = [sv("F%d" % r) for r in range(2, n + 2)]
+    for k, lab in ru.items():                                         # что посчитает COUNTIF — совпадает со сводкой среза
+        assert col_f.count(lab) == pg["summary"][k], k
+    # сводка формулами: COUNTIF по колонке статуса, доля, всего, выполнено %, горизонт × выполнено (COUNTIFS)
+    assert c["P2"][1] == "COUNTIF($F$2:$F$%d,O2)" % (n + 1) and sv("O2") == "выполнено"
+    assert c["Q2"][1].startswith("IF($P$11=0,0,P2/$P$11)") and c["P11"][1] == "COUNTA($A$2:$A$%d)" % (n + 1)
+    assert 'COUNTIF($F$2:$F$%d,&quot;выполнено&quot;)' % (n + 1) in c["P12"][1] or "COUNTIF($F$2:$F$%d,\"выполнено\")" % (n + 1) in c["P12"][1]
+    assert any(v[1] and v[1].startswith("COUNTIFS($E$2:$E$") for v in c.values())
+    assert c["G2"][0] == 17 or c["G2"][2] is None                    # уверенность — в процентах
+    # условное форматирование статусов (cellIs → dxf) и dxfs в стилях
+    assert '<conditionalFormatting sqref="F2:F%d">' % (n + 1) in xml and xml.count('<cfRule type="cellIs"') >= 18
+    assert xml.index("</autoFilter>" if "</autoFilter>" in xml else "<autoFilter") < xml.index("<conditionalFormatting") < xml.index("<pageMargins")
+    styles = z.read("xl/styles.xml").decode()
+    assert '<dxfs count="12">' in styles and '<cellXfs count="18">' in styles and styles.index("</cellStyles>") < styles.index("<dxfs")
+    # Таймлайн: полосы по статусу (стили 10–14), столбец текущего месяца выделен
+    tl = sheet_xml(z, "Таймлайн")
+    t = cells(tl)
+    cur = json.loads((tracked_xlsx / "data/gantt-progress.json").read_text(encoding="utf-8"))["current_month"]
+    head = [a for a, v in t.items() if re.fullmatch(r"[A-Z]+1", a) and v[0] == 15]
+    assert len(head) == 1 and strings[int(t[head[0]][2])] == "М%d · сегодня" % cur
+    assert {v[0] for v in t.values()} & {10, 11, 12, 13, 14} and any(v[0] == 16 for v in t.values())
+    assert '<conditionalFormatting sqref="G2:' in tl
+
+
+def test_xlsx_progress_opens_in_openpyxl(tracked_xlsx):
+    openpyxl = pytest.importorskip("openpyxl")
+    wb = openpyxl.load_workbook(tracked_xlsx / "deliverables/strategy.xlsx")
+    ws = wb["Прогресс"]
+    assert ws.freeze_panes == "C2" and str(ws["P2"].value).startswith("=COUNTIF(")
+    assert len(ws.conditional_formatting) >= 2
+    assert wb["Таймлайн"].freeze_panes == "D2"
+
+
+def test_xlsx_without_progress_unchanged_styles(bare):
+    path = bare / "deliverables/strategy.xlsx"
+    if not path.exists():
+        assert run("build_xlsx.py", bare).returncode == 0
+    z = zipfile.ZipFile(path)
+    styles = z.read("xl/styles.xml").decode()
+    assert "<dxfs" not in styles and '<cellXfs count="10">' in styles
+    assert not any("conditionalFormatting" in z.read(n).decode() for n in z.namelist() if n.startswith("xl/worksheets/"))
+
+
 def test_build_xlsx_without_proposals(tmp_path):
     (tmp_path / "data").mkdir()
     r = run("build_xlsx.py", tmp_path)

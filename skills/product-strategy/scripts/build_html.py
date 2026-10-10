@@ -86,6 +86,91 @@ PALETTE = ["#4C78A8", "#F58518", "#54A24B", "#B279A2", "#E45756", "#72B7B2", "#9
 PID_RE = re.compile(r"(?<![\w-])(P\d{3})(?![\w-])")
 PID_FULL = re.compile(r"^P\d{3}$")
 
+# ---------------------------------------------------------------- отслеживание выполнения (1.2): подписи и значки
+# Статус всегда показывается значком и текстом (не только цветом); порядок — для сортировки реестра.
+STATUS_ORDER = ["done", "partial", "in_progress", "planned", "blocked", "not_started", "unknown", "obsolete", "dropped"]
+STATUS_LABELS = {"done": "выполнено", "partial": "частично", "in_progress": "в работе", "planned": "запланировано",
+                 "not_started": "не начато", "blocked": "заблокировано", "dropped": "исключено", "obsolete": "устарело",
+                 "unknown": "неясно"}
+STATUS_ICONS = {"done": "✓", "partial": "◐", "in_progress": "▸", "planned": "◇", "not_started": "·", "blocked": "⊘",
+                "dropped": "✕", "obsolete": "⌀", "unknown": "?"}
+STATUS_CLOSED = {"done", "dropped", "obsolete"}
+GSTATUS_LABELS = {"done": "выполнено", "partial": "частично", "behind": "отстаёт", "on_track": "по плану", "upcoming": "впереди"}
+GSTATUS_ICONS = {"done": "✓", "partial": "◐", "behind": "!", "on_track": "▸", "upcoming": "·"}
+SOURCE_LABELS = {"auto": "авто (движок)", "override": "решение владельца", "link": "сохранённая связь"}
+MATCH_LABELS = {"explicit": "явно", "saved": "сохранено", "similar": "по сходству", "files": "по файлам", "terms": "по словам"}
+ISSUE_STATE_LABELS = {"open": "открыт", "closed": "закрыт", "merged": "влит"}
+REVISION_LABELS = {"mark_done": "Отметить выполненным", "obsolete": "Пометить устаревшим", "reprioritize": "Сменить приоритет",
+                   "add": "Добавить предложение", "reschedule": "Перенести сроки", "unblock": "Снять блокировку",
+                   "drop": "Исключить из плана"}
+FACT_LABELS = {"repo_visibility": "Видимость репозитория", "license": "Лицензия", "tests": "Тесты", "prices": "Цены",
+               "platform": "Платформа", "stack": "Стек", "routes": "Маршруты", "integrations": "Интеграции"}
+SUGGEST_LABELS = {"candidate-proposal": "кандидат в предложения", "bug": "ошибка", "chore": "служебная работа"}
+CODE_KIND_LABELS = {"path": "файл", "route": "маршрут", "feature": "функция"}
+GH_REMOTE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9._-]{1,100}$")
+GH_URL_RE = re.compile(r"^https://github\.com/[A-Za-z0-9._~%/#?=&+:@-]+$")
+SHA_RE = re.compile(r"^[0-9a-fA-F]{7,40}$")
+PROGRESS_MARK_RE = re.compile(r"^\s{0,3}<!--\s*progress:(?:start|end)\s*-->\s*$")
+
+
+def gh_remote(v):
+    """owner/repo из run-config.repo.remote («owner/repo», «https://github.com/owner/repo(.git)», «git@» + «github.com:…» (ssh-форма)) или ""."""
+    s = str(v or "").strip()
+    m = re.match(r"^(?:https://github\.com/|git@github\.com:)?([^/\s]+/[^/\s]+?)(?:\.git)?/?$", s)
+    s = m.group(1) if m else ""
+    return s if GH_REMOTE_RE.match(s) and ".." not in s else ""
+
+
+def gh_url(url, remote="", kind="", ref=None):
+    """Ссылка на GitHub: url из данных, только если это https://github.com/…; иначе — собранная из owner/repo
+    (issues/N, pull/N, commit/sha); иначе "" (показывается текстом)."""
+    u = str(url or "").strip()
+    if u and GH_URL_RE.match(u):
+        try:
+            p = urlsplit(u)
+            if p.hostname == "github.com" and p.port is None and not p.username:
+                return u
+        except ValueError:
+            pass
+    if not remote or ref in (None, ""):
+        return ""
+    if kind in ("issue", "pr"):
+        n = to_int(ref)
+        return "https://github.com/%s/%s/%d" % (remote, "issues" if kind == "issue" else "pull", n) if n and n > 0 else ""
+    if kind == "commit":
+        return "https://github.com/%s/commit/%s" % (remote, str(ref)) if SHA_RE.match(str(ref)) else ""
+    return ""
+
+
+def gh_link(url, text):
+    """<a> на GitHub (новая вкладка) или просто текст."""
+    t = esc(text)
+    return ('<a class="gh" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' + t + "</a>") if url else t
+
+
+def fmt1(v):
+    """Число с одним знаком после запятой без лишнего нуля: 16.7 → «16,7», 2.0 → «2»."""
+    x = num(v)
+    if x is None:
+        return ""
+    s = ("%.1f" % x).replace(".", ",")
+    return s[:-2] if s.endswith(",0") else s
+
+
+def ru_date(d):
+    """2026-12-19 → «19.12.2026» (иначе как есть)."""
+    m = re.match(r"^(\d{4})-(\d{2})-(\d{2})", str(d or ""))
+    return "%s.%s.%s" % (m.group(3), m.group(2), m.group(1)) if m else str(d or "")
+
+
+def st_chip(st, labels=None, icons=None, prefix="pst"):
+    """Статусный чип: значок + текст (цвет — дополнительно)."""
+    labels, icons = labels or STATUS_LABELS, icons or STATUS_ICONS
+    if not st:
+        return ""
+    return ('<span class="' + prefix + " " + prefix + "-" + esc(slug(st)) + '"><i aria-hidden="true">' + esc(icons.get(st, "•"))
+            + "</i> " + esc(labels.get(st, st)) + "</span>")
+
 
 # ---------------------------------------------------------------- мелкие помощники
 def esc(s):
@@ -1506,6 +1591,109 @@ class Builder:
         self.load_refs()
         self.load_mockups()
         self.load_flows()
+        self.load_progress()
+
+    # --- отслеживание выполнения (1.2): data/progress.json и сопутствующие; нет progress.json — страница прежняя
+    def load_progress(self):
+        self.pg = None
+        pg = self.json("data/progress.json", dict)
+        if not pg:
+            return
+        repo = self.cfg.get("repo") if isinstance(self.cfg.get("repo"), dict) else {}
+        self.gh_repo = gh_remote(repo.get("remote")) or gh_remote(pg.get("remote"))     # движок пишет remote в progress.json
+        raw = pg.get("items") if isinstance(pg.get("items"), dict) else {}
+        if not raw:
+            self.warn("data/progress.json: нет items — статусы предложений не показаны")
+        known = {p["id"] for p in self.P}
+        extra = [k for k in raw if k not in known]
+        if extra and known:
+            self.warn("data/progress.json: %d id нет в реестре (%s…)" % (len(extra), ", ".join(map(str, extra[:3]))))
+        self.pg_items = {str(k): self.norm_item(v) for k, v in raw.items() if isinstance(v, dict) and str(k) in known}
+        self.pg = pg
+        self.pg_month = to_int(pg.get("month_index"))
+        self.pg_elapsed = num(pg.get("months_elapsed"))
+        # Гант по фактам: {"current_month", "tasks"} или просто список задач
+        gp = self.json("data/gantt-progress.json")
+        tasks, cm = [], None
+        if isinstance(gp, dict):
+            tasks, cm = [t for t in as_list(gp.get("tasks")) if isinstance(t, dict)], to_int(gp.get("current_month"))
+        elif isinstance(gp, list):
+            tasks = [t for t in gp if isinstance(t, dict)]
+        elif gp is not None:
+            self.warn("data/gantt-progress.json: ожидался объект {current_month, tasks} или список — пропущен")
+        self.pg_cur = cm or self.pg_month
+        self.pg_gantt = {}
+        for t in tasks:
+            st = str(t.get("status") or "")
+            st = st if st in GSTATUS_LABELS else ("upcoming" if not st else "partial")
+            pr = num(t.get("progress"))
+            item = {"status": st, "progress": max(0.0, min(1.0, pr if pr is not None else (1.0 if st == "done" else 0.0))),
+                    "done_ids": str_list(t.get("done_ids")), "open_ids": str_list(t.get("open_ids"))}
+            for key in (text_of(t.get("id")), "task:" + text_of(t.get("task"))):
+                if key and key != "task:":
+                    self.pg_gantt.setdefault(key, item)
+        kp = self.json("data/kanban-progress.json", dict) or {}
+        cols = kp.get("columns") if isinstance(kp.get("columns"), dict) else {}
+        self.pg_kanban = {"columns": {str(k): str_list(v) for k, v in cols.items()},
+                          "moves": [m for m in as_list(kp.get("moves")) if isinstance(m, dict) and m.get("id")],
+                          "off_board": [m for m in as_list(kp.get("off_board")) if isinstance(m, dict) and m.get("id")]}
+        self.pg_rev = self.dicts("data/revision.json")
+        self.pg_hist = sorted([h for h in self.dicts("tracking/history.json") if re.match(r"^\d{4}-\d{2}-\d{2}", str(h.get("date") or ""))],
+                              key=lambda h: str(h["date"]))
+        # отстающие предложения: незакрытые из задач overdue
+        self.pg_overdue = [o for o in as_list(pg.get("overdue")) if isinstance(o, dict)]
+        self.pg_behind = {}
+        for o in self.pg_overdue:
+            for pid in str_list(o.get("proposals")):
+                if self.pg_items.get(pid, {}).get("status") not in STATUS_CLOSED:
+                    self.pg_behind.setdefault(pid, []).append(text_of(o.get("task")))
+
+    def norm_item(self, it):
+        """Запись items[P…] → безопасная для страницы форма: статус из списка, ссылки только https://github.com/…"""
+        st = str(it.get("status") or "")
+        st = st if st in STATUS_LABELS else "unknown"
+        sug = str(it.get("suggested") or "")
+        conf = num(it.get("confidence"))
+        src = str(it.get("source") or "")
+        issues, prs, commits, code = [], [], [], []
+        for x in as_list(it.get("issues")):
+            if not isinstance(x, dict):
+                continue
+            n, kind = to_int(x.get("number")), ("pr" if str(x.get("kind")) == "pr" else "issue")
+            issues.append({"n": n, "kind": kind, "state": text_of(x.get("state")), "reason": text_of(x.get("state_reason")), "title": text_of(x.get("title")),
+                           "url": gh_url(x.get("url"), self.gh_repo, kind, n), "labels": str_list(x.get("labels")),
+                           "closed_at": text_of(x.get("closed_at")), "match": text_of(x.get("match")), "score": num(x.get("score")),
+                           "sus": x.get("suspicious") is True})
+        for x in as_list(it.get("prs")):
+            if not isinstance(x, dict):
+                continue
+            n = to_int(x.get("number"))
+            prs.append({"n": n, "state": text_of(x.get("state")), "title": text_of(x.get("title")), "url": gh_url(x.get("url"), self.gh_repo, "pr", n),
+                        "merged_at": text_of(x.get("merged_at")), "match": text_of(x.get("match")), "sus": x.get("suspicious") is True})
+        mentions = []
+        for x in as_list(it.get("mentions"))[:10]:      # эпики и списки, где упомянут P-id (на статус не влияют)
+            if isinstance(x, dict):
+                n, kind = to_int(x.get("number")), ("pr" if str(x.get("kind")) == "pr" else "issue")
+                mentions.append({"n": n, "kind": kind, "state": text_of(x.get("state")), "title": text_of(x.get("title")),
+                                 "url": gh_url(x.get("url"), self.gh_repo, kind, n)})
+        for x in as_list(it.get("commits")):
+            if not isinstance(x, dict):
+                continue
+            s = text_of(x.get("sha"))
+            commits.append({"sha": s[:12], "date": text_of(x.get("date")), "subject": text_of(x.get("subject")), "match": text_of(x.get("match")),
+                            "url": gh_url(x.get("url"), self.gh_repo, "commit", s)})
+        for x in as_list(it.get("code")):
+            if isinstance(x, dict):
+                code.append({"file": text_of(x.get("file")), "kind": text_of(x.get("kind")), "evidence": text_of(x.get("evidence"))})
+            elif text_of(x):
+                code.append({"file": text_of(x), "kind": "", "evidence": ""})
+        return {"status": st, "suggested": sug if sug in STATUS_LABELS and sug != st else "",
+                "confidence": max(0.0, min(1.0, conf)) if conf is not None else None, "source": src,
+                "issues": issues, "prs": prs, "mentions": mentions, "commits": commits, "code": code, "scan_diff": str_list(it.get("scan_diff")),
+                "blocked_by_open": str_list(it.get("blocked_by_open")), "note": text_of(it.get("note")), "since": text_of(it.get("since"))}
+
+    def pg_status(self, pid):
+        return (self.pg_items.get(pid) or {}).get("status", "") if self.pg else ""
 
     def load_charts(self):
         idx = self.json("charts/charts-index.json", list)
@@ -1763,6 +1951,7 @@ class Builder:
         self.sec_top()
         self.sec_strategy()
         self.sec_registry()
+        self.sec_progress()
         self.sec_scores()
         self.sec_charts()
         self.sec_flows()
@@ -1894,6 +2083,13 @@ class Builder:
             hay = " ".join([row["id"], row["title"], row["description"], row["rationale"], row["segment"],
                             " ".join(row["tags"]), CAT_LABELS.get(row["category"], row["category"]), row["current_feature"],
                             row["cheap_test"], " ".join(LABEL_LABELS.get(x, x) for x in labels)])
+            if self.pg:                         # поля выполнения — только в режиме отслеживания (иначе строка прежняя)
+                it = self.pg_items.get(p["id"])
+                row["status"] = it["status"] if it else ""
+                if it:
+                    row["pg"] = dict(it, behind=self.pg_behind.get(p["id"], []))
+                    hay += " " + STATUS_LABELS.get(it["status"], "") + " " + " ".join(
+                        "#%s %s" % (x["n"], x["title"]) for x in it["issues"] + it["prs"] if x.get("n"))
             row["_hay"] = hay.lower().replace("ё", "е")
             rows.append(row)
         return rows
@@ -1961,6 +2157,10 @@ class Builder:
                 p0 = sum(1 for r in self.rows if r["priority"] == "P0")
                 qw = sum(1 for r in self.rows if r["quadrant"] == "quick_win")
                 tiles.append((str(p0), "приоритет P0", "быстрых побед: %d" % qw))
+        if self.pg and any(r.get("status") for r in self.rows):
+            sr = [r for r in self.rows if r.get("status")]
+            dn = sum(1 for r in sr if r["status"] == "done")
+            tiles.append(("%d%%" % round(100.0 * dn / len(sr)), "выполнено по проверке", text_of(self.pg.get("checked")) + " · %d из %d" % (dn, len(sr))))
         if self.sens and num(self.sens.get("top20_stability")) is not None:
             tiles.append(("%d%%" % round(100 * num(self.sens["top20_stability"])), "устойчивость топ-20",
                           "к изменению весов ×0,5…×1,5"))
@@ -2036,6 +2236,11 @@ class Builder:
                 fence = fm.group(2)
                 (cur[1] if cur else pre).append(line)
                 continue
+            if PROGRESS_MARK_RE.match(line):
+                # маркеры автоблока strategy_track.py (<!-- progress:start/end -->) — служебные, на страницу не попадают;
+                # пустая строка вместо маркера отделяет таблицу блока от соседнего текста
+                (cur[1] if cur else pre).append("")
+                continue
             m = re.match(r"^\s{0,3}##\s+(.+?)\s*#*\s*$", line)
             if m:
                 cur = [m.group(1).strip(), []]
@@ -2091,6 +2296,9 @@ class Builder:
                          ["yes" if r["has_mockup"] else "no" for r in R]) if any(r["has_mockup"] for r in R) else "",
             self.options("tags", [], {}, "Все теги", [x for r in R for x in r["tags"]]),
         ]
+        if self.pg:                             # фильтр статуса выполнения — только в режиме отслеживания
+            f.insert(0, self.options("status", STATUS_ORDER, {k: STATUS_ICONS[k] + " " + v for k, v in STATUS_LABELS.items()},
+                                     "Все статусы", [r.get("status", "") for r in R]))
         mets = self.metrics_def()
         gl = {"calc": "Расчётные метрики", "scale": "Оценки 1–5", "cost": "Затраты, сроки, риски", "ts": "TypeSafe", "other": "Прочее"}
         sort_opts, last = "", None
@@ -2102,11 +2310,20 @@ class Builder:
         sort_opts += ("</optgroup>" if last else "") + '<optgroup label="Поля"><option value="id">ID</option>' \
             '<option value="title">Название</option><option value="category">Категория</option>' \
             '<option value="horizon">Горизонт</option><option value="evidence_class">Класс доказательств</option></optgroup>'
+        quick = ""
+        if self.pg:
+            sort_opts = sort_opts.replace('<option value="title">Название</option>',
+                                          '<option value="title">Название</option><option value="status">Статус выполнения</option>', 1)
+            quick = ('<div class="toolbar pg-quick" role="group" aria-label="Быстрые фильтры выполнения"><span class="lbl">Выполнение:</span>'
+                     '<button type="button" data-qf="notdone" aria-pressed="false">Не сделано</button>'
+                     '<button type="button" data-qf="work" aria-pressed="false">В работе</button>'
+                     '<button type="button" data-qf="behind" aria-pressed="false">Отстаёт</button>'
+                     '<a class="small" href="#progress">Сводка выполнения →</a></div>')
         inner = ('<p class="lead">Все предложения с оценками. Клик по строке раскрывает карточку, по номеру — открывает её в окне. '
                  "Сортировка — по заголовку столбца или по любой метрике из списка; фильтры и поиск сочетаются. "
                  "Экспорт сохраняет то, что сейчас показано.</p>"
                  '<div class="toolbar" role="search"><input id="q" type="search" placeholder="Поиск: ID, название, описание, сегмент, теги…" '
-                 'aria-label="Поиск по реестру">' + "".join(f) + "</div>"
+                 'aria-label="Поиск по реестру">' + "".join(f) + "</div>" + quick +
                  '<div class="toolbar"><label class="lbl">Сортировка <select id="sortby" aria-label="Сортировать по метрике">'
                  + sort_opts + '</select></label><button id="sortdir" type="button" aria-label="Направление сортировки">по возрастанию ↑</button>'
                  '<button id="reg-reset" type="button">Сбросить фильтры</button><span id="reg-count" class="count" aria-live="polite"></span>'
@@ -2115,6 +2332,243 @@ class Builder:
                  '<div class="reg-wrap"><table id="reg" class="reg"><thead><tr id="reg-head"></tr></thead><tbody id="tb"></tbody></table></div>'
                  '<noscript><p class="missing">Реестр показывается скриптом страницы; без JavaScript см. data/proposals.json.</p></noscript>')
         self.add("registry", "Реестр предложений", self.section("registry", "Реестр предложений <span class=\"muted\">(%d)</span>" % len(R), inner))
+
+    # --- 3а. прогресс выполнения (режим «Отслеживание», data/progress.json)
+    def pg_counts(self, rows):
+        c = {k: 0 for k in STATUS_ORDER}
+        for r in rows:
+            if r.get("status") in c:
+                c[r["status"]] += 1
+        return c
+
+    def pg_bars(self, field, order, labels):
+        groups = {}
+        for r in self.rows:
+            if r.get("status") and r.get(field):
+                groups.setdefault(r[field], []).append(r)
+        if not groups:
+            return ""
+        keys = [k for k in order if k in groups] + sorted(k for k in groups if k not in order)
+        out = ""
+        for k in keys:
+            rs = groups[k]
+            c, t = self.pg_counts(rs), len(rs)
+            segs = "".join('<span class="pgs s-%s" style="width:%.2f%%"></span>' % (s, 100.0 * c[s] / t) for s in ("done", "partial", "in_progress") if c[s])
+            pct = round(100.0 * c["done"] / t)
+            aria = "%s: выполнено %d из %d, частично %d, в работе %d" % (labels.get(k, k), c["done"], t, c["partial"], c["in_progress"])
+            out += ('<div class="pgrow"><span class="pgl">' + esc(labels.get(k, k)) + '</span><span class="pgt" role="img" aria-label="'
+                    + esc(aria) + '">' + segs + '</span><span class="pgn">' + "%d/%d · %d%%" % (c["done"], t, pct)
+                    + (' <span class="muted">◐%d ▸%d</span>' % (c["partial"], c["in_progress"]) if c["partial"] or c["in_progress"] else "")
+                    + "</span></div>")
+        return out
+
+    def pg_chart(self):
+        """Динамика выполнения из tracking/history.json: линия «% выполнено» (SVG без текста — подписи HTML-таблицей ниже)."""
+        pts = []
+        for h in self.pg_hist:
+            s = h.get("summary") if isinstance(h.get("summary"), dict) else {}
+            tot, done = num(s.get("total")), num(s.get("done"))
+            pct = num(s.get("percent_done"))
+            if pct is None and tot:
+                pct = 100.0 * (done or 0) / tot
+            if pct is None:
+                continue
+            pts.append((str(h["date"])[:10], max(0.0, min(100.0, pct)), s))
+        if not pts:
+            return ""
+        rows = "".join("<tr><td>" + esc(d) + '</td><td class="num">' + esc(fmt1(p)) + ' %</td><td class="num">'
+                       + esc(fmt_num(s.get("done"))) + '</td><td class="num">' + esc(fmt_num((num(s.get("in_progress")) or 0) + (num(s.get("partial")) or 0)))
+                       + '</td><td class="num">' + esc(fmt_num(s.get("blocked"))) + "</td></tr>" for d, p, s in pts)
+        table = ('<div class="tbl"><table class="data"><thead><tr><th>Дата проверки</th><th class="num">Выполнено</th><th class="num">Сделано, шт.</th>'
+                 '<th class="num">В работе и частично</th><th class="num">Заблокировано</th></tr></thead><tbody>' + rows + "</tbody></table></div>")
+        if len(pts) < 2:
+            return '<p class="muted">Одна проверка — график динамики появится после следующей.</p>' + table
+        try:
+            days = [(date.fromisoformat(d) - date.fromisoformat(pts[0][0])).days for d, _, _ in pts]
+        except ValueError:
+            days = list(range(len(pts)))           # даты не по ISO — точки через равные промежутки
+        if sorted(days) != days:
+            days = list(range(len(pts)))
+        span = max(1, days[-1] - days[0])
+        ymax = max(10.0, math.ceil(max(p for _, p, _ in pts) / 10.0) * 10.0)
+        W, H, L, Rm, T, B = 640.0, 170.0, 8.0, 8.0, 10.0, 10.0
+        xy = [(L + (W - L - Rm) * (dd - days[0]) / span, T + (H - T - B) * (1 - p / ymax)) for dd, (_, p, _) in zip(days, pts)]
+        grid = "".join('<line class="pgc-grid" x1="%.1f" x2="%.1f" y1="%.1f" y2="%.1f"/>' % (L, W - Rm, T + (H - T - B) * k / 4, T + (H - T - B) * k / 4) for k in range(5))
+        line = " ".join("%.1f,%.1f" % p for p in xy)
+        area = "M%.1f,%.1f L" % (xy[0][0], H - B) + " L".join("%.1f,%.1f" % p for p in xy) + " L%.1f,%.1f Z" % (xy[-1][0], H - B)
+        dots = "".join('<circle class="pgc-dot" cx="%.1f" cy="%.1f" r="4.5"/>' % p for p in xy)
+        label = "Динамика выполнения: " + "; ".join("%s — %s %%" % (d, fmt1(p)) for d, p, _ in pts)
+        svg = ('<svg class="pgc" viewBox="0 0 640 170" role="img" aria-label="' + esc(label) + '"><title>' + esc(label) + "</title>" + grid
+               + '<path class="pgc-area" d="' + area + '"/><polyline class="pgc-line" points="' + line + '"/>' + dots + "</svg>")
+        axis = ('<div class="pgc-axis"><span>' + esc(pts[0][0]) + "</span><span>шкала 0–" + esc(fmt_num(ymax)) + " % выполненного</span><span>"
+                + esc(pts[-1][0]) + "</span></div>")
+        return '<div class="pgc-wrap">' + svg + axis + "</div>" + table
+
+    def pg_changed(self):
+        """« С прошлой проверки (дата) статус сменили N предложений» — из summary.changed_since_last / previous_check."""
+        s = self.pg.get("summary") if isinstance(self.pg.get("summary"), dict) else {}
+        n, prev = to_int(s.get("changed_since_last")), text_of(s.get("previous_check"))
+        if n is None or not prev:
+            return ""
+        return " С прошлой проверки (%s) статус сменили: <b>%d</b>." % (esc(prev), n)
+
+    def issue_ref(self, x, kind="issue"):
+        """«#12 · открыт · заголовок» со ссылкой на GitHub (только https://github.com/…)."""
+        n = x.get("n")
+        kind = x.get("kind") or kind
+        lab = (("PR #%d" if kind == "pr" else "#%d") % n) if n else ("PR" if kind == "pr" else "issue")
+        state = ISSUE_STATE_LABELS.get(x.get("state"), x.get("state") or "")
+        return (gh_link(x.get("url"), lab) + (' <span class="tag">' + esc(state) + "</span>" if state else "")
+                + (" " + esc(x.get("title")) if x.get("title") else ""))
+
+    def sec_progress(self):
+        if not self.pg:
+            return
+        pg, R = self.pg, [r for r in self.rows if r.get("status")]
+        c, total = self.pg_counts(R), len(R)
+        st = self.cfg.get("strategy") if isinstance(self.cfg.get("strategy"), dict) else {}
+        H = to_int(st.get("horizon_months")) or 12
+        checked = text_of(pg.get("checked"))
+        base = pg.get("baseline") if isinstance(pg.get("baseline"), dict) else {}
+        pct = (100.0 * c["done"] / total) if total else 0.0
+        outside = [o for o in as_list(pg.get("outside_strategy")) if isinstance(o, dict)]
+        behind_tasks = [o for o in self.pg_overdue if str(o.get("status") or "behind") == "behind"]
+        month = self.pg_month or self.pg_cur
+
+        def tile(n, label, sub, href, attrs=""):
+            return ('<a class="kpi pgk" href="' + href + '"' + attrs + '><div class="n">' + esc(n) + '</div><div class="l">' + esc(label)
+                    + "</div>" + ('<div class="s">' + esc(sub) + "</div>" if sub else "") + "</a>")
+        tiles = (tile("%s%%" % fmt1(pct), "выполнено", "%d из %d · частично %d" % (c["done"], total, c["partial"]), "#registry", ' data-st-go="done"' if c["done"] else "")
+                 + tile(str(c["in_progress"] + c["partial"]), "в работе", "в работе %d, частично %d, запланировано %d" % (c["in_progress"], c["partial"], c["planned"]),
+                        "#registry", ' data-qf-go="work"' if c["in_progress"] + c["partial"] else "")
+                 + tile(str(len(behind_tasks)), "отстаёт по плану", "задач Ганта; предложений: %d" % len(self.pg_behind), "#registry", ' data-qf-go="behind"' if self.pg_behind else "")
+                 + tile(str(c["blocked"]), "заблокировано", "ждут невыполненных предпосылок", "#registry", ' data-st-go="blocked"' if c["blocked"] else "")
+                 + tile(str(len(outside)), "вне стратегии", "issues и PR без связи с предложениями", "#pg-outside")
+                 + tile(ru_date(checked) or "—", "дата проверки", ("месяц плана %d из %d" % (month, H) if month else "")
+                        + (" · прошло %s мес." % fmt1(self.pg_elapsed) if self.pg_elapsed is not None else ""), "#pg-dyn", ' data-date="1"'))
+        legend = "".join('<a class="pst-go" href="#registry" data-st-go="' + s + '">' + st_chip(s) + ' <b>' + str(c[s]) + "</b></a>"
+                         for s in STATUS_ORDER if c[s])
+        nodata = len(self.rows) - total
+        parts = ['<p class="lead">Срез выполнения стратегии на <b>' + esc(checked or "—") + "</b>" + (" (стратегия от " + esc(text_of(base.get("created"))) + ")" if base.get("created") else "")
+                 + ". Статусы — по репозиторию, git-логу, issues и PR; решение владельца побеждает автоматику. Плитки и чипы открывают реестр с фильтром."
+                 + self.pg_changed() + "</p>",
+                 '<div class="kpis pg-kpis">' + tiles + "</div>",
+                 '<div class="pg-legend" aria-label="Статусы предложений">' + legend + "</div>"
+                 + ('<p class="muted small">Без статуса (нет в срезе): %d.</p>' % nodata if nodata > 0 else "")]
+        hz = self.pg_bars("horizon", list(HORIZON_LABELS), HORIZON_LABELS)
+        pr = self.pg_bars("priority", ["P0", "P1", "P2", "P3"], {})
+        bars_legend = ('<p class="pg-bl muted small"><span class="pgsw s-done"></span>' + STATUS_ICONS["done"] + " выполнено "
+                       '<span class="pgsw s-partial"></span>' + STATUS_ICONS["partial"] + " частично "
+                       '<span class="pgsw s-in_progress"></span>' + STATUS_ICONS["in_progress"] + " в работе "
+                       '<span class="pgsw s-rest"></span> остальное · справа: сделано / всего</p>')
+        if hz or pr:
+            parts.append('<h3>По горизонтам и приоритетам</h3>' + bars_legend + '<div class="dists pg-dists">'
+                         + ('<div class="bars"><h4>Горизонт</h4>' + hz + "</div>" if hz else "")
+                         + ('<div class="bars"><h4>Приоритет</h4>' + pr + "</div>" if pr else "") + "</div>")
+        chart = self.pg_chart()
+        parts.append('<h3 id="pg-dyn">Динамика</h3>' + (chart or '<p class="muted">Нет tracking/history.json — динамика появится после нескольких проверок.</p>'))
+        # изменившиеся факты
+        facts = [f for f in as_list(pg.get("facts_changed")) if isinstance(f, dict)]
+        if facts:
+            lis = "".join("<li><b>" + esc(FACT_LABELS.get(text_of(f.get("fact")), text_of(f.get("fact")))) + "</b>: "
+                          + '<span class="pg-was">' + esc(text_of(f.get("was")) or "—") + '</span> → <span class="pg-now">' + esc(text_of(f.get("now")) or "—") + "</span>"
+                          + (" · затрагивает: " + self.chips(f.get("affects")) if str_list(f.get("affects")) else "") + "</li>" for f in facts)
+            parts.append("<h3>Изменились факты</h3><ul class=\"pg-list\">" + lis + "</ul>")
+        # «считали отсутствующим, а оно уже есть» (движок: discrepancies)
+        dis = [d for d in as_list(pg.get("discrepancies")) if isinstance(d, dict)]
+        if dis:
+            lis = ""
+            for d in dis:
+                pid, n = text_of(d.get("id")), to_int(d.get("number"))
+                url = gh_url(d.get("url"), self.gh_repo, "issue", n)
+                lis += ("<li>" + (pid_link(pid, self.titles) + " " + esc(self.titles.get(pid, "")) if pid in self.titles else esc(pid))
+                        + '<div class="pg-sub">' + esc(text_of(d.get("text"))) + (" · " + gh_link(url, "#%d" % n) if n else "") + "</div></li>")
+            parts.append('<h3>Считали отсутствующим, а оно уже есть</h3><p class="muted small">В стратегии «нет …», а похожий или явно связанный '
+                         "issue закрыт ещё до неё — проверьте и поправьте карточку предложения.</p><ul class=\"pg-list\">" + lis + "</ul>")
+        # следующие шаги
+        nxt = [p for p in str_list(pg.get("next_actions")) if p in self.titles]
+        if nxt:
+            by = {r["id"]: r for r in self.rows}
+            lis = ""
+            for pid in nxt:
+                r = by.get(pid, {})
+                it = self.pg_items.get(pid) or {}
+                deps = r.get("dependencies") or []
+                open_deps = [d for d in deps if self.pg_status(d) not in STATUS_CLOSED]
+                if not deps:
+                    pre = '<span class="muted">предпосылок нет</span>'
+                elif not open_deps:
+                    pre = '<span class="pg-ok">✓ предпосылки выполнены</span>'
+                else:
+                    pre = '<span class="pg-warn">ждёт: </span>' + self.chips(open_deps)
+                iss = [x for x in it.get("issues", []) if x.get("state") == "open"] or it.get("issues", [])
+                issue = self.issue_ref(iss[0]) if iss else '<span class="tag">нет issue</span>'
+                lis += ("<li>" + pid_link(pid, self.titles) + " " + esc(r.get("title", "")) + " " + st_chip(it.get("status", ""))
+                        + (" " + self.badge("p", r.get("priority")) if r.get("priority") else "") + '<div class="pg-sub">' + pre + " · " + issue + "</div></li>")
+            parts.append('<h3>Следующие шаги</h3><p class="muted small">Не начатые и запланированные предложения с выполненными предпосылками, '
+                         "по важности. «нет issue» — черновик задачи есть в data/issues-drafts.md.</p><ol class=\"pg-list\">" + lis + "</ol>")
+        # отстаёт по плану — списком (на телефоне таблица из 4 колонок рвёт слова)
+        if self.pg_overdue:
+            gt = {t["id"]: dict(t, _i=i) for i, t in enumerate(self.gantt_tasks()) if t.get("id")}
+            lis = ""
+            for o in self.pg_overdue:
+                tid = text_of(o.get("task"))
+                t = gt.get(tid, {})
+                end = to_int(o.get("planned_end_month"))
+                when = ("месяц %d · %s" % (end, self.month_label(end, True))) if end else "—"
+                name = '<span class="gid">' + esc(tid) + "</span> " + esc(t.get("task", ""))
+                props = " ".join('<span class="pg-pp">' + (pid_link(p, self.titles) if p in self.titles else esc(p)) + " " + st_chip(self.pg_status(p)) + "</span>"
+                                 for p in str_list(o.get("proposals")))
+                lis += ("<li>" + (('<a href="#gantt" data-g-open="%d">' % t["_i"]) + name + "</a>" if "_i" in t else name) + " "
+                        + st_chip(str(o.get("status") or "behind"), GSTATUS_LABELS, GSTATUS_ICONS, "gst")
+                        + '<div class="pg-sub">срок по плану: ' + esc(when) + (" · " + props if props else "") + "</div></li>")
+            parts.append('<h3>Отстаёт по плану</h3><ul class="pg-list">' + lis + "</ul>")
+        # работа вне стратегии
+        if outside:
+            lis = ""
+            for o in outside:
+                kind = "pr" if str(o.get("kind")) == "pr" else "issue"
+                n = to_int(o.get("number"))
+                url = gh_url(o.get("url"), self.gh_repo, kind, n)
+                lab = ("PR" if kind == "pr" else "issue") + (" #%d" % n if n else "")
+                sug = text_of(o.get("suggest"))
+                lis += ("<li>" + gh_link(url, lab) + ' <span class="tag">' + esc(ISSUE_STATE_LABELS.get(text_of(o.get("state")), text_of(o.get("state")))) + "</span> "
+                        + esc(text_of(o.get("title"))) + (' <span class="tag pg-sug">' + esc(SUGGEST_LABELS.get(sug, sug)) + "</span>" if sug else "")
+                        + (" · похоже на " + self.chips(o.get("similar_to")) if str_list(o.get("similar_to")) else "") + "</li>")
+            parts.append('<h3 id="pg-outside">Работа вне стратегии</h3><p class="muted small">Issues и PR, не связанные ни с одним предложением. '
+                         "Кандидата в предложения стоит добавить в реестр (корректировка «добавить»), ошибки и служебную работу — оставить как есть; "
+                         "связать с предложением: <code>strategy_track.py link &lt;OUT&gt; &lt;P-id&gt; &lt;номер issue&gt;</code>.</p><ul class=\"pg-list\">" + lis + "</ul>")
+        # предлагаемые корректировки
+        if self.pg_rev:
+            secs = set(re.findall(r'<section id="s-(\d+)"', "".join(self.sections)))
+            lis = ""
+            for v in self.pg_rev:
+                typ = text_of(v.get("type"))
+                sl = []
+                for s_ in as_list(v.get("sections")):
+                    k = text_of(s_)
+                    sl.append(('<a href="#s-' + esc(k) + '">§' + esc(k) + "</a>") if k in secs else "§" + esc(k))
+                pid = text_of(v.get("id"))
+                ev = str_list(v.get("evidence"))
+                sub = [x for x in (("основание: " + esc(text_of(v.get("reason")))) if text_of(v.get("reason")) else "",
+                                   ("доказательства: " + esc("; ".join(ev))) if ev else "",
+                                   ("разделы: " + ", ".join(sl)) if sl else "") if x]
+                lis += ('<li><span class="tag pg-rt pg-rt-' + esc(slug(typ)) + '">' + esc(REVISION_LABELS.get(typ, typ)) + "</span> "
+                        + (pid_link(pid, self.titles) + " — " if pid in self.titles else "") + esc(text_of(v.get("text")))
+                        + ('<div class="pg-sub">' + " · ".join(sub) + "</div>" if sub else "") + "</li>")
+            parts.append('<h3>Предлагаемые корректировки</h3><p class="muted small">Вход для обновления стратегии (бриф strategy-update): '
+                         "сама стратегия не меняется, пока владелец не согласится.</p><ul class=\"pg-list pg-rev\">" + lis + "</ul>")
+        src = pg.get("sources") if isinstance(pg.get("sources"), dict) else {}
+        names = {"repo": "репозиторий", "git_log": "git-лог", "scan_diff": "разница сканов", "issues": "issues", "prs": "PR"}
+        srcs = [names[k] + (" ✓" if src.get(k) is True else " —") for k in names if k in src]
+        if src.get("gh"):
+            srcs.append("gh: " + text_of(src.get("gh")))
+        warns = str_list(pg.get("warnings")) + str_list(pg.get("notes"))
+        if srcs or warns:
+            parts.append('<p class="muted small">Источники проверки: ' + esc(", ".join(srcs) or "—") + ".</p>"
+                         + ('<details><summary>Предупреждения проверки (%d)</summary><ul>' % len(warns) + "".join("<li>" + esc(w) + "</li>" for w in warns)
+                            + "</ul></details>" if warns else ""))
+        self.add("progress", "Прогресс выполнения", self.section("progress", "Прогресс выполнения", self.links("".join(parts)), "pg"))
 
     # --- 4. оценки и чувствительность
     def sec_scores(self):
@@ -2349,16 +2803,43 @@ class Builder:
             phases[t["phase"]].append(i)
         rows = ""
         js = []
+        pgon = bool(self.pg)                    # режим отслеживания: статусы задач и линия «Сегодня»
         for i, t in enumerate(tasks):
             when = self.when(t["start"], t["end"], H)
             js.append(dict(t, i=i, when=when))
+            if pgon:
+                pgt = self.pg_gantt.get(t["id"]) or self.pg_gantt.get("task:" + t["task"])
+                if pgt:
+                    js[-1]["pg"] = pgt
         for pi, ph in enumerate(order):
             vis = ph.lower() in ("vision", "видение")
             rows += '<div class="gphase"><span class="gdot c%d"></span>%s</div>' % (pi % 8, esc("Видение" if ph.lower() == "vision" else ph))
             for i in phases[ph]:
                 t = tasks[i]
                 left, right = pos(t["start"] - 1), pos(t["end"])
-                if t["type"] == "milestone":
+                pgt = js[i].get("pg")
+                plab, aria_st = "", ""
+                if pgt:
+                    gs, pct = pgt["status"], int(round(pgt["progress"] * 100))
+                    gtxt = GSTATUS_LABELS.get(gs, gs)
+                    tip = js[i]["when"] + " · " + gtxt + " · выполнено " + str(pct) + "%"
+                    aria_st = ", " + gtxt + ", выполнено " + str(pct) + "%"
+                    if t["type"] == "milestone":
+                        bar = '<span class="gms gs-%s" style="left:%.2f%%" title="веха: %s"></span>' % (esc(gs), (left + right) / 2, esc(tip))
+                        a, b = (left + right) / 2, (left + right) / 2
+                    else:
+                        bar = ('<span class="gbar gs-%s%s" style="left:%.2f%%;width:%.2f%%" title="%s"><span class="gfill" style="width:%d%%"></span></span>'
+                               % (esc(gs), " vis" if vis or t["start"] > H else "", left, max(0.8, right - left), esc(tip), pct))
+                        a, b = left, right
+                    txt = esc(GSTATUS_ICONS.get(gs, "•") + " " + str(pct) + "%" + (" · " + gtxt if gs in ("behind", "done") else ""))
+                    # подпись — после полосы, перед ней (у правого края) или внутри (полоса во всю ширину); всегда на подложке
+                    if b <= 78:
+                        plab = '<span class="gpl gpl-%s" style="left:calc(%.2f%% + 8px)">%s</span>' % (esc(gs), b, txt)
+                    elif a >= 22:
+                        plab = '<span class="gpl gpl-%s" style="right:calc(%.2f%% + 8px)">%s</span>' % (esc(gs), 100 - a, txt)
+                    else:
+                        plab = '<span class="gpl gpl-%s" style="left:calc(%.2f%% + 4px)">%s</span>' % (esc(gs), a, txt)
+                elif t["type"] == "milestone":
                     bar = '<span class="gms c%d" style="left:%.2f%%" title="веха: %s"></span>' % (pi % 8, (left + right) / 2, esc(js[i]["when"]))
                 else:
                     bar = '<span class="gbar c%d%s" style="left:%.2f%%;width:%.2f%%" title="%s"></span>' % (
@@ -2366,16 +2847,31 @@ class Builder:
                 sep = '<span class="gsep" style="left:%.2f%%"></span>' % Wm if V else ""
                 rows += ('<div class="grow" data-g="%d" tabindex="0" role="button" aria-label="%s"><div class="glabel">%s%s%s</div>'
                          '<div class="gtrack">%s%s</div></div>') % (
-                    i, esc(t["task"] + ", " + js[i]["when"]), ('<span class="gid">' + esc(t["id"]) + "</span> " if t["id"] else ""),
-                    self.links(esc(t["task"])), (' <span class="muted">· ' + esc(t["owner"]) + "</span>" if t["owner"] else ""), sep, bar)
+                    i, esc(t["task"] + ", " + js[i]["when"] + aria_st), ('<span class="gid">' + esc(t["id"]) + "</span> " if t["id"] else ""),
+                    self.links(esc(t["task"])), (' <span class="muted">· ' + esc(t["owner"]) + "</span>" if t["owner"] else ""), sep, bar + plab)
         self.gantt_js = js
         gch = self.charts_by_key.get("gantt")
         legend = ('<p class="muted small">Шкала: месяцы плана 1–%d (с %s)%s. Полоса — работа, ромб — веха. Нажмите на строку: '
                   "критерий готовности, зависимости и шаги связанных предложений.%s</p>") % (
             H, self.month_label(1, True), (", дальше — годы видения" if V else ""),
             (' <a class="emb" href="#lb=' + esc(gch["img"]) + '">Гант как картинка</a>' if gch and gch.get("img") else ""))
-        inner = (legend + '<div class="gantt"><div class="gin"><div class="ghead"><div class="gl">Задача</div><div class="gscale">'
-                 + scale + "</div></div>" + rows + "</div></div>")
+        today, gin_cls = "", ""
+        if pgon and self.pg_cur:
+            cur = self.pg_cur
+            m0 = self.pg_elapsed if self.pg_elapsed is not None and int(self.pg_elapsed) + 1 == cur else cur - 0.5
+            m0 = max(0.0, min(float(H + V), m0))
+            x = pos(m0)
+            # подпись справа от линии (слева — закреплённый столбец задач на телефоне), у правого края — слева от линии
+            tx = "translateX(4px)" if x <= 70 else "translateX(calc(-100% - 4px))"
+            scale += '<b class="gtd" style="left:%.2f%%;transform:%s">Сегодня · мес. %d</b>' % (x, tx, cur)
+            today = '<div class="gtoday" style="--x:%.4f" aria-hidden="true"></div>' % (x / 100.0)
+            gin_cls = " pgon"
+            used = [js[i]["pg"]["status"] for i in range(len(js)) if js[i].get("pg")]
+            legend += ('<p class="pg-glegend small">' + " ".join(st_chip(s, GSTATUS_LABELS, GSTATUS_ICONS, "gst") for s in GSTATUS_LABELS if s in used)
+                       + ' <span class="muted">· заливка полосы — доля выполненного; красная линия — сегодня (месяц плана %d, проверка %s)</span></p>'
+                       % (cur, esc(text_of(self.pg.get("checked")) or "—")))
+        inner = (legend + '<div class="gantt"><div class="gin' + gin_cls + '"><div class="ghead"><div class="gl">Задача</div><div class="gscale">'
+                 + scale + "</div></div>" + rows + today + "</div></div>")
         self.add("gantt", "План и диаграмма Ганта", self.section("gantt", "План действий и диаграмма Ганта", inner))
 
     def when(self, s, e, H):
@@ -2418,7 +2914,61 @@ class Builder:
                        + '" title="карточек / лимит WIP">' + cnt + "</span></div>" + (html_cards or '<div class="kempty muted">пусто</div>') + "</div>")
         inner = ('<p class="muted small">Нажмите на карточку: цель, KPI, шаги, ссылки и карточка предложения. Красный счётчик — превышен лимит WIP.</p>'
                  '<div class="kanban">' + "".join(out) + "</div>")
+        kp = self.pg_kanban if self.pg else None
+        if kp and kp["columns"]:
+            inner = self.kanban_facts(cards, cols, out, kp)
         self.add("kanban", "Kanban", self.section("kanban", "Доска Kanban <span class=\"muted\">(%d)</span>" % len(cards), self.links(inner)))
+
+    def kanban_facts(self, cards, cols, plan_cols_html, kp):
+        """Две доски: «Как в плане» (kanban.json) и «По фактам» (kanban-progress.json) с меткой «перенесено из …».
+        Переключатель — радиокнопки и CSS (работает и без скрипта)."""
+        idx = {text_of(k.get("id")): i for i, k in enumerate(cards) if text_of(k.get("id"))}
+        moves = {}
+        for m in kp["moves"]:
+            moves[text_of(m.get("id"))] = m
+        wip = dict(cols)
+        names = [n for n, _ in cols if n != "Без колонки"] + [n for n in kp["columns"] if n not in [x for x, _ in cols]]
+        fout = []
+        for name in names:
+            ids = kp["columns"].get(name, [])
+            w = wip.get(name)
+            over = w is not None and len(ids) > w
+            html_cards = ""
+            for pid in ids:
+                i = idx.get(pid)
+                k = cards[i] if i is not None else {}
+                title = text_of(k.get("title")) or self.titles.get(pid, "")
+                st = self.pg_status(pid)
+                mv = moves.get(pid)
+                moved = ""
+                if mv and text_of(mv.get("from")) and text_of(mv.get("from")) != name:
+                    moved = ('<div class="kmoved" title="' + esc(text_of(mv.get("reason"))) + '">↪ перенесено из «' + esc(text_of(mv.get("from"))) + "»"
+                             + (' <span class="muted">— ' + esc(text_of(mv.get("reason"))) + "</span>" if mv.get("reason") else "") + "</div>")
+                attr = ('data-k="%d"' % i) if i is not None else ('data-pid="' + esc(pid) + '"' if pid in self.titles else "")
+                html_cards += ('<div class="kcard%s" %s tabindex="0" role="button"><div class="kid">%s</div><div class="kt">%s</div><div class="kmeta">%s</div>%s</div>'
+                               % (" moved" if moved else "", attr, esc(pid), esc(title), st_chip(st), moved))
+            fout.append('<div class="kcol"><div class="khead"><b>' + esc(name) + '</b><span class="kcount' + (" over" if over else "")
+                        + '" title="карточек / лимит WIP">' + str(len(ids)) + (" / " + str(w) if w is not None else "") + "</span></div>"
+                        + (html_cards or '<div class="kempty muted">пусто</div>') + "</div>")
+        nmoves = sum(1 for m in kp["moves"] if text_of(m.get("from")) != text_of(m.get("to")))
+        return ('<p class="muted small">Нажмите на карточку: цель, KPI, шаги, ссылки и карточка предложения. Красный счётчик — превышен лимит WIP. '
+                "«По фактам» — карточки в колонках по реальным статусам (проверка " + esc(text_of(self.pg.get("checked")) or "—")
+                + "); план в kanban.json не меняется.</p>"
+                '<div class="kbv" role="group" aria-label="Вид доски"><span class="lbl muted small">Вид доски:</span>'
+                '<input type="radio" name="kbv" id="kbv-plan" class="kbv-r" checked><label for="kbv-plan">Как в плане</label>'
+                '<input type="radio" name="kbv" id="kbv-facts" class="kbv-r"><label for="kbv-facts">По фактам <span class="kbv-n">· перенесено: '
+                + str(nmoves) + "</span></label>"
+                '<div class="kanban kb-plan">' + "".join(plan_cols_html) + '</div><div class="kanban kb-facts">' + "".join(fout) + "</div>"
+                + self.kanban_off(kp) + "</div>")
+
+    def kanban_off(self, kp):
+        """Предложения в работе или сделанные, которых нет на доске (kanban-progress.off_board)."""
+        off = [m for m in kp.get("off_board") or [] if text_of(m.get("id"))]
+        if not off:
+            return ""
+        return ('<p class="kb-off small">Не на доске, но уже в работе или сделано: ' + " ".join(
+            '<span class="pg-pp">' + (pid_link(text_of(m["id"]), self.titles) if text_of(m["id"]) in self.titles else esc(text_of(m["id"]))) + " "
+            + st_chip(self.pg_status(text_of(m["id"])) or text_of(m.get("status"))) + "</span>" for m in off) + "</p>")
 
     # --- 9. макеты
     def sec_mockups(self):
@@ -2868,6 +3418,12 @@ class Builder:
             json_script("d-thumb", self.img.thumbs),
             json_script("d-alias", self.img.alias),
         ]
+        if self.pg:                             # режим отслеживания: подписи статусов для скрипта страницы
+            data_blocks.append(json_script("d-progress", {
+                "labels": STATUS_LABELS, "icons": STATUS_ICONS, "order": {k: i for i, k in enumerate(STATUS_ORDER)},
+                "closed": sorted(STATUS_CLOSED), "glabels": GSTATUS_LABELS, "gicons": GSTATUS_ICONS, "source": SOURCE_LABELS,
+                "match": MATCH_LABELS, "state": ISSUE_STATE_LABELS, "code": CODE_KIND_LABELS,
+                "reason": {"completed": "выполнено", "not_planned": "не планируется", "reopened": "переоткрыт", "duplicate": "дубликат"}, "checked": text_of(self.pg.get("checked"))}))
         js = JS
         head_js = HEAD_JS
         h1 = base64.b64encode(hashlib.sha256(js.encode("utf-8")).digest()).decode()
@@ -2912,7 +3468,7 @@ class Builder:
         page = ("<!doctype html>\n<html lang=\"ru\"><head><meta charset=\"utf-8\">"
                 '<meta http-equiv="Content-Security-Policy" content="' + csp + '">'
                 '<meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark">'
-                + metas + '<link rel="icon" href="data:,"><title>' + esc(title) + "</title><style>" + theme_css(self.tokens) + CSS + "</style>"
+                + metas + '<link rel="icon" href="data:,"><title>' + esc(title) + "</title><style>" + theme_css(self.tokens) + CSS + (PROGRESS_CSS if self.pg else "") + "</style>"
                 "<script>" + head_js + "</script></head><body>"
                 '<a class="skip" href="#main">К содержанию</a>' + mbar + '<div class="wrap">' + nav + '<main id="main">'
                 + "".join(self.sections) + foot + "</main></div>" + layers + "".join(data_blocks) + "<script>" + js + "</script></body></html>\n")
@@ -3279,8 +3835,95 @@ button.ghost{background:none}
 }
 """
 
+# Стили режима «Отслеживание» — добавляются в страницу, только если есть data/progress.json (иначе страница прежняя).
+# Чипы статусов — белый текст на насыщенном фоне (≥ 5:1 в любой теме) + значок; подписи Ганта — текст темы на подложке.
+PROGRESS_CSS = r"""
+.pst,.gst{display:inline-flex;align-items:center;gap:3px;font-size:11.5px;font-weight:600;line-height:1.55;padding:0 7px;border-radius:999px;color:#fff;background:#5b6170;white-space:nowrap;vertical-align:baseline}
+.pst i,.gst i{font-style:normal;font-weight:700}
+.pst-done,.gst-done,.pgs.s-done,.pgsw.s-done{background:#15803d}
+.pst-partial,.gst-partial,.pgs.s-partial,.pgsw.s-partial{background:#a15c07}
+.pst-in_progress,.gst-on_track,.pgs.s-in_progress,.pgsw.s-in_progress{background:#1d4ed8}
+.pst-planned{background:#6d28d9}.pst-not_started,.gst-upcoming{background:#5b6170}.pst-blocked,.gst-behind{background:#b42318}
+.pst-dropped{background:#44403c}.pst-obsolete{background:#5f6b7a}.pst-unknown{background:#86198f}
+.pst-dropped{text-decoration:line-through}
+.pg-kpis .pgk{display:block;color:var(--ps-text);text-decoration:none}
+.pg-kpis .pgk[data-date] .n{font-size:22px;line-height:1.2}
+.pg-kpis .pgk:hover,.pg-kpis .pgk:focus-visible{border-color:var(--ps-accent);box-shadow:0 0 0 3px var(--ps-accent-soft)}
+.pg-legend{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin:6px 0 4px}
+.pst-go{color:var(--ps-text);text-decoration:none;white-space:nowrap;font-size:13px}
+.pst-go:hover b{text-decoration:underline}
+.pgrow{display:grid;grid-template-columns:minmax(70px,34%) minmax(0,1fr) max-content;gap:8px;align-items:center;font-size:13px;margin:4px 0}
+.pgl{overflow-wrap:anywhere}
+.pgt{display:flex;height:12px;background:var(--ps-surface-2);border:1px solid var(--ps-border);border-radius:6px;overflow:hidden}
+.pgs{display:block;height:100%}
+.pgn{font-variant-numeric:tabular-nums;white-space:nowrap}
+.pgsw{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin:0 3px 0 8px;background:var(--ps-surface-2);border:1px solid var(--ps-border)}
+.pgsw:first-child{margin-left:0}
+.pgc-wrap{background:var(--ps-surface);border:1px solid var(--ps-border);border-radius:var(--ps-radius);padding:10px 12px;max-width:760px}
+.pgc{display:block;width:100%;height:auto}
+.pgc-grid{stroke:var(--ps-border);stroke-width:1}
+.pgc-area{fill:var(--ps-accent-soft)}
+.pgc-line{fill:none;stroke:var(--ps-accent);stroke-width:3;stroke-linejoin:round;stroke-linecap:round}
+.pgc-dot{fill:var(--ps-surface);stroke:var(--ps-accent);stroke-width:3}
+.pgc-axis{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--ps-muted);margin-top:4px}
+.pg-list{padding-left:22px}.pg-list li{margin:6px 0;overflow-wrap:anywhere}
+.pg-sub{font-size:12.5px;color:var(--ps-muted);margin-top:2px}
+.pg-ok{color:#166534;font-weight:600}.pg-warn{color:#9f1f14;font-weight:600}
+:root[data-theme=dark] .pg-ok{color:#4ade80}:root[data-theme=dark] .pg-warn{color:#f87171}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .pg-ok{color:#4ade80}:root:not([data-theme=light]) .pg-warn{color:#f87171}}
+.pg-was{text-decoration:line-through;color:var(--ps-muted)}.pg-now{font-weight:600}
+.pg-pp{white-space:nowrap;display:inline-block;margin:1px 6px 1px 0}
+.pg-rev .pg-rt{font-weight:600;color:var(--ps-text)}
+a.gh{font-weight:600}
+.pg-quick{margin-top:-2px}
+.pg-quick button[aria-pressed=true]{background:var(--ps-accent-soft);border-color:var(--ps-accent);color:var(--ps-text);font-weight:600}
+.pg-glegend{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0 8px}
+/* Гант по фактам: полоса — светлая подложка цвета статуса + заливка по доле выполненного; подпись со значком на подложке */
+.gin.pgon{position:relative;--glw:280px}
+.gin.pgon .ghead{z-index:3}
+.gin.pgon .gscale{height:50px}
+.gin.pgon .gtrack{min-height:34px}
+.gbar.gs-done,.gbar.gs-partial,.gbar.gs-behind,.gbar.gs-on_track,.gbar.gs-upcoming{top:10px;height:14px;opacity:1;overflow:hidden;border:1.5px solid}
+.gbar.gs-done{border-color:#15803d;background:rgba(21,128,61,.18)}.gbar.gs-done .gfill{background:#15803d}
+.gbar.gs-partial{border-color:#a15c07;background:rgba(161,92,7,.18)}.gbar.gs-partial .gfill{background:#a15c07}
+.gbar.gs-behind{border-color:#b42318;background:rgba(180,35,24,.16)}.gbar.gs-behind .gfill{background:#b42318}
+.gbar.gs-on_track{border-color:#1d4ed8;background:rgba(29,78,216,.16)}.gbar.gs-on_track .gfill{background:#1d4ed8}
+.gbar.gs-upcoming{border-color:#5b6170;border-style:dashed;background:rgba(91,97,112,.14)}.gbar.gs-upcoming .gfill{background:#5b6170}
+.gfill{display:block;height:100%}
+.gms.gs-done{background:#15803d}.gms.gs-partial{background:#a15c07}.gms.gs-behind{background:#b42318}.gms.gs-on_track{background:#1d4ed8}.gms.gs-upcoming{background:#5b6170}
+.gpl{position:absolute;top:7px;font-size:11px;font-weight:600;line-height:18px;padding:0 6px;border-radius:5px;white-space:nowrap;color:var(--ps-text);background:var(--ps-surface);border:1px solid var(--ps-border);pointer-events:none;z-index:3}
+.gpl-behind{border-color:#b42318}.gpl-done{border-color:#15803d}
+.gtoday{position:absolute;top:0;bottom:0;width:0;left:calc(var(--glw) + (100% - var(--glw) - 12px) * var(--x));border-left:2px solid #b42318;z-index:2;pointer-events:none}
+.gtd{position:absolute;bottom:3px;z-index:2;font-size:10.5px;font-weight:700;line-height:16px;padding:0 5px;border-radius:4px;color:#fff;background:#b42318;white-space:nowrap;pointer-events:none}
+/* Kanban: переключатель «Как в плане / По фактам» — радиокнопки + CSS */
+.kbv{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.kbv>.kanban{flex:1 1 100%;min-width:0;margin-top:6px}
+.kbv-r{position:absolute;opacity:0;width:1px;height:1px;margin:0;pointer-events:none}
+.kbv-r+label{display:inline-block;font-size:13px;padding:5px 12px;border:1px solid var(--ps-border);border-radius:8px;background:var(--ps-surface);color:var(--ps-text);cursor:pointer}
+.kbv-r:checked+label{background:var(--ps-accent-soft);border-color:var(--ps-accent);font-weight:600}
+.kbv-r:focus-visible+label{outline:2px solid var(--ps-accent);outline-offset:2px}
+#kbv-plan:checked~.kb-facts,#kbv-facts:checked~.kb-plan{display:none}
+.kbv-n{font-weight:400;color:var(--ps-muted)}
+.kb-off{flex:1 1 100%;margin:4px 0 0;color:var(--ps-text)}
+#kbv-plan:checked~.kb-off{display:none}
+.pg-sus{border-color:#b42318;color:#9f1f14;font-weight:600}
+:root[data-theme=dark] .pg-sus{color:#f87171}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .pg-sus{color:#f87171}}
+.kcard.moved{border-left:3px solid var(--ps-accent)}
+.kmoved{font-size:11.5px;margin-top:4px;color:var(--ps-text);overflow-wrap:anywhere}
+.kcard .pst{margin-top:2px}
+.dsec.pg .pg-items{list-style:none;padding-left:0}.dsec.pg .pg-items li{margin:4px 0;overflow-wrap:anywhere}
+.dsec.pg code{font-size:12px}
+@media (max-width:900px){
+  .gin.pgon{--glw:150px}
+  .gin.pgon .glabel{z-index:5}
+  .pgrow{grid-template-columns:minmax(64px,30%) minmax(0,1fr) max-content}
+}
+@media print{.kb-facts{display:grid!important}.kbv-r,.kbv-r+label{display:none}.gtoday,.gtd{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+"""
+
 # ---------------------------------------------------------------- JS
-HEAD_JS = "try{var t=localStorage.getItem('ps-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}"
+HEAD_JS ="try{var t=localStorage.getItem('ps-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}"
 
 JS = r"""
 (function () {
@@ -3294,6 +3937,33 @@ var REFS = J('d-refs') || {}, GANTT = J('d-gantt') || [], KAN = J('d-kanban') ||
 var L = META.labels || {}, DIMS = META.dims || {};
 var BYID = {}; REG.forEach(function (r) { BYID[r.id] = r; });
 var MET = {}; METRICS.forEach(function (m) { MET[m.k] = m; });
+/* режим «Отслеживание» (d-progress есть только при data/progress.json): статус — значок + текст */
+var PG = J('d-progress'), PGL = (PG && PG.labels) || {}, PGI = (PG && PG.icons) || {}, PGO = (PG && PG.order) || {};
+function stChip(st, labels, icons, pre) { if (!st) return ''; labels = labels || PGL; icons = icons || PGI; pre = pre || 'pst'; return '<span class="' + pre + ' ' + pre + '-' + esc(String(st).replace(/[^\w-]/g, '-')) + '"><i aria-hidden="true">' + esc(icons[st] || '•') + '</i> ' + esc(labels[st] || st) + '</span>'; }
+/* ссылки на GitHub — только https://github.com/…, иначе текст */
+function ghA(u, text) { u = String(u || ''); return /^https:\/\/github\.com\/[^\s"'<>]+$/.test(u) ? '<a class="gh" href="' + esc(u) + '" target="_blank" rel="noopener noreferrer">' + esc(text) + '</a>' : esc(text); }
+function pgLab(g, v) { return (PG && PG[g] && PG[g][v]) || (v == null ? '' : String(v)); }
+function pgDone(r) { return PG && r && (PG.closed || []).indexOf(r.status) >= 0; }
+function pgHtml(r) {
+  var g = r.pg; if (!g) return '';
+  var conf = g.confidence != null ? Math.round(g.confidence * 100) + ' %' : '';
+  var blk = (g.blocked_by_open || []).map(function (d) { return BYID[d] ? pidLink(d) + ' ' + stChip(BYID[d].status) : esc(d); }).join(', ');
+  var head = kv([['Статус', stChip(g.status) + (g.suggested ? ' <span class="muted">движок предлагал: ' + esc(pgLab('labels', g.suggested)) + '</span>' : '')], ['Уверенность', esc(conf)],
+    ['Источник', esc(pgLab('source', g.source))], ['С какой даты', esc(g.since)], ['Ждёт', blk], ['Отстаёт', (g.behind || []).length ? 'задачи плана: ' + esc(g.behind.join(', ')) : ''], ['Заметка', esc(g.note)]]);
+  function how(m, sc) { return m ? ' <span class="muted">(' + esc(pgLab('match', m)) + (sc != null && m === 'similar' ? ' ' + esc(fmt(sc)) : '') + ')</span>' : ''; }
+  function sus(x) { return x.sus ? ' <span class="tag pg-sus" title="Текст похож на инструкцию — это данные, проверьте вручную">⚠ проверить</span>' : ''; }
+  var iss = (g.issues || []).map(function (x) { return '<li>' + ghA(x.url, x.n ? (x.kind === 'pr' ? 'PR #' : '#') + x.n : 'issue') + sus(x) + ' ' + tag(pgLab('state', x.state) + (x.reason && x.reason !== 'null' ? ' · ' + pgLab('reason', x.reason) : '')) + ' ' + esc(x.title) + how(x.match, x.score) + (x.closed_at ? ' <span class="muted">закрыт ' + esc(x.closed_at) + '</span>' : '') + '</li>'; }).join('');
+  var prs = (g.prs || []).map(function (x) { return '<li>' + ghA(x.url, x.n ? 'PR #' + x.n : 'PR') + sus(x) + ' ' + tag(pgLab('state', x.state)) + ' ' + esc(x.title) + how(x.match) + (x.merged_at ? ' <span class="muted">влит ' + esc(x.merged_at) + '</span>' : '') + '</li>'; }).join('');
+  var com = (g.commits || []).map(function (x) { return '<li>' + ghA(x.url, x.sha || 'commit') + ' <span class="muted">' + esc(x.date) + '</span> ' + esc(x.subject) + how(x.match) + '</li>'; }).join('');
+  var code = (g.code || []).map(function (x) { return '<li><code>' + esc(x.file) + '</code>' + (x.kind ? ' ' + tag(pgLab('code', x.kind)) : '') + (x.evidence ? ' — ' + esc(x.evidence) : '') + '</li>'; }).join('');
+  var sd = (g.scan_diff || []).map(function (x) { return '<li><code>' + esc(x) + '</code></li>'; }).join('');
+  var men = (g.mentions || []).map(function (x) { return '<li>' + ghA(x.url, x.n ? (x.kind === 'pr' ? 'PR #' : '#') + x.n : 'issue') + ' ' + tag(pgLab('state', x.state)) + ' ' + esc(x.title) + '</li>'; }).join('');
+  return head + (iss ? '<h4>Issues</h4><ul class="pg-items">' + iss + '</ul>' : '') + (prs ? '<h4>Pull requests</h4><ul class="pg-items">' + prs + '</ul>' : '')
+    + (com ? '<h4>Коммиты</h4><ul class="pg-items">' + com + '</ul>' : '') + (code ? '<h4>Следы в коде</h4><ul class="pg-items">' + code + '</ul>' : '')
+    + (sd ? '<h4>Изменения сканирования</h4><ul class="pg-items">' + sd + '</ul>' : '')
+    + (men ? '<h4>Упоминается в эпиках и списках</h4><ul class="pg-items">' + men + '</ul>' : '') + (!iss && !prs && !com && !code ? '<p class="muted small">Связанных issues, PR и коммитов не найдено.</p>' : '');
+}
+function pgList(ids) { return (ids || []).map(function (id) { var r = BYID[id]; return '<li>' + pidLink(id) + (r ? ' ' + esc(r.title) + ' ' + stChip(r.status) : ' <span class="muted">(нет в реестре)</span>') + '</li>'; }).join(''); }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 /* ссылки из данных (доказательства, конкуренты, источники): только валидный http(s) или mailto:, иначе — текст */
 function dataUrl(u) {
@@ -3409,7 +4079,7 @@ function detail(r) {
   (mn.kanban || []).forEach(function (k) { ment.push('<li>Kanban: <a href="#kanban" data-k-open="' + k.i + '">колонка «' + esc(k.t) + '»</a></li>'); });
   (mn.flows || []).forEach(function (f) { ment.push('<li>Схема «' + esc(f.f) + '»: <a href="#flows" data-node-open="' + esc(f.id) + '">' + esc(f.t) + '</a></li>'); });
   var rel = kv([['Зависит от', deps], ['От него зависят', rdeps], ['Источник', esc(r.source_group) + ((r.merged_from || []).length ? ' · объединено из ' + esc(r.merged_from.join(', ')) : '')]]);
-  return '<div class="detail">' + sec('Суть', essence) + sec('Эффект и KPI', kpi ? '<ul>' + kpi + '</ul>' : '') + sec('Шаги', steps ? '<ol>' + steps + '</ol>' : '', '', 1)
+  return '<div class="detail">' + sec('Суть', essence) + (r.pg ? sec('Выполнение', pgHtml(r), 'wide pg') : '') + sec('Эффект и KPI', kpi ? '<ul>' + kpi + '</ul>' : '') + sec('Шаги', steps ? '<ol>' + steps + '</ol>' : '', '', 1)
     + sec('Затраты и проверка', costs) + sec('Риски (1–5)', risks, '', 1) + sec('Классификация', cls, '', 1)
     + sec('Оценки 1–5', scoreChips + (scoreChips && missingSubs.length && missingSubs.length < subs.length ? '<p class="muted small">Остальные подшкалы (' + missingSubs.length + ' из ' + subs.length + ') не заданы — в расчётах равны «Ценности».</p>' : ''), '', 1)
     + sec('Расчётные метрики', idx + calc + ts, '', 1) + sec('Доказательства (класс ' + esc(r.evidence_class || '—') + ')', ev ? '<ul>' + ev + '</ul>' : '', '', 1)
@@ -3421,7 +4091,7 @@ function openProposal(id, fromHist) {
   if (!fromHist && pm.classList.contains('open') && cur && cur !== id) pmHist.push(cur);
   pm.setAttribute('data-id', id);
   $('#pmtitle').innerHTML = '<b>' + esc(r.id) + '</b> ' + esc(r.title);
-  $('#pmchips').innerHTML = [r.m && r.m.rank != null ? tag('#' + fmt(r.m.rank)) : '', badge('p', r.priority), badge('q', r.quadrant), r.evidence_class ? badge('c', r.evidence_class) : '', tag(lab('category', r.category)), tag(lab('horizon', r.horizon)), r.m && r.m.composite != null ? tag('балл ' + fmt(r.m.composite)) : ''].join(' ');
+  $('#pmchips').innerHTML = [r.m && r.m.rank != null ? tag('#' + fmt(r.m.rank)) : '', stChip(r.status), badge('p', r.priority), badge('q', r.quadrant), r.evidence_class ? badge('c', r.evidence_class) : '', tag(lab('category', r.category)), tag(lab('horizon', r.horizon)), r.m && r.m.composite != null ? tag('балл ' + fmt(r.m.composite)) : ''].join(' ');
   $('#pmback').hidden = !pmHist.length;
   var body = $('#pmbody'); body.innerHTML = detail(r); fillImgs(body); linkifyEl(body);
   openLayer(pm); pm.scrollTop = 0;
@@ -3432,7 +4102,7 @@ function openInfo(title, html) { $('#imtitle').innerHTML = title; var b = $('#im
 var expanded = {}, sortK = 'rank', sortD = 1, shown = [];
 var HORD = { now: 0, next: 1, later: 2, vision: 3 };
 var COLS = [
-  { k: 'rank', t: '#', num: 1 }, { k: 'id', t: 'ID' }, { k: 'title', t: 'Предложение', cls: 'c-title' }, { k: 'category', t: 'Категория' },
+  { k: 'rank', t: '#', num: 1 }, { k: 'id', t: 'ID' }, { k: 'title', t: 'Предложение', cls: 'c-title' }, { k: 'status', t: 'Статус', cls: 'c-st' }, { k: 'category', t: 'Категория' },
   { k: 'horizon', t: 'Горизонт' }, { k: 'evidence_class', t: 'Класс' }, { k: ['value_index', 's_value'], t: 'Ценн.', num: 1 }, { k: ['cost_index', 's_cost'], t: 'Стоим.', num: 1 },
   { k: ['risk_index', 's_risk'], t: 'Риск', num: 1 }, { k: ['confidence_calc', 's_confidence'], t: 'Увер.', num: 1 }, { k: 'effort_avg', t: 'Дни', num: 1 }, { k: 'composite', t: 'Балл', num: 1 },
   { k: 'priority', t: 'Приор.' }, { k: 'quadrant', t: 'Квадрант' }, { k: 'kano', t: 'Кано' }, { k: 'labels', t: 'Метки' }
@@ -3444,6 +4114,7 @@ function val(r, k) {
   if (k === 'quadrant') return r.quadrant ? lab('quadrant', r.quadrant) : null;
   if (k === 'kano') return r.kano ? lab('kano', r.kano) : null;
   if (k === 'labels') return (r.labels || []).length || null;
+  if (k === 'status') return r.status ? (r.status in PGO ? PGO[r.status] : 99) : null;
   var v = r.m ? r.m[k] : null; return v == null ? null : v;
 }
 function cell(r, c) {
@@ -3456,6 +4127,7 @@ function cell(r, c) {
     case 'priority': return badge('p', r.priority);
     case 'quadrant': return badge('q', r.quadrant);
     case 'labels': return (r.labels || []).map(function (x) { return tag(lab('label', x)); }).join(' ');
+    case 'status': return stChip(r.status);
     case 'effort_avg': return r.effort && r.effort[0] != null ? esc(fmt(r.effort[0]) + (r.effort[1] !== r.effort[0] ? '–' + fmt(r.effort[1]) : '')) : '';
     default: return esc(fmt(v));
   }
@@ -3463,13 +4135,18 @@ function cell(r, c) {
 COLS.forEach(function (c) { if (Array.isArray(c.k)) { var ks = c.k; c.k = ks.filter(function (k) { return REG.some(function (r) { return r.m && r.m[k] != null; }); })[0] || ks[ks.length - 1]; } });
 var visCols = COLS.filter(function (c) { return REG.some(function (r) { var v = val(r, c.k); return v != null && v !== ''; }) || c.k === 'id' || c.k === 'title'; });
 function metricLabel(k) { if (MET[k]) return MET[k].label; var c = COLS.filter(function (x) { return x.k === k; })[0]; return c ? c.t : k; }
-function defaultDir(k) { if (MET[k]) return MET[k].dir; return ['id', 'title', 'category', 'horizon', 'evidence_class', 'priority', 'kano', 'quadrant'].indexOf(k) >= 0 ? 1 : -1; }
+function defaultDir(k) { if (MET[k]) return MET[k].dir; return ['id', 'title', 'category', 'horizon', 'evidence_class', 'priority', 'kano', 'quadrant', 'status'].indexOf(k) >= 0 ? 1 : -1; }
+/* быстрые фильтры выполнения: не сделано / в работе / отстаёт */
+var QF = '';
+function qpass(r) { if (!QF) return true; if (QF === 'notdone') return !!r.status && !pgDone(r); if (QF === 'work') return r.status === 'in_progress' || r.status === 'partial'; if (QF === 'behind') return !!(r.pg && (r.pg.behind || []).length); return true; }
+function setQF(v) { QF = v || ''; $$('#registry [data-qf]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-qf') === QF)); }); }
 function filters() { var f = {}; $$('#registry [data-f]').forEach(function (s) { if (s.value) f[s.getAttribute('data-f')] = s.value; }); return f; }
 function pass(r, f, q) {
   for (var k in f) { var v = f[k];
     if (k === 'labels' || k === 'tags') { if ((r[k] || []).indexOf(v) < 0) return false; }
     else if (k === 'has_mockup') { if ((v === 'yes') !== !!r.has_mockup) return false; }
     else if (String(r[k] || '') !== v) return false; }
+  if (QF && !qpass(r)) return false;
   return !q || r._hay.indexOf(q) >= 0;
 }
 function renderReg() {
@@ -3483,18 +4160,19 @@ function renderReg() {
   $('#reg-head').innerHTML = cols.map(function (c) { return '<th data-k="' + esc(c.k) + '"' + (c.num ? ' class="num' + (c.extra ? ' extra' : '') + '"' : '') + (c.k === sortK ? ' aria-sort="' + (sortD > 0 ? 'ascending' : 'descending') + '"' : '') + ' title="Сортировать: ' + esc(metricLabel(c.k)) + '">' + esc(c.t) + '</th>'; }).join('');
   tb.innerHTML = shown.map(function (r) {
     var open = !!expanded[r.id], sv = val(r, sortK);
-    return '<tr class="row' + (open ? ' open' : '') + '" data-id="' + esc(r.id) + '" data-cat="' + esc(r.category) + '" data-v="' + esc(sv == null ? '' : sv) + '" tabindex="0" aria-expanded="' + open + '">'
+    return '<tr class="row' + (open ? ' open' : '') + '" data-id="' + esc(r.id) + '" data-cat="' + esc(r.category) + '"' + (r.status ? ' data-st="' + esc(r.status) + '"' : '') + ' data-v="' + esc(sv == null ? '' : sv) + '" tabindex="0" aria-expanded="' + open + '">'
       + cols.map(function (c) { return '<td' + (c.num ? ' class="num"' : c.cls ? ' class="' + c.cls + '"' : '') + '>' + cell(r, c) + '</td>'; }).join('') + '</tr>'
       + (open ? '<tr class="detail"><td colspan="' + cols.length + '">' + detail(r) + '</td></tr>' : '');
   }).join('') || '<tr><td colspan="' + cols.length + '" class="muted">Ничего не найдено — измените фильтры или поиск.</td></tr>';
-  $('#reg-count').textContent = 'Показано: ' + shown.length + ' из ' + REG.length;
+  $('#reg-count').textContent = 'Показано: ' + shown.length + ' из ' + REG.length + (PG ? ' · выполнено: ' + shown.filter(function (r) { return r.status === 'done'; }).length : '');
   var sb = $('#sortby'); if (sb && sb.value !== sortK) { if ([].some.call(sb.options, function (o) { return o.value === sortK; })) sb.value = sortK; }
   var sd = $('#sortdir'); if (sd) sd.textContent = sortD > 0 ? 'по возрастанию ↑' : 'по убыванию ↓';
   fillImgs(tb); $$('tr.detail', tb).forEach(linkifyEl);
 }
 function setSort(k, dir) { if (dir) { sortK = k; sortD = dir; } else if (sortK === k) sortD = -sortD; else { sortK = k; sortD = defaultDir(k); } renderReg(); }
 function toggleRow(id) { if (expanded[id]) delete expanded[id]; else expanded[id] = 1; renderReg(); }
-function resetFilters() { $$('#registry [data-f]').forEach(function (s) { s.value = ''; }); var q = $('#q'); if (q) q.value = ''; }
+function resetFilters() { $$('#registry [data-f]').forEach(function (s) { s.value = ''; }); var q = $('#q'); if (q) q.value = ''; setQF(''); }
+function goRegistry(st, qf) { closeAll(); resetFilters(); var s = $('#registry select[data-f="status"]'); if (s && st) s.value = st; setQF(qf || ''); renderReg(); var sec = document.getElementById('registry'); if (sec) sec.scrollIntoView({ behavior: 'instant', block: 'start' }); }
 function showInRegistry(id) {
   closeAll(); resetFilters(); expanded[id] = 1; renderReg();
   var tr = document.querySelector('#tb tr.row[data-id="' + id + '"]');
@@ -3512,10 +4190,13 @@ function exportRows(kind) {
   var mk = []; shown.forEach(function (r) { Object.keys(r.m || {}).forEach(function (k) { if (mk.indexOf(k) < 0) mk.push(k); }); });
   var head = ['id', 'title', 'category', 'segment', 'horizon', 'evidence_class', 'priority', 'quadrant', 'moscow', 'kano', 'labels', 'tags', 'dependencies', 'effort_min', 'effort_max', 'currency', 'description', 'rationale', 'cheap_test'];
   var extraM = mk.filter(function (k) { return head.indexOf(k) < 0; });
-  var lines = [head.concat(extraM).join(',')];
+  var pgHead = PG ? ['status', 'status_confidence', 'status_source', 'issues', 'prs', 'last_commit', 'status_note', 'status_since'] : [];
+  var lines = [head.concat(pgHead, extraM).join(',')];
   shown.forEach(function (r) {
     var base = [r.id, r.title, r.category, r.segment, r.horizon, r.evidence_class, r.priority, r.quadrant, r.moscow, r.kano, (r.labels || []).join('; '), (r.tags || []).join('; '), (r.dependencies || []).join('; '), r.effort ? r.effort[0] : '', r.effort ? r.effort[1] : '', r.cost_money && r.cost_money.currency || '', r.description, r.rationale, r.cheap_test];
-    lines.push(base.concat(extraM.map(function (k) { return r.m[k]; })).map(csvCell).join(','));
+    var g = r.pg || {}, c0 = (g.commits || [])[0];
+    var pgv = PG ? [r.status || '', g.confidence, g.source || '', (g.issues || []).map(function (x) { return '#' + x.n + ' ' + (x.state || ''); }).join('; '), (g.prs || []).map(function (x) { return '#' + x.n + ' ' + (x.state || ''); }).join('; '), c0 ? c0.sha + ' ' + (c0.date || '') + ' ' + (c0.subject || '') : '', g.note || '', g.since || ''] : [];
+    lines.push(base.concat(pgv, extraM.map(function (k) { return r.m[k]; })).map(csvCell).join(','));
   });
   download('registry-' + stamp + '.csv', '\ufeff' + lines.join('\r\n') + '\r\n', 'text/csv;charset=utf-8');
 }
@@ -3525,15 +4206,16 @@ function openGantt(i) {
   var g = GANTT[i]; if (!g) return;
   var deps = (g.deps || []).map(function (d) { if (BYID[d]) return pidLink(d); var t = GANTT.filter(function (x) { return x.id === d; })[0]; return t ? '<a href="#gantt" data-g-open="' + t.i + '">' + esc(d) + ' ' + esc(t.task) + '</a>' : esc(d); }).join(', ');
   var steps = (g.proposal_ids || []).map(function (id) { var r = BYID[id]; if (!r || !(r.steps || []).length) return ''; return '<p><b>' + pidLink(id) + '</b> ' + esc(r.title) + '</p><ol>' + r.steps.map(function (s) { s = asObj(s, 'what'); return '<li><b>' + esc(txt(s.what)) + '</b>' + (s.where ? ' — ' + esc(txt(s.where)) : '') + (s.how ? ': ' + esc(txt(s.how)) : '') + '</li>'; }).join('') + '</ol>'; }).join('');
+  var gp = g.pg, gph = gp ? kv([['Выполнение', stChip(gp.status, PG.glabels, PG.gicons, 'gst') + ' <b>' + Math.round((gp.progress || 0) * 100) + ' %</b>'], ['Сделано', (gp.done_ids || []).map(pidLink).join(', ')], ['Открыто', (gp.open_ids || []).map(pidLink).join(', ')]]) : '';
   openInfo('<span class="muted">Гант</span> ' + esc(g.task), kv([['Фаза', esc(g.phase === 'vision' ? 'видение' : g.phase)], ['Сроки', esc(g.when)], ['Тип', g.type === 'milestone' ? 'веха (контрольная точка)' : 'работа'], ['Ответственный', esc(g.owner)], ['Критерий готовности', esc(g.done)], ['Зависимости', deps]])
-    + ((g.proposal_ids || []).length ? '<h4>Предложения в этой задаче</h4><ul>' + plist(g.proposal_ids) + '</ul>' : '') + (steps ? '<h4>Что сделать (шаги из карточек)</h4>' + steps : ''));
+    + gph + ((g.proposal_ids || []).length ? '<h4>Предложения в этой задаче</h4><ul>' + (PG ? pgList(g.proposal_ids) : plist(g.proposal_ids)) + '</ul>' : '') + (steps ? '<h4>Что сделать (шаги из карточек)</h4>' + steps : ''));
 }
 function openKanban(i) {
   var k = KAN[i]; if (!k) return; var r = BYID[k.id];
   var eff = Array.isArray(k.effort_days) ? k.effort_days.join('–') + ' дн.' : txt(k.effort_days);
   var steps = (k.steps || []).map(function (s) { return '<li>' + esc(txt(s)) + '</li>'; }).join('');
   var links = (k.links || []).map(function (l) { var u = typeof l === 'object' && l ? (l.url || '') : l; var t = typeof l === 'object' && l ? (l.title || l.url) : l; return '<li>' + link(u, t) + '</li>'; }).join('');
-  openInfo('<span class="muted">Kanban · ' + esc(k.column) + '</span> ' + esc(k.id || '') + ' ' + esc(k.title || ''), kv([['Колонка', esc(k.column)], ['Приоритет', badge('p', k.priority || (r ? r.priority : ''))], ['Трудозатраты', esc(eff)], ['Цель', esc(txt(k.goal))], ['KPI', esc(txt(k.kpi))], ['Метки', (k.tags || []).map(function (t) { return tag(t); }).join(' ')]])
+  openInfo('<span class="muted">Kanban · ' + esc(k.column) + '</span> ' + esc(k.id || '') + ' ' + esc(k.title || ''), kv([['Колонка', esc(k.column)], ['Статус по фактам', r ? stChip(r.status) : ''], ['Приоритет', badge('p', k.priority || (r ? r.priority : ''))], ['Трудозатраты', esc(eff)], ['Цель', esc(txt(k.goal))], ['KPI', esc(txt(k.kpi))], ['Метки', (k.tags || []).map(function (t) { return tag(t); }).join(' ')]])
     + (steps ? '<h4>Шаги</h4><ol>' + steps + '</ol>' : '') + (links ? '<h4>Ссылки</h4><ul>' + links + '</ul>' : '') + (r ? '<h4>Карточка предложения</h4><ul>' + plist([k.id]) + '</ul>' : ''));
 }
 function openNode(id) {
@@ -3679,6 +4361,7 @@ function flowImages() {
 /* ---------- события ---------- */
 document.addEventListener('click', function (e) {
   var t = e.target; if (!t || !t.closest) return;
+  var sg = t.closest('[data-st-go],[data-qf-go]'); if (sg) { e.preventDefault(); goRegistry(sg.getAttribute('data-st-go'), sg.getAttribute('data-qf-go')); return; }
   var p = t.closest('[data-pid]'); if (p) { e.preventDefault(); openProposal(p.getAttribute('data-pid')); return; }
   var c = t.closest('[data-close]'); if (c) { e.preventDefault(); closeLayer(c.closest('.layer')); return; }
   var go = t.closest('[data-g-open]'); if (go) { e.preventDefault(); openGantt(+go.getAttribute('data-g-open')); return; }
@@ -3706,6 +4389,7 @@ document.addEventListener('keydown', function (e) {
   else if (el.matches('tr.row')) { e.preventDefault(); toggleRow(el.getAttribute('data-id')); }
   else if (el.matches('.grow[data-g]')) { e.preventDefault(); openGantt(+el.getAttribute('data-g')); }
   else if (el.matches('.kcard[data-k]')) { e.preventDefault(); openKanban(+el.getAttribute('data-k')); }
+  else if (el.matches('.kcard[data-pid]')) { e.preventDefault(); openProposal(el.getAttribute('data-pid')); }
   else if (el.matches('.flowsvg [data-node]')) { e.preventDefault(); openNode(el.getAttribute('data-node')); }
 });
 function hashOpen() {
@@ -3726,6 +4410,7 @@ safe('registry', function () {
   var sb = $('#sortby'); if (sb) sb.addEventListener('change', function () { setSort(sb.value, defaultDir(sb.value)); });
   $('#sortdir').addEventListener('click', function () { sortD = -sortD; renderReg(); });
   $('#reg-reset').addEventListener('click', function () { resetFilters(); renderReg(); });
+  $$('#registry [data-qf]').forEach(function (b) { b.addEventListener('click', function () { var v = b.getAttribute('data-qf'); setQF(QF === v ? '' : v); renderReg(); }); });
   $('#exp-csv').addEventListener('click', function () { exportRows('csv'); });
   $('#exp-json').addEventListener('click', function () { exportRows('json'); });
   renderReg();

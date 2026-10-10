@@ -185,3 +185,51 @@ Markdown, разделы `## N. Заголовок` (порядок — `referen
 - **data/fact-check.json**: список `{claim, was, now, source, status}` (`facts_scaffold.py` читает терпимо: список или словарь с `items`/`discrepancies`/`checks`).
 - **data/sources.json**: `date_checked: null` допустим у записей, добавленных скриптом; `title` не равен URL (иначе «без названия» в `note`). **data/links-check.csv**: колонки `url,status,verdict,final_url,checked,origins,files`.
 - **Страница** (`build_html.py --lite`): `deliverables/assets/` с манифестом `.ps-assets.json`.
+
+## Отслеживание выполнения (1.2, issues #93–#95)
+Режим «Отслеживание»: по готовой стратегии (`<OUT>` прошлого прогона) сверить реализованное в репозитории и в GitHub с планом, отметить статусы и просроченное, предложить корректировки. Движок — `scripts/strategy_track.py` (`discover`, `check`, `set`, `link`, `ask-list`, `report`, `apply-to-strategy`); сама стратегия остаётся историей, статусы лежат рядом. Все файлы — в `<OUT>` исходной стратегии.
+
+- **data/progress.json** (последний срез; пишет `strategy_track.py check`):
+```json
+{"version": 1,
+ "baseline": {"strategy_dir": ".", "created": "2026-10-10", "proposals": 127, "git_head": "<sha на дату стратегии|null>", "scan": "data/repo-scan.json"},
+ "checked": "2026-12-01", "months_elapsed": 1.7, "month_index": 2,
+ "sources": {"repo": true, "git_log": true, "scan_diff": true, "issues": true, "prs": true, "gh": "ok|skipped: причина"},
+ "summary": {"total": 127, "done": 12, "partial": 5, "in_progress": 9, "planned": 7, "not_started": 85, "blocked": 4, "dropped": 3, "obsolete": 1, "unknown": 1,
+             "percent_done": 9.4, "by_horizon": {"now": {"total": 40, "done": 8}}, "by_priority": {"P0": {"total": 15, "done": 5}}, "by_category": {"product": {"total": 38, "done": 4}}},
+ "items": {"P001": {"status": "done|partial|in_progress|planned|not_started|blocked|dropped|obsolete|unknown", "suggested": "то же, что вычислил движок (до overrides)",
+           "confidence": 0.0, "source": "auto|override|link",
+           "issues": [{"number": 12, "state": "open|closed", "state_reason": "completed|not_planned|null", "title": "", "url": "", "labels": [], "closed_at": null, "match": "explicit|saved|similar", "score": 0.0}],
+           "prs": [{"number": 30, "state": "merged|open|closed", "title": "", "url": "", "merged_at": null, "match": "explicit|saved|similar"}],
+           "commits": [{"sha": "abc1234", "date": "", "subject": "", "match": "explicit|files|terms"}],
+           "code": [{"file": "path", "kind": "path|route|feature", "evidence": "что найдено"}], "scan_diff": ["+route /pricing"],
+           "blocked_by_open": ["P032"], "note": "", "since": "дата смены статуса относительно прошлого среза"}},
+ "outside_strategy": [{"kind": "issue|pr", "number": 55, "title": "", "state": "open|closed|merged", "url": "", "suggest": "candidate-proposal|bug|chore", "similar_to": ["P040"]}],
+ "facts_changed": [{"fact": "repo_visibility|license|tests|prices|platform|…", "was": "", "now": "", "affects": ["P032"]}],
+ "next_actions": ["P045"],
+ "overdue": [{"task": "G03", "proposals": ["P001"], "planned_end_month": 3, "status": "behind"}],
+ "warnings": []}
+```
+Статусы: `done` — закрыт issue с причиной completed (или влит PR, или сильные следы в коде), `partial` — часть шагов/issue закрыта, `in_progress` — есть открытый issue/PR с активностью, `planned` — issue заведён без активности, `not_started` — следов нет, `blocked` — предпосылки (`dependencies`) не выполнены, `dropped` — закрыт как not_planned / решение владельца, `obsolete` — условие предложения изменилось (например, репозиторий уже открыт), `unknown` — противоречивые следы.
+- **data/progress-overrides.json** `{id: {"status", "note", "date", "by": "owner"}}` — решение владельца побеждает движок; `strategy_track.py set <OUT> P031 done --note …`.
+- **data/issue-links.json** `{id: [номера issues]}` — сохранённые связи (ручные и из подтверждённых совпадений): сопоставление стабильно между запусками; `strategy_track.py link <OUT> P031 12 13`.
+- **data/gantt-progress.json** `[{"id": "G01", "task", "proposal_ids": [], "start_month", "end_month", "status": "done|partial|on_track|behind|upcoming", "progress": 0.0, "done_ids": [], "open_ids": []}]` формат — объект `{"current_month": 2, "checked": "…", "tasks": [...]}` (читатели принимают и просто список задач); **data/kanban-progress.json** `{"moves": [{"id", "from", "to", "reason"}], "columns": {"Идеи": [id…], …}}` (колонки как в `kanban.json`, перенос не записывается в `kanban.json`).
+- **data/revision.json** `[{"type": "mark_done|obsolete|reprioritize|add|reschedule|unblock|drop", "id": "P031|null", "text": "что изменить в стратегии", "reason": "", "evidence": ["issue #12", "commit abc1234"], "sections": [10, 14]}]` — вход для брифа `templates/briefs/strategy-update.md`.
+- **data/issues-drafts.md** — черновики issues для `next_actions` без заведённого issue (в формате репозитория, с P-id в теле для стабильного сопоставления); **создавать issues только по явной просьбе** (`gh issue create`), движок их не создаёт.
+- **tracking/<YYYY-MM-DD>/** — снимки среза (`progress.json`, `progress.md`, `strategy.md` до правок) и **tracking/history.json** `[{"date", "summary": {…}, "git_head"}]` для динамики.
+- **research/progress.md** — читаемый отчёт: сводка, по горизонтам 30/60/90 дней, 6/12 месяцев, годы; сделано, в работе, отстаёт, заблокировано; изменившиеся факты; работа вне стратегии; следующие шаги; расхождения «считали отсутствующим, а оно уже есть».
+- **research/strategy.md**: автоблок `<!-- progress:start --> … <!-- progress:end -->` в разделе 14 (таблица статусов по срокам), пишет `strategy_track.py apply-to-strategy` идемпотентно; прежний текст до правок — в `tracking/<дата>/strategy.md`.
+- **run-config**: `tracking: {baseline: "<путь к <OUT> исходной стратегии>", mode: "auto|ask", last_checked: null}`; в опросе — режим (`intake.py detect`).
+- **Сопоставление issue ↔ предложение**: явное упоминание P-id в заголовке/теле/метках → `explicit`; сохранённая связь → `saved`; сходство (tf-idf/триграммы заголовка и шагов предложения с заголовком и телом issue; порог из `progress.json → sources.match_threshold`) → `similar`, требует подтверждения при уверенности < 0,6 (`ask-list`).
+
+### Уточнения по итогам реализации отслеживания (1.2)
+Движок пишет больше, чем описано выше; поля только добавляются.
+- **data/issue-links-rejected.json** `{id: [номера]}` — «не связано» (ответ владельца): сопоставление по сходству их больше не предлагает.
+- **progress.json**: `items[].title|horizon|priority|issues_before|mentions` (P-id, упомянутые в эпиках и списках кандидатов, — на статус не влияют); у issue — `sim`, `kind: pr`; на верхнем уровне — `facts_now`, `scan_diff`, `discrepancies`, `notes`, `remote`, `baseline.git_head_source` (`scan|file|date`); `sources.scan_mode` (`archive|stored|same-head`), `git_range`, `issues_count`, `prs_count`, `commits_count`, `since`, `match_threshold`; `summary.by_term`, `outside_strategy`, `changed_since_last`, `previous_check`; во всех группах `by_*` — также `in_progress`, `partial`, `blocked`.
+- **gantt-progress.json**: `checked`, `tasks[].phase`; **kanban-progress.json**: `off_board`, `checked`; **tracking/history.json**: `month_index`.
+- **data/repo-scan.json**: `repo.head` (sha на момент скана) — точка отсчёта git-лога и сравнения сканов (режим `archive`: `git archive` HEAD стратегии и текущего HEAD сравниваются одним сканером; без `head` сравнение идёт с сохранённым `repo-scan.json`, числовые факты тогда не сравниваются).
+- **Явные P-id** распознаются в виде `P031`, `p031`, `P-031`, `#P031`, `feature/p031_x`; P-id в заголовке, метке или имени ветки — связь; в теле при ≤ 3 разных — тоже; в эпиках (> 3 разных или у issue уже есть свой P-id в заголовке) — только `mentions`.
+- **Переменные окружения**: `PS_GH_BIN` (подмена `gh` в тестах), `PS_STRATEGY_DIR` (папка стратегии или папка со стратегиями для `discover`).
+- Подробности формул уверенности и порогов — в docstring `scripts/strategy_track.py`.
+- **Подозрительные тексты**: `suspicious: true` у issue, PR и `outside_strategy[]` — в тексте похоже на обращение к агенту; на странице «⚠ проверить», текст не исполняется. `outside_strategy[].best_score`, `outside_strategy[].labels`; `kanban-progress.off_board`: `[{"id", "status", "to"}]` — карточки, которых нет на доске, но уже в работе или сделаны.
+- **Демо и проверка**: `scripts/make_progress_demo.py <OUT>` пишет все файлы выше по контракту (для тестов и показа), настоящий движок — `strategy_track.py check`.

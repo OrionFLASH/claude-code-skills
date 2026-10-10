@@ -25,6 +25,7 @@
   pdf        node/deck_pdf.mjs        (formats.pdf, нужен playwright)
   links      check_links.py           --offline по умолчанию; --links — с сетью
   gitignore  check_gitignore.py       файлы прогона не игнорируются git (если <OUT> внутри репозитория)
+  track      strategy_track.py check  сверка с репозиторием и GitHub → data/progress.json (только с --track; нужен gh для issues)
 
 Node-модули — по check_env.node_dir (PS_NODE_DIR → run-config tools.node_dir → <OUT>/build/node → ~/.cache/product-strategy/node);
 ставит их check_env.py --install-node. Статусы: OK, FAIL, «—» (выключено выбором в опросе, не проблема), SKIP (нет инструмента или данных).
@@ -79,7 +80,9 @@ def plan(out, cfg, a):
     lite = ["--lite"] if a.lite else []
     eng = ["--engines", a.engines] if a.engines else []
     reg = ["--demo"] if cfg.get("assumptions") and any("Демо" in x for x in cfg["assumptions"]) else []
+    track = ["--no-write-strategy"] if not a.strict else []
     return [
+        ("track", bool(a.track), "выключено выбором (нужен флаг --track)", py + [str(HERE / "strategy_track.py"), "check", str(out)] + track),
         ("sources", bool(list(data.glob("sources-*.json"))), "нет фрагментов data/sources-*.json", py + [str(HERE / "merge_sources.py"), str(out)]),
         ("mocklink", has_mock and (data / "proposals.json").exists(), "нет макетов", py + [str(HERE / "link_mockups.py"), str(out)]),
         ("registry", (data / "proposals.json").exists(), "нет data/proposals.json", py + [str(HERE / "check_registry.py"), str(out)] + reg),
@@ -118,6 +121,7 @@ def main(argv=None):
     ap.add_argument("--links", action="store_true", help="проверять ссылки с сетью")
     ap.add_argument("--strict", action="store_true", help="ошибка check_registry/validate останавливает конвейер")
     ap.add_argument("--typesafe", action="store_true", help="запустить typesafe_eval.py принудительно")
+    ap.add_argument("--track", action="store_true", help="перед сборкой обновить статусы выполнения (strategy_track.py check)")
     ap.add_argument("--lite", action="store_true", help="страница без встроенных картинок (assets рядом; цель ≤ 8 МБ)")
     ap.add_argument("--engines", help="движки smoke-теста: chromium,webkit (по умолчанию все доступные)")
     a = ap.parse_args(argv)
@@ -143,8 +147,9 @@ def main(argv=None):
         r = subprocess.run(cmd, env=env, capture_output=True, text=True)
         dt = time.time() - t0
         tail = ((r.stdout or "") + (r.stderr or "")).strip().splitlines()
-        results.append((name, "OK" if r.returncode == 0 else "FAIL", tail[-1][:120] if tail else "", dt))
-        if r.returncode:
+        okc = (0, 1) if name == "track" else (0,)         # check возвращает 1 при предупреждениях (нет gh, нет сканов) — не провал
+        results.append((name, "OK" if r.returncode in okc else "FAIL", tail[-1][:120] if tail else "", dt))
+        if r.returncode not in okc:
             sys.stderr.write("\n--- %s (код %d) ---\n%s\n" % (name, r.returncode, "\n".join(tail[-25:])))
             if a.strict and name in ("registry", "validate", "assemble"):
                 break

@@ -4,6 +4,9 @@
 Листы: «Реестр» (все поля плоско), «Оценки» (шкалы, редактируемые веса и формулы SUMPRODUCT /
 нормализация / RANK — после правки весов Excel пересчитывает ранги), «Модель» (сценарии из
 data/model.json), «Источники», «KPI», «Kanban», «Конкуренты», «Гант».
+Режим «Отслеживание» (есть data/progress.json): ещё «Прогресс» (статус каждого предложения, issues, PR, последний
+коммит; сводка статусов формулами COUNTIF/COUNTIFS; условное форматирование статусов) и «Таймлайн» (Гант с заливкой
+по статусу задачи из data/gantt-progress.json и столбцом текущего месяца). Без progress.json файл прежний.
 Свойства документа (creator / title / description) — из build/run-config.json → author.
 
 Необязательные входы (scores.json, weights.json, model.json, links-check.csv) используются, если есть.
@@ -40,6 +43,20 @@ class F(str):
 
 # индексы стилей cellXfs (см. _styles_xml)
 ST_DEFAULT, ST_HEAD, ST_WRAP, ST_EDIT, ST_TITLE, ST_NUM3, ST_NOTE, ST_BAR, ST_MILE, ST_INT = range(10)
+# дополнительные стили режима «Отслеживание» (есть только при Workbook.ext): полосы Таймлайна по статусу, текущий месяц, %
+ST_G_DONE, ST_G_PARTIAL, ST_G_BEHIND, ST_G_ON_TRACK, ST_G_UPCOMING, ST_TODAY_HEAD, ST_TODAY_COL, ST_PCT = range(10, 18)
+G_STYLE = {"done": ST_G_DONE, "partial": ST_G_PARTIAL, "behind": ST_G_BEHIND, "on_track": ST_G_ON_TRACK, "upcoming": ST_G_UPCOMING}
+STATUS_ORDER = ["done", "partial", "in_progress", "planned", "blocked", "not_started", "unknown", "obsolete", "dropped"]
+STATUS_RU = {"done": "выполнено", "partial": "частично", "in_progress": "в работе", "planned": "запланировано",
+             "not_started": "не начато", "blocked": "заблокировано", "dropped": "исключено", "obsolete": "устарело",
+             "unknown": "неясно"}
+GSTATUS_RU = {"done": "выполнено", "partial": "частично", "behind": "отстаёт", "on_track": "по плану", "upcoming": "впереди"}
+SOURCE_RU = {"auto": "авто", "override": "решение владельца", "link": "связь"}
+# условное форматирование статусов: (подпись, цвет заливки, цвет текста) → dxfId по порядку
+STATUS_DXF = [("выполнено", "FFC6EFCE", "FF006100"), ("частично", "FFFFEB9C", "FF9C5700"), ("в работе", "FFDDEBF7", "FF1F3A8A"),
+              ("запланировано", "FFEDE4FF", "FF4C1D95"), ("заблокировано", "FFFFC7CE", "FF9C0006"), ("не начато", "FFEDEDED", "FF404040"),
+              ("неясно", "FFF5E1F7", "FF701A75"), ("устарело", "FFE7E6E6", "FF595959"), ("исключено", "FFD9D9D9", "FF404040"),
+              ("отстаёт", "FFFFC7CE", "FF9C0006"), ("по плану", "FFDDEBF7", "FF1F3A8A"), ("впереди", "FFEDEDED", "FF404040")]
 
 
 def col_letter(n):
@@ -65,6 +82,7 @@ class Sheet:
         self.freeze = None       # (row, col): первая незакреплённая ячейка
         self.autofilter = None   # "A1:D10"
         self.merges = []
+        self.cond = []           # условное форматирование: [(sqref, [(dxfId, "значение"), …])] — правило «ячейка равна»
 
     def set(self, r, c, v, style=None):
         if v is None:
@@ -98,6 +116,7 @@ class Workbook:
         self.strings = []
         self._sidx = {}
         self.props = {"creator": "", "title": "", "description": ""}
+        self.ext = False         # стили режима «Отслеживание»; без него styles.xml прежний
 
     def add(self, name):
         s = Sheet(name)
@@ -160,11 +179,42 @@ class Workbook:
             out.append('<autoFilter ref="%s"/>' % sh.autofilter)
         if sh.merges:
             out.append('<mergeCells count="%d">' % len(sh.merges) + "".join('<mergeCell ref="%s"/>' % m for m in sh.merges) + "</mergeCells>")
+        prio = 0
+        for sqref, rules in sh.cond:
+            cf = []
+            for dxf, val in rules:
+                prio += 1
+                cf.append('<cfRule type="cellIs" dxfId="%d" priority="%d" operator="equal"><formula>"%s"</formula></cfRule>'
+                          % (dxf, prio, escape(str(val).replace('"', '""'))))
+            out.append('<conditionalFormatting sqref="%s">%s</conditionalFormatting>' % (sqref, "".join(cf)))
         out.append('<pageMargins left="0.5" right="0.5" top="0.6" bottom="0.6" header="0.3" footer="0.3"/></worksheet>')
         return "".join(out)
 
+    def _styles_xml(self):
+        if self.ext:
+            return self._styles_xml_ext()
+        return self._styles_base()
+
+    def _styles_xml_ext(self):
+        """Базовые стили + стили «Отслеживания»: индексы базовых не меняются, новые идут с 10; dxfs — для статусов."""
+        x = self._styles_base()
+        fills = [("FF15803D"), ("FFA15C07"), ("FFB42318"), ("FF1D4ED8"), ("FFB4B9C2"), ("FFB42318"), ("FFFDE2E1")]
+        x = x.replace('<fills count="6">', '<fills count="%d">' % (6 + len(fills)))
+        x = x.replace("</fills>", "".join('<fill><patternFill patternType="solid"><fgColor rgb="%s"/><bgColor indexed="64"/></patternFill></fill>' % c
+                                          for c in fills) + "</fills>")
+        x = x.replace('<fonts count="4">', '<fonts count="5">').replace("</fonts>", '<font><b/><sz val="10"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font></fonts>')
+        xfs = "".join('<xf numFmtId="0" fontId="0" fillId="%d" borderId="1" xfId="0" applyFill="1" applyBorder="1"/>' % (6 + i) for i in range(5))
+        xfs += ('<xf numFmtId="0" fontId="4" fillId="11" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">'
+                '<alignment vertical="top" wrapText="1"/></xf>')
+        xfs += '<xf numFmtId="0" fontId="0" fillId="12" borderId="0" xfId="0" applyFill="1"/>'
+        xfs += '<xf numFmtId="9" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'
+        x = x.replace('<cellXfs count="10">', '<cellXfs count="18">').replace("</cellXfs>", xfs + "</cellXfs>")
+        dx = "".join('<dxf><font><color rgb="%s"/></font><fill><patternFill patternType="solid"><bgColor rgb="%s"/></patternFill></fill></dxf>' % (fc, bg)
+                     for _, bg, fc in STATUS_DXF)
+        return x.replace("</cellStyles>", '</cellStyles><dxfs count="%d">%s</dxfs>' % (len(STATUS_DXF), dx))
+
     @staticmethod
-    def _styles_xml():
+    def _styles_base():
         return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
                 '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
                 '<numFmts count="1"><numFmt numFmtId="164" formatCode="0.000"/></numFmts>'
@@ -674,6 +724,110 @@ def sheet_gantt(wb, gantt, horizon):
     return sh
 
 
+def gh_ref(x, kind):
+    """«#12 закрыт» для ячейки issues/PR."""
+    n = x.get("number")
+    state = {"open": "открыт", "closed": "закрыт", "merged": "влит"}.get(x.get("state"), x.get("state") or "")
+    return ("#%s" % n if n not in (None, "") else kind) + (" " + state if state else "")
+
+
+def sheet_progress(wb, props, scores, progress):
+    """«Прогресс»: статус каждого предложения + сводка формулами COUNTIF/COUNTIFS (пересчитывается при правке статусов)."""
+    sh = wb.add("Прогресс")
+    items = progress.get("items") if isinstance(progress.get("items"), dict) else {}
+    cols = ["ID", "Название", "Категория", "Приоритет", "Горизонт", "Статус", "Уверенность", "Источник", "Issues", "PR",
+            "Последний коммит", "Заметка", "С какой даты"]
+    sh.header(1, cols, freeze_col=3)
+    n = len(props)
+    for r, p in enumerate(props, 2):
+        it = items.get(p.get("id")) if isinstance(items.get(p.get("id")), dict) else {}
+        st = it.get("status") if it.get("status") in STATUS_RU else ("unknown" if it else "")
+        commits = sorted([c for c in it.get("commits") or [] if isinstance(c, dict)], key=lambda c: str(c.get("date") or ""), reverse=True)
+        c0 = commits[0] if commits else None
+        conf = it.get("confidence")
+        sh.row(r, [p.get("id"), p.get("title"), CATS.get(p.get("category"), p.get("category")), (scores.get(p.get("id")) or {}).get("priority"),
+                   p.get("horizon"), STATUS_RU.get(st, ""), conf if isinstance(conf, (int, float)) and not isinstance(conf, bool) else None,
+                   SOURCE_RU.get(it.get("source"), it.get("source")), "\n".join(gh_ref(x, "issue") for x in it.get("issues") or [] if isinstance(x, dict)),
+                   "\n".join(gh_ref(x, "PR") for x in it.get("prs") or [] if isinstance(x, dict)),
+                   " ".join(str(v) for v in (c0.get("sha"), c0.get("date"), c0.get("subject")) if v) if c0 else None, it.get("note"), it.get("since")])
+        if isinstance(conf, (int, float)) and not isinstance(conf, bool):
+            sh.set(r, 7, conf, ST_PCT)
+    last = max(n + 1, 2)
+    st_rng, hz_rng = "$F$2:$F$%d" % last, "$E$2:$E$%d" % last
+    # сводка справа (колонки O…R): статус, количество (COUNTIF), доля
+    C0 = len(cols) + 2
+    sh.set(1, C0, "Статус", ST_HEAD)
+    sh.set(1, C0 + 1, "Предложений (COUNTIF)", ST_HEAD)
+    sh.set(1, C0 + 2, "Доля", ST_HEAD)
+    tot_row = 2 + len(STATUS_ORDER)
+    for i, k in enumerate(STATUS_ORDER, 2):
+        sh.set(i, C0, STATUS_RU[k])
+        sh.set(i, C0 + 1, F("COUNTIF(%s,%s)" % (st_rng, ref(i, C0))), ST_INT)
+        sh.set(i, C0 + 2, F("IF(%s=0,0,%s/%s)" % (ref(tot_row, C0 + 1, True), ref(i, C0 + 1), ref(tot_row, C0 + 1, True))), ST_PCT)
+    sh.set(tot_row, C0, "Всего (COUNTA)", ST_HEAD)
+    sh.set(tot_row, C0 + 1, F("COUNTA($A$2:$A$%d)" % last), ST_INT)
+    sh.set(tot_row + 1, C0, "Выполнено, %", ST_HEAD)
+    sh.set(tot_row + 1, C0 + 1, F("IF(%s=0,0,COUNTIF(%s,\"%s\")/%s)" % (ref(tot_row, C0 + 1, True), st_rng, STATUS_RU["done"], ref(tot_row, C0 + 1, True))), ST_PCT)
+    sh.cond.append(("%s:%s" % (ref(2, C0), ref(1 + len(STATUS_ORDER), C0)), [(i, lab) for i, (lab, _, _) in enumerate(STATUS_DXF[:9])]))
+    # горизонт × выполнено (COUNTIFS)
+    h0 = tot_row + 3
+    sh.row(h0, ["Горизонт", "Всего", "Выполнено (COUNTIFS)", "Доля"], ST_HEAD, start=C0)
+    for i, h in enumerate(["now", "next", "later", "vision"], h0 + 1):
+        sh.set(i, C0, h)
+        sh.set(i, C0 + 1, F("COUNTIF(%s,%s)" % (hz_rng, ref(i, C0))), ST_INT)
+        sh.set(i, C0 + 2, F("COUNTIFS(%s,%s,%s,\"%s\")" % (hz_rng, ref(i, C0), st_rng, STATUS_RU["done"])), ST_INT)
+        sh.set(i, C0 + 3, F("IF(%s=0,0,%s/%s)" % (ref(i, C0 + 1), ref(i, C0 + 2), ref(i, C0 + 1))), ST_PCT)
+    sh.set(h0 + 6, C0, "Срез: %s · месяц плана %s · данные data/progress.json; статусы можно править — сводка пересчитается"
+           % (progress.get("checked") or "—", progress.get("month_index") or "—"), ST_NOTE)
+    sh.cond.append(("F2:F%d" % last, [(i, lab) for i, (lab, _, _) in enumerate(STATUS_DXF[:9])]))
+    sh.width([7, 40, 14, 9, 9, 14, 11, 16, 16, 14, 40, 36, 12, 2, 18, 12, 18, 9])
+    sh.autofilter = "A1:%s" % ref(last, len(cols))
+    return sh
+
+
+def sheet_timeline(wb, gantt, gprog, horizon, month_index):
+    """«Таймлайн»: Гант по фактам — полосы с заливкой по статусу задачи, столбец текущего месяца выделен."""
+    sh = wb.add("Таймлайн")
+    tasks = gprog.get("tasks") if isinstance(gprog, dict) else gprog if isinstance(gprog, list) else []
+    cur = (gprog.get("current_month") if isinstance(gprog, dict) else None) or month_index
+    cur = int(cur) if isinstance(cur, (int, float)) and not isinstance(cur, bool) else None
+    by_id = {str(t.get("id")): t for t in tasks or [] if isinstance(t, dict)}
+    rows = [g for g in gantt if isinstance(g, dict)] or [t for t in tasks or [] if isinstance(t, dict)]
+    months = max([horizon] + [int(g.get("end_month") or 0) for g in rows if isinstance(g.get("end_month"), (int, float))] + [cur or 0])
+    cols = ["ID", "Фаза", "Задача", "Предложения", "Начало, мес", "Конец, мес", "Статус", "Выполнено", "Открыто"]
+    heads = ["М%d" % m + (" · сегодня" if m == cur else "") for m in range(1, months + 1)]
+    sh.header(1, cols + heads, freeze_col=4)
+    if cur and 1 <= cur <= months:
+        sh.set(1, len(cols) + cur, heads[cur - 1], ST_TODAY_HEAD)
+    rows = sorted(rows, key=lambda x: (x.get("start_month") or 0, x.get("end_month") or 0, str(x.get("id"))))
+    for r, g in enumerate(rows, 2):
+        t = by_id.get(str(g.get("id")), {})
+        gs = t.get("status") if t.get("status") in GSTATUS_RU else ""
+        prog = t.get("progress")
+        sh.row(r, [g.get("id"), g.get("phase"), g.get("task"), ", ".join(g.get("proposal_ids") or []), g.get("start_month"), g.get("end_month"),
+                   GSTATUS_RU.get(gs, ""), None, ", ".join(t.get("open_ids") or [])])
+        if isinstance(prog, (int, float)) and not isinstance(prog, bool):
+            sh.set(r, 8, round(float(prog), 3), ST_PCT)
+        s, e = g.get("start_month"), g.get("end_month")
+        span = set(range(int(s), int(e) + 1)) if isinstance(s, (int, float)) and isinstance(e, (int, float)) else set()
+        for m in range(1, months + 1):
+            c = len(cols) + m
+            if m in span:
+                txt = {"done": "✓", "partial": "◐", "behind": "!", "on_track": "▸", "upcoming": "·"}.get(gs, "") if m == min(span) else ""
+                if g.get("type") == "milestone":
+                    txt = "◆"
+                sh.set(r, c, txt, G_STYLE.get(gs, ST_MILE if g.get("type") == "milestone" else ST_BAR))
+            elif m == cur:
+                sh.set(r, c, "", ST_TODAY_COL)
+    last = max(len(rows) + 1, 2)
+    sh.cond.append(("G2:G%d" % last, [(STATUS_DXF.index(x), x[0]) for x in STATUS_DXF if x[0] in GSTATUS_RU.values()]))
+    sh.set(last + 2, 1, "Заливка полосы — статус задачи (значок в первой клетке: ✓ выполнено, ◐ частично, ! отстаёт, ▸ по плану, · впереди); "
+           "красный столбец — текущий месяц плана (%s). Источник — data/gantt-progress.json." % (cur or "—"), ST_NOTE)
+    sh.width([6, 14, 34, 16, 8, 8, 11, 10, 14] + [4.2] * months)
+    sh.autofilter = "A1:%s" % ref(last, len(cols))
+    return sh
+
+
 def load_links(out):
     path = out / "data" / "links-check.csv"
     res = {}
@@ -711,6 +865,12 @@ def build(out):
     sheet_kanban(wb, load_json(out / "data" / "kanban.json", {}))
     sheet_competitors(wb, load_json(out / "data" / "competitors.json", []) or [])
     sheet_gantt(wb, load_json(out / "data" / "gantt.json", []) or [], horizon)
+    progress = load_json(out / "data" / "progress.json", None)
+    if isinstance(progress, dict):            # режим «Отслеживание»; без progress.json книга прежняя
+        wb.ext = True
+        sheet_progress(wb, props, scores, progress)
+        sheet_timeline(wb, load_json(out / "data" / "gantt.json", []) or [], load_json(out / "data" / "gantt-progress.json", {}),
+                       horizon, progress.get("month_index"))
     return wb.save(out / "deliverables" / "strategy.xlsx")
 
 
