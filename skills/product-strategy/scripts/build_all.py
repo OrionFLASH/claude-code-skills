@@ -19,7 +19,8 @@
   pdf        node/deck_pdf.mjs        (formats.pdf, нужен playwright)
   links      check_links.py           --offline по умолчанию; --links — с сетью
 
-Node-модули — из env PS_NODE_DIR или <OUT>/build/node (ставит check_env.py --install-node <OUT>).
+Node-модули — по check_env.node_dir (PS_NODE_DIR → run-config tools.node_dir → <OUT>/build/node → ~/.cache/product-strategy/node);
+ставит их check_env.py --install-node. Статусы: OK, FAIL, «—» (выключено выбором в опросе, не проблема), SKIP (нет инструмента или данных).
 Итог — таблица шагов (OK / SKIP / FAIL) и код 1, если что-то упало. Только стандартная библиотека.
 """
 import argparse
@@ -36,7 +37,10 @@ STEPS = ["registry", "score", "validate", "typesafe", "model", "charts", "mockup
 
 
 def node_dir(out):
-    return Path(os.environ["PS_NODE_DIR"]).expanduser() if os.environ.get("PS_NODE_DIR") else Path(out) / "build" / "node"
+    """Папка Node-модулей: общая логика с check_env.py (PS_NODE_DIR → run-config → <OUT>/build/node → ~/.cache/product-strategy/node)."""
+    sys.path.insert(0, str(HERE))
+    import check_env
+    return check_env.node_dir(out)
 
 
 def has_mod(out, name):
@@ -50,27 +54,31 @@ def plan(out, cfg, a):
     nd = ["--node-dir", str(node_dir(out))]
     node = shutil.which("node")
     have_pw, have_pptx = has_mod(out, "playwright") and node, has_mod(out, "pptxgenjs") and node
-    ts = a.typesafe or (tools.get("typesafe") == "on") or (tools.get("typesafe") == "auto" and os.environ.get("TYPESAFE_API_KEY")
-                                                         and not (data / "typesafe-jev.json").exists())
+    mode = tools.get("typesafe", "auto")
+    key = bool(os.environ.get("TYPESAFE_API_KEY"))
+    done = (data / "typesafe-jev.json").exists()
+    ts = a.typesafe or mode == "on" or (mode == "auto" and key and not done)     # auto = «включить при наличии ключа»
+    ts_why = ("выключено выбором (tools.typesafe=off)" if mode == "off" else "нет TYPESAFE_API_KEY" if not key
+              else "уже оценено (data/typesafe-jev.json); --typesafe пересчитает")
     html = Path(out) / "deliverables" / "index.html"
     reg = ["--demo"] if cfg.get("assumptions") and any("Демо" in x for x in cfg["assumptions"]) else []
     return [
         ("registry", (data / "proposals.json").exists(), "нет data/proposals.json", py + [str(HERE / "check_registry.py"), str(out)] + reg),
         ("score", (data / "proposals.json").exists(), "нет реестра", py + [str(HERE / "score.py"), str(out)]),
         ("validate", (data / "proposals.json").exists(), "нет реестра", py + [str(HERE / "validate_scores.py"), str(out)]),
-        ("typesafe", bool(ts), "выключено (tools.typesafe) или нет TYPESAFE_API_KEY", py + [str(HERE / "typesafe_eval.py"), str(out)]),
-        ("model", sc.get("unit_economics", True), "scope.unit_economics=false", py + [str(HERE / "model.py"), str(out)]),
+        ("typesafe", bool(ts), ts_why, py + [str(HERE / "typesafe_eval.py"), str(out)]),
+        ("model", sc.get("unit_economics", True), "выключено выбором (scope.unit_economics=false)", py + [str(HERE / "model.py"), str(out)]),
         ("charts", True, "", py + [str(HERE / "charts.py"), str(out)]),
-        ("mockups", bool(have_pw) and (data / "mockups-index.json").exists(), "нет playwright или mockups-index.json",
+        ("mockups", bool(have_pw) and (data / "mockups-index.json").exists() or (bool(have_pw) and (Path(out) / "mockups" / "concepts").is_dir()), "нет playwright или макетов (mockups/concepts)",
          ["node", str(HERE / "node" / "shoot_mockups.mjs"), str(out)] + nd),
-        ("html", f.get("html", True), "formats.html=false", py + [str(HERE / "build_html.py"), str(out)]),
-        ("smoke", bool(have_pw) and f.get("html", True), "нет playwright или html выключен",
+        ("html", f.get("html", True), "выключено выбором (formats.html=false)", py + [str(HERE / "build_html.py"), str(out)]),
+        ("smoke", bool(have_pw) and f.get("html", True), "выключено выбором (html)" if not f.get("html", True) else "нет playwright (check_env.py --install-node)",
          ["node", str(HERE / "node" / "smoke_html.mjs"), str(html)] + nd),
-        ("xlsx", f.get("xlsx", True), "formats.xlsx=false", py + [str(HERE / "build_xlsx.py"), str(out)]),
-        ("deck", f.get("pptx", True) or f.get("pdf", True), "pptx и pdf выключены", py + [str(HERE / "build_deck_json.py"), str(out)]),
-        ("pptx", bool(have_pptx) and f.get("pptx", True), "нет pptxgenjs или pptx выключен",
+        ("xlsx", f.get("xlsx", True), "выключено выбором (formats.xlsx=false)", py + [str(HERE / "build_xlsx.py"), str(out)]),
+        ("deck", f.get("pptx", True) or f.get("pdf", True), "выключено выбором (pptx и pdf)", py + [str(HERE / "build_deck_json.py"), str(out)]),
+        ("pptx", bool(have_pptx) and f.get("pptx", True), "выключено выбором (formats.pptx=false)" if not f.get("pptx", True) else "нет pptxgenjs (check_env.py --install-node)",
          ["node", str(HERE / "node" / "build_pptx.mjs"), str(out)] + nd),
-        ("pdf", bool(have_pw) and f.get("pdf", True), "нет playwright или pdf выключен", ["node", str(HERE / "node" / "deck_pdf.mjs"), str(out)] + nd),
+        ("pdf", bool(have_pw) and f.get("pdf", True), "выключено выбором (formats.pdf=false)" if not f.get("pdf", True) else "нет playwright (check_env.py --install-node)", ["node", str(HERE / "node" / "deck_pdf.mjs"), str(out)] + nd),
         ("links", True, "", py + [str(HERE / "check_links.py"), str(out)] + ([] if a.links else ["--offline"])),
     ]
 
@@ -96,7 +104,7 @@ def main(argv=None):
             results.append((name, "SKIP", "--only/--skip", 0))
             continue
         if not enabled:
-            results.append((name, "SKIP", why, 0))
+            results.append((name, "—" if why.startswith("выключено выбором") else "SKIP", why, 0))
             continue
         script = Path(cmd[2] if cmd[0] == sys.executable else cmd[1])
         if not script.exists():
@@ -116,7 +124,11 @@ def main(argv=None):
     for n, st, msg, dt in results:
         print("%-*s  %-4s  %6.1f  %s" % (w, n, st, dt, msg))
     failed = [n for n, st, *_ in results if st == "FAIL"]
-    print("\nИтог: %s" % ("всё собрано" if not failed else "упали шаги: " + ", ".join(failed)))
+    skipped = [n for n, st, *_ in results if st == "SKIP"]
+    off = [n for n, st, *_ in results if st == "—"]
+    print("\nИтог: %s" % ("всё собрано" if not failed else "упали шаги: " + ", ".join(failed))
+          + ("; пропущено из-за недостающего: " + ", ".join(skipped) if skipped else "")
+          + ("; выключено выбором (не ошибка): " + ", ".join(off) if off else ""))
     return 1 if failed else 0
 
 

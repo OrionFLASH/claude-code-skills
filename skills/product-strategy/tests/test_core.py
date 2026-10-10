@@ -22,7 +22,7 @@ def run(*args, **kw):
 # ---------- intake: вопросы подходят AskUserQuestion ----------
 def test_rounds_fit_ask_user_question_limits():
     rounds = intake.questions_json()
-    assert len(rounds) == 4
+    assert len(rounds) == 5
     headers = []
     for r in rounds:
         assert 1 <= len(r["questions"]) <= 4
@@ -36,6 +36,43 @@ def test_rounds_fit_ask_user_question_limits():
             assert "Other" not in labels and "Другое" not in labels      # «Other» инструмент добавляет сам
             headers.append(q["header"])
     assert len(set(headers)) == len(headers)
+
+
+def test_open_questions_are_cards_with_defaults():
+    batches = intake.open_cards_json()
+    assert all(1 <= len(b["questions"]) <= 4 for b in batches)
+    for b in batches:
+        for q in b["questions"]:
+            assert len(q["header"]) <= 12 and 2 <= len(q["options"]) <= 4 and "(Recommended)" in q["options"][0]["label"] or "Решить" in q["options"][0]["label"]
+    assert sum(len(b["questions"]) for b in batches) == len(intake.OPEN_CARDS) == 8
+
+
+def test_from_askuser_rounds_and_open_cards(tmp_path):
+    ans = {"Какова цель проекта и его модель?": "Личный инструмент", "Видимость": "Приватный", "Сколько человек работает над проектом?": "Один разработчик",
+           "Стратегия": "Рост продукта (Recommended)", "Бюджет": "Нулевой",
+           "Название продукта и суть в одной фразе?": "Определи по репозиторию (Recommended)",
+           "Известны ли аудитория, трафик, конверсии, доход, цены?": "Мало: 20 пользователей, дохода нет",
+           "Есть ли ограничения и что вне задачи?": "Без платной рекламы",
+           "Кого указать автором стратегии в титуле и подвалах?": "Иванов Иван (ivanov)",
+           "Готовы ли открыть код проекта, если он закрыт?": "Да, готов открыть",
+           "Есть ли известные конкуренты и образцы?": "Есть список"}
+    r = run("intake.py", "apply", "--repo", tmp_path, "--from-askuser", json.dumps(ans, ensure_ascii=False), "--out-dir", tmp_path / "r")
+    assert r.returncode == 0, r.stderr
+    cfg = json.loads((tmp_path / "r" / "build" / "run-config.json").read_text(encoding="utf-8"))
+    assert cfg["project"]["goal"] == "personal" and cfg["project"]["repo_visibility"] == "private" and cfg["project"]["team_size"] == 1
+    assert cfg["project"]["publish_code"] == "yes"
+    assert cfg["strategy"]["budget"]["variants"] == ["zero"] and cfg["strategy"]["profile"] == "zero-budget-solo"
+    assert cfg["product"]["known_facts"].startswith("Мало") and cfg["strategy"]["constraints"] == "Без платной рекламы"
+    assert cfg["author"]["name"] == "Иванов Иван" and cfg["author"]["nick"] == "ivanov"
+    assert "Заметка: sources.competitor_list" in r.stdout            # выбран «Есть список», а текста нет
+
+
+def test_auto_values_are_resolved(tmp_path):
+    (tmp_path / "README.md").write_text("# Проект\n\nПриложение для учёта расходов. Работает локально, данные не уходят в облако. " * 6, encoding="utf-8")
+    (tmp_path / "pyproject.toml").write_text('[project]\nname="x"\ndependencies=["fastapi"]\n', encoding="utf-8")
+    cfg = intake.finalize(intake.base_config(tmp_path))
+    assert cfg["strategy"]["markets"][0] == "ru" and cfg["product"]["type"] == "saas" and cfg["project"]["currency"] == "RUB"
+    assert cfg["strategy"]["profile"] in ("standard", "zero-budget-solo") and "auto" not in (cfg["strategy"]["markets"] + [cfg["product"]["type"]])
 
 
 def test_recommended_option_is_first_and_single():
@@ -100,6 +137,23 @@ def test_defaults_autopilot(tmp_path):
     assert r.returncode == 0 and cfg["autopilot"] is True and cfg["assumptions"]
 
 
+# ---------- check_gitignore ----------
+def test_check_gitignore_finds_and_fixes_hidden_build(tmp_path):
+    repo = tmp_path / "repo"
+    (repo / "strategy" / "2026-10-10" / "build").mkdir(parents=True)
+    (repo / "strategy" / "2026-10-10" / "data").mkdir()
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    (repo / ".gitignore").write_text("build/\n", encoding="utf-8")
+    (repo / "strategy" / "2026-10-10" / "build" / "run-config.json").write_text("{}", encoding="utf-8")
+    (repo / "strategy" / "2026-10-10" / "data" / "p.json").write_text("[]", encoding="utf-8")
+    out = repo / "strategy" / "2026-10-10"
+    r = run("check_gitignore.py", out)
+    assert r.returncode == 1 and "run-config.json" in r.stdout and "build/" in r.stdout
+    r = run("check_gitignore.py", out, "--fix")
+    assert r.returncode == 0 and "!build/" in (out / ".gitignore").read_text(encoding="utf-8")
+    assert run("check_gitignore.py", tmp_path / "elsewhere").returncode == 0                 # вне репозитория — проверка не нужна
+
+
 # ---------- init_run ----------
 def test_init_run_status_cycle(tmp_path):
     out = tmp_path / "o"
@@ -109,6 +163,9 @@ def test_init_run_status_cycle(tmp_path):
     assert run("init_run.py", out, "--done", "0", "--status", "опрос и инструменты готовы").returncode == 0
     r = run("init_run.py", out, "--show")
     assert "Следующая фаза: 1." in r.stdout and "опрос и инструменты готовы" in r.stdout
+    assert (out / "STRATEGY_TASKS.md").is_file() and not (out / "TASKS.md").exists()
+    assert "5.5. Аудит пробелов" in (out / "build" / "STATUS.md").read_text(encoding="utf-8")
+    assert run("init_run.py", out, "--done", "5.5").returncode == 0
 
 
 # ---------- check_env ----------
@@ -122,6 +179,26 @@ def test_check_env_runs_and_writes_json(tmp_path):
     assert sp["status"] == "OK"                                      # увиден по списку сессии
     assert "TYPESAFE_API_KEY" in names
     assert all("sk-" not in json.dumps(x) for x in data["rows"])     # значения ключей не печатаются
+
+
+def test_check_env_plan_uses_session_skills_from_first_call(tmp_path):
+    out = tmp_path / "o"
+    (out / "build").mkdir(parents=True)
+    run("check_env.py", "--out", out, "--session-skills", "zzz-test-skill:one", "--quiet")
+    assert "zzz-test-skill:one" in (out / "build" / "session-skills.txt").read_text(encoding="utf-8")
+    r = run("check_env.py", "--plan", "--out", out)                      # без флага: берётся сохранённый список
+    assert r.returncode == 0 and "Поставлю сам" in r.stdout
+
+
+def test_node_dir_default_is_user_cache(tmp_path, monkeypatch):
+    monkeypatch.delenv("PS_NODE_DIR", raising=False)
+    import check_env
+    assert str(check_env.node_dir(tmp_path / "o")).endswith(str(Path(".cache") / "product-strategy" / "node"))
+    (tmp_path / "o" / "build").mkdir(parents=True)
+    (tmp_path / "o" / "build" / "run-config.json").write_text(json.dumps({"tools": {"node_dir": str(tmp_path / "nd")}}), encoding="utf-8")
+    assert check_env.node_dir(tmp_path / "o") == tmp_path / "nd"
+    monkeypatch.setenv("PS_NODE_DIR", str(tmp_path / "env"))
+    assert check_env.node_dir(tmp_path / "o") == tmp_path / "env"
 
 
 def test_check_env_plan_lists_local_installs(tmp_path):

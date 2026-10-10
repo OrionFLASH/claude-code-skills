@@ -3,9 +3,10 @@
 
   check_env.py [--out <OUT>] [--json FILE] [--session-skills "a,b,…"] [--quiet]
       таблица «компонент / статус / версия / зачем / как исправить»; код 0 — можно работать, 1 — нет обязательного
-  check_env.py --install-node <OUT>
-      локальная установка Node-модулей прогона (playwright, pptxgenjs) в <OUT>/build/node и браузера Chromium;
-      ничего не ставит глобально — это единственная установка, которую скилл делает без вопроса
+  check_env.py --install-node [<OUT>]
+      локальная установка Node-модулей (playwright, pptxgenjs) в кэш пользователя ~/.cache/product-strategy/node и Chromium;
+      ничего не ставит глобально — это единственная установка, которую скилл делает без вопроса; путь пишется в run-config
+  check_env.py --print-node-dir [--out <OUT>]   папка модулей (для --node-dir / PS_NODE_DIR)
   check_env.py --plan [--out <OUT>]
       что не хватает и какие команды поставят это (для вопроса пользователю: системные пакеты, pip, плагины)
 
@@ -69,10 +70,26 @@ def vtuple(v):
     return tuple(int(x) for x in re.findall(r"\d+", v or "0")[:3])
 
 
+CACHE_NODE = Path.home() / ".cache" / "product-strategy" / "node"
+
+
 def node_dir(out):
+    """Папка Node-модулей: env PS_NODE_DIR → run-config tools.node_dir → <OUT>/build/node (прежние прогоны) → кэш пользователя
+    ~/.cache/product-strategy/node (по умолчанию: результат остаётся чистым и переносимым, модули общие для прогонов)."""
     if os.environ.get("PS_NODE_DIR"):
         return Path(os.environ["PS_NODE_DIR"]).expanduser()
-    return Path(out) / "build" / "node" if out else None
+    if out:
+        cfg = Path(out) / "build" / "run-config.json"
+        try:
+            nd = (json.loads(cfg.read_text(encoding="utf-8")).get("tools") or {}).get("node_dir")
+            if nd:
+                return Path(nd).expanduser()
+        except (OSError, ValueError):
+            pass
+        legacy = Path(out) / "build" / "node"
+        if (legacy / "node_modules").is_dir():
+            return legacy
+    return CACHE_NODE
 
 
 def has_node_module(nd, name):
@@ -87,6 +104,25 @@ def chromium_cached():
         if r.is_dir() and any(p.name.startswith("chromium") for p in r.iterdir()):
             return str(r)
     return None
+
+
+def session_skills_file(out):
+    return Path(out) / "build" / "session-skills.txt" if out else None
+
+
+def load_session_skills(explicit, out):
+    """Скиллы сессии: явный --session-skills → env PS_SESSION_SKILLS → файл прогона (его пишет первый вызов). Один источник правды
+    для таблицы и --plan: иначе скилл, видимый в сессии, в плане выглядит как «нужно согласие»."""
+    names = [x.strip() for x in explicit if x.strip()]
+    if not names and os.environ.get("PS_SESSION_SKILLS"):
+        names = [x.strip() for x in os.environ["PS_SESSION_SKILLS"].split(",") if x.strip()]
+    f = session_skills_file(out)
+    if not names and f and f.is_file():
+        names = [x.strip() for x in f.read_text(encoding="utf-8").split(",") if x.strip()]
+    if names and f:
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(",".join(names), encoding="utf-8")
+    return names
 
 
 def installed_skills(session=None):
@@ -137,11 +173,11 @@ def collect(out=None, session=None):
     npv = version_of(["npm", "--version"])
     add("npm", "recommended", "OK" if npv else "MISS", npv, "локальная установка модулей прогона", "" if npv else "ставится вместе с node")
     nd = node_dir(out)
-    fix_node = "python3 %s --install-node %s" % (Path(__file__).resolve(), out or "<OUT>")
+    fix_node = "python3 %s --install-node%s" % (Path(__file__).resolve(), (" " + str(out)) if out else "")
     for mod, why in (("playwright", "браузер: аудит сайта, макеты, конкуренты, smoke, PDF"), ("pptxgenjs", "презентация PPTX")):
         ok = has_node_module(nd, mod)
         add("node:" + mod, "recommended", "OK" if ok else ("MISS" if out else "WARN"), "", why,
-            "" if ok else fix_node + ("  (папка прогона ещё не задана)" if not out else ""))
+            "" if ok else fix_node)
     ch = chromium_cached()
     add("chromium (playwright)", "recommended", "OK" if ch else "MISS", ch or "", "движок для скриншотов и PDF",
         "" if ch else fix_node + "  (ставит и браузер)")
@@ -168,18 +204,20 @@ def collect(out=None, session=None):
     return rows
 
 
-def install_node(out):
-    """Локальная установка модулей прогона: <OUT>/build/node (package.json скилла) + Chromium для Playwright."""
+def install_node(out=None):
+    """Локальная установка модулей: по умолчанию в кэш пользователя ~/.cache/product-strategy/node (общий для прогонов; PS_NODE_DIR
+    или run-config tools.node_dir меняют место), пакеты — из scripts/node/package.json + Chromium для Playwright. Глобально не ставит.
+    Путь записывается в <OUT>/build/run-config.json (tools.node_dir), если есть."""
     if not shutil.which("npm"):
         print("нет npm: поставьте Node.js 18+ (brew install node или https://nodejs.org) и повторите", file=sys.stderr)
         return 2
-    nd = Path(out).resolve() / "build" / "node"
+    nd = node_dir(out).resolve()
     nd.mkdir(parents=True, exist_ok=True)
     if NODE_PKG.exists():
         shutil.copyfile(NODE_PKG, nd / "package.json")
         cmd = ["npm", "install", "--prefix", str(nd), "--no-audit", "--no-fund"]
     else:
-        (nd / "package.json").write_text('{"name":"product-strategy-run","private":true,"type":"module"}\n', encoding="utf-8")
+        (nd / "package.json").write_text('{"name":"product-strategy-node","private":true,"type":"module"}\n', encoding="utf-8")
         cmd = ["npm", "install", "--prefix", str(nd), "--no-audit", "--no-fund", "playwright", "pptxgenjs"]
     print("$ " + " ".join(cmd))
     code = subprocess.call(cmd)
@@ -190,6 +228,14 @@ def install_node(out):
         cmd = [npx, "--prefix", str(nd), "playwright", "install", "chromium"]
         print("$ " + " ".join(cmd))
         code = subprocess.call(cmd, cwd=str(nd))
+    if out and code == 0:
+        cfgp = Path(out) / "build" / "run-config.json"
+        try:
+            cfg = json.loads(cfgp.read_text(encoding="utf-8"))
+            cfg.setdefault("tools", {})["node_dir"] = str(nd)
+            cfgp.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+        except (OSError, ValueError):
+            pass
     print("готово: PS_NODE_DIR=%s" % nd if code == 0 else "ошибка установки (код %d)" % code)
     return code
 
@@ -214,13 +260,18 @@ def main(argv=None):
     ap.add_argument("--out", help="папка прогона <OUT> (для проверки локальных Node-модулей)")
     ap.add_argument("--json", help="сохранить результат в файл (обычно <OUT>/build/env.json)")
     ap.add_argument("--session-skills", default="", help="скиллы, видимые в текущей сессии, через запятую")
-    ap.add_argument("--install-node", metavar="OUT", help="поставить Node-модули прогона локально в <OUT>/build/node")
+    ap.add_argument("--install-node", nargs="?", const="", metavar="OUT", help="поставить Node-модули в кэш пользователя "
+                    "(~/.cache/product-strategy/node; PS_NODE_DIR меняет место); OUT — записать путь в run-config")
+    ap.add_argument("--print-node-dir", action="store_true", help="напечатать папку Node-модулей (для --node-dir и PS_NODE_DIR)")
     ap.add_argument("--plan", action="store_true", help="что поставить: автоматически (локально) и с вопросом пользователю")
     ap.add_argument("--quiet", action="store_true")
     a = ap.parse_args(argv)
-    if a.install_node:
-        return install_node(a.install_node)
-    rows = collect(a.out, [s for s in a.session_skills.split(",") if s.strip()])
+    if a.print_node_dir:
+        print(node_dir(a.out))
+        return 0
+    if a.install_node is not None:
+        return install_node(a.install_node or a.out)
+    rows = collect(a.out, load_session_skills(a.session_skills.split(","), a.out))
     if a.json:
         Path(a.json).parent.mkdir(parents=True, exist_ok=True)
         Path(a.json).write_text(json.dumps({"rows": rows, "plan": plan(rows)}, ensure_ascii=False, indent=2), encoding="utf-8")
