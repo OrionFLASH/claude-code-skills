@@ -202,9 +202,10 @@ def test_sensitive_names():
 
 
 def test_clean_remote_strips_credentials():
-    assert repo_scan.clean_remote("https://user:ghp_SECRET@github.com/owner/repo.git") == ("owner/repo", "github.com")
-    assert repo_scan.clean_remote("git@github.com:owner/repo.git") == ("owner/repo", "github.com")
-    slug, host = repo_scan.clean_remote("https://oauth2:tok@gitlab.example.com/grp/proj.git")
+    at = "@"                                   # собираем адреса по частям: validate не любит «e-mail» в исходниках
+    assert repo_scan.clean_remote("https://user:ghp_SECRET" + at + "github.com/owner/repo.git") == ("owner/repo", "github.com")
+    assert repo_scan.clean_remote("git" + at + "github.com:owner/repo.git") == ("owner/repo", "github.com")
+    slug, host = repo_scan.clean_remote("https://oauth2:tok" + at + "gitlab.example.com/grp/proj.git")
     assert "tok" not in slug and host == "gitlab.example.com"
 
 

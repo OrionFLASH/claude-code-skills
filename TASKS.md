@@ -316,7 +316,7 @@
 - [x] Триаж подзадач TypeSafe --batch → 5 агентов opus (web xhigh, data/export/scan/refs high)
 - [x] Ядро: check_env.py (проверка/установка), intake.py (опрос 4 раунда + открытые), init_run.py, skill_dir.py, build_all.py
 - [x] SKILL.md, references/intake.md, references/tools.md
-- [ ] INSTALL.md (промпты установки, обновления, доп. модулей), README, CHANGELOG, plugin.json
-- [ ] Агенты: build_html+smoke; score/charts/model/typesafe_eval; xlsx/pptx/pdf/links; repo_scan/issues/node-скрипты; справочники и брифы
-- [ ] Свести, тесты всех частей, сквозной прогон на демо и на реальном репозитории
+- [x] INSTALL.md (промпты установки, обновления, доп. модулей), README, CHANGELOG, plugin.json
+- [x] Агенты: build_html+smoke; score/charts/model/typesafe_eval; xlsx/pptx/pdf/links; repo_scan/issues/node-скрипты; справочники и брифы (сведено: контракт 1.0, квоты демо, правило секретов, свои предложения в outline)
+- [x] Свести, тесты (93 + 7 skip), сквозной прогон демо (13 шагов OK, smoke 20/0), фазы 0–1 на реальном репозитории
 - [ ] validate, версия 1.0.0, merge, тег, установка плагина глобально, проверка установленной копии
