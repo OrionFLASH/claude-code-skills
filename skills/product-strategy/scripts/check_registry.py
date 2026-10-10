@@ -374,6 +374,12 @@ def run_check(out_dir, min_override=None, demo=False):
     for url, pids in sorted(quote_by_url.items()):
         if len(pids) > 1:
             warnings.append("цитаты из одного источника в нескольких предложениях (%s): %s" % (url, ", ".join(sorted(pids))))
+    if cfg.get("mode") == "concept":        # режим идеи: продукта и репозитория ещё нет — «внутренних» доказательств быть не может
+        own = sorted(p.get("id") for p in good if any(isinstance(e, dict) and e.get("kind") in ("repo", "own_app")
+                                                      for e in (p.get("evidence") or [])) and isinstance(p.get("id"), str))
+        if own:
+            warnings.append("режим идеи: доказательства вида repo/own_app у %s — продукта ещё нет, нужен внешний источник"
+                            % ", ".join(own[:10]) + (" и ещё %d" % (len(own) - 10) if len(own) > 10 else ""))
 
     total = len(good)
     if total < min_n:

@@ -4,6 +4,8 @@
   build_all.py <OUT> [--only score,charts,html] [--skip pptx,pdf] [--links] [--strict] [--typesafe]
 
 Шаги по порядку (каждый пропускается, если выключен в run-config.formats/scope или нет входных данных/инструмента):
+  dossier    concept_dossier.py       режим идеи (mode: concept): досье, data/idea.json, план поиска, затравки (идемпотентно)
+  viability  typesafe_concept.py      режим идеи: предпроверка жизнеспособности, если data/typesafe-concept.json ещё нет
   sources    merge_sources.py         data/sources-*.json (фрагменты агентов) → data/sources.json (если есть фрагменты)
   mocklink   link_mockups.py          proposals[].mockup по индексу макетов и design-refs (если есть макеты)
   registry   check_registry.py        проверка реестра (при --strict ошибка останавливает конвейер)
@@ -25,10 +27,12 @@
   pdf        node/deck_pdf.mjs        (formats.pdf, нужен playwright)
   links      check_links.py           --offline по умолчанию; --links — с сетью
   gitignore  check_gitignore.py       файлы прогона не игнорируются git (если <OUT> внутри репозитория)
-  track      strategy_track.py check  сверка с репозиторием и GitHub → data/progress.json (только с --track; нужен gh для issues)
+  track      strategy_track.py check  сверка с репозиторием и GitHub → data/progress.json (только с --track; нужен gh для issues;
+                                      в режиме идеи не выполняется — продукта и репозитория ещё нет)
 
 Node-модули — по check_env.node_dir (PS_NODE_DIR → run-config tools.node_dir → <OUT>/build/node → ~/.cache/product-strategy/node);
-ставит их check_env.py --install-node. Статусы: OK, FAIL, «—» (выключено выбором в опросе, не проблема), SKIP (нет инструмента или данных).
+ставит их check_env.py --install-node. Статусы: OK, FAIL, «—» (выключено выбором в опросе или режимом идеи, не проблема),
+SKIP (нет инструмента или данных).
 Итог — таблица шагов (OK / SKIP / FAIL) и код 1, если что-то упало. Только стандартная библиотека.
 """
 import argparse
@@ -41,7 +45,7 @@ import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-STEPS = ["registry", "score", "validate", "typesafe", "model", "charts", "mockups", "html", "smoke", "xlsx", "deck", "pptx", "pdf", "links"]
+STEPS = ["dossier", "viability", "registry", "score", "validate", "typesafe", "model", "charts", "mockups", "html", "smoke", "xlsx", "deck", "pptx", "pdf", "links"]
 
 
 def node_dir(out):
@@ -81,8 +85,16 @@ def plan(out, cfg, a):
     eng = ["--engines", a.engines] if a.engines else []
     reg = ["--demo"] if cfg.get("assumptions") and any("Демо" in x for x in cfg["assumptions"]) else []
     track = ["--no-write-strategy"] if not a.strict else []
-    return [
-        ("track", bool(a.track), "выключено выбором (нужен флаг --track)", py + [str(HERE / "strategy_track.py"), "check", str(out)] + track),
+    concept = cfg.get("mode") == "concept"
+    steps = [   # шаги режима идеи (в обычном режиме их нет в таблице)
+        ("dossier", True, "", py + [str(HERE / "concept_dossier.py"), str(out)]),
+        ("viability", not (data / "typesafe-concept.json").exists(), "уже оценено (data/typesafe-concept.json)",
+         py + [str(HERE / "typesafe_concept.py"), str(out)]),
+    ] if concept else []
+    return steps + [
+        ("track", bool(a.track) and not concept,
+         "режим идеи: продукта и репозитория ещё нет — отслеживать нечего" if concept else "выключено выбором (нужен флаг --track)",
+         py + [str(HERE / "strategy_track.py"), "check", str(out)] + track),
         ("sources", bool(list(data.glob("sources-*.json"))), "нет фрагментов data/sources-*.json", py + [str(HERE / "merge_sources.py"), str(out)]),
         ("mocklink", has_mock and (data / "proposals.json").exists(), "нет макетов", py + [str(HERE / "link_mockups.py"), str(out)]),
         ("registry", (data / "proposals.json").exists(), "нет data/proposals.json", py + [str(HERE / "check_registry.py"), str(out)] + reg),
@@ -137,7 +149,7 @@ def main(argv=None):
             results.append((name, "—", "по --only/--skip", 0))
             continue
         if not enabled:
-            results.append((name, "—" if why.startswith("выключено выбором") else "SKIP", why, 0))
+            results.append((name, "—" if why.startswith(("выключено выбором", "режим идеи", "уже оценено")) else "SKIP", why, 0))
             continue
         script = Path(cmd[2] if cmd[0] == sys.executable else cmd[1])        # (python -B script) или (node script)
         if not script.exists():
@@ -163,7 +175,12 @@ def main(argv=None):
     print("\nИтог: %s" % ("всё собрано" if not failed else "упали шаги: " + ", ".join(failed))
           + ("; пропущено из-за недостающего: " + ", ".join(skipped) if skipped else "")
           + ("; выключено выбором (не ошибка): " + ", ".join(off) if off else ""))
-    print("Папка результата: %s" % ("ВНУТРИ репозитория" if inside else "ВНЕ РЕПОЗИТОРИЯ — в git проекта не попадёт (перенос: init_run.py <OUT> --relocate <repo>/strategy/<дата> --repo <repo> --inside-repo)"))
+    inside = (cfg.get("output") or {}).get("inside_repo", False)
+    if cfg.get("mode") == "concept":
+        print("Папка концепции: %s" % ("ВНУТРИ git-репозитория (ветка %s)" % ((cfg.get("output") or {}).get("git_branch") or "—") if inside
+                                       else "ВНЕ git-репозитория — в git не попадёт (перенос: init_run.py <OUT> --relocate <repo>/concept/<имя>/<дата> --repo <repo> --inside-repo)"))
+    else:
+        print("Папка результата: %s" % ("ВНУТРИ репозитория" if inside else "ВНЕ РЕПОЗИТОРИЯ — в git проекта не попадёт (перенос: init_run.py <OUT> --relocate <repo>/strategy/<дата> --repo <repo> --inside-repo)"))
     return 1 if failed else 0
 
 

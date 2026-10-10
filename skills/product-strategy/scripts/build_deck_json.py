@@ -306,7 +306,9 @@ def build(out, main_max=60, top_n=30):
     horizon = int(st.get("horizon_months") or 12)
     today = cfg.get("created") or date.today().isoformat()
     copyright_ = a.get("copyright") or ("© %s %s" % (today[:4], author) if author else "")
-    footer = " · ".join(x for x in (product, "стратегия развития", today, copyright_ or author) if x)
+    concept = cfg.get("mode") == "concept"          # режим идеи: «концепция продукта» вместо «стратегия развития»
+    doc_title = ("Концепция продукта %s" if concept else "Стратегия развития %s") % product
+    footer = " · ".join(x for x in (product, "концепция продукта" if concept else "стратегия развития", today, copyright_ or author) if x)
 
     ranked, has_scores = rank_proposals(props, scores)
     chart_by_key = {c.get("key"): c for c in charts}
@@ -349,7 +351,7 @@ def build(out, main_max=60, top_n=30):
                 "notes": (ref.get("summary") or "") + ("\nДоделать: " + "; ".join(ref.get("todo") or []) if ref.get("todo") else "")}
 
     # --- титул, KPI, оглавление
-    add(main, {"type": "title", "title": "Стратегия развития %s" % product,
+    add(main, {"type": "title", "title": doc_title,
                "subtitle": " · ".join(x for x in (st.get("goal"), "горизонт %d мес." % horizon, today, author) if x),
                "notes": "Авторство: %s. Собрано product-strategy." % (copyright_ or author)}, False)
     classes = [p.get("evidence_class") for p in props]
@@ -525,7 +527,7 @@ def build(out, main_max=60, top_n=30):
     for s in slides:  # убрать пустые поля
         for k in [k for k, v in s.items() if v in (None, "", [])]:
             del s[k]
-    deck = {"meta": {"title": "Стратегия развития %s" % product, "subtitle": st.get("goal") or "", "product": product, "author": author,
+    deck = {"meta": {"title": doc_title, "subtitle": st.get("goal") or "", "product": product, "author": author,
                      "copyright": copyright_, "date": today, "footer": footer, "theme": theme, "theme_source": theme_src,
                      "counts": {"main": len(main), "appendix": len(appendix), "cards": len(top), "missing_images": sorted(set(missing))}},
             "slides": slides}

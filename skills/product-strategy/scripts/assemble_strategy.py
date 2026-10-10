@@ -5,7 +5,8 @@
 
 Источник текста (по приоритету):
   1. части `build/parts/strategy-*.md` и `research/strategy-part*.md` — разделы режутся по заголовкам `## N. …`
-     (в одном файле может быть несколько разделов); порядок разделов — 1…17 по references/strategy-outline.md;
+     (в одном файле может быть несколько разделов); порядок разделов — 1…17 по references/strategy-outline.md
+     (в режиме идеи, run-config mode: concept, — по references/concept-outline.md, минимумы слов оттуда же);
   2. если частей нет, но есть `research/strategy.md` — проверка и подстановка «на месте»
      (в этом режиме подставленные ранги «замораживаются»: чтобы обновлять их, держите части как источник правды).
 
@@ -47,7 +48,10 @@ MIN_WORDS = {
     "deep": [600, 1500, 1500, 1000, 900, 1800, 1400, 1500, 1200, 1800, 900, 1000, 1000, 1800, 1000, 400, 600],
     "exhaustive": [700, 2000, 2500, 1500, 1200, 2500, 2000, 2000, 1600, 2500, 1200, 1400, 1500, 2500, 1500, 500, 800],
 }
-# куда вставлять блок макетов: категория предложения → номер раздела
+# режим идеи (mode: concept): минимумы для standard из references/concept-outline.md, другие глубины — множителем
+CONCEPT_MIN_WORDS_STANDARD = [600, 1100, 1200, 700, 900, 900, 800, 1100, 500, 1400, 900, 1000, 1100, 1200, 600, 300, 400]
+CONCEPT_DEPTH_FACTOR = {"quick": 0.3, "standard": 1.0, "deep": 1.5, "exhaustive": 2.0}
+# куда вставлять блок макетов: категория предложения → номер раздела (в режиме идеи разделы 6–10 те же по смыслу)
 MOCKUP_SECTION = {"acquisition": 6, "conversion": 7, "monetization": 8, "retention": 9}
 MOCKUP_DEFAULT_SECTION = 10
 MOCKUP_HEADING = "### Макеты концептов"
@@ -178,7 +182,10 @@ def find_parts(out):
     return [f for f in files if f.is_file()]
 
 
-def depth_min_words(depth, n):
+def depth_min_words(depth, n, concept=False):
+    if concept:
+        f = CONCEPT_DEPTH_FACTOR.get(depth)
+        return int(round(CONCEPT_MIN_WORDS_STANDARD[n - 1] * f)) if f and 1 <= n <= 17 else 0
     row = MIN_WORDS.get(depth)
     return row[n - 1] if row and 1 <= n <= 17 else 0
 
@@ -603,7 +610,7 @@ def main(argv=None):
     depth = (data.cfg.get("strategy") or {}).get("depth")
     wc = {n: words(sections[n]) for n in order}
     for n in order:
-        need = depth_min_words(depth, n)
+        need = depth_min_words(depth, n, data.cfg.get("mode") == "concept")
         if need and wc[n] < need:
             rep.warn("short_section", "раздел %d: %d слов < минимума %d для глубины %s" % (n, wc[n], need, depth), section=n)
     unl = unlabeled_numbers(text, Code(text))
