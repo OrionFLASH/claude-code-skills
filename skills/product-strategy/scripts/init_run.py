@@ -9,6 +9,7 @@
                                      перенос папки прогона: пути в файлах заменяются (relocate_run.py), run-config обновляется;
                                      дальше `build_all.py <NEW>` и `check_gitignore.py <NEW>`
 Чек-лист задач прогона — STRATEGY_TASKS.md (не TASKS.md: в корне репозитория пользователя свой TASKS.md).
+Режим идеи (run-config mode: concept, references/concept-mode.md) — фазы C0…C9 и C5.5; `--done 3` и `--done C3` равносильны.
 
 Только стандартная библиотека.
 """
@@ -34,6 +35,19 @@ PHASES = [
     (8, "Макеты, блок-схемы, референсы дизайна, скриншоты конкурентов"),
     (9, "Сборка и QA: build_all (html, xlsx, pptx, pdf), check_links, smoke_html, REPORT.md"),
 ]
+CONCEPT_PHASES = [   # режим «Идея → концепция» (references/concept-mode.md)
+    ("C0", "Опрос об идее (intake.py concept-*), инструменты (check_env), папка"),
+    ("C1", "Досье идеи: concept_dossier.py → research/idea-dossier.md, data/idea.json, build/search-plan.md, build/seeds.md"),
+    ("C2", "Предпроверка жизнеспособности: typesafe_concept.py → data/typesafe-concept.json (красный — спросить владельца)"),
+    ("C3", "Тип продукта и акценты по ответам, затравки реестра"),
+    ("C4", "Рынок: конкуренты и аналоги, сообщества, спрос, события, право → data/*.json"),
+    ("C5", "Реестр решений (≥ proposals_min): генерация → merge_proposals → check_registry"),
+    ("C5.5", "Аудит предпосылок: юрлицо, домен, прототип, первые пользователи, аккаунты платформ (gap_audit.py)"),
+    ("C6", "Оценка: score, validate_scores, typesafe_eval, model, charts"),
+    ("C7", "Текст концепции по references/concept-outline.md, спеки MVP, эксперименты, Гант, Kanban"),
+    ("C8", "Дизайн: язык дизайна, макеты ключевых экранов, референсы аналогов"),
+    ("C9", "Сборка и QA: build_all --strict, REPORT.md с go/no-go"),
+]
 
 
 def status_path(out):
@@ -49,21 +63,28 @@ def init(out):
     gi = out / ".gitignore"
     if not gi.exists():
         gi.write_text("!build/\n!data/\n!deliverables/\nbuild/node/\n*.tmp\n", encoding="utf-8")   # «!» переопределяют корневые правила (build/)
+    concept = cfg.get("mode") == "concept"
     sp = status_path(out)
     if not sp.exists():
         s = cfg.get("strategy", {})
-        head = ["# STATUS — стратегия %s" % cfg.get("product", {}).get("name", out.name), "",
+        head = ["# STATUS — %s %s" % ("концепция" if concept else "стратегия", cfg.get("product", {}).get("name", out.name)), "",
                 "Создано: %s. Глубина: %s, предложений ≥ %s, горизонт %s мес + %s г." % (
                     datetime.now().strftime("%Y-%m-%d %H:%M"), s.get("depth", "?"), s.get("proposals_min", "?"),
                     s.get("horizon_months", "?"), s.get("vision_years", "?")), "", "## Фазы"]
-        head += ["- [ ] %s. %s" % (n, t) for n, t in PHASES]
+        if concept:
+            head.insert(3, "Режим: идея → концепция продукта (продукта ещё нет). Идея: %s" % ((cfg.get("idea") or {}).get("pitch") or "—"))
+        head += ["- [ ] %s. %s" % (n, t) for n, t in (CONCEPT_PHASES if concept else PHASES)]
         head += ["", "## Чекпоинты", ""]
         sp.write_text("\n".join(head), encoding="utf-8")
     tp = out / "STRATEGY_TASKS.md"
     if not tp.exists():
-        tp.write_text("# STRATEGY_TASKS — чек-лист прогона стратегии\n\nФазы — в build/STATUS.md; здесь — найденные по дороге задачи.\n\n"
-                      "- [ ] фаза 0–9 по build/STATUS.md\n\n## Где остановился\n\n—\n", encoding="utf-8")
-    if cfg and not (cfg.get("output") or {}).get("inside_repo", True):
+        tp.write_text("# STRATEGY_TASKS — чек-лист прогона %s\n\nФазы — в build/STATUS.md; здесь — найденные по дороге задачи.\n\n"
+                      "- [ ] %s по build/STATUS.md\n\n## Где остановился\n\n—\n" % (("концепции", "фазы C0–C9") if concept else ("стратегии", "фаза 0–9")),
+                      encoding="utf-8")
+    if cfg and concept and not (cfg.get("output") or {}).get("inside_repo", True):
+        print("Папка концепции ВНЕ git-репозитория (в git не попадёт). Нужна в репозитории: "
+              "init_run.py %s --relocate <repo>/concept/<имя>/<дата> --repo <repo> --inside-repo" % out, file=sys.stderr)
+    elif cfg and not (cfg.get("output") or {}).get("inside_repo", True):
         print("ВНИМАНИЕ: результат лежит ВНЕ репозитория (в git проекта не попадёт). Если нужна папка внутри репозитория: "
               "init_run.py %s --relocate <repo>/strategy/<дата> --repo <repo> --inside-repo" % out, file=sys.stderr)
     print("OUT=%s" % out)
@@ -82,13 +103,17 @@ def mark_done(out, n):
     s = sp.read_text(encoding="utf-8")
     n = str(n)
     s2 = re.sub(r"^- \[ \] %s\. " % re.escape(n), "- [x] %s. " % n, s, count=1, flags=re.M)
+    if s2 == s and not n.upper().startswith("C"):          # режим идеи: «--done 3» = «C3»
+        s2 = re.sub(r"^- \[ \] C%s\. " % re.escape(n), "- [x] C%s. " % n, s, count=1, flags=re.M)
+    elif s2 == s:
+        s2 = re.sub(r"^- \[ \] %s\. " % re.escape(n.upper()), "- [x] %s. " % n.upper(), s, count=1, flags=re.M)
     sp.write_text(s2, encoding="utf-8")
     return 0 if s2 != s else 1
 
 
 def show(out):
     s = status_path(out).read_text(encoding="utf-8")
-    m = re.search(r"^- \[ \] ([\d.]+\. .*)$", s, re.M)
+    m = re.search(r"^- \[ \] (C?[\d.]+\. .*)$", s, re.M)
     print("Следующая фаза: %s" % (m.group(1) if m else "все фазы отмечены"))
     cps = re.findall(r"^- \d{4}-\d\d-\d\d .*$", s, re.M)
     for c in cps[-5:]:
@@ -100,7 +125,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("out")
     ap.add_argument("--status")
-    ap.add_argument("--done", help="номер фазы (0–9 или 5.5)")
+    ap.add_argument("--done", help="номер фазы (0–9 или 5.5; в режиме идеи — C0…C9, C5.5)")
     ap.add_argument("--show", action="store_true")
     ap.add_argument("--relocate", metavar="NEW")
     ap.add_argument("--repo")

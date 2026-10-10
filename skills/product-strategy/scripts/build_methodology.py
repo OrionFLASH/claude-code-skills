@@ -293,7 +293,16 @@ def sec_limits(out, cfg):
         if nul:
             items.append("объёмы запросов не получены у %d из %d запросов (`volume: null`)" % (nul, len(kw)))
     sc = (cfg.get("scope") or {}) if isinstance(cfg, dict) else {}
-    off = [n for n in ("communities", "legal", "issues", "app_run", "competitors", "keywords", "events") if sc.get(n) is False]
+    concept = isinstance(cfg, dict) and cfg.get("mode") == "concept"
+    if concept:     # режим идеи: репозитория, приложения и Issues нет по устройству режима, а не по выбору владельца
+        items.append("режим идеи: продукта ещё нет — анализ кода, запуск приложения и Issues не проводились; цифры спроса и конверсий "
+                     "почти всегда `[допущение]`, доказательства — внешние (аналоги, сообщества, документация платформ)")
+        ts = load_json(out / "data" / "typesafe-concept.json", None)
+        if isinstance(ts, dict) and ts.get("verdict"):
+            items.append("предпроверка жизнеспособности: светофор %s (источник %s, уверенность %s) — ориентир, не прогноз"
+                         % (ts["verdict"], ts.get("source"), ts.get("confidence")))
+    off = [n for n in ("communities", "legal", "issues", "app_run", "competitors", "keywords", "events")
+           if sc.get(n) is False and not (concept and n in ("issues", "app_run"))]
     if off:
         items.append("направления выключены владельцем (`scope`): %s — соответствующие входы стратегии отсутствуют" % ", ".join(off))
     props = load_json(out / "data" / "proposals.json", None)

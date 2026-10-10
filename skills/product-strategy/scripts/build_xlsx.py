@@ -855,7 +855,7 @@ def build(out):
 
     wb = Workbook()
     who, copyright_ = author_line(cfg)
-    wb.props = {"creator": who, "title": "Стратегия развития %s" % product_name(cfg),
+    wb.props = {"creator": who, "title": ("Концепция продукта %s" if cfg.get("mode") == "concept" else "Стратегия развития %s") % product_name(cfg),
                 "description": " · ".join(x for x in (copyright_, "Собрано product-strategy, %s" % (cfg.get("created") or "")) if x)}
     sheet_registry(wb, props, scores)
     sheet_scores(wb, props, scores, weights)

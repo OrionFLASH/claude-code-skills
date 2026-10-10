@@ -1587,6 +1587,10 @@ class Builder:
         self.strategy = self.text("research/strategy.md")
         self.questions = self.text("research/questions-owner.md")
         self.tokens = self.text("mockups/tokens.css")
+        # режим «Идея → концепция» (run-config mode: concept): продукта ещё нет, репозиторий не сканировался
+        self.concept = self.cfg.get("mode") == "concept"
+        self.idea = (self.json("data/idea.json", dict) or {}) if self.concept else {}
+        self.viab = (self.json("data/typesafe-concept.json", dict) or {}) if self.concept else {}
         self.load_charts()
         self.load_refs()
         self.load_mockups()
@@ -1895,7 +1899,8 @@ class Builder:
     def mock_fig(self, m, inline=False, group="mockups"):
         title = text_of(m.get("title")) or m["key"]
         concept = str(m.get("kind") or "concept") != "current"
-        badge = '<span class="badge-concept">Концепт, не существующая функция</span>' if concept else '<span class="tag">факт</span>'
+        badge = ('<span class="badge-concept">' + ("Концепт продукта, не существующая функция" if self.concept else "Концепт, не существующая функция")
+                 + "</span>") if concept else '<span class="tag">факт</span>'
         pr = self.chips(m.get("proposals"))
         html_rel = self.rel_link(str(m.get("html"))) if m.get("html") else ""
         open_html = ' · <a href="' + esc(html_rel) + '" target="_blank" rel="noopener">HTML-макет</a>' if html_rel else ""
@@ -1935,6 +1940,8 @@ class Builder:
             if m:
                 return m.group(1).strip()
         name = (self.cfg.get("product") or {}).get("name") if isinstance(self.cfg.get("product"), dict) else None
+        if self.concept:
+            return ("Концепция продукта " + str(name)) if name else "Концепция нового продукта"
         return ("Стратегия развития " + str(name)) if name else "Стратегия развития продукта"
 
     def author_line(self):
@@ -1949,6 +1956,7 @@ class Builder:
     def build_all(self):
         self.rows = self.build_rows()
         self.sec_top()
+        self.sec_viability()
         self.sec_strategy()
         self.sec_registry()
         self.sec_progress()
@@ -2135,11 +2143,18 @@ class Builder:
             # ссылка — только валидный http(s)-адрес; «Локальный запуск…» и прочий текст — текстом
             where = (ext_link(u) if http_url(u) else '<span class="muted">' + esc(u) + "</span>") if u else ""
             facts.append(("Продукт", esc(text_of(prod.get("name"))) + (" · " + where if where and prod.get("name") else where)))
+        if self.concept:
+            pitch = text_of((self.cfg.get("idea") or {}).get("pitch") if isinstance(self.cfg.get("idea"), dict) else "")
+            facts.append(("Стадия", "идея — продукта ещё нет"))
+            if pitch:
+                facts.append(("Идея", esc(pitch)))
         if st.get("goal"):
             facts.append(("Цель", esc(st["goal"])))
         kind = {"growth": "рост", "gtm": "выход на рынок", "monetization": "монетизация", "tech-roadmap": "техническая дорожная карта",
                 "oss-community": "открытый проект и сообщество", "full": "полная"}.get(str(st.get("kind")), st.get("kind"))
-        if kind:
+        if self.concept:
+            facts.append(("Тип", "концепция: продукт, рынок, запуск"))
+        elif kind:
             facts.append(("Тип стратегии", esc(kind)))
         hm, vy = to_int(st.get("horizon_months")), to_int(st.get("vision_years"))
         if hm:
@@ -2201,12 +2216,47 @@ class Builder:
         author = ""
         if who or cp:
             author = '<p class="author">' + ("Автор: <b>" + esc(who) + "</b>" if who else "") + (" · " if who and cp else "") + esc(cp) + "</p>"
-        body = ('<section id="top" class="top"><p class="eyebrow">Стратегия развития продукта · ' + esc(self.date) + "</p><h1>"
+        body = ('<section id="top" class="top"><p class="eyebrow">' + ("Концепция нового продукта" if self.concept else "Стратегия развития продукта")
+                + " · " + esc(self.date) + "</p><h1>"
                 + esc(title) + "</h1>" + author + '<dl class="facts">' + "".join("<dt>" + a + "</dt><dd>" + b + "</dd>" for a, b in facts)
                 + "</dl>" + ('<div class="kpis">' + kpi + "</div>" if kpi else "") + pre + self.links(top10) + assum_html
                 + '<p class="hint muted">Как читать: любой номер предложения (например, P001) открывает его карточку; любая картинка '
                 "увеличивается по клику; строки Ганта, карточки Kanban и блоки схем раскрываются. Esc закрывает верхнее окно.</p></section>")
         self.add("top", "Резюме и ключевые цифры", body)
+
+    # --- режим идеи: предпроверка жизнеспособности (data/typesafe-concept.json, typesafe_concept.py)
+    def sec_viability(self):
+        v = self.viab
+        if not self.concept or not v or not v.get("verdict"):
+            return
+        verdict = text_of(v.get("verdict"))
+        items = v.get("items") if isinstance(v.get("items"), dict) else {}
+        trs = []
+        for q in as_list(v.get("questions")):
+            if not isinstance(q, dict) or q.get("key") not in items or not isinstance(items[q["key"]], dict):
+                continue
+            it = items[q["key"]]
+            p = num(it.get("p"))
+            if p is None:
+                continue
+            good = p if q.get("good") != "low" else 1 - p
+            cls = "vb-ok" if good >= 0.6 else ("vb-mid" if good >= 0.4 else "vb-bad")
+            trs.append("<tr><td>" + esc(text_of(q.get("label") or it.get("label") or q["key"])) + "</td><td class=\"num\">"
+                       + '<span class="vbar ' + cls + '" aria-hidden="true"><i style="width:' + str(int(round(p * 100))) + '%"></i></span> '
+                       + "%d%%" % round(p * 100) + ("" if q.get("good") != "low" else ' <span class="muted small">(меньше — лучше)</span>')
+                       + "</td><td>" + esc(text_of(it.get("note"))) + "</td></tr>")
+        heur = text_of(v.get("source")) != "jev"
+        src = ("эвристика по ответам владельца, уверенность низкая — ориентир, не прогноз" if heur
+               else "TypeSafe Jev по обезличенной идее и ответам")
+        skipped = text_of(v.get("skipped"))
+        lead = ('<p class="lead"><span class="vverdict vv-' + esc(slug(verdict)) + '">' + esc({"green": "Зелёный", "yellow": "Жёлтый", "red": "Красный"}.get(verdict, verdict))
+                + "</span> " + esc(text_of(v.get("verdict_label"))) + ". Жизнеспособность %s, риск запрета %s. Источник: %s%s.</p>" % (
+                    fmt_num(v.get("viability")), fmt_num(v.get("risk")), esc(src), (" (Jev не спрашивали: " + esc(skipped) + ")") if skipped and heur else ""))
+        first = str_list(v.get("check_first"))
+        tail = ("<p>Проверить в первую очередь: <b>" + esc(", ".join(first)) + "</b>.</p>") if first else ""
+        table = ('<div class="tbl"><table class="data"><thead><tr><th>Вопрос</th><th>Вероятность «да»</th><th>Пояснение</th></tr></thead><tbody>'
+                 + "".join(trs) + "</tbody></table></div>") if trs else ""
+        self.add("viability", "Жизнеспособность идеи", self.section("viability", "Жизнеспособность идеи", lead + table + tail))
 
     def badge(self, kind, v):
         if not v:
@@ -2975,10 +3025,12 @@ class Builder:
         ms = [m for m in self.mock.values() if str(m.get("kind") or "concept") != "current"]
         if not ms:
             return
-        inner = ('<p class="lead">Все макеты — концепты, а не существующие функции. Нажмите на макет, чтобы рассмотреть его крупно; '
+        lead = ("Продукта ещё нет: все макеты — концепт продукта целиком, а не существующие экраны. " if self.concept
+                else "Все макеты — концепты, а не существующие функции. ")
+        inner = ('<p class="lead">' + lead + "Нажмите на макет, чтобы рассмотреть его крупно; "
                  "у макетов с референсом поверх картинки видны нумерованные элементы с описанием.</p>"
                  '<div class="gallery mocks">' + "".join(self.mock_fig(m) for m in ms) + "</div>")
-        self.add("mockups", "Макеты (концепты)", self.section("mockups", "Макеты предлагаемых функций", self.links(inner)))
+        self.add("mockups", "Макеты (концепты)", self.section("mockups", "Макеты ключевых экранов" if self.concept else "Макеты предлагаемых функций", self.links(inner)))
 
     # --- 10. референсы дизайна
     def sec_refs(self):
@@ -3069,6 +3121,8 @@ class Builder:
 
     # --- 11. текущее состояние
     def sec_current(self):
+        if self.concept:            # режим идеи: текущего состояния продукта нет
+            return
         items, seen = [], set()
         d = self.out / "mockups" / "current"
         if d.is_dir():
@@ -3468,7 +3522,8 @@ class Builder:
         page = ("<!doctype html>\n<html lang=\"ru\"><head><meta charset=\"utf-8\">"
                 '<meta http-equiv="Content-Security-Policy" content="' + csp + '">'
                 '<meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark">'
-                + metas + '<link rel="icon" href="data:,"><title>' + esc(title) + "</title><style>" + theme_css(self.tokens) + CSS + (PROGRESS_CSS if self.pg else "") + "</style>"
+                + metas + '<link rel="icon" href="data:,"><title>' + esc(title) + "</title><style>" + theme_css(self.tokens) + CSS + (PROGRESS_CSS if self.pg else "")
+                + (CONCEPT_CSS if self.concept else "") + "</style>"
                 "<script>" + head_js + "</script></head><body>"
                 '<a class="skip" href="#main">К содержанию</a>' + mbar + '<div class="wrap">' + nav + '<main id="main">'
                 + "".join(self.sections) + foot + "</main></div>" + layers + "".join(data_blocks) + "<script>" + js + "</script></body></html>\n")
@@ -3837,6 +3892,15 @@ button.ghost{background:none}
 
 # Стили режима «Отслеживание» — добавляются в страницу, только если есть data/progress.json (иначе страница прежняя).
 # Чипы статусов — белый текст на насыщенном фоне (≥ 5:1 в любой теме) + значок; подписи Ганта — текст темы на подложке.
+CONCEPT_CSS = r"""
+/* режим идеи: светофор и шкалы предпроверки жизнеспособности */
+.vverdict{display:inline-block;font-weight:700;font-size:13px;padding:1px 10px;border-radius:999px;color:#fff;background:#5b6170;margin-right:4px}
+.vv-green{background:#15803d}.vv-yellow{background:#a15c07}.vv-red{background:#b42318}
+.vbar{display:inline-block;width:90px;height:8px;border-radius:4px;background:var(--ps-surface-2);vertical-align:middle;overflow:hidden;border:1px solid var(--ps-border)}
+.vbar i{display:block;height:100%;background:#5b6170}
+.vbar.vb-ok i{background:#15803d}.vbar.vb-mid i{background:#a15c07}.vbar.vb-bad i{background:#b42318}
+"""
+
 PROGRESS_CSS = r"""
 .pst,.gst{display:inline-flex;align-items:center;gap:3px;font-size:11.5px;font-weight:600;line-height:1.55;padding:0 7px;border-radius:999px;color:#fff;background:#5b6170;white-space:nowrap;vertical-align:baseline}
 .pst i,.gst i{font-style:normal;font-weight:700}

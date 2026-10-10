@@ -52,6 +52,13 @@ PREREQ_FAMILIES = [
     ("site", "сайт / посадочная страница", r"лендинг|landing|посадочн|сайт\b|сайта|website|github pages|страниц\w* (продукт|установ)"),
     ("i18n", "перевод интерфейса", r"английск|english|перевод|i18n|локализ|translation"),
 ]
+# режим идеи (mode: concept): предпосылки запуска продукта, которого ещё нет
+CONCEPT_FAMILIES = [
+    ("legal_entity", "юрлицо / форма работы", r"юрлиц|\bип\b|самозанят|legal entity|incorporat|\bооо\b|договор оферт|оферт"),
+    ("prototype", "прототип / MVP", r"прототип|prototype|\bmvp\b|первый выпуск|первая версия|кликабельн"),
+    ("first_users", "первые пользователи", r"первы\w* пользовател|бета|\bbeta\b|лист ожидания|waitlist|ранни\w* пользовател|early adopter|пилот"),
+    ("platform_accounts", "аккаунты платформ", r"аккаунт разработчика|developer account|app store|google play|rustore|botfather|магазин\w* приложений|кабинет разработчика"),
+]
 FREE_RE = re.compile(r"бесплатн|\bfree\b|\bfree-|freemium|даром", re.I)
 PAID_RE = re.compile(r"\bpro\b|платн|\bpaid\b|premium|премиум|подписк|тариф", re.I)
 SECTIONS = {"Предпосылки": r"предпосылк|prerequisit", "Пробелы": r"пробел|gaps?\b", "Конфликты": r"конфликт|противореч|conflict"}
@@ -79,10 +86,15 @@ def text_of(p):
     return " ".join([str(p.get("description") or ""), str(p.get("rationale") or ""), steps, str(p.get("current_feature") or "")])
 
 
-def family_hits(text):
+def families_for(cfg):
+    """Семейства предпосылок: в режиме идеи добавляются предпосылки запуска (юрлицо, прототип, первые пользователи, аккаунты)."""
+    return PREREQ_FAMILIES + (CONCEPT_FAMILIES if (cfg or {}).get("mode") == "concept" else [])
+
+
+def family_hits(text, families=None):
     low = str(text or "").lower().replace("ё", "е")
     out = {}
-    for key, _, rx in PREREQ_FAMILIES:
+    for key, _, rx in families or PREREQ_FAMILIES:
         found = sorted({m.group(0) for m in re.finditer(rx, low)})
         if found:
             out[key] = found[:6]
@@ -199,17 +211,18 @@ def build_facts(out_dir, top_n=30, bets_arg=None, sim_min=0.18):
                                  "text": "%s (ранг %d) зависит от %s (ранг %d) — ниже топ-%d" % (p["id"], rank[p["id"]], u, rank[u], warn_below)})
     # ключевые слова предпосылок без зависимостей
     providers = {}
-    for key, _, rx in PREREQ_FAMILIES:
+    families = families_for(cfg)
+    for key, _, rx in families:
         providers[key] = [p["id"] for p in ordered if re.search(rx, str(p.get("title") or "").lower().replace("ё", "е"))]
     flags = []
     scan = top + [by_id[b] for b in bet_ids if b not in top_ids]
     for p in scan:
         if prereq[p["id"]]:
             continue
-        hits = family_hits(text_of(p))
-        own = family_hits(p.get("title"))
+        hits = family_hits(text_of(p), families)
+        own = family_hits(p.get("title"), families)
         fam = []
-        for key, label, _ in PREREQ_FAMILIES:
+        for key, label, _ in families:
             if key not in hits or key in own:
                 continue
             if key == "analytics" and p.get("category") == "analytics":
@@ -276,7 +289,9 @@ def build_facts(out_dir, top_n=30, bets_arg=None, sim_min=0.18):
              "dependency_warnings": dep_warn, "keyword_flags": flags, "similar_pairs": similar,
              "free_vs_paid": fvp, "free_vs_paid_pairs": fvp_pairs, "coverage": coverage,
              "critical_path": cp.get("order") or [], "cycles": cp.get("cycles") or [], "unknown_dependencies": unknown,
-             "families": [{"key": k, "label": lab, "pattern": rx} for k, lab, rx in PREREQ_FAMILIES]}
+             "families": [{"key": k, "label": lab, "pattern": rx} for k, lab, rx in families]}
+    if cfg.get("mode") == "concept":
+        facts["mode"] = "concept"
     return facts
 
 
@@ -359,6 +374,10 @@ def render_md(f):
           "2. Каких предложений не хватает, чтобы ставки сработали (пробелы)?",
           "3. Какие предложения конфликтуют или дублируют существующую функцию (см. разделы 5–6 и current_feature)?",
           "4. Какие предпосылки дописать в `data/gap-audit-deps.json` (`{\"P035\": [\"P031\", \"P032\"]}`)?", ""]
+    if f.get("mode") == "concept":
+        L[-1:-1] = ["5. Режим идеи: продукта ещё нет. Что нужно до запуска MVP — юрлицо или форма работы (самозанятость, ИП), домен, "
+                    "прототип, первые пользователи (лист ожидания, пилот), аккаунты платформ (магазины приложений, мессенджеры, "
+                    "платёжные сервисы)? Есть ли это в реестре — какие id? Нет — черновик G7-NN."]
     return "\n".join(L)
 
 

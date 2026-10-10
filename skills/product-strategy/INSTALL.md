@@ -93,6 +93,19 @@ https://github.com/OrionFLASH/claude-code-skills (папка skills/product-stra
 5) Итог: версия было -> стало, результат проверки, нужна ли новая сессия (да, если обновлялся плагин).
 ````
 
+### Промпт: проверка режима «идея → концепция» после установки или обновления
+
+````text
+Проверь, что в установленном плагине product-strategy работает режим «идея → концепция» (версия 1.3.0 и выше).
+Отвечай по-русски, ничего не ставь без моего «да».
+1) Версия: claude plugin list -> product-strategy (нужна >= 1.3.0). Если старее - выполни промпт «обновление» выше.
+2) В НОВОЙ сессии (или после /reload-plugins) проверь, что видны скилл product-strategy:product-concept и команда
+   /product-strategy:concept. Не видны - покажи вывод `claude plugin validate <папка плагина>` и скажи, что исправить.
+3) Демо без сети и без моих данных: python3 <SKILL_DIR>/scripts/make_concept_demo.py /tmp/pc-demo
+   && python3 <SKILL_DIR>/scripts/build_all.py /tmp/pc-demo --skip links; покажи итоговую строку.
+4) Покажи, как запускать: /product-strategy:concept <идея>, метки !concept / concept: / !идея.
+````
+
 ### Промпт: отслеживание выполнения стратегии
 
 ````text
@@ -151,9 +164,10 @@ claude plugin install product-strategy@claude-code-skills
 git clone https://github.com/OrionFLASH/claude-code-skills.git ~/dev/claude-code-skills
 ~/dev/claude-code-skills/tools/install.sh product-strategy        # Windows: tools\install.ps1 product-strategy
 ```
+Создаются **две** ссылки: `~/.claude/skills/product-strategy` и `~/.claude/skills/product-concept` (режим идеи, с 1.3.0).
 
 ### Способ 3. Ручное копирование
-Скопируйте `skills/product-strategy` в `~/.claude/skills/product-strategy`.
+Скопируйте `skills/product-strategy` в `~/.claude/skills/product-strategy` и `skills/product-strategy/product-concept` в `~/.claude/skills/product-concept` (режим идеи, с 1.3.0).
 
 ## Проверка
 ```bash
@@ -163,6 +177,8 @@ python3 "$S/scripts/make_demo.py" /tmp/ps-demo && python3 "$S/scripts/build_all.
 python3 "$S/scripts/check_env.py" --install-node && python3 "$S/scripts/build_all.py" /tmp/ps-demo --skip links
 ```
 Ожидаемо: `check_env` — «Итог: можно работать»; `build_all` — шаги `OK` или `SKIP` с причиной, итог «всё собрано»; в `/tmp/ps-demo/deliverables/` — `index.html`, `strategy.xlsx` (и `strategy.pptx`, `strategy.pdf`, если поставлены Node-модули).
+
+Режим идеи (с 1.3.0): `python3 "$S/scripts/make_concept_demo.py" /tmp/pc-demo && python3 "$S/scripts/build_all.py" /tmp/pc-demo --skip links` — ожидаемо тот же итог «всё собрано». Плагин даёт **два скилла**: `product-strategy` (стратегия по репозиторию) и `product-concept` (идея → концепция; команда `/product-strategy:concept`).
 
 Только что установленный скилл виден в **новой** сессии Claude Code. В текущей можно прочитать `<SKILL_DIR>/SKILL.md` и идти по шагам вручную.
 
@@ -188,7 +204,7 @@ python3 "$S/scripts/check_env.py" --install-node && python3 "$S/scripts/build_al
 claude plugin marketplace update claude-code-skills
 claude plugin update product-strategy@claude-code-skills       # затем новая сессия или /reload-plugins
 ```
-При установке клоном достаточно `git -C ~/dev/claude-code-skills pull --ff-only`. Изменения по версиям описаны в `CHANGELOG.md`, релизы помечены тегами `product-strategy/vX.Y.Z`.
+При установке клоном достаточно `git -C ~/dev/claude-code-skills pull --ff-only`. Если скил поставлен ссылками (`tools/install.sh`), после обновления клона выполните `tools/install.sh product-strategy` ещё раз: он создаст и вторую ссылку `~/.claude/skills/product-concept` (при установке плагином она не нужна — оба скилла приходят вместе). Обновление до 1.3.0 ничего не меняет в прежних прогонах: режим идеи — отдельный вход, данные совместимы. Изменения по версиям описаны в `CHANGELOG.md`, релизы помечены тегами `product-strategy/vX.Y.Z`.
 
 ## Переменные окружения
 | Переменная | Что делает |

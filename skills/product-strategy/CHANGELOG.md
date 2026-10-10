@@ -2,6 +2,18 @@
 
 Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/), версии — SemVer, теги `product-strategy/vX.Y.Z`.
 
+## [1.3.0] — 2026-10-11
+**Режим «Идея → концепция нового продукта»**: отдельный скилл `product-concept` в этом же плагине. Продукта ещё нет — есть идея в 1–2 фразах.
+
+### Добавлено
+- **Запуск**: команда `/product-strategy:concept <идея>`, скилл `/product-strategy:product-concept`, метки `!concept` / `concept:` / `!идея`, подхват по смыслу с подтверждением, автопилот. Плагин теперь содержит два скилла (`plugin.json → skills`); `tools/install.sh` и `install.ps1` создают отдельную ссылку и на вложенные скилы.
+- **Опрос ≥ 15 вопросов об идее**: `intake.py concept-setup` (число вопросов 15 / 25 / 40 / своё ≥ 15, глубина, форматы, папка «спрашивать каждый раз»), `concept-questions` (банк из 40 вопросов в 9 темах; первые 15 покрывают все темы; пачки по ≤ 4 для `AskUserQuestion`), `concept-apply` (запись `run-config.json` с `mode: concept`, блок `idea`, защита «ВНУТРИ / ВНЕ репозитория»), `concept-defaults` (автопилот).
+- **Досье идеи** (`concept_dossier.py`): `research/idea-dossier.md`, `data/idea.json`, поисковый план и затравки реестра вместо анализа репозитория.
+- **Предпроверка жизнеспособности** (`typesafe_concept.py`): 8 вопросов Jev → светофор go / оговорки / стоп; без ключа — эвристика, честно помеченная.
+- **Брифы режима идеи**: `concept-analogs.md` (конкуренты и аналоги: прямые, косвенные, заменители, аналоги из соседних сфер, вдохновение, анти-примеры, уроки), `concept-canvas.md` (SWOT с сильными и слабыми сторонами, JTBD, персоны, Value Proposition Canvas, Lean Canvas, названия, позиционирование), `concept-design.md` (три направления языка дизайна, `tokens.css`, макеты ключевых экранов); раздел «Режим идеи» в `registry-generator.md`; `references/concept-outline.md` (структура текста концепции).
+- Конвейер (`build_all`, `init_run`, `gap_audit`, `facts_scaffold`, `assemble_strategy`, `build_html`, `check_registry`) понимает `mode: concept`; страница получает заголовок «Концепция продукта» и блок «Жизнеспособность идеи»; `make_concept_demo.py` — демо без сети.
+- Справочник `references/concept-mode.md`, README, INSTALL (промпт проверки режима, две ссылки при установке клоном), тесты `tests/test_concept.py`.
+
 ## [1.2.1] — 2026-10-10
 Исправление: результат прогона оказывался вне репозитория, хотя пользователь ожидал папку внутри.
 

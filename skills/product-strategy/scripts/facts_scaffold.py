@@ -11,6 +11,7 @@
     (data/mockups-index.json), референсы (design-refs/*.json), плейсхолдеры {rank:…}/{deprank:…}/![[mockup:?P…]];
   - расхождения с product-understanding.md (data/fact-check.json, если есть);
   - число предложений по категориям и классам доказательств, «что уже есть» (data/repo-scan.json);
+  - режим идеи (mode: concept): идея и светофор предпроверки (data/idea.json, data/typesafe-concept.json), без репозитория;
   - три сценария модели (data/model.json), развилки владельца (research/questions-owner.md);
   - заготовки `<заполнить>`: три ставки, North Star, критерии отказа, pre-mortem, анти-цели, запреты.
 Только факты из файлов — ничего не выдумывается; нет файла — раздел помечается «нет данных». Метки достоверности: [факт: …], [оценка: …], [допущение].
@@ -88,8 +89,18 @@ def sec_product(cfg):
             ["глубина", st.get("depth")], ["горизонт", "%s мес. + видение %s лет" % (st.get("horizon_months"), st.get("vision_years"))],
             ["рынки", ", ".join(st.get("markets") or [])], ["бюджетные варианты", ", ".join((st.get("budget") or {}).get("variants") or [])],
             ["язык", cfg.get("language")]]
-    for k, label in (("goal", "цель проекта"), ("repo_visibility", "видимость репозитория"), ("publish_code", "публикация кода"),
-                     ("currency", "валюта"), ("team_size", "размер команды")):
+    concept = cfg.get("mode") == "concept"
+    if concept:     # режим идеи: продукта и репозитория нет — их параметры не выводятся
+        idea = cfg.get("idea") or {}
+        rows.insert(1, ["стадия", "идея (продукта ещё нет)"])
+        rows.insert(2, ["идея", cell(idea.get("pitch") or "—", 300)])
+        rows.append(["модель дохода", st.get("monetization") or "—"])
+        if st.get("success_criteria"):
+            rows.append(["критерий успеха", st["success_criteria"]])
+    keys = (("goal", "цель проекта"), ("currency", "валюта"), ("team_size", "размер команды")) if concept else \
+        (("goal", "цель проекта"), ("repo_visibility", "видимость репозитория"), ("publish_code", "публикация кода"),
+         ("currency", "валюта"), ("team_size", "размер команды"))
+    for k, label in keys:
         if pj.get(k) not in (None, ""):
             rows.append([label, pj[k]])
     return L + [table(["параметр", "значение"], rows), ""]
@@ -174,7 +185,34 @@ def sec_northstar():
             "**Анти-цели** (3–5 вещей, которые сознательно не делаем в горизонте, и почему): %s" % FILL, ""]
 
 
-def sec_exists(out):
+def sec_concept(out):
+    """Режим идеи: что известно об идее и итог предпроверки жизнеспособности (data/idea.json, data/typesafe-concept.json)."""
+    idea = load_json(out / "data" / "idea.json", None)
+    L = ["## Идея и предпроверка жизнеспособности", ""]
+    if isinstance(idea, dict):
+        L.append("Идея: %s [факт: ответ владельца]. Тип: %s; аудитория: %s; рынки: %s; модель: %s [факт: data/idea.json]." % (
+            cell(idea.get("pitch") or "—", 400), idea.get("product_type_label") or idea.get("product_type") or "—",
+            idea.get("segment_label") or "—", ", ".join(idea.get("markets") or []) or "—", idea.get("monetization_label") or "—"))
+        oq = idea.get("open_questions") or []
+        L.append("Открытых вопросов по идее: %d (список — `research/idea-dossier.md`)." % len(oq))
+    else:
+        L.append(NO_DATA + " (нет data/idea.json — запустите concept_dossier.py).")
+    ts = load_json(out / "data" / "typesafe-concept.json", None)
+    if isinstance(ts, dict) and ts.get("verdict"):
+        L.append("Светофор: **%s** — %s (viability %s, риск %s; источник %s, уверенность %s) [оценка: typesafe_concept.py]." % (
+            ts["verdict"], ts.get("verdict_label") or "", ts.get("viability"), ts.get("risk"), ts.get("source"), ts.get("confidence")))
+        if ts.get("check_first"):
+            L.append("Проверить в первую очередь: %s." % ", ".join(ts["check_first"]))
+    else:
+        L.append(NO_DATA + " (нет data/typesafe-concept.json — запустите typesafe_concept.py).")
+    return L + [""]
+
+
+def sec_exists(out, cfg=None):
+    if (cfg or {}).get("mode") == "concept":
+        return ["## Что уже есть (не предлагать как новое)", "",
+                "Продукта ещё нет (режим идеи): все предложения — новые, `current_feature` — «нет (продукта ещё нет)». "
+                "Опора — `research/idea-dossier.md` и `data/idea.json`; аналоги и их решения — `data/competitors.json`.", ""]
     rs = load_json(out / "data" / "repo-scan.json", None)
     L = ["## Что уже есть (не предлагать как новое)", ""]
     feats = [f.get("name") for f in (rs or {}).get("features") or [] if isinstance(f, dict) and f.get("name")] if isinstance(rs, dict) else []
@@ -187,8 +225,9 @@ def sec_exists(out):
     return L
 
 
-def sec_factcheck(out):
-    L = ["## Расхождения с product-understanding.md", ""]
+def sec_factcheck(out, cfg=None):
+    L = ["## Расхождения с досье идеи (research/idea-dossier.md)" if (cfg or {}).get("mode") == "concept"
+         else "## Расхождения с product-understanding.md", ""]
     fc = load_json(out / "data" / "fact-check.json", None)
     if fc is None:
         return L + [NO_DATA + ": data/fact-check.json нет (сверка фактов не проводилась или расхождений не найдено).", ""]
@@ -321,12 +360,15 @@ def build(out, n):
     L = [MARKER, "# Факт-лист для авторов стратегии" + (": %s" % name if name else ""), "",
          "Каркас собран `facts_scaffold.py` %s из файлов прогона. Метка «%s» — место для оркестратора; все числа — из `data/*.json`. "
          "Метки достоверности в тексте: `[факт: источник, дата]`, `[оценка: метод]`, `[допущение]`." % (date.today().isoformat(), FILL), "",
+         ("Топ-20 и подробности по P-id — вместе с `data/scores.json`; режим идеи — продукта ещё нет, идею и ответы владельца сверять с "
+          "`research/idea-dossier.md`%s." % ("" if (out / "research" / "idea-dossier.md").exists() else " (файла пока нет)"))
+         if cfg.get("mode") == "concept" else
          "Топ-20 и подробности по P-id — вместе с `data/scores.json`; существование функций сверять с `research/product-understanding.md`%s." %
          ("" if (out / "research" / "product-understanding.md").exists() else " (файла пока нет)"), ""]
-    for part in (sec_product(cfg), sec_goal(cfg),
+    for part in (sec_product(cfg), sec_goal(cfg), sec_concept(out) if cfg.get("mode") == "concept" else [],
                  sec_top(scores, props, n, "rank", "Топ-%d по рангу" % n),
                  sec_top(scores, props, n, "dep_rank", "Топ-%d по рангу с учётом зависимостей (dep_rank)" % n),
-                 sec_bets(scores, props), sec_bets_template(), sec_northstar(), sec_exists(out), sec_factcheck(out), sec_counts(props),
+                 sec_bets(scores, props), sec_bets_template(), sec_northstar(), sec_exists(out, cfg), sec_factcheck(out, cfg), sec_counts(props),
                  sec_model(out), sec_keys(out), sec_questions(out), sec_bans(cfg)):
         L += part
     return "\n".join(L).rstrip() + "\n"
