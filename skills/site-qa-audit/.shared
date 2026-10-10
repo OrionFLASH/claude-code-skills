@@ -9,5 +9,7 @@ qa_recheck.py
 qa_direct.py
 qa_snapshot.py
 qa_threads.py
+qa_clips.py
 tests/doc_commands.py
 tests/qa_force_check.py
+tests/qa_clips_check.py

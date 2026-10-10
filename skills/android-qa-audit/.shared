@@ -12,6 +12,8 @@ qa_direct.py
 qa_issueforms.py
 qa_known.py
 qa_attachments.py
+qa_clips.py
 tests/doc_commands.py
 tests/doc_zsh.py
 tests/qa_force_check.py
+tests/qa_clips_check.py

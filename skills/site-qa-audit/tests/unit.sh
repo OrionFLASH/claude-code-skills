@@ -65,13 +65,15 @@ set +e; "$PY" "$S/url_guard.py" action --text "×" --name Delete --context "todo
 node -e "const s=require('fs').readFileSync(process.argv[1],'utf8').replace('__ALLOWED_RE__','^https://example\\.com/?(#.*)?$'); const f=new Function('return ('+s.replace(/^\s*\/\/.*$/mg,'')+')')(); if (typeof f!=='function') process.exit(1)" "$S/nav_lock.js" && ok "nav_lock.js: синтаксис" || bad "nav_lock.js: синтаксис"
 
 # 1.1.0: syntax of new scripts (no browser, no network)
+"$PY" "$HERE/helpers/shared/qa_clips_check.py" "$S/shared" > "$TMP/qa_clips.log" 2>&1 \
+  && ok "qa_clips: общее ядро роликов ($(grep -c '^PASS' "$TMP/qa_clips.log") проверок)" || { cat "$TMP/qa_clips.log"; bad "qa_clips"; }
 for f in claims intake journal build_report gitignore_helper export_results skill_dir ingest_findings recheck direct_publish tabs \
-         runcfg skill_snapshot local_app browser_mode brief thread_coverage e2e_stub publish_shots \
-         shared/qa_gitignore shared/qa_export shared/qa_ingest shared/qa_recheck shared/qa_direct shared/qa_snapshot shared/qa_threads; do
+         runcfg skill_snapshot local_app browser_mode brief thread_coverage e2e_stub publish_shots clips \
+         shared/qa_clips shared/qa_gitignore shared/qa_export shared/qa_ingest shared/qa_recheck shared/qa_direct shared/qa_snapshot shared/qa_threads; do
   "$PY" -c "import ast,sys; ast.parse(open(sys.argv[1],encoding='utf-8').read(), sys.argv[1])" "$S/$f.py" 2>"$TMP/pyc.err" \
     && ok "syntax $f.py" || { cat "$TMP/pyc.err"; bad "syntax $f.py"; }
 done
-for f in guard invariants occlusion reachability device_context shot frames annotate targets repro legal_guest rtl a11y lib lighthouse \
+for f in guard invariants occlusion reachability device_context shot clip frames annotate targets repro legal_guest rtl a11y lib lighthouse \
          e2e_run mcp_guard mcp_check e2e/playwright.config e2e/shim/@playwright/test/index; do
   node --check "$S/node/$f.js" && ok "node --check $f.js" || bad "node --check $f.js"
 done
@@ -121,6 +123,11 @@ PY="$PY" bash "$HERE/test_v140.sh" > "$TMP/v140.log" 2>&1 \
 PY="$PY" bash "$HERE/test_v150.sh" > "$TMP/v150.log" 2>&1 \
   && ok "v1.5.0 ($(tail -1 "$TMP/v150.log"))" || { cat "$TMP/v150.log"; bad "v1.5.0"; }
 
+# 1.7.0: clips of findings — clips.py (finalize/check/viewed/policy on an ffmpeg-generated clip), ingest with clips,
+# «Ролики находок» in the report, drafts with viewed clips only, publish_shots local, export_results --clips, check_env
+PY="$PY" bash "$HERE/test_v170.sh" > "$TMP/v170.log" 2>&1 \
+  && ok "v1.7.0 ($(tail -1 "$TMP/v170.log"))" || { cat "$TMP/v170.log"; bad "v1.7.0"; }
+
 # Browser suites B and C: need node + scripts/node/node_modules/playwright + Chromium; otherwise SKIP.
 # Set QA_SKIP_BROWSER=1 to skip them explicitly.
 have_browser=0
@@ -138,6 +145,9 @@ if [ $have_browser -eq 1 ]; then
     && ok "v1.4.0 browser file:// ($(grep '^stream v1.4.0 browser:' "$TMP/v140b.log" | tail -1))" || { tail -n 30 "$TMP/v140b.log"; bad "v1.4.0 browser"; }
   PY="$PY" bash "$HERE/test_v150_browser.sh" > "$TMP/v150b.log" 2>&1 \
     && ok "v1.5.0 browser ($(grep '^stream v1.5.0 browser:' "$TMP/v150b.log" | tail -1))" || { tail -n 30 "$TMP/v150b.log"; bad "v1.5.0 browser"; }
+  # clip.js: a local page over http://127.0.0.1 (screencast, recordVideo, CDP, login/payment refusal, guard); no ffmpeg — SKIP
+  PY="$PY" bash "$HERE/test_v170_browser.sh" > "$TMP/v170b.log" 2>&1 \
+    && ok "v1.7.0 browser clips ($(grep '^stream v1.7.0 browser:' "$TMP/v170b.log" | tail -1))" || { tail -n 30 "$TMP/v170b.log"; bad "v1.7.0 browser clips"; }
 else
   echo "SKIP stream B/C: нет node, playwright (cd scripts/node && npm install) или Chromium (npx playwright install chromium)"
 fi

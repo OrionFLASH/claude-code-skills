@@ -24,12 +24,17 @@
 //        {{qa-shot:file.png}} in its body are replaced by attachments uploaded through the comment box (not submitted);
 //        ONE issue number per call (several at once failed with 404 on the second one); the issue page is re-opened
 //        on 404 with a growing pause. Missing files stop the run before the browser is touched.
+//   Clips (1.7.0, references/clips.md): --shot / placeholders may name .mp4 / .mov / .webm (and the clip's .gif); the
+//   draft link «[▶ ролик…](…/F-004.mp4)» becomes a placeholder, GitHub shows a player. GitHub limit — 10 MB per file:
+//   a bigger file stops the run BEFORE the browser is touched ([--max-attach-mb N] when the plan allows more).
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import * as L from './web_upload_lib.mjs';
 
 const { EXIT, StopError } = L;
+
+const maxMb = (a) => (a['max-attach-mb'] && a['max-attach-mb'] !== true ? Number(a['max-attach-mb']) : L.ATTACH_LIMIT_MB) || L.ATTACH_LIMIT_MB;
 
 async function main() {
   const a = L.parseArgs(process.argv.slice(2));
@@ -55,7 +60,7 @@ async function main() {
   if (a['attach-to'] !== undefined) return attachExisting(a, { repo, bin, base, issueTpl, cdp, throttle, uploadTimeout });
   if (!a.title || a.title === true) throw new StopError(EXIT.USAGE, 'Нужен --title.');
   const shots = a.shot.map(s => path.resolve(s));
-  L.checkShots(shots);
+  L.checkShots(shots, maxMb(a));
   const rawBody = L.readText(a['body-file'], '--body-file');
   const body = L.preparePlaceholders(rawBody, shots);
   const loginUrl = L.fillTemplate(loginTpl, { base, repo });
@@ -162,7 +167,7 @@ async function attachExisting(a, { repo, bin, base, issueTpl, cdp, throttle, upl
     if (!f || !fs.existsSync(f)) throw new StopError(EXIT.USAGE, `Нет файла для плейсхолдера «${p.token}»: ${f || p.name} (--shot или --shots-dir). Ничего не изменено.`);
     files.push({ ...p, file: f });
   }
-  L.checkShots([...new Set(files.map(f => f.file))]);
+  L.checkShots([...new Set(files.map(f => f.file))], maxMb(a));
   const steps = [
     `gh api repos/${repo}/issues/${number}: плейсхолдеров ${ph.length} (${ph.map(p => p.name).join(', ')})`,
     `открыть ${L.fillTemplate(issueTpl, { base, repo, number })} (при 404 — повтор с паузой), проверить вход`,

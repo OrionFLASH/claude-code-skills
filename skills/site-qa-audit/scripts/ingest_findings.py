@@ -13,6 +13,9 @@ orchestrator saves the message and runs this script. ONE PLACE OF TRUTH after th
 A repeated notification with the same message changes nothing («уже принято», exit 0; --force — ingest again).
 Validation — templates/finding.schema.json (id and fingerprint are assigned here and by fingerprint.py compute); a
 finding without dup_check gets "skipped" (with a warning: the orchestrator checks it with fingerprint.py match).
+Clips (1.7.0, references/clips.md): `clips` of a finding — entries of clip.js / clips.py finalize or plain paths
+(clips/F-004-menu.mp4). Accepted only inside <RUN_DIR> with a clip extension and an existing file (others are dropped
+with a warning); paths become entries with size, duration and sha256; over the budget ×1.05 — a warning.
 Logic — shared/scripts/qa_ingest.py + shared/scripts/qa_threads.py.
 Exit codes: 0 ok (or duplicate), 1 invalid findings (nothing written without --partial), 2 no block / bad input.
 """
@@ -25,6 +28,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE / "shared"))
 sys.path.insert(0, str(HERE))
+import clips  # noqa: E402 — clips of findings: validation and entries (references/clips.md)
 import miniyaml  # noqa: E402
 import qa_ingest  # noqa: E402
 import qa_threads  # noqa: E402
@@ -38,6 +42,7 @@ EXAMPLE = """```qa-findings
    "title": "Что не так и где", "url": "<URL>", "steps": ["1. …"], "expected": "…", "actual": "…",
    "screenshots": ["screenshots/<qa-id>-01-annotated.png"],
    "repro": {"url": "<URL>", "js": "<выражение: true, если дефект есть>"},
+   "clips": ["clips/<qa-id>-01-menu.mp4"],
    "dup_check": "done", "dup_of": null, "dup_candidates": [],
    "variant": null, "verify": "<как проверить исправление: до — да, после — нет>",
    "sources": ["own:checklist"]}
@@ -49,6 +54,7 @@ EXAMPLE = """```qa-findings
 ```
 findings — МАССИВ (может быть пустым). dup_check: done — сверено со срезом реестра из задания, skipped — не сверялось.
 category у not_checked: time | forbidden | auth | environment | data | other (вторая волна — thread_coverage.py again).
+clips — необязательно: ролики clip.js (запись из его вывода или путь внутри <RUN_DIR>/clips/), только если дефект виден во времени.
 Проверить блок до отправки: python3 <SKILL_DIR>/scripts/validate_findings.py --array - (JSON блока на stdin)."""
 
 
@@ -99,8 +105,26 @@ def main(argv):
     if not rep["blocks"]:
         print(json.dumps(rep, ensure_ascii=False, indent=1))
         return 2
+    cfg = clips.load_cfg(run_dir)
+    if a.dry_run:  # what would happen with the clips: warnings only
+        for p in qa_ingest.extract_blocks(text)[0]:
+            for f in p.get("findings") or []:
+                if isinstance(f, dict) and f.get("clips"):
+                    rep["warnings"] += clips.normalize_finding_clips(json.loads(json.dumps(f)), run_dir, cfg)
     if not a.dry_run and (rep["written"] or not rep["errors"]):
         fpath = run_dir / "findings.json"
+        added = set(rep["added"])
+        if fpath.exists() and added:
+            data = json.loads(fpath.read_text(encoding="utf-8"))
+            touched = False
+            for f in data.get("findings") or []:
+                if f.get("id") in added and f.get("clips") not in (None, []):
+                    rep["warnings"] += clips.normalize_finding_clips(f, run_dir, cfg)
+                    touched = True
+            if touched:
+                tmp = fpath.with_suffix(".json.tmp")
+                tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+                tmp.replace(fpath)
         filled = qa_threads.fill_dup_check(fpath, set(rep["added"]))
         if filled:
             rep["warnings"].append(f"dup_check не указан у {', '.join(filled)} — записано skipped: сверить с реестром "

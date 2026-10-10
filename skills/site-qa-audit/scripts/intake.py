@@ -7,7 +7,9 @@
       (disclosure, cross links, closed_claims), devices and browsers, auth mode, account states,
       depth, mode, directions, prohibitions (→ rules.forbidden_actions / require_confirmation_actions),
       side-effect hints, parallel threads (parallel.max_workers: 1..4, default 2, shared login session -> 1),
-      explicit permission to commit the results (git.allow_commit_results; default false → qa-runs/ in .gitignore).
+      explicit permission to commit the results (git.allow_commit_results; default false → qa-runs/ in .gitignore),
+      clips of findings (1.7.0, references/clips.md): «с видео», «запиши ролики» → clips.mode: on; «без видео»,
+      «без роликов» → off; otherwise auto (a clip only when the defect is visible in time).
       Everything not recognised is listed under "needs confirmation".
       The draft is NOT final: show the summary to the user and wait for "старт" (references/intake.md).
       Data variants and stands (several stands / data sets / roles named) -> variants[] and a note to include each in
@@ -33,6 +35,8 @@ from urllib.request import url2pathname
 sys.path.insert(0, str(Path(__file__).resolve().parent / "shared"))
 import miniyaml  # noqa: E402
 import qa_gitignore  # noqa: E402 — commit_permission(): explicit permission to commit the results
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import runcfg  # noqa: E402 — clips_block(): `clips:` with the defaults of qa_clips
 
 
 def skill_dir_of_run():
@@ -105,6 +109,12 @@ def strip_www(h):
 
 VARIANTS_RX = re.compile(r"стенд|окружени[ея] (тест|пред|прод)|\bstag(e|ing)\b|pre-?prod|пре-?прод|\buat\b|"
                          r"набор\w* данных|вариант\w* данных|тестов\w+ данн|боев\w+ данн|test data|data sets?", re.I)
+# Clips of findings (references/clips.md): «без видео» is checked first — it also contains «видео».
+CLIPS_OFF_RX = re.compile(r"без (видео|ролик|записи (экрана|видео))|не (записыва|снима)\w* (видео|ролик)|видео не (нужн|надо)|"
+                          r"ролики не (нужн|надо)|\bno (videos?|clips?|screencasts?)\b|without (videos?|clips?)", re.I)
+CLIPS_ON_RX = re.compile(r"\bс видео|с (видео)?ролик|видео ?ролик\w* (наход|ошиб|баг)|запиш\w* (видео|ролик|скринкаст)|"
+                         r"сним\w* (видео|ролик)|(видео|ролик\w*) (для|к|на) (кажд|все|наход|ошиб|баг)|скринкаст|"
+                         r"\bwith (videos?|clips?|screencasts?)\b|record (videos?|clips?|screencasts?)", re.I)
 AUTOPILOT_RX = re.compile(r"--autopilot|автопилот|\bautopilot\b|без (лишних )?вопросов|не (задавай|задавая) вопрос|"
                           r"не спрашивай|без опроса", re.I)
 
@@ -228,6 +238,12 @@ def parse(text, output_dir=None):
         headed = False
     slow = re.search(r"(замедл\w*|slow-?mo)\D{0,12}(\d{2,5})?", low)
     cfg["browser"] = {"headed": headed, "slowmo": int(slow.group(2)) if slow and slow.group(2) else (500 if slow else None)}
+
+    # clips of findings: explicit wish only; auto — a clip when the defect is visible in time (qa_clips.should_record)
+    clips_mode = "off" if CLIPS_OFF_RX.search(low) else "on" if CLIPS_ON_RX.search(low) else "auto"
+    cfg["clips"] = runcfg.clips_block(clips_mode)
+    if clips_mode != "auto":
+        notes.append(f"ролики находок: clips.mode = {clips_mode} (из запроса) — references/clips.md")
 
     # repositories with roles and publication settings
     repo_list = []
@@ -364,6 +380,8 @@ def autopilot_defaults(cfg, notes, missing, text):
         decisions.append(f"потоков: {cfg['parallel']['max_workers']} (по умолчанию)")
     decisions.append(f"режим: {cfg.get('mode')}" + (" — публикация только после «да» на сводную таблицу" if cfg.get("mode") == "live"
                                                     else " — черновики, без публикации (разрешения публиковать в запросе нет)"))
+    if (cfg.get("clips") or {}).get("mode") == "auto" and not (CLIPS_ON_RX.search(low) or CLIPS_OFF_RX.search(low)):
+        decisions.append("ролики находок: auto — только когда дефект виден во времени (references/clips.md)")
     if not cfg.get("variants"):
         decisions.append("варианты данных и стендов: один (не названы) — риск: другие стенды и наборы данных не проверены, "
                          "сказать об этом в отчёте")

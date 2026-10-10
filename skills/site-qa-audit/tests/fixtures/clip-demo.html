@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Демо ролика</title>
+<!-- Фикстура clip.js (tests/test_v170_browser.sh): меню открывается и само закрывается через 0,6 с (дефект во времени). -->
+<style>
+  body { font: 18px/1.5 -apple-system, "Segoe UI", Arial, sans-serif; margin: 0; background: #f4f6fb; color: #1d2330; }
+  header { display: flex; gap: 16px; align-items: center; padding: 18px 28px; background: #fff; box-shadow: 0 1px 4px #0002; }
+  #menu-btn { font: inherit; padding: 8px 18px; border: 1px solid #3c64d8; border-radius: 8px; background: #3c64d8; color: #fff; cursor: pointer; }
+  .email { margin-left: auto; color: #555; }
+  #menu { position: absolute; top: 74px; left: 28px; width: 260px; background: #fff; border-radius: 10px; box-shadow: 0 6px 24px #0003;
+          padding: 10px 0; opacity: 0; transform: translateY(-8px); transition: opacity .2s, transform .2s; pointer-events: none; }
+  #menu.open { opacity: 1; transform: none; pointer-events: auto; }
+  #menu a { display: block; padding: 8px 18px; color: #1d2330; text-decoration: none; }
+  main { padding: 140px 28px; max-width: 760px; }
+</style></head>
+<body>
+<header><button id="menu-btn" type="button">Меню</button><strong>Демо-магазин</strong><span class="email">user@example.com</span></header>
+<nav id="menu" aria-label="Меню"><a href="#a">Каталог</a><a href="#b">Доставка</a><a href="#c">Контакты</a></nav>
+<main><h1>Главная</h1><p>Меню должно оставаться открытым, пока пользователь не выберет пункт.</p></main>
+<script>
+  const btn = document.getElementById('menu-btn'), menu = document.getElementById('menu');
+  btn.addEventListener('click', () => { menu.classList.add('open'); setTimeout(() => menu.classList.remove('open'), 600); });
+</script>
+</body></html>

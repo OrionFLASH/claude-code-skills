@@ -12,7 +12,9 @@
       (parallel.max_workers 1..4), explicit permission to commit results / APK (git.allow_commit_results / _apk).
       Publication disclosure (publish.disclosure: tool by default; none only when the user asks for no mention of
       the tool), hints: Cyrillic input (text --clipboard / ADBKeyBoard), voice/audio apps (mic-inject, audio-voice
-      checklist, soak). Everything not recognised is listed under "needs confirmation". The draft is NOT final:
+      checklist, soak), clips of findings (clips.mode: «с видео / запиши ролики» → on, «без видео / без роликов» →
+      off, otherwise auto; the other clips keys get the defaults of qa_clips.settings, references/clips.md).
+      Everything not recognised is listed under "needs confirmation". The draft is NOT final:
       show it to the user and wait for «старт» (references/intake.md).
       --lite — exploratory run (intake.md → «Лёгкий режим»): one stand, no matrix; the output adds `lite.questions`
       (only what is unclear — ONE AskUserQuestion) and `lite.plan` (what will be done, in order); after the answer
@@ -28,6 +30,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "shared"))
 import miniyaml  # noqa: E402
+import qa_clips  # noqa: E402 — defaults of the clips: section (1.5.0)
 import qa_gitignore  # noqa: E402 — commit_permission(): explicit permission to commit results / APK
 
 MAX_WORKERS = 4
@@ -120,6 +123,12 @@ TOPICS = [
 ]
 ALLOW_TEXTS = ["Разрешить", "При использовании приложения", "Только в этот раз", "Разрешить в любом режиме", "Allow",
                "While using the app", "Only this time", "Allow all the time"]
+# Clips of findings (1.5.0): «без видео» wins over «с видео» in the same request only when it is said explicitly.
+CLIPS_OFF = re.compile(r"без (видео|ролик\w*|записи экрана|скринкаст\w*)|не (записывай|снимай|нужны|надо)\w*\s+(видео|ролик\w*)|"
+                       r"видео(-?ролики)? не нужн|no (video|clips|screen ?recording)|without (video|clips)", re.I)
+CLIPS_ON = re.compile(r"с (видео|ролик\w*|записью экрана)|запиш\w* (видео|ролик\w*)|запис\w* (видео|ролик\w*) (каждой|всех|для)|"
+                      r"сним\w* (видео|ролик\w*)|видео(-?ролики)? (находок|ошибок|багов)|ролик\w* (к|для) (каждой|всех|находк)|"
+                      r"with (video|clips)|record (videos?|clips|screencasts?)|screen ?recordings? of (bugs|findings)", re.I)
 POSITIVE = re.compile(r"\b(провер\w*|протестир\w*|тестир\w*|посмотр\w*|можно|разрешаю|нужно|надо|включая|check|test|"
                       r"verify|allowed|ok to)\b", re.I)
 
@@ -326,7 +335,8 @@ def parse(text, output_dir=None):
             n += 1
             conf.append({"id": f"U{n}", "source": cl, "texts": quotes(cl)})
         elif (NEG.search(cl) or re.search(r"\bбез\s", cl, re.I)) and \
-                not re.search(r"не упомина|не связыв|не ссылаться|не публикуй|не создавай avd|gitignore|коммит|commit", cl, re.I):
+                not re.search(r"не упомина|не связыв|не ссылаться|не публикуй|не создавай avd|gitignore|коммит|commit|"
+                              r"без (видео|ролик|звука|записи экрана)", cl, re.I):
             quoted = quotes(cl)
             if quoted:
                 n += 1
@@ -410,6 +420,15 @@ def parse(text, output_dir=None):
     if re.search(voice, low) and not re.search(voice, negated):
         notes.append("голосовое / аудиоприложение: подача звука в микрофон — mic-inject (audio-input.md: gRPC, loopback, "
                      "файл), чек-лист checklists/audio-voice.md, долгие записи — soak / job (long-runs.md)")
+    mode = "off" if CLIPS_OFF.search(text) else ("on" if CLIPS_ON.search(text) else "auto")
+    d = qa_clips.DEFAULTS
+    cfg["clips"] = {"mode": mode, "max_seconds": d["max_seconds"], "max_mb": d["max_mb"], "width": d["width"],
+                    "fps": d["fps"], "format": d["format"], "gif_max_seconds": d["gif_max_seconds"],
+                    "gif_max_mb": d["gif_max_mb"], "caption": d["caption"], "touches": d["touches"],
+                    "keep_raw": d["keep_raw"]}
+    if mode != "auto":
+        notes.append(f"ролики находок: clips.mode {mode} (из запроса: {'«без видео»' if mode == 'off' else '«с видео»'}) — "
+                     "вопрос «Видео-ролики находок?» не задавать")
     if not output_dir:
         missing.append("output_dir — OUTPUT_ROOT (путь из запроса / ANDROID_QA_OUTPUT_DIR / <cwd>)")
     return cfg, notes, missing
@@ -432,7 +451,8 @@ def lite_block(cfg, notes, missing):
             "один стенд: свой AVD qa-* (avd_manager.py create/start, --mic-inject для голосовых приложений) или подключённое устройство",
             f"adb_helpers.py install / launch --cold {pkg} / logcat start",
             "карта экранов: dump-ui --texts + screenshot (--mark) на каждом экране",
-            "исследование по запросу; находки — finding.py add (со скриншотом и отметками)",
+            "исследование по запросу; находки — finding.py add (со скриншотом и отметками); дефект виден во времени — "
+            f"ролик adb_helpers.py clip … -- <шаги> (clips.mode {(cfg.get('clips') or {}).get('mode', 'auto')}, clips.md)",
             "долгие сценарии — adb_helpers.py job start -- soak … (фоном)",
             "build_report.py report / summary; черновики issues — render_draft.py (dry-run)"]
     return {"questions": q or ["нет — можно начинать"], "plan": plan,

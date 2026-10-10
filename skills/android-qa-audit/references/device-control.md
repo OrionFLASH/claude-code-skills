@@ -112,5 +112,19 @@ export QA_RUN_DIR=<RUN_DIR>                                   # папка пр�
 ## Снимки и видео
 `screenshot [OUT] [--mark "x,y,w,h|подпись|вид"]…` (`exec-out screencap -p`; `--mark` — сразу аннотированная копия `-annotated.png` и spec, `screenshots.md`), `screenrecord [OUT] --seconds 20` (до 180 с, во временный `/sdcard/qa-rec-*.mp4`, затем `pull` в `recordings/` и удаление с устройства). Экран с `FLAG_SECURE` снимается чёрным или с ошибкой — это защита приложения, не дефект. Скриншоты с персональными данными не публиковать.
 
+**Ролики находок** (1.5.0, `clips.md`) — короткие, без звука, сжатые под бюджет, с лентой кадров для просмотра:
+| Подкоманда | Что делает |
+|---|---|
+| `clip-start --name F-003-menu [--seconds 10] [--size 720] [--bit-rate 2000000] [--touches auto\|on\|off]` | `screenrecord` фоном во временный `/sdcard/qa-clip-<name>.mp4`, состояние `raw/clip-<serial>.json`; касания — на эмуляторе прогона; уже идёт — код 2 |
+| `clip-stop [--finding F-003 --caption "…" --kind error\|ok\|note\|after] [--mark …] [--step …] [--force]` | SIGINT записи, `pull`, удаление с устройства, возврат `show_touches`, «чёрный экран» (код 5 без `--force`), сжатие → `clips/`, запись в находку |
+| `clip-stop --restore-only` | остановить запись без ролика и вернуть настройки |
+| `clip --name … [--seconds 8] [--lead 0.5] [--tail 1] [--fallback auto\|frames\|none] [--dry-run] -- <шаг> --then <шаг> …` | старт → шаги (подкоманды этого скрипта через guard; `wait S`) → стоп; запрещённый шаг не выполняется и обрывает цепочку; нет кодека — ролик из скриншотов |
+| `clip-rolling start [--segment 8] [--keep 3] \| save --name … [--finding …] [--last 10] \| stop \| status` | непрерывная запись сегментами (для падений), сохранение последних секунд |
+
+```bash
+python3 <SKILL_DIR>/scripts/adb_helpers.py clip --name F-003-menu --finding F-003 --caption "Меню закрывается само" --serial emulator-5554 --run-dir <RUN_DIR> -- tap --text "Меню" --then wait 1
+```
+Коды: 4 — не поддерживается на стенде (API < 19, нет `screenrecord`, нет кодека: эмулятор headless со swiftshader — `avd_manager.py start … --gpu host`).
+
 ## Усилители
 Если установлены (`check_env` → `optional`): Maestro — сценарии YAML (`maestro test flow.yaml`), Appium с драйвером uiautomator2 — сложные жесты и ожидания, scrcpy — показать экран устройства пользователю. Их действия обходят guard: использовать только для чтения/наблюдения или на своём эмуляторе для сценариев, которые сначала проверены по правилам (`plugins-map.md`).

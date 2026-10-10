@@ -19,6 +19,8 @@
                   похожие заголовки — кандидаты в одну причину (проверить и поправить руками)
   --body-only (detailed, group): в файл только тело для gh --body-file, заголовок печатается строкой TITLE: …
   В каждом issue — блок «Как проверить» (verify находки, иначе её repro, иначе шаги и ожидаемое).
+  Ролики находок (1.7.0, references/clips.md): в «Доказательствах» — GIF inline и ссылка «▶ ролик, 6 с, 0,4 МБ» на mp4,
+  ТОЛЬКО просмотренные (clips[].viewed: true); с --screenshot-base — из той же ветки, что и скриншоты.
 
 Publication settings (CLI flags override run-config repos[] entry chosen by --repo):
   --config run-config.yaml --repo owner/repo   read disclosure / cross_links / marker / severity_map for that repo
@@ -194,6 +196,45 @@ def visible_shots(shots):
     return [s for s in shots if s not in ann]
 
 
+def _clip_fmt():
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import clips  # noqa: E402 — fmt_seconds / fmt_mb / clips_of (references/clips.md)
+    return clips
+
+
+def clips_md(f, screenshot_base=None, rel_prefix="", short=False):
+    """Viewed clips only: GIF inline + «▶ ролик, 6 с, 0,4 МБ» link to the mp4 (short — the link only, for table cells)."""
+    if not f.get("clips"):
+        return ""
+    c = _clip_fmt()
+    url = lambda p: f"{screenshot_base.rstrip('/')}/{quote(Path(p).name)}?raw=true" if screenshot_base else f"{rel_prefix}{p}"  # noqa: E731
+    out = []
+    for e in c.clips_of(f):
+        if not e.get("viewed"):
+            continue
+        cap = (e.get("caption") or "").replace("]", ")").replace("[", "(")
+        link = f"[▶ ролик, {c.fmt_seconds(e.get('seconds'))}, {c.fmt_mb(e.get('bytes'))}]({url(e['file'])})"
+        if short:
+            out.append(link)
+            continue
+        if e.get("gif"):
+            out.append(f"![{cap or Path(e['gif']).stem}]({url(e['gif'])})")
+        out.append(link + (f" — {cap}" if cap else ""))
+    return ("<br>" if short else "\n\n").join(out)
+
+
+def media_md(f, screenshot_base=None, rel_prefix=""):
+    """Screenshots (annotated first) + viewed clips for «Доказательства»."""
+    shots = visible_shots(f.get("screenshots") or [])
+    if screenshot_base:
+        lines = [f"![{Path(s).stem}]({screenshot_base.rstrip('/')}/{quote(Path(s).name)}?raw=true)" for s in shots]
+    else:
+        lines = [f"![{Path(s).stem}]({rel_prefix}{s})" for s in shots]
+    text = "\n".join(lines)
+    cm = clips_md(f, screenshot_base, rel_prefix)
+    return (text + "\n\n" + cm).strip() if cm else text
+
+
 def claim_md(f, opts):
     c = f.get("claim_ref") or {}
     if not c:
@@ -208,7 +249,6 @@ def claim_md(f, opts):
 def common_values(f, run, opts=None):
     opts = opts or Opts()
     env = f.get("environment") or {}
-    shots = visible_shots(f.get("screenshots") or [])
     tri = f.get("triage") or {}
     label = opts.severity_label(f)
     return {
@@ -233,7 +273,7 @@ def common_values(f, run, opts=None):
         "browser": env.get("browser"), "browser_version": env.get("browser_version"), "viewport": env.get("viewport"),
         "os": env.get("os"), "auth": env.get("auth"), "date": env.get("date") or run.get("started_at", "")[:10],
         "environment_list": ", ".join(f.get("environment_list") or []),
-        "screenshots_md": "\n".join(f"![{Path(s).stem}]({s})" for s in shots),
+        "screenshots_md": media_md(f),
         "console": "\n".join(f.get("console") or []),
         "network_rows": "\n".join(f"| {n.get('method', 'GET')} | {n.get('url')} | {n.get('status')} |" for n in f.get("network") or []),
         "evidence_json": json.dumps(f.get("evidence"), ensure_ascii=False, indent=2) if f.get("evidence") else "",
@@ -318,6 +358,8 @@ def render_group(items, run, title=None, kind="bug", rel_prefix="", screenshot_b
             s = shots[0]
             src = f"{screenshot_base.rstrip('/')}/{quote(Path(s).name)}?raw=true" if screenshot_base else f"{rel_prefix}{s}"
             shot = f"![{Path(s).stem}]({src})"
+        cl = clips_md(f, screenshot_base, rel_prefix, short=True)
+        shot = (shot + "<br>" + cl if shot else cl) if cl else shot
         where = f.get("url") or ""
         if f.get("element"):
             where += f" · `{cell(f['element'], 60)}`"
@@ -412,6 +454,8 @@ def render_cause_group(g, items, run, rel_prefix="", screenshot_base=None, opts=
             s0 = shots[0]
             src = f"{screenshot_base.rstrip('/')}/{quote(Path(s0).name)}?raw=true" if screenshot_base else f"{rel_prefix}{s0}"
             shot = f"![{Path(s0).stem}]({src})"
+        cl = clips_md(f, screenshot_base, rel_prefix, short=True)
+        shot = (shot + "<br>" + cl if shot else cl) if cl else shot
         w = (f.get("url") or "") + (f" · `{cell(f['element'], 60)}`" if f.get("element") else "")
         env = ", ".join(x for x in ((f.get("environment") or {}).get("viewport"), f.get("platform"),
                                     (f.get("repro") or {}).get("device"), f.get("variant")) if x)
@@ -489,11 +533,8 @@ def render_detailed(f, run, related=None, screenshot_base=None, rel_prefix="", o
     """rel_prefix — путь от файла черновика до папки прогона (для локальных ссылок на скриншоты)."""
     opts = opts or Opts()
     v = common_values(f, run, opts)
-    if rel_prefix and not screenshot_base:
-        v["screenshots_md"] = "\n".join(f"![{Path(s).stem}]({rel_prefix}{s})" for s in visible_shots(f.get("screenshots") or []))
-    if screenshot_base:
-        v["screenshots_md"] = "\n".join(f"![{Path(s).stem}]({screenshot_base.rstrip('/')}/{quote(Path(s).name)}?raw=true)"
-                                        for s in visible_shots(f.get("screenshots") or []))
+    if rel_prefix or screenshot_base:
+        v["screenshots_md"] = media_md(f, screenshot_base, "" if screenshot_base else rel_prefix)
     links = (related or []) + [f"{m.get('repo')}#{m.get('number')}" for m in f.get("matches") or []]
     if not opts.cross_links:
         links = [x for x in links if opts.repo and x.startswith(opts.repo + "#")]

@@ -180,6 +180,19 @@ publish:                      # общие настройки публикаци
   disclosure: tool            # tool (по умолчанию) | none — только по явной просьбе «без упоминания инструмента»
   steps: auto                 # auto | human
 
+clips:                        # ролики находок без звука (references/clips.md, intake.md вопрос 7a); все ключи необязательны
+  mode: auto                  # auto — когда дефект виден только во времени (Recommended) | on — для каждой находки, где недорого | off
+  max_seconds: 10             # лимит длительности ролика, с
+  max_mb: 3                   # бюджет размера, МБ (лестница сжатия: CRF, ширина, кадры)
+  width: 720                  # короткая сторона записи и ширина ролика, px
+  fps: 12
+  format: both                # mp4 | gif | both (GIF — если ролик ≤ gif_max_seconds и влез в gif_max_mb)
+  gif_max_seconds: 6
+  gif_max_mb: 1.5
+  caption: true               # подпись-факт в кадре (drawtext или плашка Chromium), всегда — в находке
+  touches: auto               # показ касаний: auto — эмулятор прогона да, устройство нет | on | off
+  keep_raw: false             # true — оставить исходники в recordings/
+
 logcat:
   noise_tags: []              # свои шумовые теги к стандартным (EGL_emulation, BufferPoolAccessor*…); «Префикс*»
   keep_noise: false           # true — ничего не отбрасывать

@@ -20,6 +20,8 @@ Publication settings (flags override run-config repos[] entry chosen by --repo, 
                            `_No response_`, exact dropdown options; auto — a bug or feature form from --forms-dir
                            (default <RUN_DIR>/raw/forms/<owner__repo>); --form-map map.json — values for fields
 Screenshots: the annotated copy (shots[].annotated or <name>-annotated.png next to the original) replaces the original.
+Clips (findings[].clips, references/clips.md): only viewed ones (finding.py clip-viewed) — the GIF inline (if there is
+one) and a link to the mp4 «[▶ ролик, 6 с, 0,4 МБ]»; a clip not viewed is left out and listed in «Проверить».
 Draft file: first line "TITLE: <title>", then the body; *.body.md — body only (for gh issue create --body-file).
 index.md lists title, labels and the gh command that WOULD publish the draft (run only after the user's «да»).
 """
@@ -236,6 +238,48 @@ def media_md(paths, opts, rel_prefix, video=False):
     return "\n".join(out)
 
 
+CLIP_KIND = {"error": "ролик", "note": "ролик", "ok": "ролик: работает", "after": "ролик после исправления"}
+
+
+def human_size(n):
+    if not n:
+        return "? МБ"
+    mb = n / 1048576.0
+    return f"{max(1, int(n // 1024))} КБ" if mb < 0.1 else f"{mb:.1f} МБ".replace(".", ",")
+
+
+def human_seconds(s):
+    if not s:
+        return "? с"
+    return f"{s:.0f} с" if s >= 1.5 else f"{s:.1f} с".replace(".", ",")
+
+
+def clips_md(f, opts, rel_prefix):
+    """Viewed clips: GIF inline + link «[▶ ролик, 6 с, 0,4 МБ]» to the mp4 (attachments branch or local file)."""
+    out = []
+    for c in f.get("clips") or []:
+        if not isinstance(c, dict) or not c.get("file") or not c.get("viewed"):
+            continue
+        label = f"▶ {CLIP_KIND.get(c.get('kind'), 'ролик')}, {human_seconds(c.get('seconds'))}, {human_size(c.get('bytes'))}"
+        cap = f" — {c['caption']}" if c.get("caption") else ""
+        if opts.base:
+            base = opts.base.rstrip("/")
+            if c.get("gif"):
+                out.append(f"![{c.get('caption') or Path(c['gif']).stem}]({base}/{Path(c['gif']).name}?raw=true)")
+            out.append(f"[{label}]({base}/{Path(c['file']).name}?raw=true){cap}")
+        elif opts.repo or not rel_prefix:
+            out.append(f"- {label}{cap}: `{c['file']}` (файл в папке прогона, приложу по запросу)")
+        else:
+            if c.get("gif"):
+                out.append(f"![{c.get('caption') or Path(c['gif']).stem}]({rel_prefix}{c['gif']})")
+            out.append(f"[{label}]({rel_prefix}{c['file']}){cap}")
+    return "\n\n".join(out)
+
+
+def unviewed_clips(f):
+    return [c.get("file") for c in f.get("clips") or [] if isinstance(c, dict) and c.get("file") and not c.get("viewed")]
+
+
 def values(f, run, opts, rel_prefix=""):
     env = f.get("environment") or {}
     label = opts.severity_map.get(f.get("severity")) if opts.severity_map else None
@@ -273,7 +317,10 @@ def values(f, run, opts, rel_prefix=""):
         "environment_list": ", ".join(f.get("environment_list") or []),
         "crash_md": (f"**{crash.get('type', '').upper()}** {crash.get('summary', '')}" + (f" (процесс `{crash['process']}`)" if crash.get("process") else "")) if crash else "",
         "screenshots_md": media_md(shots_of(f, opts.run_dir), opts, rel_prefix),
-        "recordings_md": media_md(f.get("recordings"), opts, rel_prefix, video=True),
+        "recordings_md": "\n\n".join(x for x in [
+            clips_md(f, opts, rel_prefix),
+            media_md([r for r in f.get("recordings") or [] if r not in {c.get("file") for c in f.get("clips") or []
+                                                                       if isinstance(c, dict)}], opts, rel_prefix, video=True)] if x),
         "logcat_excerpt": "\n".join((f.get("logcat_excerpt") or "").splitlines()[:40]),
         "metrics_json": json.dumps(f.get("metrics"), ensure_ascii=False, indent=2) if f.get("metrics") else "",
         "hypothesis": f.get("hypothesis"), "suggestion": f.get("suggestion"), "fingerprint": f.get("fingerprint", ""),
@@ -347,6 +394,8 @@ def render(f, run, opts, rel_prefix=""):
     problems = []
     if opts.human:
         problems += [f"шаг с командой — переписать для человека: «{s}»" for s in human_steps(f.get("steps"))[1]]
+    problems += [f"ролик {x} не просмотрен — в черновик не включён (лента кадров → finding.py clip-viewed)"
+                 for x in unviewed_clips(f)]
     form = form_for(f, opts)
     if form:
         import qa_issueforms

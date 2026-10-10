@@ -19,6 +19,17 @@ Environment:
   FAKE_ADB_PIDOF_UNTIL N — `pidof`/`ps` show the app only for the first N calls (process death)
   FAKE_ADB_PULL_FILE file copied by `adb pull` (default: «fake-mp4» bytes); FAKE_ADB_LS — output of `ls`
   FAKE_ADB_MEMINFO_DELAY S — `dumpsys meminfo` answers after S seconds (a hung soak sample)
+  1.5.0 clips (state in FAKE_ADB_STATE): `screenrecord … REMOTE` runs until its --time-limit or until `kill -2 <pid>`
+                     (or SIGINT), then «writes» REMOTE — a copy of FAKE_ADB_SCREENRECORD_FILE (default: a few bytes
+                     with ftyp/moov) into FAKE_ADB_STATE/remote/; `pidof screenrecord`, `ps -A -o PID,ARGS` show it;
+                     `pull` / `rm -f` of /sdcard/qa-clip-* and /sdcard/qa-roll-* use that folder (missing → error).
+                     FAKE_ADB_SCREENRECORD_FAIL=codec — screenrecord fails at once (no hardware encoder);
+                     FAKE_ADB_SCREENRECORD_NOFILE=1 — screenrecord stops but writes no file (pull fails);
+                     FAKE_ADB_NO_SCREENRECORD=1 — no /system/bin/screenrecord. `settings get/put system show_touches |
+                     pointer_location` — stored per serial (FAKE_ADB_TOUCHES — initial show_touches, default 0).
+                     FAKE_ADB_STATE/offline-<serial> exists → every command for that serial: «device not found».
+                     FAKE_ADB_ANR=1 — `dumpsys window windows` shows the ANR dialog of com.example.app.
+                     FAKE_ADB_SCREENCAP_FILE — `exec-out screencap -p` returns this PNG (default: a stub header).
 Serials: emulator-* — emulator properties (getprop-emulator.txt); anything else — real phone (getprop-real.txt).
 Screen: natural 1080x2400; rotation 1/3 — 2400x1080 and window_dump_landscape.xml.
 """
@@ -28,6 +39,7 @@ import shlex
 import shutil
 import signal
 import sys
+import time
 from pathlib import Path
 
 FIX = Path(os.environ.get("FAKE_ADB_FIXTURES", Path(__file__).resolve().parent.parent / "fixtures"))
@@ -112,6 +124,75 @@ def set_rotation(serial, n):
         (STATE / f"rotation-{serial}.txt").write_text(str(n), encoding="utf-8")
 
 
+FAKE_MP4 = b"\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom" + b"\x00\x00\x00\x08moov" + b"\x00" * 64
+SKILL_TMP = ("/sdcard/qa-clip-", "/sdcard/qa-roll-")
+
+
+def remote_file(path):
+    return STATE / "remote" / Path(path).name
+
+
+def sr_state(serial):
+    p = STATE / f"sr-{serial}.json"
+    try:
+        d = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    try:
+        os.kill(int(d["pid"]), 0)
+    except (OSError, ValueError, KeyError):
+        p.unlink(missing_ok=True)
+        return None
+    return d
+
+
+def screenrecord(serial, rest, line):
+    if os.environ.get("FAKE_ADB_SCREENRECORD_FAIL") == "codec":
+        sys.stderr.write("ERROR: unable to configure video/avc codec (err=-38)\n")
+        sys.exit(1)
+    limit = float(rest[rest.index("--time-limit") + 1]) if "--time-limit" in rest else 180.0
+    remote = rest[-1]
+    STATE.mkdir(parents=True, exist_ok=True)
+    me = STATE / f"sr-{serial}.json"
+    me.write_text(json.dumps({"pid": os.getpid(), "remote": remote, "args": line}), encoding="utf-8")
+    stop = STATE / f"sr-stop-{os.getpid()}"
+    got = {"int": False}
+
+    def on_int(*_):
+        got["int"] = True
+    signal.signal(signal.SIGINT, on_int)
+    start = time.time()
+    while time.time() - start < limit and not stop.exists() and not got["int"]:
+        time.sleep(0.03)
+    stop.unlink(missing_ok=True)
+    (STATE / "remote").mkdir(parents=True, exist_ok=True)
+    src = os.environ.get("FAKE_ADB_SCREENRECORD_FILE")
+
+    def release():                       # only our own registration (a newer recorder may have replaced it)
+        try:
+            if json.loads(me.read_text(encoding="utf-8")).get("pid") == os.getpid():
+                me.unlink()
+        except (OSError, ValueError):
+            pass
+    if os.environ.get("FAKE_ADB_SCREENRECORD_NOFILE") == "1":      # the device lost the file (pull fails)
+        release()
+        sys.exit(0)
+    if src:
+        shutil.copyfile(src, remote_file(remote))
+    else:
+        remote_file(remote).write_bytes(FAKE_MP4)
+    release()
+    sys.exit(0)
+
+
+def settings_store(serial):
+    p = STATE / f"settings-{serial}.json"
+    try:
+        return p, json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return p, {"show_touches": os.environ.get("FAKE_ADB_TOUCHES", "0"), "pointer_location": "0"}
+
+
 def shell(serial, line):
     try:
         t = shlex.split(line)
@@ -121,6 +202,48 @@ def shell(serial, line):
         out()
     c, rest = t[0], t[1:]
     real = not serial.startswith("emulator-")
+    if c == "screenrecord":
+        screenrecord(serial, rest, line)
+    if c == "which":
+        if rest[:1] == ["screenrecord"] and os.environ.get("FAKE_ADB_NO_SCREENRECORD") != "1":
+            out("/system/bin/screenrecord\n")
+        out("", 1)
+    if c == "pidof" and rest == ["screenrecord"]:
+        d = sr_state(serial)
+        out(f"{d['pid']}\n" if d else "", 0 if d else 1)
+    if c == "ps" and "-o" in rest and "PID,ARGS" in rest:
+        d = sr_state(serial)
+        out("PID ARGS\n1 /init\n600 system_server\n" + (f"{d['pid']} {d['args']}\n" if d else ""))
+    if c == "kill":
+        pids = [x for x in rest if x.isdigit()]
+        d = sr_state(serial)
+        if d and str(d["pid"]) in pids and ("-2" in rest or "-INT" in rest or "INT" in rest):
+            (STATE / f"sr-stop-{d['pid']}").write_text("1")
+            out()
+        out(f"kill: {pids[0] if pids else '?'}: No such process\n", 1)
+    if c == "rm" and any(x.startswith(SKILL_TMP) for x in rest):
+        for x in rest:
+            if x.startswith(SKILL_TMP):
+                remote_file(x).unlink(missing_ok=True)
+        out()
+    if c == "stat" and rest[-1:] and rest[-1].startswith(SKILL_TMP):
+        f = remote_file(rest[-1])
+        out(f"{f.stat().st_size}\n" if f.exists() else f"stat: {rest[-1]}: No such file or directory\n", 0 if f.exists() else 1)
+    if c == "settings" and len(rest) >= 3 and rest[1] == "system" and rest[2] in ("show_touches", "pointer_location"):
+        p, d = settings_store(serial)
+        if rest[0] == "get":
+            out(d.get(rest[2], "0") + "\n")
+        if rest[0] in ("put", "delete"):
+            if rest[0] == "put" and len(rest) > 3:
+                d[rest[2]] = rest[3]
+            elif rest[0] == "delete":
+                d[rest[2]] = "null"
+            STATE.mkdir(parents=True, exist_ok=True)
+            p.write_text(json.dumps(d), encoding="utf-8")
+            out()
+    if c == "dumpsys" and rest[:2] == ["window", "windows"]:
+        out("WINDOW MANAGER WINDOWS (dumpsys window windows)\n" + (
+            "  Window #5 Window{9f1 u0 Application Not Responding: com.example.app}:\n" if os.environ.get("FAKE_ADB_ANR") == "1" else ""))
     if c == "getprop":
         props = fx("getprop-real.txt" if real else "getprop-emulator.txt")
         if not rest:
@@ -253,6 +376,9 @@ def main():
             f.write(json.dumps({"serial": serial, "args": args}, ensure_ascii=False) + "\n")
     if not args:
         out("", 1)
+    if serial and STATE != Path("/nonexistent") and (STATE / f"offline-{serial}").exists() and args[0] not in ("devices", "version"):
+        sys.stderr.write(f"error: device '{serial}' not found\n")
+        sys.exit(1)
     cmd, rest = args[0], args[1:]
     if cmd == "version":
         out("Android Debug Bridge version 1.0.41\nVersion 35.0.2-12147458\nInstalled as /fake/adb\n")
@@ -282,6 +408,15 @@ def main():
         out("Performing Streamed Install\nSuccess\n")
     if cmd == "uninstall":
         out("Success\n")
+    if cmd == "pull" and rest and rest[0].startswith(SKILL_TMP):
+        f = remote_file(rest[0])
+        if not f.exists():
+            sys.stderr.write(f"adb: error: failed to stat remote object '{rest[0]}': No such file or directory\n")
+            sys.exit(1)
+        shutil.copyfile(f, rest[-1])
+        out(f"{rest[0]}: 1 file pulled\n")
+    if cmd == "get-state":
+        out("device\n")
     if cmd == "pull":
         src = os.environ.get("FAKE_ADB_PULL_FILE")
         if src:
@@ -293,7 +428,8 @@ def main():
         out(f"{rest[0]}: 1 file pushed, 0 skipped.\n")
     if cmd == "exec-out":
         if rest[:1] == ["screencap"]:
-            sys.stdout.buffer.write(PNG)
+            src = os.environ.get("FAKE_ADB_SCREENCAP_FILE")      # a real PNG (clip --fallback frames tests)
+            sys.stdout.buffer.write(Path(src).read_bytes() if src else PNG)
             sys.exit(0)
         if rest[:1] == ["cat"]:
             scr = flow_screen(serial)

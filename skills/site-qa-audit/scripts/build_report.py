@@ -7,6 +7,7 @@
       findings.json → rechecks), side_effects.md and logs/blocked.jsonl, if present.
   build_report.py summary RUN_DIR [same options] [--out RUN_DIR/summary.md]
       Short summary for report destinations: header, «Итог», statistics and directions of report.md.
+      «Ролики находок» (1.7.0): table of findings[].clips[] (kind, duration, size, file, poster); no clips — no section.
   build_report.py publish-table RUN_DIR [same options] [--out FILE]
       Summary table before publication: status, severity on the repo scale, target, action.
       For FIXED-INSUFFICIENT / REGRESSION of a closed issue the action follows repos[].closed_claims
@@ -25,6 +26,8 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE / "shared"))
+sys.path.insert(0, str(HERE))
+import clips as clipmod  # noqa: E402 — clips of findings (references/clips.md)
 import miniyaml  # noqa: E402
 import qa_recheck  # noqa: E402 — publication gate: independent re-check, legal second check (S-9)
 
@@ -284,6 +287,7 @@ def build_report(run):
         if (run.dir / "results" / "screenshots.zip").is_file():  # publish_shots.py local: fallback without GitHub
             L.append("Не загружены в репозиторий — приложены к отчёту: [results/screenshots/index.md](results/screenshots/index.md), "
                      "архив [results/screenshots.zip](results/screenshots.zip) (перетащить в комментарий issue вручную).")
+    L += clips_section(run)
     L += ["", "## Находки", "", "| ID | Severity | Статус | Заголовок | URL | Куда опубликовано |", "|---|---|---|---|---|---|"]
     for f in fs:
         pub = ", ".join(f"{p.get('repo')}#{p.get('number')}" if p.get("number") else f"{p.get('kind')}" for p in f.get("published") or [])
@@ -309,6 +313,33 @@ def build_report(run):
         L += ["", "## Публикация", ""] + publish_table(run)
     L += ["", f"<!-- site-qa-audit:run={r.get('id', '')} -->"]
     return "\n".join(L).rstrip() + "\n"
+
+
+CLIP_KIND = {"error": "ошибка", "ok": "работает", "note": "пояснение", "after": "после исправления"}
+
+
+def clips_section(run):
+    """«Ролики находок»: one row per clip; nothing when no finding has clips."""
+    rows = [(f, c) for f in run.findings for c in clipmod.clips_of(f)]
+    if not rows:
+        return []
+    link = lambda p: f"[{Path(p).name}]({p})" if p else "—"  # noqa: E731
+    L = ["", "## Ролики находок", "",
+         "Короткие ролики без звука (`references/clips.md`): что происходило в момент ошибки и что не происходило. "
+         "В черновики issues идут только просмотренные (лента кадров открыта).", "",
+         "| Находка | Вид | Длительность | Размер | Файл | Постер | Просмотрен |", "|---|---|---|---|---|---|---|"]
+    for f, c in rows:
+        cap = f" — {cell(c.get('caption'), 60)}" if c.get("caption") else ""
+        L.append(f"| {f.get('id')}{cap} | {CLIP_KIND.get(c.get('kind'), c.get('kind') or '—')} | {clipmod.fmt_seconds(c.get('seconds'))} | "
+                 f"{clipmod.fmt_mb(c.get('bytes'))} | {link(c.get('file'))}" + (f", {link(c.get('gif'))}" if c.get("gif") else "") +
+                 f" | {link(c.get('poster'))} | {'да' if c.get('viewed') else 'нет'} |")
+    unviewed = sum(1 for _, c in rows if not c.get("viewed"))
+    if unviewed:
+        L.append("")
+        L.append(f"Не просмотрено: {unviewed} — `clips.py check {run.dir}`, лента кадров (Read) → `clips.py viewed …`.")
+    if (run.dir / "results" / "clips").is_dir():
+        L.append("Приложены к отчёту (без GitHub): [results/clips/](results/clips/).")
+    return L
 
 
 def coverage_lines(run):

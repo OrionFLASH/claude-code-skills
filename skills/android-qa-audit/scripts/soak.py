@@ -11,6 +11,9 @@ summary raw/soak-<tag>-<serial>.json (build_report.py: «Длинные сцен
 or process died during the run — a finding) | result-mismatch (the result is shorter / longer than expected) |
 invalid (precondition failed — the run says nothing about the app) | stopped (job stop) | failed (error).
 Exit code: 0 — ok / interrupted / result-mismatch (look at status), 5 — invalid / failed, 2/3/6 — guard.
+--clips-on-crash (1.5.0, references/clips.md): continuous screen recording in segments (clip_android rolling) during
+the run; the app's process is checked every ~2 s and the «isn't responding» dialog every ~6 s; on a death / restart /
+ANR the last seconds are saved as a clip (clips/soak-<tag>-<event>-<min>m.mp4, summary: clips[], events[].clip).
 
 job: start any adb_helpers.py subcommand in the background (detached; its output — logs/job-<id>.log; state —
 raw/jobs/<id>.json) while the orchestrator works with another stand: start / status / list / stop / log.
@@ -301,6 +304,59 @@ def summarize(samples):
     return res
 
 
+WATCH_S = 2.0          # --clips-on-crash: how often the app's process is checked between samples
+
+
+def wait_watch(c, h, pkg, seconds, watch):
+    """sleep_or_stop with a light check (--clips-on-crash): the process gone → 'process-died' at once (the crash
+    moment must still be in the rolling recording), the ANR dialog → 'anr'. None — the time is up."""
+    if not watch:
+        sleep_or_stop(seconds)
+        return None
+    end = time.time() + max(0.0, seconds)
+    while True:
+        if stop_requested():
+            raise Stop()
+        left = end - time.time()
+        if left <= 0:
+            return None
+        time.sleep(min(STOP_SLICE_S, left))
+        if time.time() < watch["next"]:
+            continue
+        watch["next"] = time.time() + WATCH_S
+        watch["i"] += 1
+        pids = h.app_pids(c.adb, pkg)
+        if watch["alive"] and not pids:
+            return "process-died"
+        if pids and watch.get("pid") and pids[0] != watch["pid"]:
+            watch["pid"] = pids[0]
+            return "process-restarted"
+        if pids:
+            watch["alive"], watch["pid"] = True, watch.get("pid") or pids[0]
+        if watch["i"] % 3 == 0:
+            import clip_android
+            if clip_android.anr_on_screen(c, pkg):
+                if not watch.get("anr"):
+                    watch["anr"] = True
+                    return "anr"
+            else:
+                watch["anr"] = False
+
+
+def save_crash_clip(c, h, a, info, tag, event, t_s):
+    import clip_android
+    name = f"soak-{tag}-{event}-{max(0, round(t_s / 60))}m"
+    what = {"process-died": "процесс приложения завершился", "process-restarted": "процесс перезапущен",
+            "anr": "ANR — приложение не отвечает"}.get(event, event)
+    res = clip_android.soak_save(c, h, name, a.clips_last, f"{what} на {round(t_s / 60, 1)} мин")
+    if res.get("ok"):
+        entry = dict(res.pop("entry"), event=event, t_s=t_s)
+        info.setdefault("clips", []).append(entry)
+    else:
+        info.setdefault("clip_errors", []).append({"event": event, "t_s": t_s, "error": res.get("error")})
+    return res
+
+
 def run(c, h):
     a = c.a
     pkg = c.pkg(a.pkg)
@@ -355,6 +411,16 @@ def run(c, h):
                       " — прогон недействителен, о приложении ничего не говорит; посмотреть скриншот start")
             raise Stop()
         end = t0 + a.minutes * 60
+        watch = None
+        if getattr(a, "clips_on_crash", False):
+            import clip_android
+            keep = max(3, min(10, int((WATCH_S * 2 + 12) // max(2.0, a.clips_segment)) + 2))
+            rolling, note = clip_android.soak_start(c, h, a.clips_segment, keep) if c.run_dir else \
+                (None, "непрерывная запись не запущена: нужен --run-dir")
+            info["clips_on_crash"] = {"recording": bool(rolling), "segment": a.clips_segment, "keep": keep,
+                                      **({"note": note} if note else {})}
+            if rolling:
+                watch = {"next": time.time() + WATCH_S, "i": 0, "alive": bool(h.app_pids(c.adb, pkg)), "pid": None}
         next_shot = t0 + a.screenshots * 60 if a.screenshots else None
         off_at = t0 + a.screen_off_at * 60 if a.screen_off_at is not None else None
         on_at = t0 + a.screen_on_at * 60 if a.screen_on_at is not None else None
@@ -367,10 +433,22 @@ def run(c, h):
                 samples.append(rec)
                 f.write(json.dumps(rec, ensure_ascii=False) + "\n")
                 f.flush()
+                n_events = len(events)
                 if rec.get("pid") is None and last_pid and (len(samples) < 2 or samples[-2].get("pid")):
                     events.append({"t_s": rec["t_s"], "event": "process-died"})
-                elif rec.get("pid_changed"):
+                elif rec.get("pid") is None and watch and watch.get("died") and not any(e["event"] == "process-died" for e in events):
+                    events.append({"t_s": rec["t_s"], "event": "process-died"})
+                elif rec.get("pid_changed") or (watch and watch.pop("restarted", False)):
                     events.append({"t_s": rec["t_s"], "event": "process-restarted", "pid": rec["pid"]})
+                if watch and watch.pop("anr_now", False):
+                    events.append({"t_s": rec["t_s"], "event": "anr"})
+                for ev in events[n_events:]:
+                    if watch and ev["event"] in ("process-died", "process-restarted", "anr"):
+                        clip = save_crash_clip(c, h, a, info, tag, ev["event"], ev["t_s"])
+                        if clip.get("ok"):
+                            ev["clip"] = clip.get("file")
+                        if watch:
+                            watch["pid"] = rec.get("pid")
                 if a.service and rec.get("service_running") is False and \
                         not (len(samples) > 1 and samples[-2].get("service_running") is False):
                     events.append({"t_s": rec["t_s"], "event": "service-lost", "service": a.service})
@@ -397,7 +475,13 @@ def run(c, h):
                     next_shot += a.screenshots * 60
                 if t >= end:
                     break
-                sleep_or_stop(max(0.2, min(a.every, end - t)))
+                hit = wait_watch(c, h, pkg, max(0.2, min(a.every, end - t)), watch)
+                if hit == "process-died":
+                    watch["died"] = True
+                elif hit == "process-restarted":
+                    watch["restarted"] = True
+                elif hit == "anr":
+                    watch["anr_now"] = True
     except Stop:
         if status == "ok":
             status, reason = "stopped", "остановлено (job stop" + (")" if stop_requested() else " / сигнал)")
@@ -408,6 +492,10 @@ def run(c, h):
     finally:
         if hasattr(signal, "SIGTERM"):  # a repeated stop must not interrupt writing the summary
             signal.signal(signal.SIGTERM, lambda *_: None)
+        if (info.get("clips_on_crash") or {}).get("recording"):
+            import clip_android
+            stopped = clip_android.soak_stop(c, h)
+            info["clips_on_crash"]["stopped"] = {k: stopped.get(k) for k in ("ok", "touches", "note", "error") if k in stopped}
         if status in ("ok", "interrupted", "stopped"):
             offs = [e for e in events if e["event"] == "screen-off"]
             if offs and not any(e["event"] == "screen-on" for e in events):  # wake the screen before the stop action

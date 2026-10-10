@@ -24,6 +24,10 @@
       находок»; the printed line goes into the issue («screenshots are attached to the run report»). The user can drag
       the files into an issue comment himself.
 
+Clips (1.7.0, references/clips.md): VIEWED clips of the same findings (clips[].viewed: true — the frame sheet was
+looked at) go along: the mp4 and the GIF into the same branch and folder (render_draft.py --screenshot-base links
+them), `local` copies them to <RUN_DIR>/results/clips/ and into the same archive. Unviewed clips are never published.
+
 Not automated, on purpose: logging in to GitHub (gh auth login, the web login, 2FA, SSO) — only the user does it; the
 skill never types credentials, never reads github.com cookies and never drives the login page (safety-rules.md).
 Not uploaded: findings with evidence.sensitive (personal data, secrets), missing files. Public repository: the
@@ -43,6 +47,9 @@ import time
 import zipfile
 from pathlib import Path
 from urllib.parse import quote
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import clips as clipmod  # noqa: E402 — viewed clips of findings (references/clips.md)
 
 GH = os.environ.get("QA_GH_BIN") or "gh"
 
@@ -103,17 +110,18 @@ def visible_shots(shots):
 
 
 def files_of(run_dir, ids=None):
-    """[(finding id, relative path, absolute path)] of screenshots to publish; skipped — with reasons."""
+    """[(finding id, relative path, absolute path)] of screenshots (and viewed clips) to publish; skipped — with reasons."""
     data = json.loads((Path(run_dir) / "findings.json").read_text(encoding="utf-8"))
     out, skipped = [], []
     for f in data.get("findings") or []:
         if ids and f.get("id") not in ids:
             continue
         shots = visible_shots(f.get("screenshots") or [])
-        if not shots:
+        clips = clipmod.clips_of(f)
+        if not shots and not clips:
             continue
         if (f.get("evidence") or {}).get("sensitive"):
-            skipped += [{"id": f["id"], "file": s, "reason": "evidence.sensitive — не публикуется"} for s in shots]
+            skipped += [{"id": f["id"], "file": s, "reason": "evidence.sensitive — не публикуется"} for s in shots + [c["file"] for c in clips]]
             continue
         for s in shots:
             p = Path(run_dir) / s
@@ -121,7 +129,15 @@ def files_of(run_dir, ids=None):
                 out.append((f["id"], s, p))
             else:
                 skipped.append({"id": f["id"], "file": s, "reason": "файла нет"})
+        for c in clips:
+            if not c.get("viewed"):
+                skipped.append({"id": f["id"], "file": c["file"], "reason": "ролик не просмотрен (лента кадров) — не публикуется"})
+        out += [(fid, rel, p) for fid, rel, p, _ in clipmod.clip_files(run_dir, [f])]
     return out, skipped
+
+
+def is_clip(rel):
+    return Path(rel).suffix.lower() in clipmod.CLIP_EXT
 
 
 def preflight(repo):
@@ -240,33 +256,41 @@ def local(run_dir, ids=None, to=None):
     files, skipped = files_of(run_dir, ids)
     dest = Path(to) if to else run / "results" / "screenshots"
     dest.mkdir(parents=True, exist_ok=True)
+    cdest = dest.parent / "clips"  # clips next to the screenshots: results/clips/
     data = json.loads((run / "findings.json").read_text(encoding="utf-8"))
     titles = {f.get("id"): f.get("title") or "" for f in data.get("findings") or []}
     rows = []
     for fid, rel, src in files:
         name = Path(rel).name
-        shutil.copy2(src, dest / name)
-        rows.append({"id": fid, "file": rel, "copy": str(dest / name)})
+        where = cdest if is_clip(rel) else dest
+        where.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, where / name)
+        rows.append({"id": fid, "file": rel, "copy": str(where / name)})
     lines = ["# Скриншоты находок", "",
              "Скриншоты не загружены в репозиторий (нет права push / нет входа gh / нет доступа) — они приложены к отчёту "
              "прогона. Чтобы показать их в issue, перетащите файл в поле комментария на GitHub (вход выполняете вы).", "",
              "| Находка | Заголовок | Файл |", "|---|---|---|"]
-    lines += [f"| {r['id']} | {str(titles.get(r['id'], '')).replace('|', '/')[:100]} | [{Path(r['copy']).name}]({quote(Path(r['copy']).name)}) |"
+    href = lambda r: (f"../{cdest.name}/" if is_clip(r["file"]) else "") + quote(Path(r["copy"]).name)  # noqa: E731
+    lines += [f"| {r['id']} | {str(titles.get(r['id'], '')).replace('|', '/')[:100]} | [{Path(r['copy']).name}]({href(r)}) |"
               for r in rows] or ["| — | — | — |"]
     (dest / "index.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     archive = dest.parent / (dest.name + ".zip")
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as z:
         for r in rows:
-            z.write(r["copy"], Path(r["copy"]).name)
+            z.write(r["copy"], (f"{cdest.name}/" if is_clip(r["file"]) else "") + Path(r["copy"]).name)
         z.write(dest / "index.md", "index.md")
     try:
         rel_dir = dest.resolve().relative_to(run.resolve()).as_posix()
     except ValueError:
         rel_dir = str(dest)
-    issue_line = (f"Скриншоты: приложены к отчёту прогона ({rel_dir}/, архив {archive.name}) — "
+    what = "Скриншоты и ролики" if any(is_clip(r["file"]) for r in rows) else "Скриншоты"
+    issue_line = (f"{what}: приложены к отчёту прогона ({rel_dir}/, архив {archive.name}) — "
                   + ", ".join(Path(r['file']).name for r in rows) + "." if rows else "Скриншотов для приложения нет.")
-    return 0, {"mode": "local", "dir": str(dest), "archive": str(archive), "index": str(dest / "index.md"), "files": rows,
-               "skipped": skipped, "issue_line": issue_line}
+    res = {"mode": "local", "dir": str(dest), "archive": str(archive), "index": str(dest / "index.md"), "files": rows,
+           "skipped": skipped, "issue_line": issue_line}
+    if any(is_clip(r["file"]) for r in rows):
+        res["clips_dir"] = str(cdest)
+    return 0, res
 
 
 def main():

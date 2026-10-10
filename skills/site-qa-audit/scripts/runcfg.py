@@ -4,6 +4,8 @@ Module (no CLI), used by skill_snapshot.py, local_app.py, browser_mode.py:
   set_top(path, key, value)          top-level key: a scalar, a list or a dict (the whole block is replaced or added)
   load(path) -> dict                 the parsed config ({} if the file is missing)
   reexport_rules(run_dir)            url_guard.py export -> <RUN_DIR>/rules.json, if rules.json already exists
+  clips_block(mode=None)             the `clips:` block for a new run-config (keys and defaults of qa_clips.DEFAULTS)
+  clips_settings(path)               clips settings of a run-config with the defaults (qa_clips.settings)
 """
 import re
 import subprocess
@@ -13,6 +15,23 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE / "shared"))
 import miniyaml  # noqa: E402
+import qa_clips  # noqa: E402 — clips of findings (references/clips.md)
+
+# Keys of `clips:` written into a site run-config (touches — android only; gif_width/gif_fps — internal defaults).
+CLIPS_KEYS = ("mode", "max_seconds", "max_mb", "width", "fps", "format", "gif_max_seconds", "gif_max_mb", "caption",
+              "keep_raw", "mask")
+
+
+def clips_block(mode=None):
+    """`clips:` for run-config: mode auto|on|off (default auto), the rest — qa_clips defaults."""
+    out = {k: qa_clips.DEFAULTS[k] for k in CLIPS_KEYS}
+    out["mode"] = mode if mode in ("auto", "on", "off") else "auto"
+    out["mask"] = list(out["mask"])
+    return out
+
+
+def clips_settings(path):
+    return qa_clips.settings(load(path))
 
 
 def load(path):

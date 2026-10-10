@@ -323,6 +323,14 @@
 ### Где остановился
 product-strategy 1.0.0 влит в main, тег запушен, плагин установлен глобально. Скилл виден в новой сессии Claude Code (или после /reload-plugins). Открытых пунктов нет. Следующий шаг (по желанию): первый полный прогон на реальном продукте с веб-исследованием и обратная связь → 1.1. Идеи агентов на потом: check_strategy.py (P-id, вставки, метки чисел), fill_brief.py, --draft у check_registry, аудит контраста макетов, калибровка по данным владельца, квартальное обновление (diff прогонов).
 
+## 2026-10-10 (16) короткие видеоролики находок в site-qa-audit 1.7.0 и android-qa-audit 1.5.0
+Запрос: сохранять не только скриншоты, но и короткие ролики без звука (несколько секунд, мало места) — что происходило в момент ошибки или проверки.
+Ветка feature/qa-screencasts. Дизайн: docs/plans/qa-clips-design.md.
+- [x] Дизайн, общее ядро shared/scripts/qa_clips.py (+ тесты shared/tests/qa_clips_check.py), вендоринг в оба скила
+- [x] site-qa-audit 1.7.0: clip.js (page.screencast, CDP), clips.py, интеграция, 84 проверки, docs
+- [x] android-qa-audit 1.5.0: clip-start/stop/rolling, касания, чёрный кадр, 292 проверки, проверено на эмуляторе API 34
+- [x] Сведение, исправления ядра qa_clips (чёрный экран, рамки до масштаба, drawtext, Python 3.8, auto уже), validate, тесты обоих скилов, версии, CHANGELOG, INSTALL
+- [ ] Влить, тег, установить плагины, проверить установленные копии
 ## 2026-10-10 (17) product-strategy 1.1.0 — по обратной связи реального прогона (issues #80–#92)
 Источник: SKILL_FEEDBACK_product-strategy.md. Ветка feature/product-strategy-1-1 (worktree ../claude-code-skills-ps).
 - [ ] #80–#81 build_html: геометрия раскрытой строки, дефекты страницы, --lite

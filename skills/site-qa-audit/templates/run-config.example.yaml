@@ -170,6 +170,20 @@ browser:                      # окно браузера на весь прог
   headed: null                # true — окно видно, false — без окна, null — SITE_QA_HEADLESS или видно по умолчанию
   slowmo: null                # замедление действий в видимом окне, мс (null — SITE_QA_SLOWMO или 250)
 
+clips:                        # ролики находок без звука (references/clips.md, intake.md — вопрос 9b); все ключи необязательны
+  mode: auto                  # auto — только когда дефект виден во времени (анимация, мерцание, зависание, переход…);
+                              # on — для каждой находки, где это недорого; off — без роликов
+  max_seconds: 10             # длительность ролика, с (целевая 3–8)
+  max_mb: 3                   # бюджет размера, МБ (вложение GitHub — до 10 МБ)
+  width: 720                  # ширина после сжатия, px
+  fps: 12
+  format: both                # mp4 | gif | both (GIF — для роликов до gif_max_seconds, если влез в gif_max_mb)
+  gif_max_seconds: 6
+  gif_max_mb: 1.5
+  caption: true               # подпись в кадре (clip.js рисует её в странице)
+  keep_raw: false             # true — сырой webm в <RUN_DIR>/recordings/
+  mask: []                    # CSS-селекторы, размываемые в кадре (персональные данные): [".email", "#phone"]
+
 frames: main                  # main | all — all: детекторы заходят во iframe (вложенные приложения), references/layout-detectors.md
 
 side_effects: []              # действия с последствиями за пределами теста (references/side-effects.md)

@@ -23,6 +23,7 @@ python3 <SKILL_DIR>/scripts/build_report.py report <RUN_DIR>
 - итог: числа по severity и статусам, перепроверка, не проверено, побочные эффекты;
 - статистика severity × статус;
 - по направлениям;
+- скриншоты находок; **ролики находок** (1.7.0, если есть): находка и подпись, вид (ошибка / работает / пояснение / после исправления), длительность, размер, ссылки на mp4 и GIF, постер, просмотрен ли (`clips.md`);
 - находки;
 - **перепроверка заявленных исправлений**: №, issue, цитата заявления, статус (у NOT-CHECKED — с причиной), что проверено, чем;
 - что не проверено;
@@ -36,7 +37,7 @@ python3 <SKILL_DIR>/scripts/build_report.py report <RUN_DIR>
 ```bash
 python3 <SKILL_DIR>/scripts/build_report.py summary <RUN_DIR>
 ```
-Шапка, «Итог», «Статистика» и «По направлениям» из report.md (без таблицы находок) и ссылка на `report.md` рядом. Те же флаги, что у `report`.
+Шапка, «Итог», «Статистика», «По направлениям», скриншоты и ролики находок из report.md (без таблицы находок) и ссылка на `report.md` рядом. Те же флаги, что у `report`.
 
 ## Куда записаны итоги (`report_destinations`)
 Выполняется после отчёта (SKILL.md, шаг 11), по `run-config.yaml → report_destinations`; что значит каждый `type` — `intake.md`, вопрос 18.
@@ -61,7 +62,7 @@ python3 <SKILL_DIR>/scripts/build_report.py summary <RUN_DIR>
    |------------|-----------------------|
    | `summary.md`, `report.md`, `findings.json`; скриншоты, на которые ссылаются находки (`findings[].screenshots` из `screenshots/`, в т.ч. `-annotated.png`), с тем же относительным путём | `raw/`, `logs/` (`blocked.jsonl`, `auth-state.json`), `drafts/`, `journal.md`, `run-config.yaml`, `env.json`, `rules.json`, `registry.json`, `claims*`, `rechecks.json`, `side_effects.md`, прочие скриншоты |
 
-   `--screenshots all` — все изображения из `screenshots/`, `none` — без них. Одноимённый файл с другим содержимым не перезаписывается: код 1 и список → спросить «Перезаписать» (`--overwrite`) / «Другое имя» (`--name`); одинаковые файлы пропускаются. Последняя строка вывода — готовая строка для «Куда записаны итоги». `.gitignore` в папке назначения не трогается.
+   `--screenshots all` — все изображения из `screenshots/`, `none` — без них. Ролики (`--clips referenced|all|none`, по умолчанию referenced): файлы `findings[].clips[]` (mp4/webm, GIF, постер) из `clips/` → `<dest>/clips/` с тем же путём; `all` — вся папка `clips/` (с лентами кадров), `none` — без роликов. Одноимённый файл с другим содержимым не перезаписывается: код 1 и список → спросить «Перезаписать» (`--overwrite`) / «Другое имя» (`--name`); одинаковые файлы пропускаются. Последняя строка вывода — готовая строка для «Куда записаны итоги». `.gitignore` в папке назначения не трогается.
 4. Запись в журнал: `journal.py note <RUN_DIR> "итоги: …"`.
 
 ## Память о сайте (`.site-context/<host>/`)
@@ -136,6 +137,11 @@ python3 <SKILL_DIR>/scripts/build_report.py publish-table <RUN_DIR>
 | `drafts/e2e/<id>.spec.ts` | `e2e_stub.py` | заготовка регрессионного теста; прогон — `node/e2e_run.js` (`raw/e2e-<id>.json` при `--out`) |
 | `shots-published.json` | `publish_shots.py push` | локальный файл скриншота → URL в репозитории (и при частичной загрузке — то, что успело) |
 | `results/screenshots/`, `results/screenshots.zip` | `publish_shots.py local` | скриншоты находок при отчёте, когда в репозиторий загрузить нельзя (`index.md`: находка → файл); ссылка — в «Скриншоты находок» |
+| `clips/F-NNN-<кратко>.mp4`, `.gif`, `-poster.png`, `-sheet.png` | `node/clip.js` → `clips.py finalize` | ролик находки без звука (≤ `clips.max_mb`), GIF для коротких, постер, лента кадров для просмотра (`clips.md`); не коммитятся (`<RUN_DIR>/.gitignore`) |
+| `findings.json → clips[]`, `recordings[]` | `clips.py finalize --finding`, `ingest_findings.py` | запись ролика: `file`, `gif`, `poster`, `sheet` (пути от `<RUN_DIR>`), `kind` (`error`/`ok`/`note`/`after`), `seconds`, `bytes`, `width`, `height`, `fps`, `codec`, `audio` (всегда `false`), `caption`, `steps`, `encoder`, `sha256`, `viewed` (+ `viewed_at` — `clips.py viewed` после Read ленты), `created`, `warning`; путь дублируется в `recordings[]` |
+| `recordings/<имя>-raw.webm` | `clip.js` при `clips.keep_raw: true` / `--keep-raw` | сырой ролик до сжатия (по умолчанию не хранится) |
+| `results/clips/` | `publish_shots.py local` | просмотренные ролики при отчёте (тот же архив `results/screenshots.zip`, папка `clips/`) |
+| `.gitignore` | `clips.py finalize` / `clips.py ignore` | `clips/`, `recordings/` — ролики не попадают в git даже при `git.allow_commit_results` |
 | `logs/read-only.jsonl` | `url_guard.py nav --read-only --log`, `guard.js` (`readOnly`) | страницы, открытые только для чтения («прочитано без действий») |
 | `published.json` | `direct_publish.py record` | что опубликовано в режиме прямой публикации (защита от двойной публикации после сбоя) |
 | `published/<owner>__<repo>/F-NNN.md` | `render_draft.py --body-only` | тело опубликованного issue (режим прямой публикации — вместо `drafts/`) |

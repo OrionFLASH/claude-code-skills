@@ -23,6 +23,8 @@ python3 <SKILL_DIR>/scripts/check_env.py --fast --json <RUN_DIR>/env.json     # 
 | bundletool | для AAB | `brew install bundletool` или jar + `BUNDLETOOL_JAR` |
 | scrcpy, Maestro, Appium, python uiautomator2 | нет | необязательные усилители (`plugins-map.md`) |
 | виртуальное аудиоустройство (BlackHole, Loopback, snd-aloop, VB-Cable) | нет | только для подачи звука путём 2 (`audio-input.md`); скил **только проверяет** и подсказывает — ставит и выбирает устройство пользователь; пути gRPC и «файл» работают без него |
+| ffmpeg и ffprobe | нет, **рекомендуется** для роликов находок | без него ролик сохраняется как есть (без сжатия под бюджет), нет GIF, постера и ленты кадров — вместо ленты скриншоты по шагам (`clips.md`); строка показывает libx264 и `drawtext`. Установка — системный пакет, **только с согласия**: `brew install ffmpeg` / `sudo apt install ffmpeg` / `winget install Gyan.FFmpeg`; свой путь — `QA_FFMPEG`, `QA_FFPROBE` |
+| `screenrecord` на стендах | нет | строка «screenrecord на стендах (ролики)»: API ≥ 19 и `/system/bin/screenrecord` на каждом онлайн-стенде (только чтение); нет — ролики на этом стенде недоступны (скриншоты по шагам или `clip` из скриншотов) |
 | Node.js 18+ и Playwright в `scripts/node` | нет | аннотации скриншотов (`screenshots.md`): `cd <SKILL_DIR>/scripts/node && npm install && npx playwright install chromium` — локально, с согласия; без них оригинал и spec сохраняются |
 | gh + вход | только для GitHub issues | `gh auth login` |
 | `ANDROID_QA_OUTPUT_DIR` | нет | без неё — `<cwd>/qa-runs/` (`intake.md` → «Папка прогона») |

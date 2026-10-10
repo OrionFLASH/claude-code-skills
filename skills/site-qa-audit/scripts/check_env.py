@@ -11,6 +11,10 @@
     --browser-tools-only   только раздел «Браузерные инструменты» (быстро, без claude/gh/браузеров)
     --cdp-ports 9222,9223  проверить браузер с отладочным портом на localhost (подключение по CDP)
 
+Ролики находок (1.7.0, references/clips.md): строки ffmpeg и ffprobe (рекомендуется: сжатие под бюджет, GIF, постер,
+лента кадров; без них ролик сохраняется как есть) и «Playwright screencast» (запись вкладки, в т.ч. по CDP).
+Ставить ffmpeg — только с согласия пользователя (системный пакет); путь можно задать QA_FFMPEG / QA_FFPROBE.
+
 Печатает таблицу «компонент / версия / статус / примечание / как исправить».
 Код выхода: 0 — можно работать, 1 — есть FAIL в обязательных компонентах.
 """
@@ -26,6 +30,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE / "shared"))
 sys.path.insert(0, str(HERE))
 import envcheck as ec  # noqa: E402
+import qa_clips  # noqa: E402 — ffmpeg / ffprobe for clips
 import skill_dir as sd  # noqa: E402
 
 # SKILL_DIR of the run (S-1): SITE_QA_AUDIT_DIR / this copy / installed plugin — never a developer working copy if an
@@ -185,6 +190,42 @@ def check_node_deps(rows):
     return ok
 
 
+def ffmpeg_fix():
+    if sys.platform == "darwin":
+        return "brew install ffmpeg  (только с согласия пользователя; или QA_FFMPEG=<путь>)"
+    if sys.platform == "win32":
+        return "winget install Gyan.FFmpeg  (только с согласия пользователя; или QA_FFMPEG=<путь>)"
+    return "sudo apt install ffmpeg  (только с согласия пользователя; или QA_FFMPEG=<путь>)"
+
+
+def check_clips(rows):
+    """Clips of findings: ffmpeg / ffprobe (recommended) and page.screencast of the skill's Playwright."""
+    caps = qa_clips.capabilities()
+    ver = lambda exe: ec.parse_version(ec.run([exe, "-version"])[1]) if exe else None  # noqa: E731
+    for name, exe in (("ffmpeg", caps["ffmpeg"]), ("ffprobe", caps["ffprobe"])):
+        v = ver(exe)
+        if exe:
+            note = ("рекомендуется: ролики находок — сжатие под бюджет, GIF, постер, лента кадров" if name == "ffmpeg"
+                    else "рекомендуется: длительность, размер и звук роликов находок")
+            if name == "ffmpeg" and not caps["libx264"]:
+                note += "; без libx264 — ролики в webm (VP8)"
+            rows.append(ec.Row(name, ".".join(map(str, v)) if v else (caps.get("version") or "?"), ec.OK, note))
+        else:
+            rows.append(ec.Row(name, "", ec.WARN, "рекомендуется: без него ролик сохраняется как есть (больше бюджета, без GIF, "
+                               "постера и ленты кадров)" if name == "ffmpeg" else "рекомендуется: длительность и звук роликов "
+                               "(без него — по заголовку MP4)", ffmpeg_fix()))
+    sys.path.insert(0, str(HERE))
+    import clips as clipmod  # noqa: E402
+    pwi = clipmod.playwright_info(NODE_DIR)
+    if pwi["version"]:
+        rows.append(ec.Row("Playwright screencast", pwi["version"], ec.OK if pwi["screencast"] else ec.WARN,
+                           "page.screencast есть: ролики clip.js, в т.ч. вкладки пользователя по CDP" if pwi["screencast"]
+                           else "нет page.screencast: ролики только в своём браузере (recordVideo), по CDP — нет",
+                           "" if pwi["screencast"] else f"cd {NODE_DIR} && npm install playwright@latest"))
+    return {"ffmpeg": caps["ffmpeg"], "ffprobe": caps["ffprobe"], "libx264": caps["libx264"], "gif": caps["gif"],
+            "playwright": pwi.get("version"), "screencast": pwi.get("screencast")}
+
+
 def probe_browsers(rows):
     """Реально запускает каждый браузер (node/probe.js): наличие файлов в кэше не гарантирует запуск."""
     code, out = ec.run(["node", "probe.js", "chromium", "firefox", "webkit"], timeout=150, cwd=str(NODE_DIR))
@@ -249,6 +290,7 @@ def main():
     if rows[-1]["status"] == ec.FAIL:
         rows[-1]["status"] = ec.WARN
     check_node_deps(rows)
+    clips_env = check_clips(rows)
     browsers = {} if a.no_browsers else probe_browsers(rows)
 
     plugins = ec.claude_plugins()
@@ -308,7 +350,8 @@ def main():
                                             "rows": rows, "browsers": browsers, "playwright_mcp": mcp_ok,
                                             "playwright_cli": bool(shutil.which("playwright-cli")),
                                             "claude_in_chrome": bool(chrome_host), "output_dir": out_root, "enhancers": available,
-                                            "banned": BANNED, "disabled_plugins": disabled, "browser_tools": bres},
+                                            "banned": BANNED, "disabled_plugins": disabled, "browser_tools": bres,
+                                            "clips": clips_env},
                                            ensure_ascii=False, indent=2), encoding="utf-8")
     sys.exit(1 if fails else 0)
 

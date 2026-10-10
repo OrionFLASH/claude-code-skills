@@ -163,7 +163,49 @@ def device_rows(adb, rows):
     if real:
         rows.append(ec.Row("реальные устройства", str(len(real)), ec.WARN,
                            "используются только после отдельного разрешения пользователя (safety-rules.md)"))
+    for d in online:                       # 1.5.0: clips of findings need screenrecord on the stand (read-only check)
+        d["screenrecord"] = screenrecord_on(su.Adb(d["serial"], adb.path), d.get("api"))
+    if online:
+        bad = [f"{d['serial']}: {d['screenrecord']['note']}" for d in online if not d["screenrecord"]["ok"]]
+        rows.append(ec.Row("screenrecord на стендах (ролики)", f"{len(online) - len(bad)}/{len(online)}",
+                           ec.OK if not bad else ec.WARN, "; ".join(bad) or "есть на всех онлайн-стендах",
+                           "" if not bad else "ролики на этих стендах недоступны — скриншоты по шагам (references/clips.md)"))
     return devs
+
+
+def screenrecord_on(adb, api):
+    """Read-only: API ≥ 19 and `which screenrecord` on the device."""
+    try:
+        api = int(api) if api else 0
+    except (TypeError, ValueError):
+        api = 0
+    if api and api < 19:
+        return {"ok": False, "note": f"API {api} < 19 — screenrecord нет"}
+    code, out, _ = adb.shell("which", "screenrecord", timeout=10)
+    if "screenrecord" in (out or ""):
+        return {"ok": True, "note": (out or "").strip()}
+    return {"ok": False, "note": "нет /system/bin/screenrecord"}
+
+
+def ffmpeg_row(rows, opt):
+    """ffmpeg / ffprobe for clips (recommended, not required): compression to the budget, GIF, frame sheet, black
+    screen check. Read-only; installing is the user's decision (a system package)."""
+    import qa_clips
+    caps = qa_clips.capabilities()
+    fix = ("brew install ffmpeg" if sys.platform == "darwin" else "winget install Gyan.FFmpeg" if su.IS_WIN
+           else "sudo apt install ffmpeg") + " — только с согласия пользователя; другой путь — QA_FFMPEG"
+    if caps["ffmpeg"]:
+        bits = [("libx264" if caps["libx264"] else "без libx264 (будет webm)"), ("drawtext" if caps["drawtext"]
+                else "без drawtext — подписи в кадре через Chromium (scripts/node) или только в находке"),
+                "ffprobe " + ("есть" if caps["ffprobe"] else "НЕТ — длительность по заголовку MP4")]
+        rows.append(ec.Row("ffmpeg (ролики находок)", caps["version"] or "", ec.OK if caps["libx264"] and caps["ffprobe"] else ec.WARN,
+                           caps["ffmpeg"] + "; " + ", ".join(bits), "" if caps["libx264"] else fix))
+    else:
+        rows.append(ec.Row("ffmpeg (ролики находок)", "", ec.WARN,
+                           "нет — рекомендуется: без него ролик не сжимается под бюджет, нет GIF и ленты кадров "
+                           "(вместо неё скриншоты по шагам)" + ("; есть урезанный ffmpeg Playwright — только для кадров"
+                                                                if caps["limited_ffmpeg"] else ""), fix))
+    opt["ffmpeg"] = {k: caps[k] for k in ("ffmpeg", "ffprobe", "version", "libx264", "drawtext", "gif")}
 
 
 def recommended_workers(mem, cpus, avd_ram_mb=2048):
@@ -356,6 +398,7 @@ def main():
             drivers = []
         opt["appium"]["drivers"] = drivers
         rows[-1]["note"] += f"; драйверы: {', '.join(drivers) or 'нет'}"
+    ffmpeg_row(rows, opt)
     import mic  # noqa: E402 — loopback detection (read-only, installs nothing)
     lb = mic.loopback_info(fast=a.fast)
     rows.append(ec.Row("виртуальное аудиоустройство (loopback)", ", ".join(lb["devices"][:2]), ec.OK,

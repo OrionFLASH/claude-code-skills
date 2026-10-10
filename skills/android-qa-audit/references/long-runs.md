@@ -15,6 +15,11 @@ python3 <SKILL_DIR>/scripts/adb_helpers.py soak --minutes 30 --every 60 --tag re
 4. **Потеря по ходу**: процесс умер или сервис пропал → статус **`interrupted`** с минутой события — это находка (например, «запись остановилась на 6:49»); `--continue-on-loss` — снимать дальше.
 5. **Стоп и итог**: `--stop-…` — нажатие стоп; `--expect-final-text` — текст после стопа; `--expect-duration` — на экране есть длительность `м:сс` / `ч:мм:сс` ≈ `--minutes` (`--expect-minutes`, допуск `--tolerance` 5 %, не меньше 30 с); `--result-file "/sdcard/Recordings/*.m4a"` — длительность файла из общей папки (`adb pull`; WAV, MP4/M4A/3GP, Ogg; приватная папка приложения — «не поддерживается»). Не совпало → **`result-mismatch`** (находка).
 6. Сводка — `raw/soak-<tag>-<serial>.json` (статус, причина, минуты, события, PSS мин/макс/рост в МБ/ч, свободное место, нагрузка хоста, скриншоты) и вывод команды. Коды: 0 — `ok` / `interrupted` / `result-mismatch` (смотреть `status`), 5 — `invalid` / `failed`.
+7. **Ролик падения** (`--clips-on-crash`, 1.5.0, `clips.md` → «Непрерывная запись»): весь прогон идёт непрерывная запись экрана сегментами (`clip-rolling`, `--clips-segment` 8 с); процесс приложения проверяется каждые ~2 с (а не раз в `--every`), диалог «не отвечает» — каждые ~6 с. Смерть процесса, перезапуск или ANR → сразу ролик последних секунд (`--clips-last`, по умолчанию `clips.max_seconds`): `clips/soak-<tag>-<событие>-<мин>m.mp4`, в сводке `clips[]` и `events[].clip`; в конце запись останавливается, касания возвращаются. Ролик к находке — `finding.py clip <RUN_DIR> --id F-NNN --file clips/soak-….mp4` после просмотра ленты кадров. Не работает на стенде (нет кодека) — `clips_on_crash.note`, soak идёт дальше без роликов. Замеры скорости с непрерывной записью не делать.
+
+```bash
+python3 <SKILL_DIR>/scripts/adb_helpers.py soak --minutes 30 --every 60 --tag rec30 --start-desc "Начать запись" --expect-text "Идёт запись" --clips-on-crash --clips-segment 8 --serial emulator-5556 --run-dir <RUN_DIR>
+```
 
 ## job — фоном, пока агент занят другим
 ```bash

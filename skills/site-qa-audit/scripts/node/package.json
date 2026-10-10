@@ -17,7 +17,8 @@
     "reachability": "node reachability.js",
     "devices": "node device_context.js",
     "invariants": "node invariants.js",
-    "shot": "node shot.js"
+    "shot": "node shot.js",
+    "clip": "node clip.js"
   },
   "dependencies": {
     "@axe-core/playwright": "4.13.0",

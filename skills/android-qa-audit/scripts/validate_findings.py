@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """Check findings.json against templates/finding.schema.json (a JSON Schema subset, stdlib only).
 
-  validate_findings.py findings.json [--schema PATH] [--run-dir DIR]
-Errors: required fields, enum, pattern, types, if/else, duplicate id and fingerprint, unfilled {{…}} placeholders.
+  validate_findings.py findings.json [--schema PATH] [--run-dir DIR] [--publish]
+Errors: required fields, enum, pattern, types, if/else, duplicate id and fingerprint, unfilled {{…}} placeholders,
+a clip with sound.
 Warnings: unmasked e-mail / tokens / JWT / auth values (masking.py), crash/anr without a `crash` object,
-missing steps for critical/high, screenshot or recording files that do not exist in the run folder.
+missing steps for critical/high, screenshot or recording files that do not exist in the run folder; clips
+(qa_clips.check_entry, budget from run-config clips:): missing file, size / duration over the budget, sha256 changed,
+GIF missing or too big, not viewed (frame sheet not looked at).
+--publish (before publication): a missing / changed / unviewed clip is an error.
 Exit code: 0 — ok, 1 — errors.
 """
 import argparse
@@ -15,7 +19,9 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+sys.path.insert(0, str(HERE / "shared"))
 from masking import find_unmasked  # noqa: E402
+import qa_clips  # noqa: E402
 
 SCHEMA = HERE.parent / "templates" / "finding.schema.json"
 TYPES = {"string": str, "integer": int, "number": (int, float), "boolean": bool, "array": list, "object": dict,
@@ -65,6 +71,8 @@ def main():
     ap.add_argument("findings")
     ap.add_argument("--schema", default=str(SCHEMA))
     ap.add_argument("--run-dir", help="папка прогона (по умолчанию — папка findings.json): проверка файлов скриншотов")
+    ap.add_argument("--publish", action="store_true",
+                    help="перед публикацией: непросмотренный, отсутствующий или изменённый ролик — ошибка")
     a = ap.parse_args()
     schema = json.loads(Path(a.schema).read_text(encoding="utf-8"))
     text = Path(a.findings).read_text(encoding="utf-8")
@@ -75,6 +83,14 @@ def main():
         sys.exit(1)
     run_dir = Path(a.run_dir) if a.run_dir else Path(a.findings).resolve().parent
     errors, warnings = [], []
+    rc = {}
+    if (run_dir / "run-config.yaml").exists():
+        try:
+            import miniyaml
+            rc = miniyaml.load_file(run_dir / "run-config.yaml") or {}
+        except Exception:  # noqa: BLE001 — the budget falls back to the defaults
+            rc = {}
+    clip_cfg = {"clips": rc.get("clips") if isinstance(rc.get("clips"), dict) else {}}
     check(data, schema, schema, "$", errors)
     fs = data.get("findings", []) if isinstance(data, dict) else []
     for key in ("id", "fingerprint"):
@@ -93,10 +109,22 @@ def main():
             warnings.append(f"{fid}: тип {f['type']} без объекта crash (summary, process, time)")
         if f.get("severity") in ("critical", "high") and not f.get("steps"):
             warnings.append(f"{fid}: {f['severity']} без шагов воспроизведения")
+        clip_files = {c.get("file") for c in f.get("clips") or [] if isinstance(c, dict)}
         for key in ("screenshots", "recordings"):
             for p in f.get(key) or []:
+                if p in clip_files:
+                    continue                      # checked below with the clip
                 if not (run_dir / p).exists() and not Path(p).is_absolute():
                     warnings.append(f"{fid}: нет файла {p}")
+        for c in f.get("clips") or []:
+            if not isinstance(c, dict) or not c.get("file"):
+                continue
+            for code, text in qa_clips.check_entry(c, run_dir, clip_cfg):
+                msg = f"{fid}: ролик {c['file']}: {text}"
+                if code == "audio" or (a.publish and code in ("missing", "sha", "unviewed")):
+                    errors.append(msg)
+                else:
+                    warnings.append(msg)
     for w in warnings:
         print("WARN ", w)
     for e in errors:

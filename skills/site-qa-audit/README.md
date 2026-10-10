@@ -26,6 +26,8 @@
 
 **Главные гарантии.** Защита не открывается при сбое (код 4 «guard недоступен» = стоп), скил на весь прогон — копия в папке прогона (`<RUN_DIR>/skill`: обновление плагина посреди прогона не ломает исполнителей), состояние входа — только cookie проверяемого сайта, телефон — с настоящей эмуляцией касаний (`pointer: coarse`), каждая находка перепроверяется независимо до публикации (`repro` + `recheck.py`), исполнители возвращают находки текстом (блок `qa-findings`, массив с `dup_check`) и не плодят вкладки.
 
+**Что нового в 1.7.0.** Короткие ролики находок без звука как дополнение к скриншотам: что происходило в момент ошибки и что не происходило, проверка «после исправления» (`node/clip.js`: запись `page.screencast` — в своём браузере и во вкладке пользователя по CDP, шаги через guard, пунктирные рамки и подпись в стиле скриншотов, курсор, размытие персональных данных; страницы входа и оплаты и ввод секретов не записываются). Сжатие до ≤ 3 МБ, GIF, постер и лента кадров, которую модель смотрит вместо видео (`clips.py`); ролики в отчёте, черновиках issues (только просмотренные), публикации и выгрузке. Режим в опросе: «Авто — когда дефект виден во времени» / «Для каждой находки» / «Не нужны». ffmpeg — рекомендуется, не обязателен (`references/clips.md`).
+
 **Что нового в 1.5.0.** Node-скрипты сами пишут свои вкладки в реестр прогона `tabs.json` (свой браузер — по `pid`, вкладка в браузере пользователя по CDP — по target id) и при завершении закрывают только свои; `tabs.py cleanup` убирает вкладки упавшего скрипта. Достижимость на телефоне решает жест касания (а не колесо), мобильный WebKit проверяется ещё и в настоящем WebKit моделью касания (`touch-action`, `overscroll-behavior`). Заготовки e2e запускаются настоящим Playwright Test скила под guard прогона (`node/e2e_run.js --expect fail|pass`, без установки `@playwright/test`), видимое окно проверено вживую. Отдельный Playwright MCP для `file://` с guard в каждой вкладке (`browser_mode.py mcp --check`). `publish_shots.py` заранее проверяет gh, вход, доступ и право push и даёт запасной путь `local` (скриншоты при отчёте, `results/`); вход в GitHub скил не автоматизирует.
 
 **Что нового в 1.4.0.** Локальные приложения: `file://` и каталоги на диске (`site.local_roots`; `..`, симлинки и соседние папки — запрет), все детекторы принимают `--url file:///…`, копия приложения в прогоне (`local_app.py`). Окно браузера — одна настройка на прогон (`browser.headed`, `browser_mode.py set` посреди прогона). Задание исполнителю целиком одной командой (`brief.py`: правила, срез реестра issues, формат результата, лимит времени), одно место правды для результатов потоков (`findings/<поток>.json`, `coverage/<поток>.md`), метрики потоков автоматически и вторая волна по «не проверено» (`thread_coverage.py again`). Варианты данных и стенды в охвате, автопилот. Один issue на первопричину (`render_draft.py group --map`), блок «Как проверить», заготовка регрессионного теста (`e2e_stub.py`), скриншоты в приватный репозиторий без браузера (`publish_shots.py`), независимое ревью диффа после доработок (`references/fix-cycle.md`).
@@ -45,6 +47,7 @@
 | 5 | Направления | все |
 | 6 | Глубина: smoke / standard / deep | standard (лимит страниц 50) |
 | 7 | Устройства и браузеры; окно браузера видно или в фоне (`browser.headed`, можно поменять посреди прогона) | по глубине (`references/depth-matrix.md`); окно видно |
+| 7a | Видео-ролики находок (`clips.mode`): авто — только когда дефект виден во времени / для каждой находки / не нужны; «с видео», «без видео» в запросе | авто |
 | 8 | Репозитории: URL, роли (`check`, `write-new`, `copies`, `comment`), стиль, метки, подтверждение, скриншоты (`commit` / `web-upload` / `none`), раскрытие (`disclosure`, `marker`), ссылки между репозиториями (`cross_links`), недоработка в закрытом issue (`closed_claims`), шкала серьёзности (`severity_map`) | нет |
 | 9 | Запреты пользователя (свободный текст + чек-лист: покупки, оплата, регистрация, отправка форм, удаление, настройки аккаунта, рассылки, внешние ссылки…) | только базовые |
 | 10 | Плагины: все установленные / выбрать / только свои чек-листы | все установленные |
@@ -58,7 +61,7 @@
 
 Свободный запрос можно сразу разобрать в черновик конфига: `scripts/intake.py from-text` (черновик показывается на подтверждение).
 
-Результаты — в `<OUTPUT_ROOT>/qa-runs/<YYYY-MM-DD>-<host>/` (`<OUTPUT_ROOT>` — путь из запроса, иначе переменная `SITE_QA_OUTPUT_DIR`, иначе папка запуска Claude Code; в репозиторий скилов не пишется): `run-config.yaml`, `findings.json`, `run.json`, `report.md`, `summary.md`, `journal.md`, `claims-plan.md`, `rechecks.json`, `side_effects.md`, `skill/` (копия скила), `app/` (копия локального приложения), `briefs/`, `findings/` и `coverage/` (результаты и охват потоков), `waves/` (вторая волна), `screenshots/`, `drafts/`, `raw/`, `logs/`. Память о сайте (назначение, роли, сценарии, термины, источники) — `<OUTPUT_ROOT>/qa-runs/.site-context/<host>/context.md`: при следующем прогоне скил показывает её и спрашивает «как есть / обновить / изучить заново». Если `qa-runs/` оказалась внутри git-репозитория, скил сразу, до первой записи, добавляет её в `.gitignore` этого репозитория — без вопроса, если вы в запросе явно не разрешили класть результаты в репозиторий («коммить результаты», `git.allow_commit_results`); уже закоммиченные результаты не удаляет, а спрашивает про `git rm -r --cached`. «Другая папка» для итогов (`report_destinations: folder`) получает только `summary.md`, `report.md`, `findings.json` и скриншоты находок.
+Результаты — в `<OUTPUT_ROOT>/qa-runs/<YYYY-MM-DD>-<host>/` (`<OUTPUT_ROOT>` — путь из запроса, иначе переменная `SITE_QA_OUTPUT_DIR`, иначе папка запуска Claude Code; в репозиторий скилов не пишется): `run-config.yaml`, `findings.json`, `run.json`, `report.md`, `summary.md`, `journal.md`, `claims-plan.md`, `rechecks.json`, `side_effects.md`, `skill/` (копия скила), `app/` (копия локального приложения), `briefs/`, `findings/` и `coverage/` (результаты и охват потоков), `waves/` (вторая волна), `screenshots/`, `clips/` (ролики находок, не коммитятся), `drafts/`, `raw/`, `logs/`. Память о сайте (назначение, роли, сценарии, термины, источники) — `<OUTPUT_ROOT>/qa-runs/.site-context/<host>/context.md`: при следующем прогоне скил показывает её и спрашивает «как есть / обновить / изучить заново». Если `qa-runs/` оказалась внутри git-репозитория, скил сразу, до первой записи, добавляет её в `.gitignore` этого репозитория — без вопроса, если вы в запросе явно не разрешили класть результаты в репозиторий («коммить результаты», `git.allow_commit_results`); уже закоммиченные результаты не удаляет, а спрашивает про `git rm -r --cached`. «Другая папка» для итогов (`report_destinations: folder`) получает только `summary.md`, `report.md`, `findings.json`, скриншоты и ролики находок.
 
 ## Примеры вызова
 ```text
@@ -127,6 +130,10 @@ node <SKILL_DIR>/scripts/node/device_context.js state --cdp http://127.0.0.1:922
 node <SKILL_DIR>/scripts/node/device_context.js run --devices pixel7,iphone15 --url https://example.com/ --state <RUN_DIR>/logs/auth-state.json --rules <RUN_DIR>/rules.json --out <RUN_DIR>/raw/devices.json
 # снимок с разметкой в одном вызове (screenshots.md)
 node <SKILL_DIR>/scripts/node/shot.js --cdp http://127.0.0.1:9222 --page-match example.com --out <RUN_DIR>/screenshots/F-001-bell.png "#bell|Кнопка закрывает легенду|error" ".legend|@avoid"
+# ролик находки: шаги через guard, рамки и подпись, без звука, ≤ 3 МБ; затем Read ленты кадров и viewed (clips.md)
+node <SKILL_DIR>/scripts/node/clip.js --url https://example.com/ --out <RUN_DIR>/clips/F-004-menu.mp4 --setup <RUN_DIR>/setup/F-004-steps.js --caption "Меню закрывается само" "#menu|Меню|error" --rules <RUN_DIR>/rules.json --finding F-004 --run-dir <RUN_DIR>
+python3 <SKILL_DIR>/scripts/clips.py viewed <RUN_DIR> --id F-004
+python3 <SKILL_DIR>/scripts/clips.py check <RUN_DIR>                # файлы, бюджет, звук, просмотр
 # скриншоты в чужой/приватный репозиторий через веб-форму (web-upload.md): без --confirm-publish — только план
 node <SKILL_DIR>/scripts/node/publish_web.mjs --repo owner/repo --title "<заголовок>" --body-file <RUN_DIR>/drafts/owner__repo/01.md --shot <RUN_DIR>/screenshots/F-001-annotated.png --cdp http://127.0.0.1:9222
 node <SKILL_DIR>/scripts/node/comment_web.mjs --repo owner/repo --number 42 --body-file <RUN_DIR>/drafts/owner__repo/42-comment.md --shot <RUN_DIR>/screenshots/F-007-annotated.png --cdp http://127.0.0.1:9222
@@ -188,6 +195,7 @@ node <SKILL_DIR>/scripts/node/device_context.js state-rm --out <RUN_DIR>/logs/au
 | Желательно | Зачем |
 |------------|-------|
 | `@playwright/cli` (`npm i -g @playwright/cli@latest`) | параллельные изолированные браузерные потоки |
+| ffmpeg + ffprobe (`brew install ffmpeg` / `sudo apt install ffmpeg` / `winget install Gyan.FFmpeg`; только с согласия) | ролики находок: сжатие до бюджета, GIF, постер, лента кадров; без него ролик сохраняется как есть |
 | Claude in Chrome | режим «текущий экран» во вкладке пользователя |
 | Скилы/плагины: ux-audit (jezweb/claude-skills), e2e-test и ux-test (coderphonui/opentest), qa-skills (neonwatty), ux-heuristics, laws-of-ux, ux-design-principles, ui-audit-redesign (alpham8/agentic-webdev), frontend-design (Anthropic) | усиливают направления, см. `references/plugins-map.md` |
 
@@ -209,6 +217,7 @@ node <SKILL_DIR>/scripts/node/device_context.js state-rm --out <RUN_DIR>/logs/au
 - `recheck.py` запускает только скрипты скила; многошаговые сценарии перепроверяет отдельный исполнитель (`recheck.py set`).
 - `rtl.js` и `legal_guest.js` дают кандидатов и факты для ручной проверки по скриншоту.
 - Firefox может не запускаться в некоторых окружениях (см. `references/environment-notes.md`) — тогда помечается «не проверено».
+- Ролики находок модель не смотрит как видео — она проверяет ленту из 8 кадров; быстрые события между кадрами видны только в самом ролике. Страницы входа и оплаты не записываются; маска размывает только документ страницы (не iframe). Ролики 1.7.0 проверены на локальных фикстурах (запуск и CDP-заглушка), не на реальных сайтах.
 - Безопасность — только пассивная; это не пентест.
 
 ## Структура
@@ -217,7 +226,7 @@ SKILL.md                порядок работы
 INSTALL.md              установка и обновление (macOS, Windows), промпты для Claude Code
 references/             setup, intake, safety-rules, depth-matrix, parallelism, plugins-map, repo-sync,
                         severity, environment-notes, screenshots, claims, run-files, browser-guard,
-                        side-effects, layout-detectors, devices-auth, web-upload, local-files, fix-cycle,
+                        side-effects, layout-detectors, devices-auth, web-upload, local-files, fix-cycle, clips,
                         checklists/ (12 направлений)
 hooks/                  hooks.json — хук плагина «принудительный запуск» (scripts/shared/qa_force.py)
 templates/              run-config.example.yaml, finding.schema.json, issue-detailed.md,
@@ -225,12 +234,13 @@ templates/              run-config.example.yaml, finding.schema.json, issue-deta
 scripts/                check_env, skill_dir, skill_snapshot, local_app, browser_mode, url_guard, intake, journal,
                         fetch_issues, read_templates, claims, fingerprint, render_draft, e2e_stub, publish_shots,
                         validate_findings, build_report, gitignore_helper, export_results, brief, coverage,
-                        ingest_findings, recheck, direct_publish, tabs, runcfg, nav_lock, snap_mcp,
+                        ingest_findings, recheck, direct_publish, tabs, runcfg, clips, nav_lock, snap_mcp,
                         snap_cdp, node/ (a11y, lighthouse, headers, links, probe, annotate, shot, guard,
                         invariants, occlusion, reachability, targets, legal_guest, rtl, repro, device_context,
-                        frames, publish_web, comment_web, e2e_run + e2e/ (конфиг и обёртка Playwright Test),
+                        frames, clip, publish_web, comment_web, e2e_run + e2e/ (конфиг и обёртка Playwright Test),
                         mcp_guard, mcp_check), shared/ (вендоренные модули)
 tests/                  unit.sh (офлайн + наборы test_stream_a, test_v12, test_v121, test_v130, test_v140,
-                        test_v150, test_stream_b/c, test_v130_browser, test_v140_browser — file://, test_v150_browser),
+                        test_v150, test_v170, test_stream_b/c, test_v130_browser, test_v140_browser — file://, test_v150_browser,
+                        test_v170_browser — ролики),
                         фикстуры, сценарий dry-run
 ```

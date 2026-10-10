@@ -61,7 +61,8 @@ https://github.com/OrionFLASH/claude-code-skills (папка skills/android-qa-a
 3) Образы систем (мультивыбор, по 1-2 ГБ каждый): «API 35 (Recommended)» / «API 34» / «API 30» / «API 26»
    (под нужный ABI); или «Не сейчас - скил предложит при прогоне».
 4) Необязательное (мультивыбор): «bundletool (AAB)» / «scrcpy (показ экрана)» / «Maestro» / «Appium + uiautomator2»;
-   «Аннотации скриншотов: Node.js 18+ и локально npm install + npx playwright install chromium в <SKILL_DIR>/scripts/node».
+   «Аннотации скриншотов: Node.js 18+ и локально npm install + npx playwright install chromium в <SKILL_DIR>/scripts/node»;
+   «ffmpeg для роликов находок (Recommended: brew install ffmpeg / sudo apt install ffmpeg / winget install Gyan.FFmpeg)».
    Виртуальное аудиоустройство (BlackHole и т. п.) не ставь - только скажи, что оно нужно лишь для пути loopback.
 5) Способ установки скила: «Маркетплейс плагинов (Recommended)» / «Клон репозитория + tools/install.sh
    (macOS/Linux) или tools\install.ps1 (Windows)» / «Копия папки без git»; для кого: «Все проекты (~/.claude)» /
@@ -119,7 +120,8 @@ https://github.com/OrionFLASH/claude-code-skills (папка skills/android-qa-a
    CHANGELOG.md в origin/main; для плагина - claude plugin marketplace update claude-code-skills и claude plugin list;
    иначе - CHANGELOG.md скилла на GitHub.
 3) Для клона: git status (есть ли локальные правки) и текущая ветка.
-4) check_env --fast: не появились ли новые требования (раздел «Что понадобится» в новой версии INSTALL.md).
+4) check_env --fast: не появились ли новые требования (раздел «Что понадобится» в новой версии INSTALL.md);
+   с 1.5.0 — ffmpeg/ffprobe для роликов находок (рекомендуется, не обязателен; строка «ffmpeg (ролики находок)»).
 Покажи сводку: текущая версия -> последняя, заголовки изменений из CHANGELOG.md между ними.
 
 ШАГ 1. ВОПРОСЫ: обновить X -> Y? Есть дубль - что оставить? Есть локальные правки в клоне - «Отложить (git stash)
@@ -134,6 +136,8 @@ https://github.com/OrionFLASH/claude-code-skills (папка skills/android-qa-a
 ШАГ 3. ПРОВЕРКА: версия в plugin.json совпадает с последней; check_env; bash tests/unit.sh, если есть bash.
 Если раньше ставились аннотации скриншотов - в папке новой версии снова cd <SKILL_DIR>/scripts/node && npm install
 (после «да»), затем python3 <SKILL_DIR>/scripts/annotate_android.py check.
+Ролики (с 1.5.0): нет ffmpeg - спроси, ставить ли (системный пакет, только после «да»); без него ролики сохраняются
+без сжатия и без ленты кадров. Проверка: python3 <SKILL_DIR>/scripts/shared/qa_clips.py check.
 
 ШАГ 4. ИТОГ: таблица (версия до и после, способ, дубли, check_env, тесты), что сделать вручную (перезапустить
 Claude Code), как откатить (в клоне - git checkout android-qa-audit/v<старая версия>; копия - вернуть .bak;
@@ -159,7 +163,8 @@ Claude Code), как откатить (в клоне - git checkout android-qa-a
 | scrcpy | нет — показ экрана устройства | `brew install scrcpy` | `winget install Genymobile.scrcpy` | `scrcpy --version` |
 | Maestro | нет — повторяемые сценарии | `curl -fsSL "https://get.maestro.mobile.dev" \| bash` | через WSL (документация Maestro) | `maestro --version` |
 | Appium + uiautomator2 | нет — сложные сценарии | Node 18+, `npm i -g appium && appium driver install uiautomator2` | то же | `appium --version` |
-| Node.js 18+ и Playwright (Chromium) в `scripts/node` | нет — аннотированные скриншоты и PNG контактного листа | `brew install node`; затем локально: `cd <SKILL_DIR>/scripts/node && npm install && npx playwright install chromium` | `winget install OpenJS.NodeJS.LTS`; то же в PowerShell | `python3 <SKILL_DIR>/scripts/annotate_android.py check` |
+| ffmpeg + ffprobe | нет, **рекомендуется** — ролики находок: сжатие под бюджет, GIF, постер, лента кадров, «чёрный экран», склейка сегментов (`references/clips.md`) | `brew install ffmpeg` | `winget install Gyan.FFmpeg` (Linux — `sudo apt install ffmpeg`); свой путь — `QA_FFMPEG`, `QA_FFPROBE` | `python3 <SKILL_DIR>/scripts/shared/qa_clips.py check` |
+| Node.js 18+ и Playwright (Chromium) в `scripts/node` | нет — аннотированные скриншоты, PNG контактного листа, плашка подписи на ролике (если в ffmpeg нет `drawtext`) | `brew install node`; затем локально: `cd <SKILL_DIR>/scripts/node && npm install && npx playwright install chromium` | `winget install OpenJS.NodeJS.LTS`; то же в PowerShell | `python3 <SKILL_DIR>/scripts/annotate_android.py check` |
 | Виртуальное аудиоустройство | нет — только подача звука путём loopback (`references/audio-input.md`) | BlackHole: `brew install --cask blackhole-2ch` (или Loopback); выбрать входом и выходом по умолчанию — вручную | VB-Audio Virtual Cable (сайт VB-Audio); путь loopback на Windows — только вручную (`audio-input.md` → «Windows»), автоматически — gRPC или файл | строка «виртуальное аудиоустройство» в `check_env` |
 | ADBKeyBoard (APK) | нет — ввод кириллицы клавиатурой (`text --adbkeyboard`) | APK скачивает пользователь (github.com/senzhk/ADBKeyBoard); поставить на свой эмулятор — `adb_helpers.py ime install-adbkeyboard --apk <файл> --confirmed` после согласия | то же | `adb_helpers.py ime status` |
 
@@ -304,6 +309,18 @@ python3 <SKILL_DIR>/scripts/annotate_android.py check        # {"ok": true, …}
 ```
 Если Playwright уже стоит для site-qa-audit, можно не ставить второй раз: `ANDROID_QA_NODE_MODULES=<папка site-qa-audit>/scripts/node/node_modules` в `env` настроек Claude Code. Без Node.js: скриншоты и разметка (`*.spec.json`) сохраняются, рисование — «не поддерживается», контактный лист — только HTML, остальное работает. График PSS в отчёте Node не нужен (SVG на стандартной библиотеке).
 
+## Ролики находок: ffmpeg (рекомендуется)
+Короткие ролики без звука к находкам (`references/clips.md`) записывает `screenrecord` на устройстве — ставить на устройство ничего не нужно. На хосте **рекомендуется ffmpeg** (с ffprobe): сжатие под бюджет (≤ 10 с, ≤ 3 МБ), GIF для issue, постер, лента кадров (её смотрит модель вместо видео), проверка «чёрного экрана», склейка сегментов `clip-rolling`. Это системный пакет — ставится **только с согласия пользователя**:
+```bash
+brew install ffmpeg                       # macOS
+sudo apt install ffmpeg                   # Debian / Ubuntu
+winget install Gyan.FFmpeg                # Windows
+python3 <SKILL_DIR>/scripts/shared/qa_clips.py check       # ffmpeg, ffprobe, libx264, drawtext
+```
+Без ffmpeg ролики работают, но хуже: файл сохраняется как есть (размер может быть больше бюджета), GIF и ленты кадров нет — `clip` снимает скриншоты после шагов. ffmpeg не в PATH — `QA_FFMPEG=/путь/к/ffmpeg` и `QA_FFPROBE=…` в `env` настроек Claude Code. Сборка Playwright (`ms-playwright/ffmpeg-*`) урезана — годится только для кадров. Нет фильтра `drawtext` (сборка без freetype, так у Homebrew по умолчанию) — подпись в кадре рисует Chromium (`scripts/node/plaque.js`, раздел «Аннотации скриншотов»), иначе подпись остаётся только в находке.
+
+Эмулятор для роликов: у части образов нет кодека для `screenrecord` (`Encoder failed (err=-38)`: headless со `swiftshader_indirect`, образы arm64 API ≤ 30 на Apple Silicon) — запускать `avd_manager.py start <AVD> --gpu host` или образ новее; иначе `clip` соберёт ролик из скриншотов.
+
 ## Звук в микрофон эмулятора (по необходимости)
 Ставить ничего не нужно: `avd_manager.py start <AVD> --mic-inject` запускает эмулятор с gRPC и токеном, `adb_helpers.py mic-inject --wav <файл>` подаёт звук (`references/audio-input.md`). Виртуальное аудиоустройство (BlackHole и др.) — только для пути loopback, ставит и выбирает пользователь сам; скил его не трогает. Короткая проверка: `adb_helpers.py mic-status --serial <serial> --run-dir <RUN_DIR>`.
 
@@ -346,6 +363,8 @@ Windows — `%USERPROFILE%\.claude\settings.json` (обратный слэш в 
 | `QA_RUN_DIR` (или `ANDROID_QA_RUN_DIR`) | папка прогона: обёртка `qa` (`scripts/qa`, `qa.ps1`) добавляет `--run-dir` к каждой команде; вместо serial можно писать `-` — берётся `ANDROID_SERIAL` или единственное устройство | не задана |
 | `ANDROID_QA_EMU_RUNNING_DIR` | ещё одна папка, где искать файлы `pid_<pid>.ini` запущенных эмуляторов (gRPC `mic-inject`), если эмулятор пишет их не в стандартное место | стандартные папки ОС |
 | `SITE_QA_PYTHON`, `SITE_QA_HEADLESS`, `SITE_QA_SLOWMO` | node-скрипты (аннотации скриншотов): команда Python для моста к `guard.py`, окно браузера без интерфейса (`1`), замедление в мс | `python3` (Windows — `python`), окно видно, `250` |
+| `QA_FFMPEG`, `QA_FFPROBE` | путь к ffmpeg / ffprobe для роликов находок, если их нет в PATH (`references/clips.md`) | из PATH |
+| `ANDROID_QA_CLIP_OFFLINE_WAIT` | сколько секунд непрерывная запись (`clip-rolling`) ждёт возвращения устройства, прежде чем статус `lost` | `60` |
 | `ANDROID_QA_STOP_FILE` | **задаёт сам скил** фоновой задаче (`job run`): файл запроса остановки `raw/jobs/<id>.stop`; вручную не задавать | — |
 | `ANDROID_QA_SLEEP_SCALE`, `ANDROID_QA_LOOPBACK`, `ANDROID_QA_PLAYER` | **только для тестов** (`tests/`): масштаб пауз UI, подмена звукового loopback и проигрывателя | не заданы |
 
@@ -382,6 +401,10 @@ Windows — `%USERPROFILE%\.claude\settings.json` (обратный слэш в 
 | `mic-inject`: «не поддерживается: …» | так и задумано: в сообщении причина и следующий путь (gRPC → loopback → файл); файл — `mic-inject --via file` и импорт в приложении |
 | `dump-ui`: «could not get idle state» | экран с бесконечной анимацией: `dump-ui --retry 6 --ignore-animations`; нажатие — `tap X Y --no-ui` после скриншота |
 | `annotate_android.py`: «не поддерживается: нет модуля playwright» | «Аннотации скриншотов» выше; оригинал и spec сохранены |
+| ролик: код 4 «screenrecord не запустился … Encoder failed» | у эмулятора нет кодека — `avd_manager.py start <AVD> --gpu host` или образ новее; `clip` соберёт ролик из скриншотов (`--fallback auto`) |
+| ролик: «ffmpeg не найден — ролик не сжат» | «Ролики находок: ffmpeg» выше (с согласия); ролик сохранён как есть |
+| ролик: «чёрный экран: защищённое окно (FLAG_SECURE)» | так и задумано: приложение запрещает запись; в находке — скриншот и текст (`--force` — записать всё равно) |
+| `show_touches` (белые точки касаний) остались после прерывания | `adb_helpers.py clip-stop --restore-only --serial … --run-dir …` (или `clip-rolling stop`); уборка `avd_manager.py cleanup` делает это сама |
 | Windows: `python3` открывает Microsoft Store | `python` или `py -3`; отключить псевдонимы в «Параметры → Приложения → Псевдонимы выполнения приложений» |
 | Windows: «выполнение сценариев отключено» | `powershell -ExecutionPolicy Bypass -File …` |
 | Windows: `tests/unit.sh` не запускается | нужен bash: Git Bash или WSL |
