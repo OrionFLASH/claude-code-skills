@@ -155,8 +155,8 @@ ROUNDS = [
     ]),
     ("Место и инструменты", [
         ("Папка", "Где сохранить результат?", False, [
-            ("В репозитории strategy/ (Recommended)", "<repo>/strategy/<дата>/ в отдельной ветке docs/strategy-<дата>", {"output.inside_repo": True}),
-            ("Рядом с репозиторием", "../<repo>-strategy/<дата>/ — репозиторий не меняется вовсе", {"output.inside_repo": False}),
+            ("ВНУТРИ репозитория: strategy/ (Recommended)", "<repo>/strategy/<дата>/ в отдельной ветке docs/strategy-<дата>; файлы попадают в git вместе с проектом", {"output.inside_repo": True}),
+            ("ВНЕ репозитория (рядом)", "../<repo>-strategy/<дата>/ — в git репозитория не попадёт; перенести внутрь позже: init_run.py --relocate", {"output.inside_repo": False}),
         ]),
         ("TypeSafe", "Оценивать предложения TypeSafe (Jev) отдельной колонкой?", False, [
             ("Да, если есть ключ (Recommended)", "Узкие вероятностные вопросы к каждому предложению; ключ из TYPESAFE_API_KEY", {"tools.typesafe": "auto"}),
@@ -402,7 +402,24 @@ def questions_json(round_no=None):
     return out
 
 
+LEGACY_LABELS = {  # старые подписи карточек (до 1.2.1) → новые; ответы прежних сессий принимаются
+    "В репозитории strategy/ (Recommended)": "ВНУТРИ репозитория: strategy/ (Recommended)",
+    "Рядом с репозиторием": "ВНЕ репозитория (рядом)",
+}
+
+
+def _folder_alias(label):
+    """Свободная формулировка ответа «Папка» → True (внутри) / False (вне) / None (не понял)."""
+    low = str(label).lower()
+    if re.search(r"\b(вне|рядом|outside|снаружи)\b", low):
+        return False
+    if re.search(r"\b(внутри|inside)\b|в\s+репозитори|в\s+папке\s+репозитори|strategy/", low):
+        return True
+    return None
+
+
 def _find_option(header, label):
+    label = LEGACY_LABELS.get(str(label).strip(), label)
     for _, qs in ROUNDS:
         for h, _q, multi, opts in qs:
             if h == header:
@@ -459,6 +476,9 @@ def apply_answers(cfg, answers):
                 explicit.append("strategy.proposals_min")
             elif header == "Рынки":
                 set_path(cfg, "strategy.markets", [x.strip() for x in re.split(r"[,;/ ]+", str(lab)) if x.strip()])
+            elif header == "Папка" and _folder_alias(lab) is not None:
+                set_path(cfg, "output.inside_repo", _folder_alias(lab))
+                explicit.append("output.inside_repo")
             elif header in CUSTOM_PATH:
                 path = CUSTOM_PATH[header]
                 node = cfg
@@ -557,6 +577,8 @@ FROM_TEXT = [  # (регэксп, путь, функция значения)
     (r"\bбез\s+конкурентов\b", "scope.competitors", lambda m: False),
     (r"\bбез\s+субагентов\b", "tools.subagents", lambda m: False),
     (r"\b(?:автопилот|без вопросов|autopilot)\b", "autopilot", lambda m: True),
+    (r"\b(?:вне|рядом\s+с|outside)\s+(?:текущего\s+|the\s+)?(?:репозитори\w*|repo\w*)", "output.inside_repo", lambda m: False),
+    (r"(?:\bвнутри\s+(?:текущего\s+)?репозитори\w*|\bв\s+(?:папк\w+\s+)?(?:текущ\w+\s+)?репозитори\w*|\binside\s+(?:the\s+)?repo\w*)", "output.inside_repo", lambda m: True),
 ]
 
 
@@ -567,6 +589,23 @@ def from_text(text):
         if m and path not in found:
             found[path] = fn(m)
     return found
+
+
+def check_folder_request(cfg, request):
+    """Сверка слов запроса («в репозитории» / «вне репозитория») с выбранной папкой. Возвращает заметки."""
+    asked = from_text(request).get("output.inside_repo")
+    if asked is None:
+        return []
+    chosen = cfg["output"]["inside_repo"]
+    explicit = "output.inside_repo" in (cfg.get("_explicit") or [])
+    if not explicit:                       # карточку не задавали или не ответили — слова запроса главнее значения по умолчанию
+        cfg["output"]["inside_repo"] = asked
+        return ["Папка взята из запроса: %s репозитория" % ("внутри" if asked else "вне")]
+    if asked != chosen:
+        cfg["output"]["folder_conflict"] = True
+        return ["ВНИМАНИЕ: в запросе сказано «%s репозитория», а в карточке выбрано «%s». Переспросить одной строкой и при необходимости повторить apply с --set output.inside_repo=%s" % (
+            "внутри" if asked else "вне", "внутри" if chosen else "вне", "true" if asked else "false")]
+    return []
 
 
 def show(cfg):
@@ -585,7 +624,9 @@ def show(cfg):
             cfg["tools"]["typesafe"], _yn(cfg["tools"]["subagents"]), cfg["tools"]["max_parallel_agents"], cfg["tools"].get("install", "local-auto")),
         "Проект: цель %s, репозиторий %s, команда %s, валюта %s, профиль %s" % (
             cfg["project"]["goal"], cfg["project"]["repo_visibility"], cfg["project"]["team_size"], cfg["project"]["currency"], s["profile"]),
-        "Папка: %s%s" % (cfg["output"]["dir"], " (ветка %s)" % cfg["output"]["git_branch"] if cfg["output"]["inside_repo"] else ""),
+        ("Папка: %s — ВНУТРИ репозитория (ветка %s)" % (cfg["output"]["dir"], cfg["output"]["git_branch"])) if cfg["output"]["inside_repo"]
+        else ("Папка: %s — ВНЕ РЕПОЗИТОРИЯ: в git проекта не попадёт. Нужна внутри репозитория — повторить apply с --set output.inside_repo=true "
+              "или позже init_run.py <OUT> --relocate <repo>/strategy/<дата> --repo <repo> --inside-repo" % cfg["output"]["dir"]),
     ]
     if cfg["author"].get("copyright"):
         lines.append("Авторство: %s" % cfg["author"]["copyright"])
@@ -736,6 +777,7 @@ def main(argv=None):
             p.add_argument("--answers")
             p.add_argument("--from-askuser", help="ответ AskUserQuestion (JSON-строка, @файл или - для stdin)")
             p.add_argument("--open")
+            p.add_argument("--request", default="", help="исходный текст запроса пользователя: слова «в/вне репозитория» сверяются с ответом карточки «Папка»")
     d = sub.add_parser("detect")
     d.add_argument("--repo", default=".")
     d.add_argument("--json", action="store_true")
@@ -806,6 +848,7 @@ def main(argv=None):
         cfg["autopilot"] = True
         cfg["assumptions"].append("Автопилот: параметры по умолчанию, опрос пропущен")
     _apply_sets(cfg, a.set)
+    notes += check_folder_request(cfg, getattr(a, "request", ""))
     cfg = finalize(cfg)
     path = write_config(cfg)
     print(show(cfg))

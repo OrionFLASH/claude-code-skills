@@ -310,3 +310,40 @@ def test_skill_md_references_existing_files():
         if "{" in ref:
             continue
         assert (SCRIPTS.parent / ref).exists(), ref
+
+
+# ---------- папка результата: внутри / вне репозитория (1.2.1) ----------
+@pytest.mark.parametrize("label,inside", [
+    ("ВНУТРИ репозитория: strategy/ (Recommended)", True), ("ВНЕ репозитория (рядом)", False),
+    ("В репозитории strategy/ (Recommended)", True), ("Рядом с репозиторием", False),     # подписи до 1.2.1
+    ("положи рядом с репозиторием", False), ("внутри репо", True)])
+def test_folder_answer_maps_to_inside_repo(label, inside):
+    cfg = intake.base_config(".")
+    intake.apply_answers(cfg, {"Папка": label})
+    assert cfg["output"]["inside_repo"] is inside
+
+
+def test_folder_card_labels_say_inside_outside():
+    q = next(x for r in intake.questions_json() for x in r["questions"] if x["header"] == "Папка")
+    assert q["options"][0]["label"].startswith("ВНУТРИ") and "Recommended" in q["options"][0]["label"]
+    assert q["options"][1]["label"].startswith("ВНЕ")
+
+
+def test_request_text_sets_folder_when_card_not_answered_and_warns_on_conflict():
+    cfg = intake.base_config(".")
+    assert intake.check_folder_request(cfg, "сохрани стратегию вне репозитория") and cfg["output"]["inside_repo"] is False
+    cfg = intake.base_config(".")
+    intake.apply_answers(cfg, {"Папка": "ВНЕ репозитория (рядом)"})
+    notes = intake.check_folder_request(cfg, "стратегию надо положить в репозиторий")
+    assert notes and notes[0].startswith("ВНИМАНИЕ") and cfg["output"]["folder_conflict"] is True
+    assert cfg["output"]["inside_repo"] is False                       # ответ карточки не меняем молча
+    cfg = intake.base_config(".")
+    intake.apply_answers(cfg, {"Папка": "ВНУТРИ репозитория: strategy/ (Recommended)"})
+    assert intake.check_folder_request(cfg, "положи внутри репозитория") == []
+
+
+def test_show_marks_outside_repo_loudly():
+    cfg = intake.finalize(intake.base_config("."))
+    assert "ВНУТРИ репозитория" in intake.show(cfg)
+    cfg["output"]["inside_repo"] = False
+    assert "ВНЕ РЕПОЗИТОРИЯ" in intake.show(cfg)

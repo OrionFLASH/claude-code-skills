@@ -163,6 +163,7 @@ def main(argv=None):
     print("\nИтог: %s" % ("всё собрано" if not failed else "упали шаги: " + ", ".join(failed))
           + ("; пропущено из-за недостающего: " + ", ".join(skipped) if skipped else "")
           + ("; выключено выбором (не ошибка): " + ", ".join(off) if off else ""))
+    print("Папка результата: %s" % ("ВНУТРИ репозитория" if inside else "ВНЕ РЕПОЗИТОРИЯ — в git проекта не попадёт (перенос: init_run.py <OUT> --relocate <repo>/strategy/<дата> --repo <repo> --inside-repo)"))
     return 1 if failed else 0
 
 

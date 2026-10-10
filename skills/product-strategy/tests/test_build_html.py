@@ -496,6 +496,7 @@ def test_smoke_without_playwright_exits_3(demo, tmp_path):
         pytest.skip("нет node")
     env = dict(os.environ)
     env.pop("PS_NODE_DIR", None)
+    env["HOME"] = env["USERPROFILE"] = str(tmp_path / "home")          # кэш ~/.cache/product-strategy/node не должен подхватываться
     page = tmp_path / "lone" / "deliverables" / "index.html"   # рядом нет build/node
     page.parent.mkdir(parents=True)
     shutil.copy(demo["out"] / "deliverables" / "index.html", page)
