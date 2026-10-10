@@ -309,3 +309,14 @@
 - [x] #75 прогон ≈120 нестандартных формулировок на установленной 2.9.1: найдены и исправлены пробелы (только не / а не / вместо, «X или нет?», суб-агент, «субагент не нужен», markdown-цитаты) → 2.9.2, 733 теста
 ### Где остановился
 2.9.2 влита в main, тег typesafe-triage/v2.9.2, плагин обновлён. Хук в уже открытой сессии старый до перезапуска окна / `/reload-plugins`. Открытых пунктов нет. Необязательно: прогнать `--calibrate` на живых данных.
+
+## 2026-10-10 (15) новый скилл product-strategy — стратегия развития продукта по репозиторию
+Источники: docs/skill-handoff.md, docs/universal-strategy-prompt.md. Ветка feature/product-strategy-skill.
+- [x] Каркас (new-skill), контракт данных references/data-contract.md, make_demo.py
+- [x] Триаж подзадач TypeSafe --batch → 5 агентов opus (web xhigh, data/export/scan/refs high)
+- [x] Ядро: check_env.py (проверка/установка), intake.py (опрос 4 раунда + открытые), init_run.py, skill_dir.py, build_all.py
+- [x] SKILL.md, references/intake.md, references/tools.md
+- [x] INSTALL.md (промпты установки, обновления, доп. модулей), README, CHANGELOG, plugin.json
+- [x] Агенты: build_html+smoke; score/charts/model/typesafe_eval; xlsx/pptx/pdf/links; repo_scan/issues/node-скрипты; справочники и брифы (сведено: контракт 1.0, квоты демо, правило секретов, свои предложения в outline)
+- [x] Свести, тесты (93 + 7 skip), сквозной прогон демо (13 шагов OK, smoke 20/0), фазы 0–1 на реальном репозитории
+- [ ] validate, версия 1.0.0, merge, тег, установка плагина глобально, проверка установленной копии
