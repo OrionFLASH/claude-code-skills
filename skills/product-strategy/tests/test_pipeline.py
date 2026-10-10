@@ -94,7 +94,7 @@ def test_score_validate(demo):
     assert len(S) == 60 and [s["rank"] for s in S] == list(range(1, 61))
     for s in S:
         for k in ("id", "rank", "rice", "ice", "wsjf", "value_per_effort", "risk_adjusted", "confidence_calc", "composite",
-                  "quadrant", "priority", "moscow", "labels", "typesafe"):
+                  "quadrant", "priority", "moscow", "labels", "typesafe", "blocked_by", "unlocks", "dep_rank", "critical_path"):
             assert k in s, k
         assert s["quadrant"] in QUADRANTS and s["priority"] in {"P0", "P1", "P2", "P3"}
         assert s["moscow"] in {"must", "should", "could", "wont"} and set(s["labels"]) <= LABELS
@@ -103,6 +103,12 @@ def test_score_validate(demo):
             assert s["quadrant"] in {"quick_win", "big_bet"}
         assert s["typesafe"] is None
     assert 1 <= sum(s["priority"] == "P0" for s in S) <= 9
+    # 1.1: ранг с учётом зависимостей — перестановка 1..N, предпосылка всегда раньше зависимого
+    dr = {s["id"]: s["dep_rank"] for s in S}
+    assert sorted(dr.values()) == list(range(1, 61))
+    assert all(dr[b] < dr[s["id"]] for s in S for b in s["blocked_by"])
+    cp = jload(demo / "data" / "critical-path.json")
+    assert {"order", "edges"} <= set(cp) and all(len(e) == 2 for e in cp["edges"])
     sens = jload(demo / "data" / "sensitivity.json")
     assert {"tornado", "top20_stability", "runs"} <= set(sens) and 0 <= sens["top20_stability"] <= 1
     assert {"param", "low_rank_shift", "high_rank_shift"} <= set(sens["tornado"][0])
@@ -191,7 +197,9 @@ def test_charts(demo):
     keys = {e["key"] for e in idx}
     expected = {"effort-impact", "bubble", "metrics-heatmap", "radar-top10", "pareto", "tornado", "dist-category", "dist-evidence",
                 "dist-horizon", "gantt", "funnel", "forecast-fan", "cac-ltv", "payback", "keywords-volume", "events-calendar",
-                "competitors-heatmap"}
+                "competitors-heatmap", "critical-path", "channel-mix", "kpi-tree", "keywords-clusters"}
+    listed = json.loads(run("charts.py", demo, "--list-keys").stdout)
+    assert set(listed["available"]) == keys and not set(listed["skipped"]) & keys
     assert expected <= keys
     svgs = list((demo / "charts").glob("*.svg"))
     assert len(svgs) >= len(expected)

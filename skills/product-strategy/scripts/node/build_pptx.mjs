@@ -41,7 +41,7 @@ function loadModule(name, dirs) {
 const args = parseArgs(process.argv.slice(2));
 if (!args.out) { console.error('использование: node build_pptx.mjs <OUT> [--node-dir <dir>]'); process.exit(2); }
 const OUT = path.resolve(args.out);
-const DIRS = [args.nodeDir, process.env.PS_NODE_DIR, path.join(OUT, 'build', 'node'), SCRIPT_DIR];
+const DIRS = [args.nodeDir, process.env.PS_NODE_DIR, path.join(OUT, 'build', 'node'), path.join(process.env.HOME || process.env.USERPROFILE || '', '.cache', 'product-strategy', 'node'), SCRIPT_DIR];
 const pptxgen = loadModule('pptxgenjs', DIRS);
 if (!pptxgen) {
   console.error(`нет pptxgenjs: python3 ${path.join(SKILL_DIR, 'scripts', 'check_env.py')} --install-node ${OUT}`);

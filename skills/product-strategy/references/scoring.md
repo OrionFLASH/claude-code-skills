@@ -94,7 +94,11 @@ spread      = s.spread      (1–5: 1 — независимые оценки с
 `typesafe_eval.py` пишет `data/typesafe-jev.json`; `score.py` кладёт оценку предложения в поле `typesafe` (ошибка запроса или нет оценки → `null`). **В composite, ранги и приоритеты не входит** — отдельная колонка для сверки. Вопросы: `p_success`, `p_user_value`, `risk`, `p_fit`, `p_cheap_test`, `p_acquisition`, `p_revenue` (вероятности 0–1), `impact`, `effort` (1–5, уровень ответа + 1), `kano` (must | linear | delight | indifferent).
 
 ## 8. Модель юнит-экономики (`model.py`)
-Параметры — `build/model-params.json` (создаётся с допущениями по умолчанию), каждый вход `{value, label, note}`. Помесячно m = 1…горизонт:
+Параметры — `build/model-params.json` (создаётся с допущениями по умолчанию), каждый вход `{value, label, note}`. Существующий файл — источник правды; если `project.currency` в run-config с ним расходится, `model.py` предупреждает (удалить файл — пересоздать).
+
+**Валюта и подсказки** (только при создании файла): валюта — `project.currency` (иначе USD). Денежные дефолты (`price_month`, `price_one_time`, `fixed_cost_month`, `cost_per_paid_signup`, ставка часа) пересчитываются пресетом валюты: USD-значение × множитель уровня цен, округление до двух значащих цифр — это допущение, не курс. Множители: USD 1 · EUR 0,92 · GBP 0,8 · RUB 32 · KZT 230 · UAH 16 · BYN 1,2 · PLN 2,6 · INR 25 · BRL 2,5 · TRY 15 · CNY 3,5 · JPY 110; нет пресета → суммы в масштабе USD и заметка в `notes`. `project.price_hint` → `price_month` (метка «оценка»); `project.traffic_hint` → `visitors_month` базового сценария, пессимистичный ×0,5, оптимистичный ×3. В `model.json` добавлены `currency_symbol` и `profile`.
+
+Помесячно m = 1…горизонт:
 ```
 visitors_m   = visitors_month·(1 + traffic_growth)^(m−1)
 signups_m    = visitors_m·visit_to_signup + referred_{m−1}
@@ -115,3 +119,44 @@ breakeven_month = первый месяц, где Σ net·gross_margin ≥ Σ co
 ROI  = (Σ net·gross_margin − Σ cost) / Σ cost
 ```
 Воронка AARRR (`funnel`) — суммы за горизонт: посетители, активированные, средняя активная база, новые платящие, регистрации по приглашениям.
+
+### Профиль «нулевой бюджет, один разработчик» (`strategy.profile: zero-budget-solo`)
+Платных каналов нет (`paid_share = 0`), дефолтный трафик 300 / 800 / 2 500 посетителей в первый месяц (рост 3 / 6 / 10 %), постоянные затраты 0 / 6 / 12 USD × множитель валюты. Параметры блока `solo` (все — допущения, правятся в `model-params.json`): `days_per_month` 12, `hours_per_day` 6, `team_size` = `project.team_size` (1), `hourly_rate` — ставка часа из пресета валюты (USD 40, RUB 1 500 …), `growth_time_share` 0,3, `support_hours_per_paying_month` 0,5, `support_hours_per_active_month` 0,02, `support_capacity_alert` 0,5.
+```
+ёмкость_ч/мес          = team_size · days_per_month · hours_per_day
+hours_per_activated    = ёмкость_ч/мес · месяцев · growth_time_share / Σ activated          (вместо CAC)
+support_hours_m        = paying_m · support_hours_per_paying_month + active_m · support_hours_per_active_month
+support_capacity_month = первый m: support_hours_m / ёмкость_ч/мес ≥ support_capacity_alert
+margin_after_support   = price_month·(1 − fee)(1 − refund)·gross_margin − support_hours_per_paying_month·hourly_rate
+                         (≤ 0 → support_eats_revenue = true; разовая покупка — против поддержки за 12 мес.)
+free_actives_per_paying = margin_after_support / (support_hours_per_active_month·hourly_rate)
+time_breakeven_month   = первый m: Σ net·gross_margin ≥ m·ёмкость_ч/мес·hourly_rate + Σ fixed_cost   (безубыточность по времени)
+revenue_per_hour       = (Σ net·gross_margin − Σ fixed_cost) / (ёмкость_ч/мес · месяцев)
+capacity.dev_days_available = team_size·days_per_month·месяцев − Σ support_hours(база) / hours_per_day
+capacity.p0_p1         = предложения P0–P1 по dep_rank (иначе rank) с серединой effort_days; помещаются — строгий префикс,
+                         сумма середин ≤ dev_days_available; utilization = Σ середин / dev_days_available
+```
+В сценариях: `roi` = «неприменимо (нулевой бюджет)» + `roi_note`, `cac` = null + `cac_note`, `ltv_cac` и `payback_months` = null. Всё профильное — `model.json → solo` (`params`, `support`, `scenarios.<s>.{hours_per_activated, revenue_per_hour, time_breakeven_month, support_hours_total, support_capacity_month, dev_hours, time_cost, monthly[]}`, `capacity`) и копия `capacity` на верхнем уровне. Графики: `cac-ltv` — часы на активированного и выручка на час против ставки; `payback` — накопленная валовая выручка против стоимости времени. При малом числе платящих (базовый сценарий < 50 новых за горизонт) подписи `cac-ltv`/`payback` в любом профиле содержат абсолютные суммы: «базовый сценарий за N мес.: X новых платящих, Y чистой выручки». Профиль `standard` считает как выше без изменений.
+
+## 9. Зависимости и ранг с их учётом (`score.py`, сверка — `validate_scores.py`)
+Обычный `rank` не меняется. Граф: предпосылки предложения = `dependencies` (только существующие id, без самоссылок) ∪ `data/gap-audit-deps.json` `{id: [предпосылка…]}` (аудит пробелов, фаза 5.5); неизвестные ссылки печатаются и пропускаются. Ребро `[a, b]` — «a нужно сделать до b».
+
+- **Циклы:** компоненты сильной связности (≥ 2 узлов); внутри компоненты остаются только рёбра, где предпосылка выше по рангу (`rank(a) < rank(b)`), остальные снимаются (`critical-path.json → cycles, dropped_edges`, stdout, `registry-check.json → dependency_cycles`). Детерминированно, граф после разрыва ацикличен.
+- **`blocked_by`** — все транзитивные предпосылки, **`unlocks`** — все транзитивно разблокируемые; оба списка по возрастанию `rank`.
+- **Бонус разблокировки:** `dep_bonus(v) = min(bonus_cap, unlock_bonus · Σ_{q ∈ unlocks(v)} composite(q) · decay^(d(v,q) − 1))`, d — длина кратчайшего пути.
+- **`dep_score = composite + dep_bonus`; приоритет с наследованием:** `eff(v) = max(dep_score(v), max_{q ∈ unlocks(v)} dep_score(q))` — предпосылка получает приоритет самого ценного, что она открывает.
+- **`dep_rank`** — топологический порядок (Кан): из предложений, у которых все предпосылки уже размещены, берётся наибольший `round(eff, 9)`, затем `round(dep_score, 9)`, затем меньший `rank`. Предложение никогда не стоит выше своей предпосылки.
+- **Критический путь** (`critical_path: true`, `data/critical-path.json → order`): в замыкании топ-N (`critical_top_n`, N = min(20, число предложений): топ-N и все их предпосылки) — цепочка по рёбрам из ≥ 2 звеньев с наибольшей суммой composite, оканчивающаяся в топ-N; при равенстве — длиннее, затем лучший ранг. Нет рёбер — путь пуст.
+- **`data/critical-path.json`:** `{order, edges (все рёбра замыкания), top_n, value, nodes[{id, rank, dep_rank, title, in_top, critical}], cycles, dropped_edges, unknown, warnings, params}`.
+- **Предупреждение:** предложение из топ-`warn_top` (20), у которого среди `blocked_by` есть предложение ниже топ-`warn_below` (60) — stdout (последняя строка вывода `score.py` — сводка для `build_all`), `critical-path.json → warnings`, `registry-check.json → dependency_warnings`.
+
+Веса (`weights.json → dependency`): `unlock_bonus` 0,10 · `decay` 0,5 · `bonus_cap` 0,15 · `critical_top_n` 20 · `warn_top` 20 · `warn_below` 60. В чувствительность (§6) не входят.
+
+## 10. Сходство при слиянии черновиков (`merge_proposals.py`)
+Нормализация: нижний регистр, ё → е, слова `[a-zа-я0-9]+`, стоп-слова RU/EN (служебные и общие глаголы «сделать/добавить/выпустить…»), лёгкая «обрезка» окончаний RU/EN, основа до 7 (RU) / 8 (EN) знаков. tf = 1 + ln f, idf = ln((1 + N)/(1 + df)) + 1 по всем черновикам прогона.
+```
+балл = 0,25·cos_tfidf(названия) + 0,15·Жаккар(символьные триграммы названий) + 0,20·cos_tfidf(описания)
+     + 0,10·Жаккар(основы описаний) + 0,30·cos_tfidf(название ×2 + описание + теги)
+```
+Слияние: балл ≥ 0,275 (`--threshold`) или Жаккар основ названий ≥ 0,75 (`--title-threshold`); группы — одиночная связь, новая связь принимается при среднем сходстве групп ≥ 0,5·порога и размере группы ≤ 5. Порог откалиброван на реальном прогоне: 139 кандидатов, 14 известных слияний — найдено 12, ложных 0; на тех же черновиках после ручной чистки (125) — 0 слияний. Победитель: не ронять минимумы категорий (`check_registry.category_requirements`), максимум слитых, категория с запасом ≤ 2 над минимумом, лучший класс доказательств, полнота описания, порядок.
+

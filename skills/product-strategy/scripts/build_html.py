@@ -9,24 +9,35 @@ CSS, JS, данные и картинки встроены в страницу: 
 JSON — в <script type="application/json">, CSP без внешних источников, ни одного внешнего запроса.
 Весь текст из данных экранируется: HTML и скрипты в данных — это данные, не код.
 
-  build_html.py <OUT> [--out <file>] [--title "…"]
+  build_html.py <OUT> [--out <file>] [--title "…"] [--lite [--lite-encoder auto|pillow|ffmpeg|none]]
 
-В конце печатает размер страницы, топ-10 самых тяжёлых вложений и предупреждения. Только стандартная библиотека.
+--lite: крупные растровые картинки не встраиваются, а пишутся файлами в <папка страницы>/assets/ (WebP, если есть
+Pillow или ffmpeg; иначе PNG/JPEG как есть), в странице — относительные ссылки и миниатюры ≤ 320 px в data: для превью
+(полная картинка подгружается, когда превью видно и крупнее миниатюры). SVG и мелкие картинки встраиваются всегда.
+Без --lite страница автономна, как прежде; если она больше 12 МБ — печатается совет собрать с --lite.
+
+В конце печатает размер страницы, топ-10 самых тяжёлых вложений и предупреждения. Только стандартная библиотека
+(Pillow и ffmpeg для --lite — необязательны и используются, только если есть).
 """
 import argparse
 import base64
 import colorsys
 import hashlib
 import html
+import io
+import ipaddress
 import json
 import math
 import os
 import re
+import shutil
 import struct
+import subprocess
 import sys
+import tempfile
 from datetime import date
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 # ---------------------------------------------------------------- подписи
 CAT_LABELS = {"product": "Продукт", "acquisition": "Привлечение", "conversion": "Конверсия", "retention": "Удержание",
@@ -219,14 +230,146 @@ def safe_url(u):
     return u
 
 
+HOST_RE = re.compile(r"(?:[\w-]+\.)+[\w-]{2,}", re.U)
+
+
+def http_url(u):
+    """Валидный http(s)-URL (схема, хост с доменом/localhost/IP, без пробелов) или "". «Локальный запуск…»,
+    «https://…» (заглушка) и относительные пути — не URL."""
+    u = ("" if u is None else str(u)).strip()
+    if not re.match(r"^https?://\S+$", u, re.I):
+        return ""
+    try:
+        host = (urlsplit(u).hostname or "").strip(".")
+    except ValueError:
+        return ""
+    if not host:
+        return ""
+    if host == "localhost" or HOST_RE.fullmatch(host) and not host.startswith("-"):
+        return u
+    try:
+        ipaddress.ip_address(host)
+        return u
+    except ValueError:
+        return ""
+
+
+def data_url(u):
+    """Ссылка из данных (источник, сайт продукта, конкурента): только http(s) или mailto:, иначе ""."""
+    s = ("" if u is None else str(u)).strip()
+    if re.match(r"^mailto:[^\s@]+@[^\s@]+$", s, re.I):
+        return s
+    return http_url(s)
+
+
 def ext_link(url, text=None, cls=""):
-    """Внешняя ссылка (новая вкладка) или просто текст, если схема не разрешена."""
-    s = safe_url(url)
+    """Внешняя ссылка (новая вкладка) или просто текст, если это не валидный http(s)/mailto-адрес."""
+    s = data_url(url)
     t = esc(text if text not in (None, "") else url)
     if not s:
         return t
     c = ' class="' + cls + '"' if cls else ""
     return '<a' + c + ' href="' + esc(s) + '" target="_blank" rel="noopener noreferrer">' + t + "</a>"
+
+
+def short_url(u, n=48):
+    """Домен без www + путь, сокращённо: «example.com/docs/guide/…»."""
+    s = ("" if u is None else str(u)).strip()
+    try:
+        p = urlsplit(s)
+        host = (p.hostname or "").lower()
+    except ValueError:
+        p, host = None, ""
+    if host:
+        host = host[4:] if host.startswith("www.") else host
+        s = host + (p.path if p.path not in ("", "/") else "") + ("?" + p.query if p.query else "")
+    else:
+        s = re.sub(r"^[a-z][a-z0-9+.-]*://", "", s, flags=re.I)
+    s = s.rstrip("/")
+    return s if len(s) <= n else s[:n - 1].rstrip("/.-_") + "…"
+
+
+def url_like_title(title, url):
+    """Название источника пустое, равно URL или является обрезанным URL («https://exa…», «example.com/do…»)."""
+    raw = str(title or "").strip()
+    t = re.sub(r"[\s…]+$|\.{2,}$", "", raw).strip()
+    cut_mark = t != raw                       # оканчивалось на «…» или «...»
+    if not t:
+        return True
+    if re.match(r"^(https?://|www\.)", t, re.I):
+        return True
+    u = str(url or "").strip()
+    if not u:
+        return False
+
+    def norm(s):
+        return re.sub(r"^(https?://)?(www\.)?", "", s.strip().lower()).rstrip("/")
+    nt, nu = norm(t), norm(u)
+    if not nt or " " in t:
+        return False
+    if nt == nu:
+        return True
+    # префикс URL — обрезка, только если похоже на адрес («example.com/do», «exa.») или стоит многоточие; «Example» — название
+    return len(nt) >= 6 and nu.startswith(nt) and (cut_mark or "." in t or "/" in t)
+
+
+def humanize_key(k):
+    """Ключ функции snake_case → подпись: «own_channel_analytics» → «Own channel analytics» (целые слова)."""
+    s = re.sub(r"\s+", " ", str(k).replace("_", " ")).strip()
+    return (s[:1].upper() + s[1:]) if s else str(k)
+
+
+VERDICT_MAX = 45
+
+
+def verdict_parts(verdict, verdict_long):
+    """(короткий ≤ 45 знаков + «…», длинный текст для карточки, усечён ли короткий без verdict_long)."""
+    v = re.sub(r"\s+", " ", str(verdict or "")).strip()
+    vl = re.sub(r"\s+", " ", str(verdict_long or "")).strip()
+    cut = len(v) > VERDICT_MAX
+    short = (v[:VERDICT_MAX].rstrip(" ,.;:—–-") + "…") if cut else v
+    if not short and vl:
+        short = (vl[:VERDICT_MAX].rstrip(" ,.;:—–-") + "…") if len(vl) > VERDICT_MAX else vl
+    return short, (vl or (v if cut else "")), bool(cut and not vl)
+
+
+def _same_value(a, b):
+    """Значения TypeSafe совпадают по смыслу: числа — с точностью округления score.py, строки — без регистра."""
+    if isinstance(a, bool) or isinstance(b, bool):
+        return a is b
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+        return abs(float(a) - float(b)) <= 0.005 + 1e-9
+    if isinstance(a, str) and isinstance(b, str):
+        return a.strip().casefold() == b.strip().casefold()
+    if isinstance(a, dict) and isinstance(b, dict):
+        return set(a) == set(b) and all(_same_value(a[k], b[k]) for k in a)
+    if isinstance(a, list) and isinstance(b, list):
+        return len(a) == len(b) and all(_same_value(x, y) for x, y in zip(a, b))
+    return a == b
+
+
+def merge_typesafe(ts, jev):
+    """Один блок TypeSafe для карточки из scores.json (typesafe) и typesafe-jev.json: совпадающие по смыслу значения —
+    один раз; расходящиеся — «score.py / Jev» в одном поле. None — данных нет."""
+    ts = ts if isinstance(ts, dict) else {}
+    jev = jev if isinstance(jev, dict) else {}
+    if not ts and not jev:
+        return None
+    if not ts or not jev:
+        return {"title": "TypeSafe Jev" if jev else "TypeSafe (score.py)", "items": dict(jev or ts), "conflicts": []}
+    items, conflicts = {}, []
+    for k in list(jev) + [k for k in ts if k not in jev]:
+        if k not in ts:
+            items[k] = jev[k]
+        elif k not in jev:
+            items[k] = ts[k]
+        elif _same_value(ts[k], jev[k]):
+            items[k] = jev[k]
+        else:
+            items[k] = {"score.py": ts[k], "Jev": jev[k]}
+            conflicts.append(str(k))
+    title = "TypeSafe Jev" + (" (score.py = Jev)" if not conflicts else " и score.py (расходятся: " + ", ".join(conflicts) + ")")
+    return {"title": title, "items": items, "conflicts": conflicts}
 
 
 def plural(n, forms):
@@ -335,15 +478,198 @@ def image_size(data, mime):
     return None, None
 
 
-class Images:
-    """Каждая картинка встраивается один раз: ключ → data URI; повторные ссылки на тот же файл получают тот же ключ."""
+LITE_INLINE_MAX = 32 * 1024    # --lite: картинки меньше этого (и все SVG) встраиваются как есть
+THUMB_MAX = 320                # --lite: миниатюра — не больше 320 px по большей стороне
+ASSETS_MANIFEST = ".ps-assets.json"
 
-    def __init__(self, base, warn):
+
+class LiteEncoder:
+    """Перекодирование для --lite: Pillow (если установлен и умеет WebP) → ffmpeg → без перекодирования.
+    full() — полная картинка (WebP, если он меньше исходника), thumb() — миниатюра ≤ 320 px (WebP или JPEG)."""
+
+    def __init__(self, want="auto", warn=None):
+        self.warn = warn or (lambda m: None)
+        self.kind, self.ffmpeg, self.ff_webp, self.Image = "none", None, False, None
+        if want in ("auto", "pillow"):
+            try:
+                from PIL import Image, features   # необязательная зависимость
+                if features.check("webp"):
+                    self.kind, self.Image = "pillow", Image
+            except Exception:                      # нет Pillow или он без WebP
+                pass
+        if self.kind == "none" and want in ("auto", "ffmpeg"):
+            ff = shutil.which("ffmpeg")
+            if ff:
+                self.ffmpeg, self.kind = ff, "ffmpeg"
+                try:
+                    enc = subprocess.run([ff, "-hide_banner", "-encoders"], capture_output=True, text=True, timeout=30).stdout
+                    self.ff_webp = " libwebp " in enc
+                except (OSError, subprocess.SubprocessError):
+                    self.ff_webp = False
+        if want in ("pillow", "ffmpeg") and self.kind != want:
+            self.warn("--lite-encoder %s недоступен — использую: %s" % (want, self.label()))
+
+    def label(self):
+        return {"pillow": "Pillow (WebP)", "ffmpeg": "ffmpeg (" + ("WebP" if self.ff_webp else "JPEG-миниатюры, полные — как есть") + ")",
+                "none": "без перекодирования (нет Pillow и ffmpeg): файлы как есть, без миниатюр"}[self.kind]
+
+    # --- Pillow
+    def _pil_open(self, data):
+        im = self.Image.open(io.BytesIO(data))
+        im.load()
+        has_alpha = "A" in im.getbands() or (im.mode == "P" and "transparency" in im.info)
+        if im.mode not in ("RGB", "RGBA"):
+            im = im.convert("RGBA" if has_alpha else "RGB")
+        return im
+
+    def _pil_save(self, im, quality):
+        buf = io.BytesIO()
+        im.save(buf, "WEBP", quality=quality, method=4)
+        return buf.getvalue()
+
+    # --- ffmpeg
+    def _ff(self, src, out_name, vf=None, codec=None):
+        with tempfile.TemporaryDirectory(prefix="ps-lite-") as td:
+            dst = os.path.join(td, out_name)
+            cmd = [self.ffmpeg, "-v", "error", "-nostdin", "-y", "-i", str(src)]
+            if vf:
+                cmd += ["-vf", vf]
+            cmd += codec + ["-frames:v", "1", dst]
+            r = subprocess.run(cmd, capture_output=True, timeout=120)
+            if r.returncode != 0 or not os.path.isfile(dst):
+                raise RuntimeError((r.stderr or b"").decode("utf-8", "replace").strip()[:160] or "ffmpeg: ошибка")
+            with open(dst, "rb") as f:
+                return f.read()
+
+    def full(self, src, data, mime):
+        """(байты, mime) полной картинки для assets/."""
+        if mime not in ("image/png", "image/jpeg", "image/webp") or self.kind == "none":
+            return data, mime
+        try:
+            if self.kind == "pillow":
+                out = self._pil_save(self._pil_open(data), 82)
+            elif self.ff_webp:
+                out = self._ff(src, "full.webp", codec=["-c:v", "libwebp", "-quality", "82", "-compression_level", "4"])
+            else:
+                return data, mime
+        except Exception as e:  # битая картинка, ошибка кодировщика — оставить как есть
+            self.warn("--lite: не перекодировать %s (%s) — файл как есть" % (Path(str(src)).name, str(e)[:100]))
+            return data, mime
+        return (out, "image/webp") if out and len(out) < len(data) else (data, mime)
+
+    def thumb(self, src, data, mime):
+        """(байты, mime) миниатюры ≤ 320 px или None (нет кодировщика / ошибка)."""
+        if self.kind == "none" or mime not in ("image/png", "image/jpeg", "image/webp", "image/gif"):
+            return None
+        try:
+            if self.kind == "pillow":
+                im = self._pil_open(data)
+                im.thumbnail((THUMB_MAX, THUMB_MAX))
+                return self._pil_save(im, 72), "image/webp"
+            vf = ("scale=w='min(%d,iw)':h='min(%d,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2" % (THUMB_MAX, THUMB_MAX))
+            if self.ff_webp:
+                return self._ff(src, "t.webp", vf, ["-c:v", "libwebp", "-quality", "72"]), "image/webp"
+            return self._ff(src, "t.jpg", vf, ["-c:v", "mjpeg", "-q:v", "5", "-pix_fmt", "yuvj420p"]), "image/jpeg"
+        except Exception as e:
+            self.warn("--lite: нет миниатюры для %s (%s)" % (Path(str(src)).name, str(e)[:100]))
+            return None
+
+
+class LiteStore:
+    """Файлы --lite: <папка страницы>/assets/<ключ>-<хеш>.<ext>; повторная сборка не перекодирует одинаковые файлы
+    (имя по хешу исходника), а файлы прошлых сборок, которых больше нет на странице, удаляются по манифесту."""
+
+    EXT = {"image/webp": ".webp", "image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif"}
+
+    def __init__(self, page_dir, encoder):
+        self.dir = Path(page_dir) / "assets"
+        self.enc = encoder
+        self.written = {}            # имя файла → байты
+        self.thumb_bytes = 0
+
+    def store(self, src, data, mime, key):
+        """→ (относительный URL, размер файла, (data URI миниатюры, ширина) | None)."""
+        h = hashlib.sha1(data).hexdigest()[:10]
+        stem = slug(key)[:60] + "-" + h
+        existing = [p for p in (self.dir.glob(stem + ".*") if self.dir.is_dir() else []) if p.suffix in self.EXT.values()]
+        if existing:
+            name, size = existing[0].name, existing[0].stat().st_size
+        else:
+            out, omime = self.enc.full(src, data, mime)
+            name = stem + self.EXT.get(omime, Path(str(src)).suffix.lower() or ".bin")
+            self.dir.mkdir(parents=True, exist_ok=True)
+            (self.dir / name).write_bytes(out)
+            size = len(out)
+        self.written[name] = size
+        th = self.enc.thumb(src, data, mime)
+        thumb = None
+        if th:
+            tb, tm = th
+            tw, _ = image_size(tb, tm)
+            uri = "data:" + tm + ";base64," + base64.b64encode(tb).decode("ascii")
+            self.thumb_bytes += len(uri)
+            thumb = (uri, tw or THUMB_MAX)
+        return "assets/" + quote(name), size, thumb
+
+    def finish(self):
+        """Манифест и удаление файлов прошлых сборок, которых нет на этой странице (только свои, по манифесту)."""
+        old = read_manifest(self.dir)
+        for name in old:
+            if name not in self.written and "/" not in name and "\\" not in name:
+                try:
+                    (self.dir / name).unlink()
+                except OSError:
+                    pass
+        if self.written:
+            self.dir.mkdir(parents=True, exist_ok=True)
+            (self.dir / ASSETS_MANIFEST).write_text(json.dumps(sorted(self.written), ensure_ascii=False, indent=1), encoding="utf-8")
+        elif (self.dir / ASSETS_MANIFEST).is_file():
+            (self.dir / ASSETS_MANIFEST).unlink()
+
+
+def read_manifest(d):
+    try:
+        v = json.loads((Path(d) / ASSETS_MANIFEST).read_text(encoding="utf-8"))
+        return [str(x) for x in v] if isinstance(v, list) else []
+    except (OSError, ValueError):
+        return []
+
+
+def drop_stale_assets(page_dir):
+    """Обычная (автономная) сборка: файлы прошлой --lite-сборки рядом со страницей больше не нужны — удалить свои."""
+    d = Path(page_dir) / "assets"
+    names = read_manifest(d)
+    for name in names:
+        if "/" not in name and "\\" not in name:
+            try:
+                (d / name).unlink()
+            except OSError:
+                pass
+    try:
+        (d / ASSETS_MANIFEST).unlink()
+        d.rmdir()
+    except OSError:
+        pass
+    return len(names)
+
+
+class Images:
+    """Каждая картинка встраивается один раз: ключ → data URI; повторные ссылки на тот же файл получают тот же ключ.
+    С lite (LiteStore) крупные растровые картинки — файлы в assets/: ключ → относительный URL, миниатюра — в thumbs."""
+
+    def __init__(self, base, warn, lite=None):
         self.base = base.resolve()
         self.warn = warn
+        self.lite = lite
         self.map = {}
         self.meta = {}
+        self.thumbs = {}
+        self.alias = {}          # ключ → ключ с тем же содержимым (PNG макета и его референса — один файл под двумя путями)
         self.by_path = {}
+        self.by_hash = {}
+
+    def has(self, k):
+        return bool(k) and (k in self.map or k in self.alias)
 
     def resolve(self, rel):
         """Путь внутри <OUT> или None (URL, data:, выход за пределы папки прогона — отказ)."""
@@ -379,12 +705,30 @@ class Images:
             return None
         key = slug(hint)
         k, n = key, 2
-        while k in self.map:
+        while k in self.map or k in self.alias:
             k, n = key + "-" + str(n), n + 1
-        uri = "data:" + mime + ";base64," + base64.b64encode(data).decode("ascii")
         w, h = image_size(data, mime)
-        self.map[k] = uri
-        self.meta[k] = {"src": self.rel(p), "bytes": len(uri), "w": w, "h": h, "mime": mime}
+        digest = hashlib.sha1(data).hexdigest()
+        if digest in self.by_hash:          # то же содержимое по другому пути — свой ключ, общие байты
+            first = self.by_hash[digest]
+            self.alias[k] = first
+            self.meta[k] = dict(self.meta[first], src=self.rel(p), bytes=0, alias=first)
+            self.meta[k].pop("asset_bytes", None)
+            self.meta[k].pop("asset", None)
+            self.by_path[p] = k
+            return k
+        self.by_hash[digest] = k
+        if self.lite and mime != "image/svg+xml" and len(data) > LITE_INLINE_MAX:
+            url, size, thumb = self.lite.store(p, data, mime, k)
+            self.map[k] = url
+            self.meta[k] = {"src": self.rel(p), "bytes": len(thumb[0]) if thumb else 0, "w": w, "h": h, "mime": mime,
+                            "asset": url, "asset_bytes": size}
+            if thumb:
+                self.thumbs[k] = [thumb[0], thumb[1]]
+        else:
+            uri = "data:" + mime + ";base64," + base64.b64encode(data).decode("ascii")
+            self.map[k] = uri
+            self.meta[k] = {"src": self.rel(p), "bytes": len(uri), "w": w, "h": h, "mime": mime}
         self.by_path[p] = k
         if len(data) > 8 * 1024 * 1024:
             self.warn("тяжёлая картинка %s (%.1f МБ) — лучше WebP/меньший размер" % (self.rel(p), len(data) / 1048576))
@@ -688,6 +1032,7 @@ def theme_vars(base_tokens, dark_tokens):
         acc = md["accent"]
         link = fit_contrast(acc, md["surface"])
         link = fit_contrast(link, md["bg"])
+        link = fit_contrast(link, md["surface-2"])      # раскрытая строка реестра, шапки таблиц
         on_acc = (255, 255, 255) if contrast(acc, (255, 255, 255)) >= contrast(acc, (17, 17, 17)) else (17, 17, 17)
         out[m] = {
             "--ps-bg": hexc(md["bg"]), "--ps-surface": hexc(md["surface"]), "--ps-surface-2": hexc(md["surface-2"]),
@@ -867,7 +1212,8 @@ class Markdown:
             return "<" + tag + (' class="al-' + al + '"' if al else "") + ">" + self.inline(txt) + "</" + tag + ">"
         thead = "".join(cell("th", head[k], k) for k in range(ncol))
         body = "".join("<tr>" + "".join(cell("td", r[k] if k < len(r) else "", k) for k in range(ncol)) + "</tr>" for r in rows)
-        return '<div class="tbl"><table><thead><tr>' + thead + "</tr></thead><tbody>" + body + "</tbody></table></div>", i
+        many = ' class="many"' if ncol >= 7 else ""     # много столбцов — компактнее, чтобы на 1440 влезть в рамку
+        return '<div class="tbl"><table' + many + '><thead><tr>' + thead + "</tr></thead><tbody>" + body + "</tbody></table></div>", i
 
     def _list(self, lines, i):
         n = len(lines)
@@ -1059,11 +1405,14 @@ def pid_link(pid, titles):
 
 # ---------------------------------------------------------------- сборщик
 class Builder:
-    def __init__(self, out, out_file, title=None):
+    def __init__(self, out, out_file, title=None, lite=False, lite_encoder="auto"):
         self.out = out.resolve()
         self.out_file = out_file
         self.warnings = []
-        self.img = Images(self.out, self.warn)
+        self.lite = None
+        if lite:
+            self.lite = LiteStore(out_file.parent, LiteEncoder(lite_encoder, self.warn))
+        self.img = Images(self.out, self.warn, self.lite)
         self.cfg = self.json("build/run-config.json", dict) or {}
         self.author = self.cfg.get("author") if isinstance(self.cfg.get("author"), dict) else {}
         created = str(self.cfg.get("created") or "")
@@ -1518,6 +1867,7 @@ class Builder:
                 m["risk_sum"], m["risk_max"] = sum(rv), max(rv)
             ts = s.get("typesafe") if isinstance(s.get("typesafe"), dict) else {}
             jev = self.jev_items.get(p["id"]) if isinstance(self.jev_items.get(p["id"]), dict) else {}
+            ts_block = merge_typesafe(ts, jev)
             for k, v in list(ts.items()) + list(jev.items()):
                 x = num(v) if isinstance(v, (int, float)) else None
                 if x is not None:
@@ -1538,7 +1888,7 @@ class Builder:
                 "source_group": text_of(p.get("source_group")), "merged_from": str_list(p.get("merged_from")),
                 "quadrant": str(s.get("quadrant") or ""), "priority": str(s.get("priority") or ""),
                 "moscow": str(s.get("moscow") or ""), "labels": labels,
-                "typesafe": ts or None, "jev": jev or None, "m": m, "concepts": concepts,
+                "typesafe": ts or None, "jev": jev or None, "ts_block": ts_block, "m": m, "concepts": concepts,
                 "has_mockup": bool(concepts), "mentions": mentions.get(p["id"], {}), "rdeps": rdeps.get(p["id"], []),
             }
             hay = " ".join([row["id"], row["title"], row["description"], row["rationale"], row["segment"],
@@ -1584,8 +1934,11 @@ class Builder:
         prod = self.cfg.get("product") if isinstance(self.cfg.get("product"), dict) else {}
         st = self.cfg.get("strategy") if isinstance(self.cfg.get("strategy"), dict) else {}
         facts = []
-        if prod.get("name"):
-            facts.append(("Продукт", esc(prod["name"]) + (" · " + ext_link(prod["url"]) if prod.get("url") else "")))
+        if prod.get("name") or prod.get("url"):
+            u = text_of(prod.get("url")).strip()
+            # ссылка — только валидный http(s)-адрес; «Локальный запуск…» и прочий текст — текстом
+            where = (ext_link(u) if http_url(u) else '<span class="muted">' + esc(u) + "</span>") if u else ""
+            facts.append(("Продукт", esc(text_of(prod.get("name"))) + (" · " + where if where and prod.get("name") else where)))
         if st.get("goal"):
             facts.append(("Цель", esc(st["goal"])))
         kind = {"growth": "рост", "gtm": "выход на рынок", "monetization": "монетизация", "tech-roadmap": "техническая дорожная карта",
@@ -2326,12 +2679,19 @@ class Builder:
         comps = [c for c in self.comp if not c.get("self")]
         if not comps:
             return
-        feats = []
+        feats, flabels = [], {}
+        for c in sorted(self.comp, key=lambda x: not x.get("self")):   # подписи строки self — приоритетнее
+            fl = c.get("features_labels") if isinstance(c.get("features_labels"), dict) else {}
+            for k, v in fl.items():
+                if text_of(v).strip() and str(k) not in flabels:
+                    flabels[str(k)] = text_of(v).strip()
         for c in self.comp:
             if isinstance(c.get("features"), dict):
                 for f in c["features"]:
-                    if f not in feats:
+                    if str(f) not in feats:
                         feats.append(str(f))
+        # подпись функции: features_labels, иначе ключ по-человечески (snake_case → слова), без обрезки по буквам
+        self.comp_feature_labels = {f: flabels.get(f) or humanize_key(f) for f in feats}
         js = []
         for i, c in enumerate(self.comp):
             slug_ = str(c.get("slug") or "c%d" % i)
@@ -2346,12 +2706,14 @@ class Builder:
                  "features": {str(k): (v if isinstance(v, bool) or v is None else text_of(v)) for k, v in feat.items()}}
             for k in ("segment", "price", "monetization", "languages", "audience", "freshness", "traffic", "design_note", "verdict"):
                 o[k] = text_of(c.get(k))
+            # verdict ≤ 45 знаков — в заголовке карточки и в подсказке матрицы; длинный — verdict_long или раскрытие
+            o["verdict_short"], o["verdict_long"], o["verdict_cut"] = verdict_parts(o["verdict"], text_of(c.get("verdict_long")))
             for k in ("better_than_us", "we_better", "best_solutions", "complaints", "adopt", "avoid", "sources"):
                 o[k] = str_list(c.get(k))
             hay = " ".join([o["name"], o["url"], o["segment"], o["price"], o["monetization"], o["languages"], o["audience"],
-                            o["design_note"], o["verdict"], COMP_TYPE_LABELS.get(o["type"], o["type"])]
+                            o["design_note"], o["verdict"], o["verdict_long"], COMP_TYPE_LABELS.get(o["type"], o["type"])]
                            + o["better_than_us"] + o["we_better"] + o["best_solutions"] + o["complaints"] + o["adopt"] + o["avoid"]
-                           + [k for k, v in o["features"].items() if v])
+                           + [self.comp_feature_labels.get(k, k) for k, v in o["features"].items() if v])
             o["_hay"] = hay.lower().replace("ё", "е")
             js.append(o)
         self.comp_js = js
@@ -2424,7 +2786,7 @@ class Builder:
     def sec_sources(self):
         if not self.sources:
             return
-        ok = bad = unk = 0
+        ok = bad = unk = untitled = 0
         trs = ""
         for s in self.sources:
             st = to_int(s.get("status"))
@@ -2437,11 +2799,22 @@ class Builder:
             else:
                 bad += 1
                 badge = '<span class="st-bad">' + str(st) + "</span>"
-            trs += ("<tr><td>" + esc(text_of(s.get("id"))) + '</td><td class="url">' + ext_link(s.get("url")) + "</td><td>" + esc(text_of(s.get("title")))
+            url, title = text_of(s.get("url")).strip(), text_of(s.get("title")).strip()
+            if url_like_title(title, url):
+                # название пустое, равно URL или обрезанный URL — домен и путь сокращённо + пометка
+                shown = short_url(url or title) if (url or title) else "—"
+                title_html = ('<span class="untitled" title="' + esc(url or title) + '">' + esc(shown) + '</span> <span class="tag">без названия</span>')
+                untitled += 1
+            else:
+                title_html = esc(title)
+            trs += ("<tr><td>" + esc(text_of(s.get("id"))) + '</td><td class="url">' + ext_link(url) + '</td><td class="stitle">' + title_html
                     + "</td><td>" + esc(text_of(s.get("date_checked"))) + "</td><td>" + esc(text_of(s.get("used_for"))) + '</td><td data-v="'
                     + (str(st) if st is not None else "") + '">' + badge + "</td><td>" + esc(text_of(s.get("note"))) + "</td></tr>")
         summary = ('<p class="srcsum"><span class="tag">всего: %d</span> <span class="st-ok">доступны: %d</span> <span class="st-bad">ошибки: %d</span> '
-                   '<span class="st-unk">не проверено: %d</span></p>') % (len(self.sources), ok, bad, unk)
+                   '<span class="st-unk">не проверено: %d</span>%s</p>') % (
+            len(self.sources), ok, bad, unk, (' <span class="st-unk">без названия: %d</span>' % untitled) if untitled else "")
+        if untitled:
+            self.warn("data/sources.json: %d записей без названия (title пуст, равен URL или обрезанный URL) — показаны доменом и путём" % untitled)
         inner = (summary + '<div class="toolbar"><input type="search" data-filter-table="src-table" placeholder="Фильтр источников…" aria-label="Фильтр источников"></div>'
                  '<div class="tbl tall"><table id="src-table" class="data sortable src"><thead><tr><th>ID</th><th>URL</th><th>Название</th><th>Проверено</th>'
                  "<th>Для чего</th><th>Статус</th><th>Примечание</th></tr></thead><tbody>" + trs + "</tbody></table></div>")
@@ -2473,7 +2846,9 @@ class Builder:
                        "risk": RISK_LABELS, "score": SCORE_LABELS, "metric": METRIC_LABELS, "comp_type": COMP_TYPE_LABELS},
             "dims": {k: [m["w"], m["h"]] for k, m in self.img.meta.items() if m.get("w") and m.get("h")},
             "comp_features": getattr(self, "comp_features", []),
+            "comp_feature_labels": getattr(self, "comp_feature_labels", {}),
             "subscales": SUBSCALES,
+            "lite": bool(self.lite),
         }
 
     def assemble(self):
@@ -2490,12 +2865,16 @@ class Builder:
             json_script("d-flows", getattr(self, "flow_nodes", {})),
             json_script("d-comp", getattr(self, "comp_js", [])),
             json_script("d-img", self.img.map),
+            json_script("d-thumb", self.img.thumbs),
+            json_script("d-alias", self.img.alias),
         ]
         js = JS
         head_js = HEAD_JS
         h1 = base64.b64encode(hashlib.sha256(js.encode("utf-8")).digest()).decode()
         h2 = base64.b64encode(hashlib.sha256(head_js.encode("utf-8")).digest()).decode()
-        csp = ("default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'sha256-" + h1 + "' 'sha256-" + h2 + "'; "
+        # --lite: картинки — файлы рядом со страницей (assets/), 'self' — только тот же источник, внешних по-прежнему нет
+        img_src = "img-src data: 'self'" if self.lite else "img-src data:"
+        csp = ("default-src 'none'; " + img_src + "; style-src 'unsafe-inline'; script-src 'sha256-" + h1 + "' 'sha256-" + h2 + "'; "
                "font-src data:; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; "
                "base-uri 'none'; form-action 'none'")
         metas = '<meta name="generator" content="product-strategy build_html.py">'
@@ -2507,7 +2886,8 @@ class Builder:
         if cp or who:
             foot += "<p>" + esc(cp or ("© " + self.date[:4] + " " + who)) + (" · автор: " + esc(who) if who else "") + ". Все права защищены.</p>"
         foot += ("<p class=\"muted\">Страница собрана " + esc(self.date) + " скриптом product-strategy build_html.py; работает офлайн, "
-                 "без внешних запросов. Концепты и макеты — не существующие функции; цифры помечены [факт]/[оценка]/[допущение].</p></footer>")
+                 "без внешних запросов" + ("; полноразмерные картинки — в папке assets/ рядом со страницей (пересылайте вместе с ней)" if self.lite else "")
+                 + ". Концепты и макеты — не существующие функции; цифры помечены [факт]/[оценка]/[допущение].</p></footer>")
         nav = ('<nav class="side" id="nav" aria-label="Разделы"><div class="here"><small>Вы здесь</small><b class="here-t">Резюме</b></div>'
                + self.nav_html() + '<div class="grp">Вид</div><button type="button" class="theme-btn" data-theme-btn>Тема: авто</button>'
                + ('<div class="grp">Автор</div><div class="nav-author">' + esc(who) + ("<br>" + esc(cp) if cp else "") + "</div>" if who else "")
@@ -2590,11 +2970,16 @@ li.task{list-style:none;margin-left:-18px}
 .tbl.tall{max-height:70vh;overflow:auto}
 .tbl table{border-collapse:collapse;width:100%;font-size:13.5px}
 .tbl th,.tbl td{padding:7px 10px;text-align:left;vertical-align:top;border-bottom:1px solid var(--ps-border)}
-.tbl thead th{background:var(--ps-surface-2);font-weight:600;white-space:nowrap;position:sticky;top:0}
+/* шапки переносятся между словами, как ячейки: длинная шапка не раздувает столбец и не обрезает последний */
+.tbl thead th{background:var(--ps-surface-2);font-weight:600;white-space:normal;overflow-wrap:normal;position:sticky;top:0}
 .tbl tbody tr:last-child td{border-bottom:0}
 .al-c{text-align:center!important}.al-r{text-align:right!important}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tbl thead th.num{white-space:normal}
+.tbl table.many{font-size:12.5px}.tbl table.many th,.tbl table.many td{padding:6px 7px;hyphens:auto;-webkit-hyphens:auto}
 td.url{word-break:break-all;min-width:180px}
+td.stitle{overflow-wrap:anywhere;min-width:140px}
+.untitled{font-style:italic;color:var(--ps-muted);overflow-wrap:anywhere}
 table.sortable th{cursor:pointer;user-select:none}
 table.sortable th[aria-sort=ascending]::after{content:" ▲";font-size:10px}
 table.sortable th[aria-sort=descending]::after{content:" ▼";font-size:10px}
@@ -2655,16 +3040,52 @@ table.reg tr.row:hover>td{background:var(--ps-accent-soft)}
 table.reg tr.row.open>td{background:var(--ps-surface-2)}
 table.reg td.c-title{min-width:240px}
 table.reg td.c-title b{font-weight:600}
-tr.detail>td{background:var(--ps-surface-2);padding:6px 16px 16px}
+/* Раскрытая строка реестра. Класс detail есть и у <tr class="detail">, и у карточки <div class="detail">: правила
+   карточки пишутся только для div.detail, иначе строка становится сеткой, ячейка с colspan выпадает из таблицы в
+   анонимную ячейку первого столбца (~40 px) и текст идёт по букве в строку (строки 15–35 тыс. px). */
+table.reg tr.detail{display:table-row}
+table.reg tr.detail>td{display:table-cell;background:var(--ps-surface-2);padding:6px 0 16px}
+/* карточка — в видимой части реестра при его горизонтальной прокрутке (16 столбцов шире экрана): ширина = видимая
+   ширина .reg-wrap (100cqw), position:sticky держит её у левого края */
+.reg-wrap{container-type:inline-size}
+table.reg tr.detail>td>div.detail{position:sticky;left:0;width:100%;max-width:100cqw;padding:0 16px}
 tr.flash>td{animation:flash 2s}
 @keyframes flash{0%,55%{background:var(--ps-accent-soft)}100%{background:transparent}}
-.detail{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:0 28px;font-size:13.5px}
+/* Карточка (строка реестра и окно P-id): сбалансированные колонки ≥ 280 px вместо строк сетки, растянутых по самой
+   высокой секции; «Суть» и «Концепт дизайна» — во всю ширину. Карточка — контейнер: раскладка зависит от её ширины. */
+div.detail{display:block;columns:3 280px;column-gap:28px;font-size:13.5px;container-type:inline-size}
 .dsec{min-width:0}
-.dsec.wide{grid-column:1/-1}
+div.detail>.dsec{break-inside:avoid;-webkit-column-break-inside:avoid;page-break-inside:avoid}
+div.detail>.dsec:first-child,div.detail>.dsec.wide{column-span:all;-webkit-column-span:all}
 .dsec h4{margin:12px 0 4px;font-size:11.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--ps-muted)}
+/* padding, не margin: поля обрезаются на разрыве колонок (по-разному в Chrome и Safari) → неровный верх колонок */
+div.detail>.dsec>h4{margin-top:0;padding-top:12px}
+div.detail>.dsec:first-child>h4{padding-top:8px}
+/* длинные списки (KPI, шаги, доказательства) могут продолжаться в следующей колонке между пунктами; заголовок держит
+   ≥ 4em своего списка в той же колонке (Safari не соблюдает break-after:avoid в колонках — отсюда распорка ::after) */
+div.detail>.dsec:has(> h4 + ul, > h4 + ol){break-inside:auto;-webkit-column-break-inside:auto;page-break-inside:auto}
+div.detail>.dsec:has(> h4 + ul, > h4 + ol)>h4{break-inside:avoid;-webkit-column-break-inside:avoid;break-after:avoid}
+div.detail>.dsec:has(> h4 + ul, > h4 + ol)>h4::after{content:"";display:block;height:4em;margin-bottom:-4em}
+div.detail li{break-inside:avoid;-webkit-column-break-inside:avoid}
+div.detail>.dsec>h4+ul>li:first-child,div.detail>.dsec>h4+ol>li:first-child{break-inside:auto;-webkit-column-break-inside:auto}
+/* длинные фишки (kano_probs, метки) переносятся внутри колонки, а не вылезают в соседнюю */
+div.detail .tag{white-space:normal;max-width:100%}
+/* свёрнутая секция (телефон): строка-заголовок, по нажатию раскрывается */
+div.detail>details.dsec{margin:0;border-top:1px solid var(--ps-border);break-inside:avoid}
+div.detail>details.dsec>summary{font-size:11.5px;text-transform:uppercase;letter-spacing:.07em;padding:10px 0 8px;font-weight:600}
+div.detail>details.dsec[open]>summary{padding-bottom:4px}
 .dsec ul,.dsec ol{margin:4px 0;padding-left:20px}.dsec li{margin:3px 0}
-dl.kv{display:grid;grid-template-columns:minmax(96px,max-content) minmax(0,1fr);gap:4px 12px;margin:4px 0}
+/* столбец значения — не уже 120 px: подписи переносятся, значение не идёт «по букве» */
+dl.kv{display:grid;grid-template-columns:minmax(96px,max-content) minmax(120px,1fr);gap:4px 12px;margin:4px 0}
 dl.kv dt{color:var(--ps-muted)}dl.kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
+/* узкая карточка (телефон): в «Сути» подпись над текстом — длинным текстам вся ширина */
+@container (max-width:560px){
+  div.detail>.dsec:first-child dl.kv{grid-template-columns:minmax(0,1fr);row-gap:0}
+  div.detail>.dsec:first-child dl.kv dt{margin-top:6px;font-size:12.5px}
+}
+@supports not (container-type:inline-size){@media (max-width:560px){
+  div.detail>.dsec:first-child dl.kv{grid-template-columns:minmax(0,1fr);row-gap:0}
+}}
 .concepts{display:flex;flex-wrap:wrap;gap:12px}
 .concepts figure{margin:0;width:260px;max-width:100%}
 .concepts figure.mobile{width:140px}
@@ -2697,7 +3118,8 @@ dl.kv dt{color:var(--ps-muted)}dl.kv dd{margin:0;min-width:0;overflow-wrap:anywh
 .nchip{font-size:12.5px;padding:3px 10px;border-radius:999px}
 .gantt{overflow-x:auto;border:1px solid var(--ps-border);border-radius:10px;background:var(--ps-surface)}
 .gin{min-width:860px}
-.ghead,.grow{display:grid;grid-template-columns:280px minmax(0,1fr)}
+/* padding-right: ромб вехи в последнем месяце (повёрнутый квадрат ~20 px) не вылезает за правый край диаграммы */
+.ghead,.grow{display:grid;grid-template-columns:280px minmax(0,1fr);padding-right:12px}
 .ghead{position:sticky;top:0;z-index:1;background:var(--ps-surface-2);border-bottom:1px solid var(--ps-border);font-size:11.5px;color:var(--ps-muted)}
 .ghead .gl{padding:8px 10px;font-weight:600}
 .gscale{position:relative;height:34px}
@@ -2734,7 +3156,10 @@ dl.kv dt{color:var(--ps-muted)}dl.kv dd{margin:0;min-width:0;overflow-wrap:anywh
 .hslist{padding-left:0;list-style:none;margin:6px 0}.hslist li{margin:4px 0}
 .hsn{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;border-radius:50%;background:#ffcc33;color:#111;font-size:11px;font-weight:700;margin-right:6px;padding:0 4px}
 .st{font-size:10.5px;border-radius:999px;padding:0 6px;border:1px solid var(--ps-border);color:var(--ps-muted);margin-left:4px}
-.st-new{color:#15803d;border-color:#15803d}
+/* контраст ≥ 4,5:1 в обеих темах (было 3,4 в тёмной) */
+.st-new{color:#166534;border-color:#166534}
+:root[data-theme=dark] .st-new{color:#4ade80;border-color:#4ade80}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .st-new{color:#4ade80;border-color:#4ade80}}
 .cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,460px),1fr));gap:14px;margin-top:12px}
 .ccard{background:var(--ps-surface);border:1px solid var(--ps-border);border-radius:var(--ps-radius);padding:12px 14px;display:grid;grid-template-columns:170px minmax(0,1fr);gap:12px;font-size:13px;min-width:0}
 .ccard.noimg{grid-template-columns:minmax(0,1fr)}
@@ -2742,6 +3167,8 @@ dl.kv dt{color:var(--ps-muted)}dl.kv dd{margin:0;min-width:0;overflow-wrap:anywh
 .ccard figure img{width:100%;aspect-ratio:16/10;object-fit:cover;object-position:top}
 .ccard .noshot{border:1px dashed var(--ps-border);border-radius:8px;aspect-ratio:16/10;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--ps-muted);font-size:11.5px;padding:6px}
 .ccard h4{margin:0 0 2px;font-size:15px}
+.ccard h4 .tag{white-space:normal;max-width:100%}
+.ccard .cverdict{margin:4px 0}.ccard .cverdict summary{font-size:12.5px}.ccard .cverdict p,.ccard p.cverdict{margin:4px 0}
 .ccard .cmeta{color:var(--ps-muted);font-size:12px;margin-bottom:4px}
 .ccard .lblh{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ps-muted);margin-top:6px}
 .ccard ul{margin:2px 0;padding-left:18px}
@@ -2749,15 +3176,16 @@ dl.kv dt{color:var(--ps-muted)}dl.kv dd{margin:0;min-width:0;overflow-wrap:anywh
 .cmatrix{overflow:auto;max-height:70vh;border:1px solid var(--ps-border);border-radius:10px;background:var(--ps-surface)}
 table.cm{border-collapse:separate;border-spacing:0;font-size:12.5px;width:100%}
 table.cm th,table.cm td{padding:5px 8px;border-bottom:1px solid var(--ps-border);text-align:center;white-space:nowrap}
-table.cm thead th{position:sticky;top:0;background:var(--ps-surface-2);z-index:2;white-space:normal;min-width:72px;vertical-align:bottom}
+table.cm thead th{position:sticky;top:0;background:var(--ps-surface-2);z-index:2;white-space:normal;overflow-wrap:normal;word-break:normal;min-width:72px;vertical-align:bottom;line-height:1.3}
 table.cm th[scope=row]{position:sticky;left:0;background:var(--ps-surface);text-align:left;z-index:1;max-width:220px;overflow:hidden;text-overflow:ellipsis}
 table.cm thead th:first-child{left:0;z-index:3}
 table.cm tr.self th,table.cm tr.self td{background:var(--ps-accent-soft);font-weight:600}
-table.cm td.y{color:#15803d;font-weight:700}table.cm td.n{color:var(--ps-muted)}table.cm td.u{color:var(--ps-muted)}
+table.cm td.y{color:#166534;font-weight:700}table.cm td.n{color:var(--ps-muted)}table.cm td.u{color:var(--ps-muted)}
 table.cm td.gap{outline:2px solid #b42318;outline-offset:-3px}
 table.cm tfoot th,table.cm tfoot td,table.cm tfoot th[scope=row]{background:var(--ps-surface-2);font-weight:600}
 .st-ok,.st-bad,.st-unk,.ok{display:inline-block;font-size:12px;padding:0 7px;border-radius:999px;white-space:nowrap}
-.st-ok,.ok{background:rgba(21,128,61,.14);color:#15803d}.st-bad{background:rgba(180,35,24,.14);color:#b42318}.st-unk{background:var(--ps-surface-2);color:var(--ps-muted)}
+/* «✓ проверено», «доступны»: #15803d на своей зелёной подложке давал 3,9–4,1 — темнее до ≥ 4,5:1 */
+.st-ok,.ok{background:rgba(21,128,61,.14);color:#166534}.st-bad{background:rgba(180,35,24,.14);color:#9f1f14}.st-unk{background:var(--ps-surface-2);color:var(--ps-muted)}
 :root[data-theme=dark] .st-ok,:root[data-theme=dark] .ok{color:#4ade80}:root[data-theme=dark] .st-bad{color:#f87171}
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]) .st-ok,:root:not([data-theme=light]) .ok{color:#4ade80}:root:not([data-theme=light]) .st-bad{color:#f87171}:root:not([data-theme=light]) table.cm td.y{color:#4ade80}}
 :root[data-theme=dark] table.cm td.y{color:#4ade80}
@@ -2821,8 +3249,13 @@ button.ghost{background:none}
   .ref{grid-template-columns:minmax(0,1fr)}
   .ccard{grid-template-columns:minmax(0,1fr)}
   .quads{grid-template-columns:minmax(0,1fr)}
+  /* телефон: диаграмма прокручивается внутри своей рамки; ширина — чтобы подписи месяцев («окт’26») не обрезались,
+     столбец задач закреплён слева при прокрутке */
   .ghead,.grow{grid-template-columns:150px minmax(0,1fr)}
-  .gin{min-width:680px}
+  .gin{min-width:820px}
+  .gscale span{font-size:10.5px;padding:8px 2px 0}
+  .glabel{position:sticky;left:0;z-index:1;background:var(--ps-surface);border-right:1px solid var(--ps-border)}
+  .ghead .gl{position:sticky;left:0;z-index:2;background:var(--ps-surface-2);border-right:1px solid var(--ps-border)}
   #lb{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) 36vh}
   #lb.nopanel{grid-template-rows:auto minmax(0,1fr)}
   #lbside{border-left:0;border-top:1px solid #34343a}
@@ -2862,8 +3295,15 @@ var L = META.labels || {}, DIMS = META.dims || {};
 var BYID = {}; REG.forEach(function (r) { BYID[r.id] = r; });
 var MET = {}; METRICS.forEach(function (m) { MET[m.k] = m; });
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
-function safeUrl(u) { u = String(u == null ? '' : u).trim(); if (!u) return ''; var l = u.replace(/[\u0000-\u0020]/g, '').toLowerCase(); if (/^(https?:|mailto:|#)/.test(l)) return u; if (/^[a-z][a-z0-9+.\-]*:/.test(l) || l.indexOf('//') === 0) return ''; return u; }
-function link(u, text) { var s = safeUrl(u); var t = esc(text == null || text === '' ? u : text); return s ? '<a href="' + esc(s) + '" target="_blank" rel="noopener noreferrer">' + t + '</a>' : t; }
+/* ссылки из данных (доказательства, конкуренты, источники): только валидный http(s) или mailto:, иначе — текст */
+function dataUrl(u) {
+  u = String(u == null ? '' : u).trim(); if (/^mailto:[^\s@]+@[^\s@]+$/i.test(u)) return u;
+  if (!/^https?:\/\/\S+$/i.test(u)) return ''; var h = '';
+  try { h = new URL(u).hostname.replace(/^\[|\]$/g, '').replace(/\.$/, ''); } catch (e) { return ''; }
+  if (h === 'localhost' || /^(?:[\p{L}\p{N}_-]+\.)+[\p{L}\p{N}_-]{2,}$/u.test(h) && h.charAt(0) !== '-' || /^[\d.]+$/.test(h) && h.split('.').length === 4 || /^[0-9a-f:]+$/i.test(h) && h.indexOf(':') >= 0) return u;
+  return '';
+}
+function link(u, text) { var s = dataUrl(u); var t = esc(text == null || text === '' ? u : text); return s ? '<a href="' + esc(s) + '" target="_blank" rel="noopener noreferrer">' + t + '</a>' : t; }
 function lab(g, v) { return (L[g] && L[g][v]) || (v == null ? '' : String(v)); }
 function txt(v) { if (v == null) return ''; if (typeof v === 'boolean') return v ? 'да' : 'нет'; if (typeof v === 'number') return fmt(v); if (Array.isArray(v)) return v.map(txt).join('; '); if (typeof v === 'object') { if ('min' in v && 'max' in v) return money(v); if ('value' in v) return txt(v.value) + (v.label ? ' [' + v.label + ']' : ''); return Object.keys(v).map(function (k) { return k + ': ' + txt(v[k]); }).join('; '); } return String(v); }
 function fmt(v) { if (v == null || v === '') return ''; if (typeof v !== 'number') return String(v); if (!isFinite(v)) return '—'; if (Number.isInteger(v)) return v.toLocaleString('ru-RU'); return v.toLocaleString('ru-RU', { maximumFractionDigits: Math.abs(v) < 10 ? 2 : 1 }); }
@@ -2873,7 +3313,13 @@ function badge(kind, v) { if (!v) return ''; var t = kind === 'q' ? lab('quadran
 function tag(t, cls) { return t === '' || t == null ? '' : '<span class="tag' + (cls ? ' ' + cls : '') + '">' + esc(t) + '</span>'; }
 function pidLink(id) { var r = BYID[id]; if (!r) return esc(id); return '<a class="pid" href="#p=' + esc(id) + '" data-pid="' + esc(id) + '" title="' + esc(id + ' — ' + r.title) + '">' + esc(id) + '</a>'; }
 function plist(ids) { return (ids || []).map(function (id) { var r = BYID[id]; return '<li>' + pidLink(id) + (r ? ' ' + esc(r.title) + ' ' + badge('p', r.priority) + ' ' + badge('q', r.quadrant) : ' <span class="muted">(нет в реестре)</span>') + '</li>'; }).join(''); }
-function fillImgs(root) { $$('img[data-img]', root).forEach(function (im) { if (!im.getAttribute('src')) { var u = IMG[im.getAttribute('data-img')]; if (u) im.src = u; } }); }
+/* --lite: превью — миниатюра из THUMB (data:), полная картинка (assets/…) подгружается, когда превью видно и крупнее миниатюры */
+var THUMB = J('d-thumb') || {}, ALIAS = J('d-alias') || {};
+Object.keys(ALIAS).forEach(function (k) { var a = ALIAS[k]; if (IMG[a] != null) IMG[k] = IMG[a]; if (THUMB[a]) THUMB[k] = THUMB[a]; });
+function upgradeImg(im) { var k = im.getAttribute('data-img'), t = THUMB[k]; if (!t || im.getAttribute('data-full') !== '0') return; var need = im.getBoundingClientRect().width * (window.devicePixelRatio || 1); if (need > t[1] + 1 || !need) { im.src = IMG[k]; im.setAttribute('data-full', '1'); } }
+var thumbIO = ('IntersectionObserver' in window) ? new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) { thumbIO.unobserve(e.target); upgradeImg(e.target); } }); }, { rootMargin: '300px' }) : null;
+function fillImgs(root) { $$('img[data-img]', root).forEach(function (im) { if (im.getAttribute('src')) return; var k = im.getAttribute('data-img'), u = IMG[k], t = THUMB[k];
+  if (t) { im.src = t[0]; im.setAttribute('data-full', '0'); if (thumbIO) thumbIO.observe(im); else if (u) { im.src = u; im.setAttribute('data-full', '1'); } } else if (u) im.src = u; }); }
 var PIDRE = /(^|[^\p{L}\p{N}_-])(P\d{3})(?![\p{L}\p{N}_-])/gu;   /* без lookbehind: старые Safari */
 var SKIP = { A: 1, SCRIPT: 1, STYLE: 1, TEXTAREA: 1, SELECT: 1, OPTION: 1, BUTTON: 1, TITLE: 1, INPUT: 1 };
 function linkifyEl(root) {
@@ -2918,7 +3364,13 @@ function topLayer() { return stack[stack.length - 1] || null; }
 
 /* ---------- карточка предложения ---------- */
 var pmHist = [];
-function sec(title, h, cls) { return h ? '<section class="dsec' + (cls ? ' ' + cls : '') + '"><h4>' + title + '</h4>' + h + '</section>' : ''; }
+/* телефон: второстепенные секции карточки свёрнуты (<details>), иначе карточка в одну колонку — 2–4 тыс. px */
+var NARROW = window.matchMedia ? window.matchMedia('(max-width: 640px)') : { matches: false };
+function sec(title, h, cls, fold) {
+  if (!h) return '';
+  if (fold && NARROW.matches) return '<details class="dsec fold' + (cls ? ' ' + cls : '') + '"><summary>' + title + '</summary>' + h + '</details>';
+  return '<section class="dsec' + (cls ? ' ' + cls : '') + '"><h4>' + title + '</h4>' + h + '</section>';
+}
 function kv(pairs) { var h = pairs.filter(function (p) { return p[1] !== '' && p[1] != null; }).map(function (p) { return '<dt>' + p[0] + '</dt><dd>' + p[1] + '</dd>'; }).join(''); return h ? '<dl class="kv">' + h + '</dl>' : ''; }
 function asObj(x, key) { if (x && typeof x === 'object') return x; var o = {}; o[key] = x; return o; }
 function conceptsHtml(r, inModal) {
@@ -2947,8 +3399,9 @@ function detail(r) {
     .sort(function (a, b) { var x = ORD.indexOf(a), y = ORD.indexOf(b); return (x < 0 ? 99 : x) - (y < 0 ? 99 : y); });
   var calc = calcKeys.map(function (k) { return '<span class="tag">' + esc(lab('metric', k)) + ': <b>' + esc(fmt(m[k])) + '</b></span>'; }).join(' ');
   var cls = kv([['Квадрант', badge('q', r.quadrant)], ['Приоритет', badge('p', r.priority)], ['MoSCoW', esc(lab('moscow', r.moscow))], ['Кано', esc(lab('kano', r.kano))], ['Горизонт', esc(lab('horizon', r.horizon)) + (r.horizon_years ? ' · лет: ' + esc(r.horizon_years) : '')], ['Метки', (r.labels || []).map(function (x) { return tag(lab('label', x)); }).join(' ')], ['Теги', (r.tags || []).map(function (x) { return tag(x); }).join(' ')]]);
-  var ts = '';
-  [['TypeSafe (score.py)', r.typesafe], ['TypeSafe Jev', r.jev]].forEach(function (p) { if (p[1] && typeof p[1] === 'object') { var h = Object.keys(p[1]).map(function (k) { return '<span class="tag">' + esc(k) + ': <b>' + esc(txt(p[1][k])) + '</b></span>'; }).join(' '); if (h) ts += '<p><span class="muted">' + p[0] + ':</span> ' + h + '</p>'; } });
+  /* один блок TypeSafe: score.py и typesafe-jev.json сведены сборщиком (совпадающее — один раз, расхождения — в поле) */
+  var ts = '', tb = r.ts_block;
+  if (tb && tb.items && typeof tb.items === 'object') { var th = Object.keys(tb.items).map(function (k) { return '<span class="tag">' + esc(k) + ': <b>' + esc(txt(tb.items[k])) + '</b></span>'; }).join(' '); if (th) ts = '<p class="tsb"><span class="muted">' + esc(tb.title) + ':</span> ' + th + '</p>'; }
   var deps = (r.dependencies || []).map(function (d) { return BYID[d] ? pidLink(d) : esc(d) + ' <span class="muted">(нет в реестре)</span>'; }).join(', ');
   var rdeps = (r.rdeps || []).map(pidLink).join(', ');
   var mn = r.mentions || {}, ment = [];
@@ -2956,11 +3409,11 @@ function detail(r) {
   (mn.kanban || []).forEach(function (k) { ment.push('<li>Kanban: <a href="#kanban" data-k-open="' + k.i + '">колонка «' + esc(k.t) + '»</a></li>'); });
   (mn.flows || []).forEach(function (f) { ment.push('<li>Схема «' + esc(f.f) + '»: <a href="#flows" data-node-open="' + esc(f.id) + '">' + esc(f.t) + '</a></li>'); });
   var rel = kv([['Зависит от', deps], ['От него зависят', rdeps], ['Источник', esc(r.source_group) + ((r.merged_from || []).length ? ' · объединено из ' + esc(r.merged_from.join(', ')) : '')]]);
-  return '<div class="detail">' + sec('Суть', essence) + sec('Эффект и KPI', kpi ? '<ul>' + kpi + '</ul>' : '') + sec('Шаги', steps ? '<ol>' + steps + '</ol>' : '')
-    + sec('Затраты и проверка', costs) + sec('Риски (1–5)', risks) + sec('Классификация', cls)
-    + sec('Оценки 1–5', scoreChips + (scoreChips && missingSubs.length && missingSubs.length < subs.length ? '<p class="muted small">Остальные подшкалы (' + missingSubs.length + ' из ' + subs.length + ') не заданы — в расчётах равны «Ценности».</p>' : ''))
-    + sec('Расчётные метрики', idx + calc + ts) + sec('Доказательства (класс ' + esc(r.evidence_class || '—') + ')', ev ? '<ul>' + ev + '</ul>' : '')
-    + sec('Связи', rel + (ment.length ? '<ul>' + ment.join('') + '</ul>' : '')) + sec('Концепт дизайна', conceptsHtml(r), 'wide') + '</div>';
+  return '<div class="detail">' + sec('Суть', essence) + sec('Эффект и KPI', kpi ? '<ul>' + kpi + '</ul>' : '') + sec('Шаги', steps ? '<ol>' + steps + '</ol>' : '', '', 1)
+    + sec('Затраты и проверка', costs) + sec('Риски (1–5)', risks, '', 1) + sec('Классификация', cls, '', 1)
+    + sec('Оценки 1–5', scoreChips + (scoreChips && missingSubs.length && missingSubs.length < subs.length ? '<p class="muted small">Остальные подшкалы (' + missingSubs.length + ' из ' + subs.length + ') не заданы — в расчётах равны «Ценности».</p>' : ''), '', 1)
+    + sec('Расчётные метрики', idx + calc + ts, '', 1) + sec('Доказательства (класс ' + esc(r.evidence_class || '—') + ')', ev ? '<ul>' + ev + '</ul>' : '', '', 1)
+    + sec('Связи', rel + (ment.length ? '<ul>' + ment.join('') + '</ul>' : ''), '', 1) + sec('Концепт дизайна', conceptsHtml(r), 'wide') + '</div>';
 }
 function openProposal(id, fromHist) {
   var r = BYID[id]; if (!r) return;
@@ -3144,7 +3597,10 @@ function compCard(c, show) {
   function lst(title, arr, cls) { return (arr || []).length ? '<div class="lblh">' + title + '</div><ul class="' + cls + '">' + arr.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : ''; }
   var meta = [lab('comp_type', c.type), c.segment, c.price, c.monetization, c.languages, c.audience, c.freshness, c.traffic ? 'трафик: ' + c.traffic : ''].filter(Boolean).map(esc).join(' · ');
   var srcs = (c.sources || []).map(function (u, i) { return link(u, 'источник ' + (i + 1)); }).join(', ');
-  return '<article class="ccard" data-type="' + esc(c.type) + '" data-slug="' + esc(c.slug) + '">' + media + '<div><h4>' + link(c.url, c.name) + (c.verdict ? ' ' + tag(c.verdict) : '') + '</h4><div class="cmeta">' + meta + '</div>'
+  /* вердикт: в заголовке — до 45 знаков; полный текст — verdict_long или раскрытие усечённого */
+  var vlong = c.verdict_long ? (c.verdict_cut ? '<details class="cverdict"><summary>Вывод полностью</summary><p>' + esc(c.verdict_long) + '</p></details>'
+    : '<div class="lblh">Вывод</div><p class="cverdict">' + esc(c.verdict_long) + '</p>') : '';
+  return '<article class="ccard" data-type="' + esc(c.type) + '" data-slug="' + esc(c.slug) + '">' + media + '<div><h4>' + link(c.url, c.name) + (c.verdict_short ? ' ' + tag(c.verdict_short, 'verdict') : '') + '</h4><div class="cmeta">' + meta + '</div>' + vlong
     + (show.them ? lst('Где лучше они', c.better_than_us, 'them') : '') + (show.us ? lst('Где лучше мы', c.we_better, 'us') : '') + (show.best ? lst('Их лучшие решения', c.best_solutions, 'best') + lst('Перенять', c.adopt, 'best') : '')
     + (show.design && c.design_note ? '<div class="lblh">Дизайн</div><p>' + esc(c.design_note) + '</p>' : '') + lst('Жалобы пользователей', c.complaints, 'them') + lst('Не повторять', c.avoid, 'them')
     + (srcs ? '<div class="cmeta">' + srcs + '</div>' : '') + '</div></article>';
@@ -3167,8 +3623,9 @@ function renderMatrix(list) {
     var cls = v === true ? 'y' : v === false ? 'n' : v == null ? 'u' : 'p'; var t = v === true ? '✓' : v === false ? '—' : v == null ? '?' : '~';
     var ti = v === true ? 'есть' : v === false ? 'нет' : v == null ? 'нет данных' : String(v); if (gap) ti += ' · у нас нет, у большинства конкурентов есть';
     return '<td class="' + cls + (gap ? ' gap' : '') + '" title="' + esc(ti) + '">' + t + '</td>'; }
-  box.innerHTML = '<table class="cm"><thead><tr><th>Продукт</th>' + feats.map(function (f) { return '<th>' + esc(f) + '</th>'; }).join('') + '</tr></thead><tbody>'
-    + rows.map(function (c) { return '<tr' + (c.self ? ' class="self"' : '') + '><th scope="row" title="' + esc(c.name) + '">' + esc(c.name) + (c.self ? ' <span class="tag">мы</span>' : '') + '</th>' + feats.map(function (f, i) { return cellv(c, f, i); }).join('') + '</tr>'; }).join('')
+  var FL = META.comp_feature_labels || {};
+  box.innerHTML = '<table class="cm"><thead><tr><th>Продукт</th>' + feats.map(function (f) { return '<th title="' + esc(f) + '">' + esc(FL[f] || f) + '</th>'; }).join('') + '</tr></thead><tbody>'
+    + rows.map(function (c) { return '<tr' + (c.self ? ' class="self"' : '') + '><th scope="row" title="' + esc(c.name + (c.verdict_short ? ' — ' + c.verdict_short : '')) + '">' + esc(c.name) + (c.self ? ' <span class="tag">мы</span>' : '') + '</th>' + feats.map(function (f, i) { return cellv(c, f, i); }).join('') + '</tr>'; }).join('')
     + '</tbody><tfoot><tr><th scope="row">Есть у конкурентов</th>' + cnt.map(function (n) { return '<td>' + n + '/' + list.length + '</td>'; }).join('') + '</tr></tfoot></table>'
 }
 
@@ -3272,6 +3729,8 @@ safe('registry', function () {
   $('#exp-csv').addEventListener('click', function () { exportRows('csv'); });
   $('#exp-json').addEventListener('click', function () { exportRows('json'); });
   renderReg();
+  var onNarrow = function () { renderReg(); var id = pm.getAttribute('data-id'); if (id && pm.classList.contains('open')) { var b = $('#pmbody'); b.innerHTML = detail(BYID[id]); fillImgs(b); linkifyEl(b); } };
+  if (NARROW.addEventListener) NARROW.addEventListener('change', onNarrow); else if (NARROW.addListener) NARROW.addListener(onNarrow);
 });
 safe('modal', function () {
   $('#pm-reg').addEventListener('click', function () { var id = pm.getAttribute('data-id'); if (id) showInRegistry(id); });
@@ -3312,7 +3771,7 @@ safe('theme', function () {
   applyTheme(t);
   $$('[data-theme-btn]').forEach(function (b) { b.addEventListener('click', function () { applyTheme(THEMES[(THEMES.indexOf(theme) + 1) % 3]); try { localStorage.setItem('ps-theme', theme); } catch (e) {} }); });
 });
-safe('print', function () { window.addEventListener('beforeprint', function () { $$('details').forEach(function (d) { d.open = true; }); fillImgs(document); }); });
+safe('print', function () { window.addEventListener('beforeprint', function () { $$('details').forEach(function (d) { d.open = true; }); fillImgs(document); $$('img[data-full="0"]').forEach(function (im) { im.src = IMG[im.getAttribute('data-img')]; im.setAttribute('data-full', '1'); }); }); });
 safe('hash', function () { window.addEventListener('hashchange', hashOpen); hashOpen(); });
 })();
 """
@@ -3328,6 +3787,11 @@ def main(argv=None):
     ap.add_argument("out", help="папка прогона <OUT>")
     ap.add_argument("--out", dest="out_file", help="куда записать страницу (по умолчанию <OUT>/deliverables/index.html)")
     ap.add_argument("--title", help="заголовок страницы (по умолчанию — H1 из research/strategy.md или имя продукта)")
+    ap.add_argument("--lite", action="store_true",
+                    help="крупные картинки — файлами в <папка страницы>/assets/ (WebP при наличии Pillow/ffmpeg), в странице — "
+                         "ссылки и миниатюры ≤ 320 px; цель — страница ≤ 8 МБ")
+    ap.add_argument("--lite-encoder", choices=["auto", "pillow", "ffmpeg", "none"], default="auto",
+                    help="кодировщик для --lite: auto (Pillow → ffmpeg → как есть), pillow, ffmpeg, none (без перекодирования)")
     a = ap.parse_args(argv)
     out = Path(a.out).expanduser()
     if not out.is_dir():
@@ -3335,21 +3799,45 @@ def main(argv=None):
         return 2
     out_file = Path(a.out_file).expanduser() if a.out_file else out / "deliverables" / "index.html"
     out_file = out_file.resolve()
-    b = Builder(out, out_file, a.title)
+    b = Builder(out, out_file, a.title, lite=a.lite, lite_encoder=a.lite_encoder)
     page = b.build_all()
     out_file.parent.mkdir(parents=True, exist_ok=True)
     out_file.write_text(page, encoding="utf-8")
+    dropped = 0
+    if b.lite:
+        b.lite.finish()
+    else:
+        dropped = drop_stale_assets(out_file.parent)
     size = out_file.stat().st_size
     img_total = sum(m["bytes"] for m in b.img.meta.values())
     print("Готово: %s" % out_file)
-    print("Размер страницы: %s; встроенных картинок: %d (%s)" % (human(size), len(b.img.map), human(img_total)))
+    if b.lite:
+        n_assets = len([m for m in b.img.meta.values() if m.get("asset")])
+        n_alias = len(b.img.alias)
+        a_bytes = sum(b.lite.written.values())
+        print("Режим --lite (%s): в assets/ — %d файлов (%s), миниатюр в странице: %d (%s), встроено как есть: %d, повторов по содержимому: %d"
+              % (b.lite.enc.label(), n_assets, human(a_bytes), len(b.img.thumbs), human(b.lite.thumb_bytes), len(b.img.map) - n_assets, n_alias))
+        print("Размер страницы: %s (+ assets/ %s); пересылайте страницу вместе с папкой %s" % (human(size), human(a_bytes), out_file.parent / "assets"))
+    else:
+        print("Размер страницы: %s; встроенных картинок: %d (%s)%s" % (human(size), len(b.img.map), human(img_total),
+              ("; повторов по содержимому (встроены один раз): %d" % len(b.img.alias)) if b.img.alias else ""))
+        if dropped:
+            print("Удалены файлы прошлой --lite-сборки из %s: %d" % (out_file.parent / "assets", dropped))
     print("Разделы (%d): %s" % (len(b.nav), ", ".join(sid for sid, _, _ in b.nav)))
     print("Реестр: %d предложений; фигур: %d; ссылок на предложения: %d" % (len(b.rows), b.figs, page.count('class="pid"')))
-    heavy = sorted(b.img.meta.items(), key=lambda kv: -kv[1]["bytes"])[:10]
+    heavy = sorted(b.img.meta.items(), key=lambda kv: -(kv[1]["bytes"] + kv[1].get("asset_bytes", 0)))[:10]
     if heavy:
         print("Топ-10 самых тяжёлых вложений:")
         for i, (k, m) in enumerate(heavy, 1):
-            print("  %2d. %10s  %s  (%s)" % (i, human(m["bytes"]), k, m["src"]))
+            if m.get("asset"):
+                print("  %2d. %10s  %s  (%s → %s, миниатюра %s)" % (i, human(m["asset_bytes"]), k, m["src"], m["asset"], human(m["bytes"])))
+            else:
+                print("  %2d. %10s  %s  (%s)" % (i, human(m["bytes"]), k, m["src"]))
+    if not b.lite and size > 12 * 1048576:
+        print("ВНИМАНИЕ: страница %s — больше 12 МБ (медленно открывается, близко к лимиту публикации 16 МБ); "
+              "используйте --lite: build_html.py %s --lite" % (human(size), out))
+    elif b.lite and size > 8 * 1048576:
+        print("ВНИМАНИЕ: страница --lite всё ещё %s (> 8 МБ): проверьте самые тяжёлые вложения выше и объём data/*.json" % human(size))
     if b.warnings:
         print("Предупреждения (%d):" % len(b.warnings))
         for w in b.warnings:

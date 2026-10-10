@@ -38,8 +38,9 @@ def load_module():
 bh = load_module()
 
 
-def make_demo(path):
-    r = subprocess.run([sys.executable, str(SCRIPTS / "make_demo.py"), str(path)], capture_output=True, text=True)
+def make_demo(path, n=None):
+    r = subprocess.run([sys.executable, str(SCRIPTS / "make_demo.py"), str(path)] + (["--proposals", str(n)] if n else []),
+                       capture_output=True, text=True)
     assert r.returncode == 0, r.stderr
     return path
 
@@ -134,7 +135,7 @@ def enrich(out):
 # ---------------------------------------------------------------- фикстуры
 @pytest.fixture(scope="module")
 def demo(tmp_path_factory):
-    out = make_demo(tmp_path_factory.mktemp("demo") / "run")
+    out = make_demo(tmp_path_factory.mktemp("demo") / "run", 100)     # 100 предложений — геометрия всех строк в smoke
     stdout, page = build(out)
     return {"out": out, "stdout": stdout, "page": page}
 
@@ -244,7 +245,14 @@ def test_images_embedded_once(rich):
     assert chart.startswith("data:image/svg+xml;base64,")
     assert page.count(chart) == 1                              # вставка в тексте + раздел графиков = одна копия
     assert page.count('data-key="c-effort-impact"') == 2
-    assert imgs["m-M01-demo"].startswith("data:image/png;base64,")
+    alias = data(page, "d-alias")
+    big = imgs[alias.get("m-M01-demo", "m-M01-demo")]
+    assert big.startswith("data:image/png;base64,")
+    # шесть одинаковых PNG макетов и PNG референса — одна копия байтов, остальные ключи — псевдонимы
+    assert page.count(big) == 1
+    keys = ["m-M%02d-demo" % k for k in range(1, 7)] + ["r-01-demo"]
+    assert len({alias.get(k, k) for k in keys}) == 1
+    assert "Object.keys(ALIAS).forEach" in page
     dims = data(page, "d-meta")["dims"]
     assert dims["m-M01-demo"] == [1440, 900]
     assert not re.search(r'<img[^>]+src="data:', page.split('<script type="application/json"')[0]), "src картинок — только из IMG по ключу"
@@ -471,7 +479,8 @@ def run_smoke(out, *extra):
 def test_smoke_rich_strict(rich):
     res = run_smoke(rich["out"], "--require", "all")
     assert res["counts"]["rows"] == len(rjson(rich["out"] / "data" / "proposals.json"))
-    assert res["counts"]["figures"] > 0 and res["skipped"] == 0
+    assert res["counts"]["figures"] > 0
+    assert [c["name"] for c in res["checks"] if c["status"] == "skip" and not c.get("env")] == []   # пропуски — только окружение
 
 
 def test_smoke_plain_demo(demo):
@@ -494,3 +503,271 @@ def test_smoke_without_playwright_exits_3(demo, tmp_path):
         pytest.skip("playwright установлен в scripts/node — проверка кода 3 невозможна")
     r = subprocess.run(["node", str(SMOKE), str(page)], capture_output=True, text=True, env=env, timeout=60)
     assert r.returncode == 3 and "check_env.py --install-node" in r.stderr
+
+
+# ---------------------------------------------------------------- 1.1: регрессии по реальному прогону (feedback 3.1, P0-1, P2-15, P2-17)
+def css_of(page):
+    return re.search(r"<style>(.*?)</style>", page, re.S).group(1)
+
+
+def test_css_registry_detail_row(demo):
+    """Раскрытая строка: правила карточки — только для div.detail; tr.detail остаётся строкой таблицы."""
+    css = css_of(demo["page"])
+    assert "table.reg tr.detail{display:table-row}" in css
+    assert not re.search(r"(^|[}\s,])\.detail\s*\{", css), "голый .detail{…} снова попадёт и на <tr class=detail>"
+    assert ".reg-wrap{container-type:inline-size}" in css
+    assert re.search(r"table\.reg tr\.detail>td>div\.detail\{position:sticky;left:0;width:100%;max-width:100cqw", css)
+    assert re.search(r"div\.detail\{display:block;columns:3 280px;[^}]*container-type:inline-size", css)
+    assert "minmax(120px,1fr)" in css                          # столбец значения dl.kv ≥ 120 px
+    assert ".tbl thead th{background:var(--ps-surface-2);font-weight:600;white-space:normal" in css
+    assert ".ghead,.grow{display:grid;grid-template-columns:280px minmax(0,1fr);padding-right:12px}" in css
+    assert "@container (max-width:560px)" in css
+
+
+def test_contrast_tokens():
+    """«✓ проверено», «доступны», «новое», ✓ матрицы: ≥ 4,5:1 на своих подложках в обеих темах."""
+    white, dark_surface = (255, 255, 255), bh.parse_color("#191c20")
+    tint = lambda base: bh.mix(base, (21, 128, 61), 0.14)
+    for fg, bg in (("#166534", tint(white)), ("#166534", tint(bh.parse_color("#eef0f3"))), ("#166534", white),
+                   ("#166534", bh.mix(white, bh.parse_color("#2f5bd3"), 0.13)),
+                   ("#4ade80", tint(dark_surface)), ("#4ade80", dark_surface), ("#9f1f14", bh.mix(white, (180, 35, 24), 0.14))):
+        assert bh.contrast(bh.parse_color(fg), bg) >= 4.5, (fg, bg)
+    v = bh.theme_vars({}, {})
+    for mode in v.values():
+        assert bh.contrast(bh.parse_color(mode["--ps-link"]), bh.parse_color(mode["--ps-surface-2"])) >= 4.5
+
+
+def test_http_url_validation():
+    ok = ["https://example.com", "http://example.com/a?b=1#c", "https://пример.рф/путь", "http://localhost:8000/x",
+          "http://127.0.0.1/a", "https://sub.domain.co.uk"]
+    bad = ["Локальный запуск по README", "https://…", "https://", "ftp://example.com", "javascript:alert(1)", "example.com",
+           "https://exa mple.com", "/docs/x", "https://localhost-", ""]
+    assert all(bh.http_url(u) for u in ok), [u for u in ok if not bh.http_url(u)]
+    assert not any(bh.http_url(u) for u in bad), [u for u in bad if bh.http_url(u)]
+    assert bh.ext_link("Локальный запуск") == "Локальный запуск"
+    assert 'href="https://e.com/x"' in bh.ext_link("https://e.com/x")
+
+
+def test_product_url_link_only_if_valid(demo, tmp_path):
+    out = tmp_path / "url"
+    shutil.copytree(demo["out"], out)
+    cfg = rjson(out / "build" / "run-config.json")
+    cfg["product"]["url"] = "Локальный запуск: python -m app"
+    wjson(out / "build" / "run-config.json", cfg)
+    _, page = build(out)
+    facts = page.split('<dl class="facts">')[1].split("</dl>")[0]
+    assert "Локальный запуск: python -m app" in facts and "<a" not in facts
+    cfg["product"]["url"] = "https://example.com/app"
+    wjson(out / "build" / "run-config.json", cfg)
+    _, page = build(out)
+    assert 'href="https://example.com/app"' in page.split('<dl class="facts">')[1].split("</dl>")[0]
+
+
+def test_sources_untitled(demo, tmp_path):
+    assert bh.url_like_title("https://example.com/docs/guide", "https://example.com/docs/guide")
+    assert bh.url_like_title("https://example.com/do…", "https://example.com/docs/guide")
+    assert bh.url_like_title("example.com/docs/gu", "https://www.example.com/docs/guide")
+    assert bh.url_like_title("", "https://example.com")
+    assert not bh.url_like_title("Документация API", "https://example.com/docs")
+    assert not bh.url_like_title("Example", "https://example.com")
+    assert bh.short_url("https://www.example.com/a/very/long/path/to/some/page/index.html?x=1", 30).endswith("…")
+    assert bh.short_url("https://www.example.com/docs/") == "example.com/docs"
+    out = tmp_path / "src"
+    shutil.copytree(demo["out"], out)
+    src = rjson(out / "data" / "sources.json")
+    src[0].update(url="https://www.example.com/blog/2026/10/some-very-long-article-slug-about-growth", title="https://www.example.com/blog/2026/10/some-ve…")
+    src[1].update(url="https://example.org/a", title="Нормальное название")
+    src[2].update(url="https://…", title="")
+    wjson(out / "data" / "sources.json", src)
+    stdout, page = build(out)
+    table = page.split('id="src-table"')[1].split("</table>")[0]
+    assert table.count("без названия") == 2
+    assert '<span class="untitled" title="https://www.example.com/blog/2026/10/some-very-long-article-slug-about-growth">example.com/blog/' in table
+    assert "Нормальное название" in table
+    assert 'href="https://…"' not in page                     # заглушка — не ссылка
+    assert "без названия" in stdout
+
+
+def test_verdict_and_feature_labels(demo, tmp_path):
+    long_v = "Сильный каталог и аналитика, но нет локального режима и экспорта данных пользователя"
+    assert bh.verdict_parts("Коротко", None) == ("Коротко", "", False)
+    short, full, cut = bh.verdict_parts(long_v, None)
+    assert len(short) <= bh.VERDICT_MAX + 1 and short.endswith("…") and full == long_v and cut
+    short, full, cut = bh.verdict_parts("Каталог сильнее", long_v)
+    assert short == "Каталог сильнее" and full == long_v and not cut
+    assert bh.humanize_key("own_channel_analytics") == "Own channel analytics"
+    assert bh.humanize_key("Аналитика канала") == "Аналитика канала"
+    out = tmp_path / "comp"
+    shutil.copytree(demo["out"], out)
+    comps = rjson(out / "data" / "competitors.json")
+    comps[1]["verdict"] = long_v
+    comps[1].pop("verdict_long", None)
+    comps[2]["verdict"] = "Сильный каталог"
+    comps[2]["verdict_long"] = long_v
+    comps[1]["features"] = {"own_channel_analytics": True, "export_csv": False}
+    comps[1]["features_labels"] = {"export_csv": "Экспорт в CSV"}
+    wjson(out / "data" / "competitors.json", comps)
+    _, page = build(out)
+    cj = data(page, "d-comp")
+    assert cj[1]["verdict_short"].endswith("…") and len(cj[1]["verdict_short"]) <= 46 and cj[1]["verdict_cut"]
+    assert cj[2]["verdict_short"] == "Сильный каталог" and cj[2]["verdict_long"] == long_v and not cj[2]["verdict_cut"]
+    labels = data(page, "d-meta")["comp_feature_labels"]
+    assert labels["own_channel_analytics"] == "Own channel analytics" and labels["export_csv"] == "Экспорт в CSV"
+    assert "FL[f] || f" in page and "verdict_short" in page   # матрица и карточка берут подписи и короткий вердикт
+
+
+def test_typesafe_single_block(demo, tmp_path):
+    same = {"p_success": 0.74, "kano": "must", "kano_probs": {"must": 0.77, "linear": 0.23}}
+    b = bh.merge_typesafe(same, dict(same, p_success=0.7404))
+    assert b["title"] == "TypeSafe Jev (score.py = Jev)" and not b["conflicts"] and b["items"]["p_success"] == 0.7404
+    b = bh.merge_typesafe({"p_success": 0.5, "risk": 0.3}, {"p_success": 0.8})
+    assert b["conflicts"] == ["p_success"] and b["items"]["p_success"] == {"score.py": 0.5, "Jev": 0.8} and b["items"]["risk"] == 0.3
+    assert bh.merge_typesafe(None, {"p": 1})["title"] == "TypeSafe Jev"
+    assert bh.merge_typesafe({}, None) is None
+    out = tmp_path / "ts"
+    shutil.copytree(demo["out"], out)
+    props = rjson(out / "data" / "proposals.json")
+    wjson(out / "data" / "scores.json", [{"id": p["id"], "rank": i + 1, "typesafe": same} for i, p in enumerate(props)])
+    wjson(out / "data" / "typesafe-jev.json", {"model": "jev", "date": "2026-10-10", "items": {p["id"]: same for p in props}})
+    _, page = build(out)
+    reg = data(page, "d-registry")
+    assert all(r["ts_block"]["title"] == "TypeSafe Jev (score.py = Jev)" for r in reg)
+    assert "TypeSafe (score.py)', r.typesafe], ['TypeSafe Jev', r.jev]" not in page   # старый двойной вывод
+
+
+def noisy_png(path, w=160, h=120, seed=1):
+    """PNG без сжимаемости (> 32 КБ): в --lite уходит в assets/."""
+    import random
+    rnd = random.Random(seed)
+    raw = b"".join(b"\x00" + bytes(rnd.getrandbits(8) for _ in range(w * 3)) for _ in range(h))
+
+    def chunk(t, d):
+        return struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xFFFFFFFF)
+    path.write_bytes(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
+                     + chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b""))
+
+
+@pytest.fixture(scope="module")
+def lite(tmp_path_factory):
+    out = enrich(make_demo(tmp_path_factory.mktemp("lite") / "run"))
+    for k in range(1, 7):
+        noisy_png(out / "mockups" / "concepts" / ("M%02d-demo.png" % k), seed=k)
+    noisy_png(out / "design-refs" / "01-demo.png", seed=1)       # то же содержимое, что M01 — один файл
+    noisy_png(out / "competitors" / "shots" / "rival-1.png", seed=9)
+    return out
+
+
+def test_lite_mode(lite):
+    stdout, page = build(lite, "--lite", "--lite-encoder", "none")
+    assets = lite / "deliverables" / "assets"
+    imgs, alias = data(page, "d-img"), data(page, "d-alias")
+    rel = {k: v for k, v in imgs.items() if not v.startswith("data:")}
+    assert len(rel) == 7 and all(v.startswith("assets/") for v in rel.values())          # 6 макетов + скриншот; референс — псевдоним
+    assert alias.get("m-M01-demo") == "r-01-demo" or alias.get("r-01-demo") == "m-M01-demo"
+    assert imgs["c-effort-impact"].startswith("data:image/svg+xml")                     # SVG — всегда в странице
+    for v in rel.values():
+        assert (assets / v[len("assets/"):]).is_file()
+    assert json.loads((assets / bh.ASSETS_MANIFEST).read_text(encoding="utf-8"))
+    csp = re.search(r'Content-Security-Policy" content="([^"]+)"', page).group(1)
+    assert "img-src data: 'self';" in csp and "http" not in csp
+    assert "Режим --lite" in stdout and "assets/" in stdout
+    _, full = build(lite)                                       # обычная сборка: автономно, файлы lite удалены
+    assert all(v.startswith("data:") for v in data(full, "d-img").values())
+    assert "img-src data:;" in re.search(r'Content-Security-Policy" content="([^"]+)"', full).group(1)
+    assert not assets.exists()
+    assert len(page.encode("utf-8")) < len(full.encode("utf-8"))
+
+
+def test_lite_stale_assets_removed(lite, tmp_path):
+    out = tmp_path / "st"
+    shutil.copytree(lite, out)
+    build(out, "--lite", "--lite-encoder", "none")
+    assets = out / "deliverables" / "assets"
+    before = {p.name for p in assets.iterdir()}
+    noisy_png(out / "mockups" / "concepts" / "M02-demo.png", seed=42)   # содержимое изменилось — новое имя по хешу
+    (assets / "keep-me.txt").write_text("чужой файл", encoding="utf-8")
+    build(out, "--lite", "--lite-encoder", "none")
+    after = {p.name for p in assets.iterdir()}
+    assert "keep-me.txt" in after                               # удаляются только свои файлы по манифесту
+    assert len(before - after) == 1 and len(after - before) == 2
+
+
+def test_lite_thumbnails_with_encoder(lite, tmp_path):
+    enc = bh.LiteEncoder("auto")
+    if enc.kind == "none":
+        pytest.skip("нет Pillow и ffmpeg — миниатюр не будет (проверено в test_lite_mode)")
+    out = tmp_path / "th"
+    shutil.copytree(lite, out)
+    _, page = build(out, "--lite")
+    thumbs = data(page, "d-thumb")
+    assert thumbs and all(t[0].startswith("data:image/") and 0 < t[1] <= bh.THUMB_MAX for t in thumbs.values())
+    for t in thumbs.values():
+        mime = t[0].split(";")[0][5:]
+        w, h = bh.image_size(base64.b64decode(t[0].split(",", 1)[1]), mime)
+        assert max(w, h) <= bh.THUMB_MAX
+
+
+def test_size_warning_suggests_lite(demo, tmp_path):
+    out = tmp_path / "big"
+    shutil.copytree(demo["out"], out)
+    (out / "charts").mkdir(exist_ok=True)
+    big = out / "charts" / "big.png"                          # «картинка» 9,5 МБ → страница > 12 МБ в base64
+    with open(big, "wb") as f:
+        f.write(png_bytes(4, 4)[:33])
+        f.write(os.urandom(9_500_000))
+    wjson(out / "charts" / "charts-index.json", [{"key": "big", "png": "charts/big.png", "title": "Большой", "caption": "", "section": "scores"}])
+    stdout, _ = build(out)
+    assert "больше 12 МБ" in stdout and "--lite" in stdout
+    assert "больше 12 МБ" not in demo["stdout"]
+
+
+# ---------------------------------------------------------------- smoke: геометрия, контраст, lite
+def check_status(res, name):
+    return {c["name"]: c for c in res["checks"]}.get(name, {}).get("status")
+
+
+def test_smoke_geometry_all_rows(demo):
+    """Демо со 100 предложениями: каждая строка реестра раскрыта и измерена на 1440 и 390 px; контраст в трёх темах."""
+    res = run_smoke(demo["out"], "--require", "registry-sort")
+    by = {c["name"]: c for c in res["checks"]}
+    for v in ("1440", "390"):
+        c = by["geometry-chromium-" + v]
+        assert c["status"] == "pass", c
+        assert c["data"]["rows"] == 100 and c["data"]["height"]["max"] < 2500 and c["data"]["minDD"] >= 120
+        assert c["data"]["pageWidth"] <= c["data"]["viewport"]
+        w = by.get("geometry-webkit-" + v)
+        assert w and (w["status"] == "pass" or (w["status"] == "skip" and w.get("env"))), w
+    for t in ("contrast-light", "contrast-dark", "contrast-auto-dark"):
+        assert by[t]["status"] == "pass", by[t]
+    assert by["lite-assets"]["status"] == "skip" and by["lite-assets"].get("env")
+
+
+def test_smoke_catches_collapsed_detail_row(demo, tmp_path):
+    """Регрессия самого smoke: если вернуть баг 1.0 (строка-сетка), геометрия и registry-sort падают."""
+    if not shutil.which("node") or not playwright_dir(demo["out"]):
+        pytest.skip("нет node/playwright")
+    page = (demo["out"] / "deliverables" / "index.html").read_text(encoding="utf-8")
+    bad = page.replace("table.reg tr.detail{display:table-row}", "table.reg tr.detail{display:grid}", 1)
+    assert bad != page
+    target = tmp_path / "bug" / "deliverables" / "index.html"
+    target.parent.mkdir(parents=True)
+    target.write_text(bad, encoding="utf-8")
+    r = subprocess.run(["node", str(SMOKE), str(target), "--node-dir", playwright_dir(demo["out"]), "--json", "--engines", "chromium"],
+                       capture_output=True, text=True, timeout=600)
+    if r.returncode == 3:
+        pytest.skip(r.stderr.strip())
+    res = json.loads(r.stdout)
+    assert r.returncode == 1 and not res["ok"]
+    assert check_status(res, "registry-sort") == "fail"
+    det = {c["name"]: c for c in res["checks"]}["geometry-chromium-1440"]
+    assert det["status"] == "fail" and "table-row" in det["detail"]
+
+
+def test_smoke_lite_page(lite, tmp_path):
+    out = tmp_path / "sl"
+    shutil.copytree(lite, out)
+    build(out, "--lite")
+    res = run_smoke(out, "--engines", "chromium")
+    by = {c["name"]: c for c in res["checks"]}
+    assert by["lite-assets"]["status"] == "pass", by["lite-assets"]
+    assert by["lightbox"]["status"] == "pass" and by["external-requests"]["status"] == "pass"

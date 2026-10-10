@@ -225,6 +225,16 @@ def test_demo_and_build_all_html_and_xlsx(tmp_path):
         assert (out / "deliverables" / "strategy.xlsx").exists(), r.stdout + r.stderr
 
 
+def test_build_all_new_steps_and_statuses(tmp_path):
+    out = tmp_path / "demo"
+    assert run("make_demo.py", out, "--proposals", "60").returncode == 0
+    r = run("build_all.py", out, "--skip", "links,pptx,pdf,smoke,mockups,xlsx,deck")
+    for step in ("mocklink", "registry", "gapaudit", "assemble", "method", "refsreadme", "gitignore"):
+        assert step in r.stdout, step
+    assert "выключено выбором" in r.stdout and "всё собрано" in r.stdout
+    assert (out / "research" / "methodology.md").is_file() and (out / "design-refs" / "README.generated.md").exists() or (out / "design-refs" / "README.md").exists()
+
+
 @pytest.mark.parametrize("name", ["SKILL.md", "INSTALL.md", "README.md", "references/data-contract.md", "references/intake.md",
                                   "references/tools.md"])
 def test_docs_exist_and_mention_scripts(name):

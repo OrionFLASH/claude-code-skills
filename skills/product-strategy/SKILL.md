@@ -76,7 +76,9 @@ description: >
 ## Справочники
 - `references/data-contract.md` — схемы файлов `<OUT>`
 - `references/intake.md` — опрос, автопилот, глубина → объём
-- `references/run-sandbox.md` — запуск без боевых данных; `references/locales/` — пакеты локалей (ru, en)
+- `references/run-sandbox.md` — запуск без боевых данных
+- `references/locales/ru.md`, `references/locales/en.md` — пакеты локали: площадки, платёжные пути, право, магазины, поиск (по `strategy.markets`)
+- `templates/briefs/gap-audit.md` — бриф аудитора фазы 5.5
 - `templates/mockup-kit/` — набор компонентов макетов
 - `references/tools.md` — проверка, установка, замены, TypeSafe
 - `references/phases.md` — фазы подробно

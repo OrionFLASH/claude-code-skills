@@ -54,7 +54,7 @@ https://github.com/OrionFLASH/claude-code-skills (папка skills/product-stra
   ~/dev/claude-code-skills/tools/install.sh product-strategy (Windows: tools\install.ps1).
 - Копия: skills/product-strategy -> ~/.claude/skills/product-strategy (без __pycache__).
 - Выбранные модули - командами из раздела «Дополнительные модули».
-- Node-модули скилл ставит сам в папку каждого прогона (<OUT>/build/node) - глобально ничего не ставь.
+- Node-модули скилл ставит сам в кэш пользователя (~/.cache/product-strategy/node, общий для прогонов; результат остаётся чистым) - глобально (npm -g) ничего не ставь.
   Если нет node - предложи brew install node (macOS) / https://nodejs.org (после моего «да»).
 
 ШАГ 4. ПРОВЕРКА
@@ -62,7 +62,7 @@ https://github.com/OrionFLASH/claude-code-skills (папка skills/product-stra
 - python3 <SKILL_DIR>/scripts/check_env.py - покажи таблицу и строку «Итог».
 - Демо-сборка без сети: python3 <SKILL_DIR>/scripts/make_demo.py /tmp/ps-demo &&
   python3 <SKILL_DIR>/scripts/build_all.py /tmp/ps-demo --skip links - покажи таблицу шагов;
-  если есть node: python3 <SKILL_DIR>/scripts/check_env.py --install-node /tmp/ps-demo и повтори build_all
+  если есть node: python3 <SKILL_DIR>/scripts/check_env.py --install-node и повтори build_all
   (появятся PPTX, PDF и smoke-тест страницы).
 
 ШАГ 5. ИТОГ
@@ -119,7 +119,7 @@ https://github.com/OrionFLASH/claude-code-skills (папка skills/product-stra
 | Python 3.10+ | все скрипты (только стандартная библиотека) | да |
 | git | история репозитория, ветка результата | да |
 | Node.js 18+ и npm | скриншоты, smoke-тест страницы, PPTX, PDF | рекомендуется |
-| Playwright + Chromium | аудит сайта, макеты в PNG, скриншоты конкурентов, PDF; ставится в `<OUT>/build/node` командой `check_env.py --install-node <OUT>` | рекомендуется |
+| Playwright + Chromium | аудит сайта, макеты в PNG, скриншоты конкурентов, PDF; ставится в кэш пользователя `~/.cache/product-strategy/node` командой `check_env.py --install-node` | рекомендуется |
 | pptxgenjs | PPTX; ставится туда же | рекомендуется |
 | gh (авторизованный) | Issues и PR репозитория, только чтение | рекомендуется |
 | `TYPESAFE_API_KEY` | оценка предложений TypeSafe (Jev) отдельной колонкой | нет |
@@ -147,7 +147,7 @@ git clone https://github.com/OrionFLASH/claude-code-skills.git ~/dev/claude-code
 S=$(python3 ~/.claude/skills/product-strategy/scripts/skill_dir.py 2>/dev/null || ls -d ~/.claude/plugins/cache/claude-code-skills/product-strategy/* | tail -1)
 python3 "$S/scripts/check_env.py"
 python3 "$S/scripts/make_demo.py" /tmp/ps-demo && python3 "$S/scripts/build_all.py" /tmp/ps-demo --skip links
-python3 "$S/scripts/check_env.py" --install-node /tmp/ps-demo && python3 "$S/scripts/build_all.py" /tmp/ps-demo --skip links
+python3 "$S/scripts/check_env.py" --install-node && python3 "$S/scripts/build_all.py" /tmp/ps-demo --skip links
 ```
 Ожидаемо: `check_env` — «Итог: можно работать»; `build_all` — шаги `OK` или `SKIP` с причиной, итог «всё собрано»; в `/tmp/ps-demo/deliverables/` — `index.html`, `strategy.xlsx` (и `strategy.pptx`, `strategy.pdf`, если поставлены Node-модули).
 
@@ -181,12 +181,17 @@ claude plugin update product-strategy@claude-code-skills       # затем но
 | Переменная | Что делает |
 |---|---|
 | `PRODUCT_STRATEGY_DIR` | путь к скиллу, если автоопределение (`skill_dir.py`) не подходит |
-| `PS_NODE_DIR` | папка с `node_modules` (playwright, pptxgenjs) вместо `<OUT>/build/node`, например одна на все прогоны |
+| `PS_NODE_DIR` | папка с `node_modules` (playwright, pptxgenjs) вместо кэша `~/.cache/product-strategy/node`; то же — `tools.node_dir` в run-config; папку печатает `check_env.py --print-node-dir` |
+| `PS_SESSION_SKILLS` | скиллы, видимые в сессии (через запятую), если не передан `--session-skills`; обычно список запоминается в `<OUT>/build/session-skills.txt` |
 | `TYPESAFE_API_KEY` | ключ TypeSafe для `typesafe_eval.py`; значение нигде не печатается |
 | `PLAYWRIGHT_BROWSERS_PATH` | нестандартный кэш браузеров Playwright |
 
 ## Частые проблемы
 Список проблем и решений — в `references/troubleshooting.md`. Самые частые:
-- **«нет playwright» или «нет pptxgenjs» (код 3).** Выполните `check_env.py --install-node <OUT>`.
+- **«нет playwright» или «нет pptxgenjs» (код 3).** Выполните `check_env.py --install-node` (модули встанут в кэш пользователя; прежние `<OUT>/build/node` тоже работают).
 - **Unknown skill.** Скилл установлен в текущей сессии; начните новую или выполните `/reload-plugins`.
 - **`CERTIFICATE_VERIFY_FAILED` при проверке ссылок.** Поставьте `certifi` или запустите `check_links.py --offline`.
+- **Папка прогона в репозитории не попала в коммит.** Корневое правило `.gitignore` вроде `build/` молча исключает `<OUT>/build`: `check_gitignore.py <OUT> --fix`.
+- **Страница слишком тяжёлая (> 12 МБ) для пересылки или Artifact.** `build_all.py <OUT> --lite` (картинки отдельными файлами рядом, страница ≈ 3–4 МБ).
+- **Нужно перенести готовую папку прогона.** `init_run.py <OUT> --relocate <NEW>`, затем `build_all.py <NEW>`.
+- **На macOS нет `timeout`.** Используйте `gtimeout` (coreutils) или `subprocess` с таймаутом; скрипты скилла от этого не зависят.

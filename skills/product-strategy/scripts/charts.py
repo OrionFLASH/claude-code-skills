@@ -2,9 +2,18 @@
 """Графики стратегии в SVG на стандартной библиотеке (без matplotlib) → <OUT>/charts/<key>.svg + charts-index.json.
 
   charts.py <OUT> [--only key1,key2] [--top N]
+  charts.py <OUT> --list-keys        JSON {"available": [...], "skipped": {"ключ": "причина"}} по данным, без построения
 
 Источники: data/scores.json, proposals.json, sensitivity.json, registry-check.json, gantt.json, model.json,
-keywords.json, events.json, competitors.json. Каждый график пропускается, если для него нет данных.
+keywords.json, events.json, competitors.json, critical-path.json, north-star.json (необязательно), build/run-config.json.
+Каждый график пропускается, если для него нет данных (причина — в выводе и в --list-keys). gantt строится, как только
+есть data/gantt.json (можно вызвать отдельно: --only gantt). Ключи и разделы — data-contract.md (charts-index.json).
+Новые в 1.1: critical-path (цепочка зависимостей из critical-path.json), channel-mix (каналы привлечения по
+предложениям category=acquisition: доля по числу и по composite), kpi-tree (North Star → входные метрики → предложения
+по effect_kpi), keywords-clusters (кластеры запросов по числу и конкуренции — работает и без объёмов). Подписи функций
+конкурентов — из features_labels (иначе человекочитаемо из snake_case), слова не режутся. Профиль zero-budget-solo:
+cac-ltv — часы на активированного и выручка на час, payback — безубыточность по времени; при малом числе платящих
+подписи содержат абсолютные суммы.
 Палитра: из <OUT>/mockups/tokens.css (CSS-переменные с hex-цветами: accent/primary/brand/… с контрастом ≥ 3:1 к
 белому идут первыми, text/ink/fg — цвет текста), иначе встроенная палитра Okabe–Ito, безопасная для дальтоников;
 категории дополнительно различаются формой маркера. Фон светлый. Подписи переносятся по словам, ничего не
@@ -53,7 +62,8 @@ PARAM_RU = {"rice": "RICE", "ice": "ICE", "wsjf": "WSJF", "risk_adjusted": "с �
             "platform": "правила площадок", "privacy": "приватность", "tech": "технический", "reputation": "репутация"}
 KNOWN_KEYS = ["effort-impact", "bubble", "metrics-heatmap", "radar-top10", "pareto", "tornado", "dist-category",
               "dist-evidence", "dist-horizon", "gantt", "funnel", "forecast-fan", "cac-ltv", "payback",
-              "keywords-volume", "events-calendar", "competitors-heatmap"]
+              "keywords-volume", "events-calendar", "competitors-heatmap", "critical-path", "channel-mix", "kpi-tree",
+              "keywords-clusters"]
 
 
 def hex_rgb(h):
@@ -681,13 +691,19 @@ def ch_tornado(sens):
     return c.finish(ph), title, cap
 
 
-def hbar_chart(title, cap, source, items, W=860, color=None, marks=None, value_fmt=None, colors=None, legend=None):
-    """Горизонтальные столбцы: items — [(label, value)], marks — {label: требуемый минимум} (риска)."""
+def hbar_chart(title, cap, source, items, W=860, color=None, marks=None, value_fmt=None, colors=None, legend=None,
+               right_pad=60, int_ticks=False):
+    """Горизонтальные столбцы: items — [(label, value)], marks — {label: требуемый минимум} (риска).
+    right_pad — место справа под подписи значений; int_ticks — целые деления оси (счётные величины)."""
     c = Chart(W, title, cap, source)
     label_w = 230
-    x0, x1 = PAD + label_w, W - PAD - 60
+    x0, x1 = PAD + label_w, W - PAD - right_pad
     vmax = max([v for _, v in items] + list((marks or {}).values()) + [1])
-    ticks, _ = nice_ticks(0, vmax, 5)
+    if int_ticks:
+        step = max(1, int(math.ceil(vmax / 5.0)))
+        ticks = list(range(0, int(math.ceil(vmax / float(step))) * step + 1, step))
+    else:
+        ticks, _ = nice_ticks(0, vmax, 5)
     top = ticks[-1] or 1
     y = c.top + 4
     rows = []
@@ -885,6 +901,8 @@ def ch_fan(M):
 
 
 def ch_cac_ltv(M):
+    if M.get("solo"):
+        return ch_cac_ltv_solo(M)
     sc = M.get("scenarios") or {}
     names = [k for k in SCEN_RU if k in sc]
     if not names or all(sc[k].get("ltv") is None for k in names):
@@ -896,6 +914,9 @@ def ch_cac_ltv(M):
     title = ("LTV/CAC в базовом сценарии — %s, окупаемость привлечения — %s мес." % (fmt(ratio, 1), fmt(base.get("payback_months"), 1))
              if ratio else "LTV и CAC по сценариям: платного привлечения в базовом сценарии нет")
     cap = "Здоровый ориентир — LTV/CAC ≥ 3 и окупаемость до 12 месяцев; CAC — смешанный, на нового платящего, по платным каналам."
+    note = small_note(M)
+    if note:
+        cap += " Оговорка: " + note + "."
     c = Chart(W, title, cap, "Источник: data/model.json (%s) [допущение]" % cur)
     ph = 340
     x0, x1, y0, y1 = PAD + 60, W - PAD - 10, c.top + 30, c.top + ph - 70
@@ -926,6 +947,8 @@ def ch_cac_ltv(M):
 
 
 def ch_payback(M):
+    if M.get("solo"):
+        return ch_payback_solo(M)
     sc = M.get("scenarios") or {}
     names = [k for k in SCEN_RU if k in sc and sc[k].get("monthly") and "cum_margin" in sc[k]["monthly"][0]]
     if not names:
@@ -934,7 +957,12 @@ def ch_payback(M):
     be = {k: sc[k].get("breakeven_month") for k in names}
     ok = [SCEN_RU[k].lower() for k in names if be[k]]
     title = ("Безубыточность за горизонт достигается в сценариях: %s" % ", ".join(ok)) if ok else "Ни один сценарий не выходит на безубыточность за горизонт"
+    note = small_note(M)
+    if note:
+        title += " (%s)" % note
     cap = "Сплошная линия — накопленная валовая выручка, пунктир — накопленные затраты (постоянные + маркетинг); точка — месяц безубыточности."
+    if note:
+        cap += " При малом числе платящих безубыточность держится на малых постоянных затратах — смотрите абсолютные суммы."
     c = Chart(W, title, cap, "Источник: data/model.json (%s) [допущение]" % M.get("currency", ""))
     ph = 380
     x0, x1, y0, y1 = PAD + 70, W - PAD - 10, c.top + 8, c.top + ph - 70
@@ -1053,23 +1081,38 @@ def ch_competitors(C):
     if not rows:
         return None
     feats = list(OrderedDict.fromkeys(f for x in rows for f in x["features"]))
+    fl = feature_labels(C)
+    lab = {f: fl.get(f) or humanize(f) for f in feats}
     natural = lambda t: [int(x) if x.isdigit() else x.lower() for x in re.split(r"(\d+)", str(t))]
     rows = sorted(rows, key=lambda x: (not x.get("self"), natural(x.get("name") or x.get("slug"))))
-    W = max(760, min(1200, 300 + 96 * len(feats)))
     label_w = 230
+    longest = max(text_w(w, 11, True) for f in feats for w in lab[f].split() or [lab[f]])
+    need_cw = max(64.0, longest + 12)
+    vertical = 2 * PAD + label_w + need_cw * len(feats) > 1200
+    if vertical:   # тесно: подписи вертикально, целиком, без переноса и обрезки
+        W = max(760, min(1200, int(2 * PAD + label_w + 40 * len(feats))))
+    else:
+        W = max(760, int(2 * PAD + label_w + need_cw * len(feats)))
     cw = (W - 2 * PAD - label_w) / len(feats)
     me = next((x for x in rows if x.get("self")), None)
     share = {f: sum(1 for x in rows if not x.get("self") and x["features"].get(f)) / max(1, sum(1 for x in rows if not x.get("self"))) for f in feats}
     gaps = [f for f in feats if me and not me["features"].get(f) and share[f] >= 0.5]
     title = "Функции конкурентов: %d %s × %d %s" % (len(rows), plural(len(rows), ("продукт", "продукта", "продуктов")),
                                                    len(feats), plural(len(feats), ("функция", "функции", "функций")))
-    cap = ("Пробелы нашего продукта, которые есть у большинства конкурентов: %s." % ", ".join(gaps)) if gaps else (
+    cap = ("Пробелы нашего продукта, которые есть у большинства конкурентов: %s." % ", ".join(lab[g] for g in gaps)) if gaps else (
         "У нашего продукта нет функций, которые были бы у большинства конкурентов и отсутствовали у нас." if me else "Строка нашего продукта (self) не задана.")
     c = Chart(W, title, cap, "Источник: data/competitors.json; ✓ — функция есть, пусто — нет или не найдено")
-    hdr = [wrap(f, cw - 6, 11, True) for f in feats]
-    hh = max(len(h) for h in hdr) * 14 + 8
-    for j, h in enumerate(hdr):
-        c.lines(PAD + label_w + j * cw + cw / 2, c.top + 12, h, 11, THEME["ink"], "middle", True, 1.2)
+    if vertical:
+        hh = max(text_w(lab[f], 11, True) for f in feats) + 14
+        for j, f in enumerate(feats):
+            hx, hy = PAD + label_w + j * cw + cw / 2 + 4, c.top + hh - 6
+            c.add('<text x="%.1f" y="%.1f" font-size="11" font-weight="600" fill="%s" text-anchor="start" '
+                  'transform="rotate(-90 %.1f %.1f)">%s</text>' % (hx, hy, THEME["ink"], hx, hy, esc(lab[f])))
+    else:
+        hdr = [wrap(lab[f], cw - 6, 11, True) for f in feats]
+        hh = max(len(h) for h in hdr) * 14 + 8
+        for j, h in enumerate(hdr):
+            c.lines(PAD + label_w + j * cw + cw / 2, c.top + 12, h, 11, THEME["ink"], "middle", True, 1.2)
     y = c.top + hh
     for x in rows:
         tl = wrap(("★ " if x.get("self") else "") + str(x.get("name") or x.get("slug")), label_w - 10, 12)
@@ -1087,53 +1130,592 @@ def ch_competitors(C):
     return c.finish(y - c.top + 4), title, cap
 
 
+# ---------------------------------------------------------------- деньги и подписи
+def money(x, M, nd=0):
+    """Сумма с символом валюты модели."""
+    sym = (M or {}).get("currency_symbol") or (M or {}).get("currency") or ""
+    return ("%s %s" % (fmt(x, nd), sym)).strip()
+
+
+ABBR = {"api", "mcp", "ai", "seo", "pdf", "csv", "rss", "sso", "ui", "ux", "vk", "tg", "oss", "cli", "sdk", "er", "crm",
+        "json", "ios", "url", "og", "pwa", "id", "2fa", "llm", "gpt", "faq", "kpi", "cta", "utm", "ab", "b2b", "b2c"}
+
+
+def humanize(key):
+    """snake_case/kebab-case → «Читаемая подпись» (аббревиатуры прописными); уже человекочитаемое не трогается."""
+    s = str(key)
+    if not re.fullmatch(r"[A-Za-z0-9_\-]+", s) or ("_" not in s and "-" not in s and not s.islower()):
+        return s
+    parts = [w for w in re.split(r"[_\-]+", s) if w]
+    out = [w.upper() if w.lower() in ABBR else w.lower() for w in parts]
+    if out and out[0] == out[0].lower():
+        out[0] = out[0][:1].upper() + out[0][1:]
+    return " ".join(out)
+
+
+def feature_labels(C):
+    """Подписи функций: features_labels из записей competitors.json (первое значение побеждает), иначе humanize."""
+    labels = {}
+    for x in C if isinstance(C, list) else []:
+        if isinstance(x, dict) and isinstance(x.get("features_labels"), dict):
+            for k, v in x["features_labels"].items():
+                if isinstance(v, str) and v.strip() and k not in labels:
+                    labels[k] = v.strip()
+    return labels
+
+
+def arrow(c, x1, y1, x2, y2, color, sw=1.4, dash=None):
+    """Кривая Безье слева направо с треугольником-наконечником (без marker/url — правило «без внешних ссылок»)."""
+    mx = (x1 + x2) / 2
+    d = ' stroke-dasharray="%s"' % dash if dash else ""
+    c.add('<path d="M %.1f %.1f C %.1f %.1f, %.1f %.1f, %.1f %.1f" fill="none" stroke="%s" stroke-width="%s"%s/>'
+          % (x1, y1, mx, y1, mx, y2, x2 - 6, y2, color, sw, d))
+    c.poly([(x2, y2), (x2 - 8, y2 - 4.5), (x2 - 8, y2 + 4.5)], color)
+
+
+# ---------------------------------------------------------------- зависимости
+def ch_critical_path(CP, S):
+    edges = [e for e in (CP or {}).get("edges") or [] if isinstance(e, list) and len(e) == 2]
+    if not edges:
+        return None
+    meta = {n["id"]: n for n in CP.get("nodes") or [] if isinstance(n, dict) and n.get("id")}
+    srow = {r["id"]: r for r in S or []}
+    used = sorted({x for e in edges for x in e}, key=lambda v: (meta.get(v, {}).get("rank") or srow.get(v, {}).get("rank") or 10 ** 6, v))
+    order = [v for v in CP.get("order") or [] if v in used]
+    on = set(order)
+    path_edges = {(a, b) for a, b in zip(order, order[1:])}
+    preds = {v: [a for a, b in edges if b == v] for v in used}
+    level = {}
+    for _ in range(len(used) + 1):   # самый длинный путь от истоков (DAG; циклы разорваны score.py)
+        changed = False
+        for v in used:
+            lv = 1 + max((level.get(u, 0) for u in preds[v]), default=-1)
+            if level.get(v) != lv:
+                level[v], changed = lv, True
+        if not changed:
+            break
+    ncol = max(level.values()) + 1
+    gap = 46
+    W = 1160
+    bw = (W - 2 * PAD - (ncol - 1) * gap) / ncol
+    if bw < 150:
+        bw = 150
+        W = int(2 * PAD + ncol * bw + (ncol - 1) * gap)
+    bw = min(bw, 260)
+    rank = lambda v: meta.get(v, {}).get("rank") or srow.get(v, {}).get("rank")
+    title_of = lambda v: meta.get(v, {}).get("title") or srow.get(v, {}).get("title") or ""
+    top_n = CP.get("top_n", 20)
+    steps = len(order)
+    if order:
+        title = "Критический путь к топ-%d: %d %s — %s" % (top_n, steps, plural(steps, ("шаг", "шага", "шагов")), " → ".join(order))
+    else:
+        title = "Зависимости топ-%d: %d %s, критической цепочки нет" % (top_n, len(edges), plural(len(edges), ("связь", "связи", "связей")))
+    out_top = sum(1 for v in used if not meta.get(v, {}).get("in_top", True))
+    cap = ("Цепочка с наибольшей суммой composite, ведущая в топ-%d (выделена). Стрелка — «нужно сделать до»; "
+           "пунктирная рамка — предпосылка вне топа (%d). Порядок работ — dep_rank, а не rank." % (top_n, out_top))
+    c = Chart(W, title, cap, "Источник: data/critical-path.json, data/scores.json (score.py: blocked_by, dep_rank)")
+    boxes, colh = {}, {}
+    x0 = PAD + (W - 2 * PAD - (ncol * bw + (ncol - 1) * gap)) / 2
+    for col in range(ncol):
+        y = c.top + 6
+        for v in [u for u in used if level[u] == col]:
+            tl = wrap(title_of(v), bw - 16, 11)
+            h = 22 + len(tl) * 13.5 + 10
+            boxes[v] = (x0 + col * (bw + gap), y, h, tl)
+            y += h + 14
+        colh[col] = y - c.top
+    body = max(colh.values())
+    hot = THEME["bad"]
+    for a, b in edges:
+        if a in boxes and b in boxes and (a, b) not in path_edges:
+            xa, ya, ha, _ = boxes[a]
+            xb, yb, hb, _ = boxes[b]
+            arrow(c, xa + bw, ya + ha / 2, xb, yb + hb / 2, THEME["axis"], 1.2)
+    for a, b in path_edges:
+        xa, ya, ha, _ = boxes[a]
+        xb, yb, hb, _ = boxes[b]
+        arrow(c, xa + bw, ya + ha / 2, xb, yb + hb / 2, hot, 2.6)
+    for v, (x, y, h, tl) in boxes.items():
+        in_top = meta.get(v, {}).get("in_top", True)
+        fill = mix(hot, "#FFFFFF", 0.88) if v in on else THEME["bg"]
+        stroke = hot if v in on else (PAL[0] if in_top else THEME["axis"])
+        dash = "" if in_top else ' stroke-dasharray="5 4"'
+        c.add('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="6" fill="%s" stroke="%s" stroke-width="%s"%s/>'
+              % (x, y, bw, h, fill, stroke, 2 if v in on else 1.2, dash))
+        dr = meta.get(v, {}).get("dep_rank") or srow.get(v, {}).get("dep_rank")
+        c.text(x + 8, y + 16, "%s · ранг %s%s" % (v, rank(v) or "—", " · порядок %s" % dr if dr else ""), 11,
+               hot if v in on else THEME["ink"], bold=True)
+        c.lines(x + 8, y + 32, tl, 11, THEME["ink"], lh=1.23)
+    h = legend_row(c, [("критический путь", hot, None), ("в топ-%d" % top_n, PAL[0], None), ("вне топа (пунктир)", THEME["axis"], None)],
+                   PAD, c.top + body + 22, W - 2 * PAD, 12)
+    return c.finish(body + 22 + h), title, cap
+
+
+# ---------------------------------------------------------------- каналы привлечения
+CHANNELS = [
+    ("seo", "SEO и поисковые страницы", r"\bseo\b|страниц\w*[- ]ответ|поисков|мета-?тег|sitemap|google|яндекс|serp|ключев\w* запрос|выдач"),
+    ("community", "Сообщества и форумы", r"сообществ|форум|reddit|r/\w+|хабр|habr|hacker ?news|show hn|vc\.ru|пикабу|discord|community|чат\w* (админ|разработ)"),
+    ("content", "Контент и PR", r"стать|блог|обзор|видео|youtube|подкаст|пресс|\bpr\b|анонс|рассылк|newsletter|кейс|гайд|инструкц"),
+    ("catalogs", "Каталоги и магазины приложений", r"каталог|awesome|product ?hunt|alternativeto|маркетплейс|store\b|rustore|google play|app ?store|f-droid|реестр|directory|winget|homebrew|pypi"),
+    ("viral", "Виральность и шаринг", r"шаринг|поделит|\bshare|wrapped|итог\w* года|приглаш|referral|реферал|вирус|подпис\w* «|watermark|карточк\w* для"),
+    ("partners", "Партнёрства и интеграции", r"партн[её]р|интеграц|амбассад|ambassador|сотруднич|bundle|колла"),
+    ("events", "События и конференции", r"конференц|митап|meetup|хакатон|fosdem|40c3|доклад"),
+    ("paid", "Платная реклама", r"реклам|\bads\b|таргет|контекстн|promoted|sponsor"),
+    ("site", "Сайт, демо и посадочные", r"лендинг|landing|посадочн|сайт|github pages|демо|demo"),
+]
+
+
+def channel_of(p):
+    """Канал предложения: совпадения в тегах и названии ×3, в описании ×1; ничья — по порядку CHANNELS."""
+    tags = " ".join(map(str, p.get("tags") or [])).lower()
+    title = str(p.get("title") or "").lower()
+    desc = "%s %s" % (p.get("description") or "", p.get("segment") or "")
+    best = (0, None)
+    for k, (key, _, rx) in enumerate(CHANNELS):
+        s = 3 * len(re.findall(rx, tags + " " + title)) + len(re.findall(rx, desc.lower()))
+        if s > best[0]:
+            best = (s, key)
+    return best[1] or "other"
+
+
+def ch_channel_mix(P, S):
+    acq = [p for p in P if isinstance(p, dict) and p.get("category") == "acquisition"]
+    if not acq:
+        return None
+    comp = {r["id"]: max(0.0, r.get("composite") or 0.0) for r in S or []}
+    names = dict((k, lab) for k, lab, _ in CHANNELS)
+    names["other"] = "Прочее"
+    cnt, csum, ids = Counter(), Counter(), {}
+    for p in acq:
+        ch = channel_of(p)
+        cnt[ch] += 1
+        csum[ch] += comp.get(p.get("id"), 0.0)
+        ids.setdefault(ch, []).append(p.get("id"))
+    tot_n, tot_c = sum(cnt.values()), sum(csum.values())
+    has_c = tot_c > 0
+    keys = sorted(cnt, key=lambda k: (-(csum[k] if has_c else cnt[k]), -cnt[k], k))
+    lead = keys[0]
+    W = 980
+    title = "Каналы привлечения: «%s» — %d %% предложений%s" % (
+        names[lead], round(100 * cnt[lead] / tot_n), (" и %d %% суммарного composite" % round(100 * csum[lead] / tot_c)) if has_c else "")
+    cap = ("Структура %d %s категории «Привлечение» по каналам: доля по числу и по сумме composite (вклад с учётом оценки). "
+           "Канал определён по тегам и тексту предложения (эвристика по ключевым словам)." % (tot_n, plural(tot_n, ("предложения", "предложений", "предложений"))))
+    c = Chart(W, title, cap, "Источник: data/proposals.json (category=acquisition, tags, title, description), data/scores.json (composite)")
+    label_w = 260
+    x0, x1 = PAD + label_w, W - PAD - 150
+    y = c.top + 4
+    c_n, c_c = PAL[0], PAL[1 % len(PAL)]
+    for k in keys:
+        tl = wrap(names[k], label_w - 12, 12)
+        rh = max(44, len(tl) * 15 + 14)
+        c.lines(PAD, y + (rh - len(tl) * 15) / 2 + 12, tl, 12, THEME["ink"])
+        sn = cnt[k] / tot_n
+        wn = sn * (x1 - x0)
+        c.rect(x0, y + 6, wn, 13, c_n, rx=2)
+        c.text(x0 + wn + 6, y + 17, "%d %% · %d %s" % (round(sn * 100), cnt[k], plural(cnt[k], ("предложение", "предложения", "предложений"))), 11, THEME["ink"])
+        if has_c:
+            sc = csum[k] / tot_c
+            wc = sc * (x1 - x0)
+            c.rect(x0, y + 22, wc, 13, c_c, rx=2)
+            c.text(x0 + wc + 6, y + 33, "%d %% composite" % round(sc * 100), 11, THEME["ink"])
+        y += rh
+    c.line(x0, c.top, x0, y, THEME["axis"])
+    h = legend_row(c, [("доля по числу предложений", c_n, None)] + ([("доля по сумме composite", c_c, None)] if has_c else []),
+                   x0, y + 24, x1 - x0, 12)
+    return c.finish(y - c.top + 24 + h), title, cap
+
+
+# ---------------------------------------------------------------- дерево метрик
+KPI_FAMILIES = [
+    ("acquisition", "Привлечение: визиты, установки, охват", r"визит|посетит|трафик|переход|установ|install|скачив|загруз|охват|показ|просмотр|клик|ctr|звёзд|звезд|stars|упоминан|органич|подписчик"),
+    ("activation", "Активация: первый результат", r"активац|перв\w+ (результат|запуск|отчёт|отчет)|онбординг|мастер|время до|завершен|подключ|регистрац|time to"),
+    ("retention", "Удержание и возвраты", r"удержан|retention|отток|churn|d30|d7|возврат|возвращ|недельн\w* актив|wau|mau|dau"),
+    ("engagement", "Вовлечённость: регулярное использование", r"использован|открыти|частот|сесси|повторн|поиск|доля пользовател|ежеднев|еженедел"),
+    ("revenue", "Монетизация", r"\bpro\b|оплат|выручк|revenue|платящ|конверси\w* в|подписк|arppu|arpu|ltv|тариф|доход|спонсор|донат"),
+    ("referral", "Рекомендации и шаринг", r"приглаш|шаринг|поделил|referral|реферал|вирус|репост|карточк|nps|рекоменд"),
+    ("quality", "Качество и доверие", r"ошибк|сбо[йе]|crash|скорост|время ответ|доступност|контраст|отзыв|доверие|жалоб|безопасн|приватн"),
+]
+CAT_TO_FAMILY = {"acquisition": "acquisition", "conversion": "activation", "retention": "retention", "monetization": "revenue",
+                 "analytics": "quality", "product": "engagement", "partnerships": "acquisition", "localization": "acquisition",
+                 "new_lines": "acquisition", "platform": "quality"}
+
+
+def kpi_families(ns):
+    """Семейства входных метрик: из north-star.json inputs ([{name, match}] или строки), иначе встроенные."""
+    inputs = ns.get("inputs") if isinstance(ns, dict) else None
+    fams = []
+    for k, x in enumerate(inputs or []):
+        if isinstance(x, dict) and x.get("name"):
+            rx = x.get("match") or "|".join(re.escape(w.lower()[:5]) for w in str(x["name"]).split() if len(w) > 3) or re.escape(str(x["name"]).lower())
+            fams.append(("in%d" % k, str(x["name"]), rx))
+        elif isinstance(x, str) and x.strip():
+            rx = "|".join(re.escape(w.lower()[:5]) for w in x.split() if len(w) > 3) or re.escape(x.lower())
+            fams.append(("in%d" % k, x.strip(), rx))
+    return fams or KPI_FAMILIES
+
+
+def north_star(cfg, ns):
+    for v in ((ns or {}).get("metric"), (ns or {}).get("name"), ((cfg or {}).get("strategy") or {}).get("north_star"),
+              ((cfg or {}).get("project") or {}).get("north_star"), (cfg or {}).get("north_star")):
+        if isinstance(v, str) and v.strip():
+            return v.strip(), True
+    return "Целевая метрика (North Star не задана)", False
+
+
+def ch_kpi_tree(P, S, cfg, ns):
+    props = [p for p in P if isinstance(p, dict) and p.get("id")]
+    if not any(isinstance(p.get("effect_kpi"), list) and p["effect_kpi"] for p in props):
+        return None
+    rank = {r["id"]: r.get("rank", 10 ** 6) for r in S or []}
+    fams = kpi_families(ns)
+    custom = fams is not KPI_FAMILIES
+    members = {k: set() for k, _, _ in fams}
+    for p in props:
+        hit = set()
+        for kp in p.get("effect_kpi") or []:
+            txt = str(kp.get("kpi") if isinstance(kp, dict) else kp or "").lower().replace("ё", "е")
+            for k, _, rx in fams:
+                if re.search(rx, txt):
+                    hit.add(k)
+                    break
+        if not hit and not custom:
+            hit.add(CAT_TO_FAMILY.get(p.get("category"), "engagement"))
+        for k in hit:
+            members[k].add(p["id"])
+    show = [(k, lab) for k, lab, _ in fams if members[k]]
+    if not show:
+        return None
+    title_of = {p["id"]: p.get("title", "") for p in props}
+    ns_name, ns_set = north_star(cfg, ns)
+    W = 1180
+    col1, col2 = PAD, PAD + 250
+    col3 = col2 + 290
+    c_w3 = W - PAD - col3
+    nprop = sum(min(3, len(members[k])) for k, _ in show)
+    title = "Дерево метрик: «%s» ← %d %s ← %d %s" % (
+        ns_name if ns_set else "целевая метрика", len(show), plural(len(show), ("входная метрика", "входные метрики", "входных метрик")),
+        nprop, plural(nprop, ("предложение", "предложения", "предложений")))
+    cap = ("Входные метрики выведены из effect_kpi реестра по ключевым словам%s; у каждой — до трёх лучших предложений по рангу, "
+           "в скобках — сколько всего предложений на неё влияет.%s" % (
+               "" if custom else " (без совпадения — по категории предложения)",
+               "" if ns_set else " North Star не задана: впишите её в data/north-star.json (ключ metric)."))
+    c = Chart(W, title, cap, "Источник: data/proposals.json (effect_kpi), data/scores.json (rank), %s"
+              % ("data/north-star.json или run-config" if ns_set else "North Star не задана"))
+    y = c.top + 4
+    blocks = []
+    for k, lab in show:
+        ids = sorted(members[k], key=lambda i: (rank.get(i, 10 ** 6), i))
+        top3 = ids[:3]
+        lines = []
+        for i in top3:
+            tl = wrap("%s %s" % (i, title_of.get(i, "")), c_w3 - 10, 11)
+            lines.append((i, tl))
+        lab_l = wrap("%s (%d)" % (lab, len(ids)), 270 - 16, 12, True)
+        bh = max(len(lab_l) * 15 + 16, sum(len(tl) * 13.5 + 8 for _, tl in lines))
+        blocks.append((k, lab_l, lines, y, bh))
+        y += bh + 16
+    body = y - c.top
+    ns_l = wrap(ns_name, 220 - 16, 13, True)
+    nh = len(ns_l) * 17 + 34
+    ny = c.top + max(0, (body - nh) / 2)
+    hot = PAL[0]
+    for k, lab_l, lines, by, bh in blocks:
+        cy = by + bh / 2
+        arrow(c, col1 + 220, ny + nh / 2, col2, cy, THEME["axis"], 1.3)
+        ly = by
+        for i, tl in lines:
+            h = len(tl) * 13.5 + 8
+            arrow(c, col2 + 270, cy, col3, ly + h / 2, THEME["grid"], 1.1)
+            c.lines(col3 + 6, ly + 14, tl, 11, THEME["ink"], lh=1.23)
+            ly += h
+        lh = len(lab_l) * 15 + 16
+        c.rect(col2, cy - lh / 2, 270, lh, mix(hot, "#FFFFFF", 0.88), hot, rx=6)
+        c.lines(col2 + 8, cy - lh / 2 + 19, lab_l, 12, THEME["ink"], bold=True)
+    c.rect(col1, ny, 220, nh, hot, rx=8)
+    c.text(col1 + 10, ny + 18, "North Star", 11, "#FFFFFF")
+    c.lines(col1 + 10, ny + 36, ns_l, 13, "#FFFFFF", bold=True, lh=1.3)
+    return c.finish(body), title, cap
+
+
+# ---------------------------------------------------------------- спрос без объёмов
+def ch_keywords_clusters(K):
+    rows = [k for k in K if isinstance(k, dict) and k.get("query")]
+    if not rows:
+        return None
+    cl = OrderedDict()
+    for k in rows:
+        cl.setdefault(str(k.get("cluster") or "без кластера"), []).append(k)
+    stats = []
+    for name, ks in cl.items():
+        comp = [k["competition"] for k in ks if isinstance(k.get("competition"), (int, float)) and not isinstance(k.get("competition"), bool)]
+        vol = [k["volume"] for k in ks if isinstance(k.get("volume"), (int, float)) and not isinstance(k.get("volume"), bool) and k["volume"] > 0]
+        stats.append((name, len(ks), statistics.mean(comp) if comp else None, sum(vol) if vol else None, len(vol)))
+    stats.sort(key=lambda s: (-s[1], s[2] if s[2] is not None else 9, s[0]))
+    nvol = sum(s[4] for s in stats)
+    with_c = [s for s in stats if s[2] is not None]
+    easy = min(with_c, key=lambda s: (s[2], -s[1])) if with_c else None
+    title = "Спрос по кластерам: больше всего запросов в «%s» (%d)%s" % (
+        stats[0][0], stats[0][1], ("; наименьшая конкуренция — «%s» (%s из 5)" % (easy[0], fmt(easy[2], 1))) if easy else "")
+    cap = ("%d %s в %d %s; %s. Длина полосы — число запросов кластера, цвет — средняя конкуренция (1 — слабая, "
+           "5 — сильная); недоступные объёмы не придумываются." % (
+               len(rows), plural(len(rows), ("запрос", "запроса", "запросов")), len(stats), plural(len(stats), ("кластере", "кластерах", "кластерах")),
+               ("объёмы известны для %d из них" % nvol) if nvol else "объёмов поиска нет ни для одного (нужен вход в Wordstat/Keyword Planner)"))
+
+    def ccol(v):
+        if v is None:
+            return THEME["neutral"]
+        return THEME["good"] if v < 2.5 else (PAL[1 % len(PAL)] if v < 3.5 else THEME["bad"])
+
+    items = [(s[0], s[1]) for s in stats]
+
+    def value_fmt_factory():
+        it = iter(stats)
+
+        def f(v):
+            s = next(it)
+            parts = ["%d %s" % (s[1], plural(s[1], ("запрос", "запроса", "запросов")))]
+            parts.append("конкуренция %s/5" % fmt(s[2], 1) if s[2] is not None else "конкуренция —")
+            if s[3]:
+                parts.append("%s в мес." % fmt(s[3]))
+            return " · ".join(parts)
+        return f
+    svg = hbar_chart(title, cap, "Источник: data/keywords.json (cluster, competition%s)" % (", volume" if nvol else ""), items, W=1040,
+                     colors=[ccol(s[2]) for s in stats], value_fmt=value_fmt_factory(), right_pad=270 if nvol else 200, int_ticks=True,
+                     legend=[("конкуренция < 2,5", THEME["good"], None), ("2,5–3,5", PAL[1 % len(PAL)], None), ("≥ 3,5", THEME["bad"], None),
+                             ("нет оценки", THEME["neutral"], None)])
+    return svg, title, cap
+
+
+# ---------------------------------------------------------------- нулевой бюджет
+def small_note(M):
+    """Оговорка с абсолютными суммами для малого числа платящих (базовый сценарий)."""
+    sc = (M.get("scenarios") or {}).get("base") or {}
+    t = sc.get("totals") or {}
+    n = t.get("new_paying")
+    if n is None or n >= 50:
+        return ""
+    return "базовый сценарий за %s мес.: %s %s, %s чистой выручки" % (
+        M.get("horizon_months", "—"), fmt(n, 1 if n < 10 else 0), plural(round(n), ("новый платящий", "новых платящих", "новых платящих")),
+        money(t.get("net_revenue") or 0, M))
+
+
+def ch_cac_ltv_solo(M):
+    solo = M.get("solo") or {}
+    sc = solo.get("scenarios") or {}
+    names = [k for k in SCEN_RU if k in sc]
+    if not names:
+        return None
+    base = sc.get("base", sc[names[0]])
+    rate = ((solo.get("params") or {}).get("hourly_rate") or {}).get("value")
+    W = 960
+    hpa = base.get("hours_per_activated")
+    title = ("Нулевой бюджет: %s ч разработчика на одного активированного пользователя (базовый сценарий)" % fmt(hpa, 1)
+             if hpa is not None else "Нулевой бюджет: активированных пользователей в базовом сценарии нет")
+    note = small_note(M)
+    cap = ("CAC неприменим — платного привлечения нет, цена роста — время разработчика (доля ёмкости на привлечение — допущение). "
+           "Справа — валовая выручка на час разработчика против его ставки%s." % ("; " + note if note else ""))
+    c = Chart(W, title, cap, "Источник: data/model.json (solo, %s) [допущение]" % M.get("currency", ""))
+    ph = 320
+    pw = (W - 2 * PAD - 60) / 2
+    panels = [("hours_per_activated", "Часов на активированного", lambda v: fmt(v, 1) + " ч", None),
+              ("revenue_per_hour", "Выручка на час разработчика", lambda v: money(v, M, 0) + "/ч", rate)]
+    for pi, (key, lab, vf, ref) in enumerate(panels):
+        x0 = PAD + 50 + pi * (pw + 60)
+        x1 = x0 + pw - 40
+        y0, y1 = c.top + 30, c.top + ph - 60
+        c.text(x0, c.top + 14, lab, 13, THEME["ink"], bold=True)
+        vals = [max(0.0, sc[k].get(key) or 0.0) for k in names]
+        vmax = max(vals + ([ref] if ref else []) + [1e-9])
+        ticks, _ = nice_ticks(0, vmax, 4)
+        top = ticks[-1] or 1
+        sy = lambda v: y1 - v / top * (y1 - y0)
+        for t in ticks:
+            c.line(x0, sy(t), x1, sy(t), THEME["grid"])
+            c.text(x0 - 6, sy(t) + 4, fmt(t, 0 if t >= 10 or t == 0 else 1), 11, THEME["muted"], "end")
+        gw = (x1 - x0) / len(names)
+        bw = min(56, gw * 0.55)
+        for i, k in enumerate(names):
+            gx = x0 + i * gw + gw / 2
+            v = sc[k].get(key)
+            vv = max(0.0, v or 0.0)
+            c.rect(gx - bw / 2, sy(vv), bw, y1 - sy(vv), scol(k), rx=2)
+            c.text(gx, sy(vv) - 6, vf(v) if v is not None else "—", 11, THEME["ink"], "middle", True)
+            c.text(gx, y1 + 16, SCEN_RU[k], 11, THEME["ink"], "middle")
+        if ref:
+            c.line(x0, sy(ref), x1, sy(ref), THEME["bad"], 1.4, "6 4")
+            c.text(x1, sy(ref) - 6, "ставка %s/ч" % money(ref, M), 11, THEME["bad"], "end", True)
+    return c.finish(ph), title, cap
+
+
+def ch_payback_solo(M):
+    solo = M.get("solo") or {}
+    sc = solo.get("scenarios") or {}
+    names = [k for k in SCEN_RU if k in sc and sc[k].get("monthly")]
+    if not names:
+        return None
+    base = sc.get("base", sc[names[0]])
+    ok = [SCEN_RU[k].lower() for k in names if sc[k].get("time_breakeven_month")]
+    nb = base.get("paying_new_total") or 0
+    head = ("%s: %s %s, %s выручки против %s ч разработчика (≈ %s)" % (
+        "базовый", fmt(nb, 1 if nb < 10 else 0), plural(round(nb), ("новый платящий", "новых платящих", "новых платящих")),
+        money(base.get("net_revenue_total") or 0, M), fmt(base.get("dev_hours"), 0), money(base.get("time_cost") or 0, M)))
+    title = (("Безубыточность по времени достигается в сценариях: %s; " % ", ".join(ok)) if ok else
+             "Безубыточность по времени за %s мес. не достигается; " % M.get("horizon_months", "—")) + head
+    rate = ((solo.get("params") or {}).get("hourly_rate") or {}).get("value")
+    cap = ("Сплошная — накопленная валовая выручка, пунктир — стоимость времени разработчика (ёмкость × ставка %s/ч) плюс "
+           "постоянные затраты. Денежная «безубыточность» при нулевом бюджете вводит в заблуждение — сравнивается время." % money(rate or 0, M))
+    c = Chart(960, title, cap, "Источник: data/model.json (solo.scenarios.*.monthly, %s) [допущение]" % M.get("currency", ""))
+    W = 960
+    ph = 380
+    x0, x1, y0, y1 = PAD + 80, W - PAD - 150, c.top + 8, c.top + ph - 70
+    n = len(sc[names[0]]["monthly"])
+    vmax = max(max(max(m["cum_margin"], m["cum_time_cost"]) for m in sc[k]["monthly"]) for k in names) or 1
+    ticks, _ = nice_ticks(0, vmax, 5)
+    top = ticks[-1] or 1
+    sx = lambda i: x0 + (i / max(1, n - 1)) * (x1 - x0)
+    sy = lambda v: y1 - v / top * (y1 - y0)
+    for t in ticks:
+        c.line(x0, sy(t), x1, sy(t), THEME["grid"])
+        c.text(x0 - 6, sy(t) + 4, fmt(t), 11, THEME["muted"], "end")
+    step = max(1, int(math.ceil(n / 12.0)))
+    for i in range(0, n, step):
+        c.text(sx(i), y1 + 16, str(i + 1), 11, THEME["muted"], "middle")
+    ends = []
+    drawn = []
+    for k in names:   # стоимость времени почти одинакова во всех сценариях (та же ёмкость) — без повторов
+        mo = sc[k]["monthly"]
+        tc = [m["cum_time_cost"] for m in mo]
+        if any(max(abs(a - b) for a, b in zip(tc, d)) <= 0.01 * (max(tc) or 1) for d in drawn):
+            continue
+        drawn.append(tc)
+        pts = " ".join("%.1f,%.1f" % (sx(i), sy(v)) for i, v in enumerate(tc))
+        c.add('<polyline points="%s" fill="none" stroke="%s" stroke-width="1.8" stroke-dasharray="6 4"/>'
+              % (pts, THEME["muted"] if len(drawn) == 1 else scol(k)))
+        ends.append((sy(tc[-1]), "время: %s" % money(tc[-1], M), THEME["muted"]))
+    for k in names:
+        mo = sc[k]["monthly"]
+        col = scol(k)
+        c.poly([(sx(i), sy(m["cum_margin"])) for i, m in enumerate(mo)], "none", col, sw=2.4, closed=False)
+        tb = sc[k].get("time_breakeven_month")
+        if tb:
+            c.circle(sx(tb - 1), sy(mo[tb - 1]["cum_margin"]), 5, col, "#FFFFFF", sw=1.5)
+        ends.append((sy(mo[-1]["cum_margin"]), "%s: %s" % (SCEN_RU[k].lower(), money(mo[-1]["cum_margin"], M)), col))
+    ends.sort()
+    last = -1e9
+    for yy, lab, col in ends:
+        yy = max(yy, last + 15)
+        c.text(x1 + 8, yy + 4, lab, 11, col, bold=True)
+        last = yy
+    c.text((x0 + x1) / 2, y1 + 34, "Месяц", 12, THEME["ink"], "middle")
+    h = legend_row(c, [("стоимость времени (пунктир)", THEME["muted"], None)] +
+                   [("выручка: " + SCEN_RU[k].lower(), scol(k), None) for k in names], x0, y1 + 58, W - PAD - x0, 12)
+    return c.finish(ph + max(0, h - 12)), title, cap
+
+
 # ---------------------------------------------------------------- main
-def build_all(out_dir, only=None, top_n=15):
-    """Строит все доступные графики; возвращает (index, skipped)."""
-    pal_note = load_palette(out_dir)
+SECTIONS = {"effort-impact": "scores", "bubble": "scores", "metrics-heatmap": "scores", "radar-top10": "scores", "pareto": "scores",
+            "tornado": "scores", "dist-category": "registry", "dist-evidence": "registry", "dist-horizon": "registry",
+            "channel-mix": "registry", "gantt": "plan", "critical-path": "plan", "kpi-tree": "plan", "funnel": "model",
+            "forecast-fan": "model", "cac-ltv": "model", "payback": "model", "keywords-volume": "market",
+            "keywords-clusters": "market", "events-calendar": "market", "competitors-heatmap": "market"}
+
+
+def load_inputs(out_dir):
+    """Все входы графиков (отсутствующий файл → пустое значение)."""
     S = load(out_dir, "data/scores.json") or []
-    sens = load(out_dir, "data/sensitivity.json") or {}
-    check = load(out_dir, "data/registry-check.json")
-    G = load(out_dir, "data/gantt.json") or []
-    M = load(out_dir, "data/model.json") or {}
-    K = load(out_dir, "data/keywords.json") or []
-    E = load(out_dir, "data/events.json") or []
-    C = load(out_dir, "data/competitors.json") or []
     S = [r for r in S if isinstance(r, dict) and all(k in r for k in ("id", "value_index", "cost_index", "risk_index", "composite"))]
     S.sort(key=lambda r: r.get("rank", 0))
-    jobs = [
-        ("effort-impact", "scores", lambda: ch_effort_impact(S, top_n) if S else None),
-        ("bubble", "scores", lambda: ch_bubble(S, top_n) if S else None),
-        ("metrics-heatmap", "scores", lambda: ch_heatmap(S, top_n) if S else None),
-        ("radar-top10", "scores", lambda: ch_radar(S, top_n) if S else None),
-        ("pareto", "scores", lambda: ch_pareto(S, top_n) if S and sum(r["risk_adjusted"] for r in S) > 0 else None),
-        ("tornado", "scores", lambda: ch_tornado(sens) if sens else None),
-        ("dist-category", "registry", lambda: ch_dist_category(S, check) if S else None),
-        ("dist-evidence", "registry", lambda: ch_dist_evidence(S) if S else None),
-        ("dist-horizon", "registry", lambda: ch_dist_horizon(S) if S else None),
-        ("gantt", "plan", lambda: ch_gantt(G) if G else None),
-        ("funnel", "model", lambda: ch_funnel(M) if M else None),
-        ("forecast-fan", "model", lambda: ch_fan(M) if M else None),
-        ("cac-ltv", "model", lambda: ch_cac_ltv(M) if M else None),
-        ("payback", "model", lambda: ch_payback(M) if M else None),
-        ("keywords-volume", "market", lambda: ch_keywords(K) if K else None),
-        ("events-calendar", "market", lambda: ch_events(E) if E else None),
-        ("competitors-heatmap", "market", lambda: ch_competitors(C) if C else None),
+    return {"S": S, "sens": load(out_dir, "data/sensitivity.json") or {}, "check": load(out_dir, "data/registry-check.json"),
+            "G": load(out_dir, "data/gantt.json") or [], "M": load(out_dir, "data/model.json") or {},
+            "K": load(out_dir, "data/keywords.json") or [], "E": load(out_dir, "data/events.json") or [],
+            "C": load(out_dir, "data/competitors.json") or [], "P": load(out_dir, "data/proposals.json") or [],
+            "CP": load(out_dir, "data/critical-path.json") or {}, "NS": load(out_dir, "data/north-star.json") or {},
+            "cfg": load(out_dir, "build/run-config.json") or {}}
+
+
+def plan_jobs(D, top_n=15):
+    """[(ключ, раздел, причина пропуска или None, построитель)] — причина считается по данным, без построения."""
+    S, sens, M, K, P, CP = D["S"], D["sens"], D["M"], D["K"], D["P"], D["CP"]
+    no_s = "нет data/scores.json (фаза 6: score.py)"
+    sc = M.get("scenarios") or {} if isinstance(M, dict) else {}
+    no_m = "нет data/model.json (model.py)"
+    valid_g = [g for g in D["G"] if isinstance(g, dict) and isinstance(g.get("start_month"), (int, float)) and isinstance(g.get("end_month"), (int, float))] if isinstance(D["G"], list) else []
+    kw = [k for k in K if isinstance(k, dict) and k.get("query")] if isinstance(K, list) else []
+    kw_vol = [k for k in kw if isinstance(k.get("volume"), (int, float)) and not isinstance(k.get("volume"), bool) and k["volume"] > 0]
+    ev = [e for e in D["E"] if isinstance(e, dict) and parse_date(e.get("date"))] if isinstance(D["E"], list) else []
+    comp = [x for x in D["C"] if isinstance(x, dict) and isinstance(x.get("features"), dict) and x["features"]] if isinstance(D["C"], list) else []
+    props = [p for p in P if isinstance(p, dict)] if isinstance(P, list) else []
+    tor = [e for e in (sens.get("tornado") or []) if "low_rank_shift" in e and "high_rank_shift" in e] if isinstance(sens, dict) else []
+
+    def why(cond, reason):
+        return None if cond else reason
+    tornado_ok = bool(tor) and sens.get("top_n", 20) >= 2 and max(max(e["low_rank_shift"], e["high_rank_shift"]) for e in tor) > 0
+    solo = bool(M.get("solo")) if isinstance(M, dict) else False
+    return [
+        ("effort-impact", why(S, no_s), lambda: ch_effort_impact(S, top_n)),
+        ("bubble", why(S, no_s), lambda: ch_bubble(S, top_n)),
+        ("metrics-heatmap", why(S, no_s), lambda: ch_heatmap(S, top_n)),
+        ("radar-top10", why(S, no_s), lambda: ch_radar(S, top_n)),
+        ("pareto", why(S, no_s) or why(sum(r["risk_adjusted"] for r in S) > 0, "ценность с поправкой на риск везде 0"),
+         lambda: ch_pareto(S, top_n)),
+        ("tornado", why(sens, "нет data/sensitivity.json (score.py)") or why(tornado_ok, "ранги не сдвигаются (мало предложений или полные ничьи)"),
+         lambda: ch_tornado(sens)),
+        ("dist-category", why(S, no_s), lambda: ch_dist_category(S, D["check"])),
+        ("dist-evidence", why(S, no_s), lambda: ch_dist_evidence(S)),
+        ("dist-horizon", why(S, no_s), lambda: ch_dist_horizon(S)),
+        ("gantt", why(valid_g, "нет data/gantt.json (фаза 7; график строится сразу после её записи)"), lambda: ch_gantt(valid_g)),
+        ("critical-path", why(CP, "нет data/critical-path.json (score.py)") or why(CP.get("edges"), "нет зависимостей среди топа и их предпосылок"),
+         lambda: ch_critical_path(CP, S)),
+        ("channel-mix", why(props, "нет data/proposals.json") or why(any(p.get("category") == "acquisition" for p in props),
+                                                                      "в реестре нет предложений категории acquisition"),
+         lambda: ch_channel_mix(props, S)),
+        ("kpi-tree", why(props, "нет data/proposals.json") or why(any(isinstance(p.get("effect_kpi"), list) and p["effect_kpi"] for p in props),
+                                                                   "в реестре нет effect_kpi"),
+         lambda: ch_kpi_tree(props, S, D["cfg"], D["NS"])),
+        ("funnel", why(sc, no_m) or why(any(sc[k].get("funnel") for k in SCEN_RU if k in sc), "в model.json нет воронки"), lambda: ch_funnel(M)),
+        ("forecast-fan", why(sc, no_m) or why(all(k in sc and sc[k].get("monthly") for k in SCEN_RU), "нужны все три сценария с monthly"),
+         lambda: ch_fan(M)),
+        ("cac-ltv", why(sc, no_m) or why(solo or any(sc[k].get("ltv") is not None for k in sc), "в model.json нет LTV"), lambda: ch_cac_ltv(M)),
+        ("payback", why(sc, no_m) or why(solo or any(sc[k].get("monthly") and "cum_margin" in sc[k]["monthly"][0] for k in sc),
+                                         "в model.json нет накопленных сумм (cum_margin)"), lambda: ch_payback(M)),
+        ("keywords-volume", why(kw, "нет data/keywords.json") or why(kw_vol, "в data/keywords.json нет объёмов — используйте keywords-clusters"),
+         lambda: ch_keywords(K)),
+        ("keywords-clusters", why(kw, "нет data/keywords.json"), lambda: ch_keywords_clusters(kw)),
+        ("events-calendar", why(ev, "нет data/events.json с датами"), lambda: ch_events(D["E"])),
+        ("competitors-heatmap", why(comp, "нет data/competitors.json с features"), lambda: ch_competitors(D["C"])),
     ]
+
+
+def list_keys(out_dir):
+    """Допустимые ключи и пропущенные с причиной — по данным, без построения."""
+    avail, skipped = [], {}
+    for key, reason, _ in plan_jobs(load_inputs(out_dir)):
+        if reason:
+            skipped[key] = reason
+        else:
+            avail.append(key)
+    return {"available": avail, "skipped": skipped}
+
+
+def build_all(out_dir, only=None, top_n=15):
+    """Строит все доступные графики; возвращает (index, skipped {ключ: причина}, палитра)."""
+    pal_note = load_palette(out_dir)
+    D = load_inputs(out_dir)
     cdir = out_dir / "charts"
     cdir.mkdir(parents=True, exist_ok=True)
     old = load(out_dir, "charts/charts-index.json") or []
-    index, skipped = [], []
-    for key, section, fn in jobs:
+    index, skipped = [], {}
+    for key, reason, fn in plan_jobs(D, top_n):
+        section = SECTIONS[key]
         if only and key not in only:
             prev = next((e for e in old if isinstance(e, dict) and e.get("key") == key), None)
             if prev and (cdir / ("%s.svg" % key)).exists():
                 index.append(prev)
             continue
-        res = fn()
         path = cdir / ("%s.svg" % key)
+        res = None if reason else fn()
         if not res:
-            skipped.append(key)
+            skipped[key] = reason or "недостаточно данных для графика"
             if path.exists():
                 path.unlink()
             continue
@@ -1149,15 +1731,22 @@ def main(argv=None):
     ap.add_argument("out", help="папка прогона <OUT>")
     ap.add_argument("--only", help="ключи через запятую (остальные графики не трогаются)")
     ap.add_argument("--top", type=int, default=15, help="сколько лидеров подписывать на матрице усилие–влияние (15)")
+    ap.add_argument("--list-keys", action="store_true", help="напечатать JSON допустимых ключей и пропущенных с причиной")
     a = ap.parse_args(argv)
     out_dir = Path(a.out).resolve()
+    if a.list_keys:
+        print(json.dumps(list_keys(out_dir), ensure_ascii=False, indent=2))
+        return 0
     only = set(a.only.split(",")) if a.only else None
+    unknown = sorted((only or set()) - set(KNOWN_KEYS))
+    if unknown:
+        print("неизвестные ключи: %s (допустимые: %s)" % (", ".join(unknown), ", ".join(KNOWN_KEYS)))
     index, skipped, pal = build_all(out_dir, only, a.top)
     print("Палитра: %s" % pal)
     for e in index:
         print("  %-20s %s" % (e["key"], e["title"]))
     if skipped:
-        print("Пропущены (нет данных): %s" % ", ".join(skipped))
+        print("Пропущены: %s" % "; ".join("%s (%s)" % kv for kv in skipped.items()))
     print("Графиков: %d → %s" % (len(index), out_dir / "charts"))
     return 0
 
