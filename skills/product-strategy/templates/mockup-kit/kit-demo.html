@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="ru" data-viewport="1440x900" data-viewports="1440x900,390x844" data-kind="kit">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Набор компонентов — проверка</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="_kit.css">
+<style>
+  /* только для демо-страницы набора */
+  .kd-theme { background: var(--c-bg); color: var(--c-text); padding: 24px 28px 40px; border-bottom: 1px solid var(--c-border); }
+  .kd-theme > h2 { margin-bottom: 14px; }
+  .kd-shell { border: 1px solid var(--c-border); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 18px; }
+  .kd-shell .ps-app { min-height: 0; }
+  .kd-shell .ps-bottom-nav { position: static; display: flex; }
+  .kd-label { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--c-muted); margin: 0 0 8px; }
+  @media (max-width: 640px) { .kd-theme { padding: 16px 12px 28px; } .kd-shell .ps-rail { display: none; } }
+</style>
+</head>
+<body>
+<template id="kd-components">
+  <div class="kd-shell">
+    <div class="ps-app">
+      <aside class="ps-rail">
+        <div class="ps-brand"><div class="ps-brand-mark">P</div><div><b>Продукт</b><span>рабочее пространство</span></div></div>
+        <a class="ps-nav is-active" href="#">Обзор</a><a class="ps-nav" href="#">Отчёты</a><a class="ps-nav" href="#">Архив</a>
+        <div class="ps-nav-sep"></div><a class="ps-nav" href="#">Настройки</a>
+      </aside>
+      <main class="ps-main">
+        <div class="ps-topbar"><div><h1>Обзор</h1><div class="ps-sub">Верхняя панель: заголовок, подзаголовок, действия</div></div>
+          <div class="ps-row"><button class="ps-btn is-ghost">Помощь</button><button class="ps-btn is-primary">Создать отчёт</button></div></div>
+        <div class="ps-page">
+          <div class="ps-grid ps-g4 is-keep-2">
+            <div class="ps-card ps-kpi"><b>2 338</b><span>подписчики</span><span class="ps-up">+6,5 % за 30 дней</span></div>
+            <div class="ps-card ps-kpi"><b>36</b><span>публикации</span><span class="ps-down">−14,3 %</span></div>
+            <div class="ps-card ps-kpi"><b>36 367</b><span>просмотры</span><span class="ps-up">+14 %</span></div>
+            <div class="ps-card ps-kpi"><b>5,0 %</b><span>вовлечённость</span><span class="ps-muted">как в прошлом месяце</span></div>
+          </div>
+          <div class="ps-grid ps-g2">
+            <div class="ps-card is-accent">
+              <p class="kd-label">Переключатели и фильтры</p>
+              <div class="ps-segmented" role="tablist"><button class="is-active" aria-selected="true">7 дней</button><button>30 дней</button><button>Год</button></div>
+              <div class="ps-chips" style="margin-top:12px"><button class="ps-chip is-active" aria-pressed="true">Все <span class="ps-count">24</span></button>
+                <button class="ps-chip" aria-pressed="false">Каналы <span class="ps-count">9</span></button><button class="ps-chip">Группы</button><button class="ps-chip">Архив</button></div>
+              <div class="ps-stack" style="margin-top:14px">
+                <label class="ps-switch"><input type="checkbox" role="switch" checked><span class="ps-track"></span>Еженедельная сводка</label>
+                <label class="ps-switch"><input type="checkbox" role="switch"><span class="ps-track"></span>Уведомления о падении охвата</label>
+                <label class="ps-check"><input type="checkbox" checked><span class="ps-box"></span>Учитывать репосты</label>
+                <label class="ps-check"><input type="checkbox"><span class="ps-box"></span>Скрыть пустые</label>
+                <div class="ps-row ps-wrap"><label class="ps-radio"><input type="radio" name="r" checked><span class="ps-box"></span>По дням</label>
+                  <label class="ps-radio"><input type="radio" name="r"><span class="ps-box"></span>По неделям</label></div>
+              </div>
+            </div>
+            <div class="ps-card">
+              <p class="kd-label">Кнопки, поля, бейджи</p>
+              <div class="ps-row ps-wrap"><button class="ps-btn is-primary">Основная</button><button class="ps-btn is-secondary">Вторичная</button>
+                <button class="ps-btn is-danger">Удалить</button><button class="ps-btn is-ghost">Подробнее</button><button class="ps-btn is-small">Малая</button></div>
+              <div class="ps-field" style="margin-top:14px"><label>Название отчёта</label><div class="ps-input">Итоги сентября</div>
+                <span class="ps-hint">Видно только вам; можно изменить позже</span></div>
+              <div class="ps-field" style="margin-top:10px"><label>Адрес канала</label><div class="ps-input is-error">t.me/</div><span class="ps-error">Укажите имя канала после t.me/</span></div>
+              <div class="ps-row ps-wrap" style="margin-top:12px"><span class="ps-badge">новое</span><span class="ps-badge is-success">растёт</span>
+                <span class="ps-badge is-warning">тихий</span><span class="ps-badge is-danger">ошибка сбора</span><span class="ps-badge is-neutral">черновик</span>
+                <span class="ps-badge" style="max-width:120px">очень длинная подпись бейджа обрезается</span></div>
+            </div>
+          </div>
+          <div class="ps-grid ps-g2">
+            <div class="ps-card"><div class="ps-card-title"><h2>Таблица</h2><span class="ps-badge is-neutral">3 строки</span></div>
+              <div class="ps-table-wrap"><table class="ps-table"><thead><tr><th>Канал</th><th class="is-num">Подписчики</th><th class="is-num">ER</th><th>Статус</th></tr></thead>
+                <tbody><tr><td>Заметки аналитика</td><td class="is-num">2 338</td><td class="is-num">5,0 %</td><td><span class="ps-badge is-success">растёт</span></td></tr>
+                <tr><td>Сводка дня</td><td class="is-num">194 800</td><td class="is-num">0,8 %</td><td><span class="ps-badge is-warning">тихий</span></td></tr>
+                <tr><td>Клуб читателей</td><td class="is-num">812</td><td class="is-num">11,2 %</td><td><span class="ps-badge">новое</span></td></tr></tbody></table></div>
+              <div class="ps-bar" style="margin-top:14px"><i style="width:62%"></i></div><span class="ps-hint">Сбор: 62 % · осталось ≈ 3 мин</span>
+            </div>
+            <div class="ps-card"><div class="ps-card-title"><h2>Список</h2><a href="#">Все</a></div>
+              <ul class="ps-list"><li class="ps-list-item"><span class="ps-avatar">ЗА</span><div class="ps-grow"><b>Заметки аналитика</b><small>обновлено сегодня, 09:40</small></div><span class="ps-badge is-success">+12</span></li>
+                <li class="ps-list-item"><span class="ps-avatar">СД</span><div class="ps-grow"><b>Сводка дня</b><small>обновлено вчера</small></div><button class="ps-btn is-small">Открыть</button></li>
+                <li class="ps-list-item"><span class="ps-avatar">КЧ</span><div class="ps-grow"><b>Клуб читателей</b><small>нет данных за неделю</small></div><span class="ps-badge is-neutral">пауза</span></li></ul>
+              <ol class="ps-steps" style="margin-top:14px"><li class="is-done">1 Вход</li><li class="is-now">2 Ключи</li><li>3 Каналы</li><li>4 Готово</li></ol>
+            </div>
+          </div>
+          <div class="ps-grid ps-g3">
+            <div class="ps-card ps-lock"><div class="ps-lock-head"><h3>Глубокая аналитика</h3><span class="ps-badge">Pro</span></div>
+              <div class="ps-lock-body" aria-hidden="true"><div class="ps-skeleton" style="width:90%"></div><div class="ps-skeleton" style="width:70%"></div><div class="ps-skeleton" style="width:80%"></div></div>
+              <p class="ps-hint" style="margin:10px 0 0">Доступно в Pro — заголовок не закрыт штриховкой</p></div>
+            <div class="ps-empty"><b>Пока пусто</b>Подключите первый канал, чтобы увидеть статистику.<div style="margin-top:12px"><button class="ps-btn is-primary">Подключить канал</button></div></div>
+            <div class="ps-stack">
+              <div class="ps-alert is-success"><b>Готово.</b> Отчёт сохранён в «Архив».</div>
+              <div class="ps-alert is-warning"><b>Внимание.</b> Ключ API истекает через 3 дня.</div>
+              <div class="ps-alert is-danger"><b>Ошибка.</b> Не удалось собрать данные канала.</div>
+              <div class="ps-toast">Отчёт удалён <a class="ps-toast-action" href="#">Отменить</a></div>
+            </div>
+          </div>
+          <div class="ps-grid ps-g2">
+            <div class="ps-backdrop"><div class="ps-modal" role="dialog" aria-label="Подтверждение"><h3>Удалить отчёт?</h3>
+              <p class="ps-muted">Отчёт «Итоги сентября» исчезнет из архива. Это действие нельзя отменить.</p>
+              <div class="ps-modal-actions"><button class="ps-btn">Отмена</button><button class="ps-btn is-danger">Удалить</button></div></div></div>
+            <div class="ps-stack">
+              <div class="ps-anchor" style="min-height:90px"><div class="ps-card is-flat">Карточка с выноской: позиционирование относительно контейнера.</div>
+                <div class="ps-tip is-floating" style="right:8px;top:48px">Новая кнопка: экспорт в PDF за один клик</div></div>
+              <div class="ps-tip">Выноска в потоке текста</div>
+              <div class="ps-cookie">Только необходимые cookie и локальное хранилище. <button class="ps-btn is-primary is-small">Понятно</button></div>
+            </div>
+          </div>
+        </div>
+        <nav class="ps-bottom-nav"><a class="is-active" href="#"><span class="ps-ico">◉</span>Обзор</a><a href="#"><span class="ps-ico">▤</span>Отчёты</a>
+          <a href="#"><span class="ps-ico">⌂</span>Архив</a><a href="#"><span class="ps-ico">⚙</span>Настройки</a></nav>
+      </main>
+    </div>
+  </div>
+</template>
+
+<section class="kd-theme" data-theme="light"><h2>Светлая тема</h2><div class="kd-slot"></div></section>
+<section class="kd-theme" data-theme="dark"><h2>Тёмная тема</h2><div class="kd-slot"></div></section>
+<div class="ps-concept-badge">Концепт, не существующая функция · набор компонентов · проверка</div>
+
+<script>
+// Вставить одинаковый набор компонентов в обе темы
+(function () {
+  var tpl = document.getElementById('kd-components');
+  document.querySelectorAll('.kd-slot').forEach(function (slot) { slot.appendChild(tpl.content.cloneNode(true)); });
+})();
+
+// Автопроверка контраста текста (WCAG: 4,5:1, крупный текст ≥ 24px или ≥ 18,66px жирный — 3:1).
+// Итог: window.psContrast = {checked, fails}; каждое нарушение — console.error (shoot_mockups считает это замечанием).
+(function () {
+  var cv = document.createElement('canvas'); cv.width = cv.height = 1;
+  var cx = cv.getContext('2d', { willReadFrequently: true });
+  function rgba(c) {
+    if (!c || c === 'transparent') return [0, 0, 0, 0];
+    cx.clearRect(0, 0, 1, 1); cx.fillStyle = '#000'; cx.fillStyle = c; cx.fillRect(0, 0, 1, 1);
+    var d = cx.getImageData(0, 0, 1, 1).data; return [d[0], d[1], d[2], d[3] / 255];
+  }
+  function over(top, under) { var a = top[3]; return [top[0] * a + under[0] * (1 - a), top[1] * a + under[1] * (1 - a), top[2] * a + under[2] * (1 - a), 1]; }
+  function lum(c) { var f = function (v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); }
+  function ratio(a, b) { var x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+  function background(el) {
+    var layers = [];
+    for (var e = el; e && e.nodeType === 1; e = e.parentElement) {
+      var s = getComputedStyle(e);
+      if (s.backgroundImage && s.backgroundImage !== 'none' && !/gradient/.test(s.backgroundImage)) return null;
+      var c = rgba(s.backgroundColor);
+      if (c[3] > 0) { layers.push(c); if (c[3] >= 0.999) break; }
+    }
+    var base = [255, 255, 255, 1];
+    for (var i = layers.length - 1; i >= 0; i--) base = over(layers[i], base);
+    return base;
+  }
+  function run() {
+    var fails = [], checked = 0;
+    document.querySelectorAll('body *').forEach(function (el) {
+      if (el.closest('[aria-hidden="true"], script, style, template, .ps-lock-body')) return;
+      var own = false;
+      for (var n = el.firstChild; n; n = n.nextSibling) if (n.nodeType === 3 && n.textContent.trim()) { own = true; break; }
+      if (!own) return;
+      var r = el.getBoundingClientRect(); if (!r.width || !r.height) return;
+      var s = getComputedStyle(el);
+      if (s.visibility === 'hidden' || +s.opacity === 0 || el.matches(':disabled, .is-disabled')) return;
+      var bg = background(el); if (!bg) return;
+      var fg = over(rgba(s.color), bg);
+      var size = parseFloat(s.fontSize), bold = parseInt(s.fontWeight, 10) >= 700;
+      var need = (size >= 24 || (bold && size >= 18.66)) ? 3 : 4.5;
+      var k = ratio(fg, bg); checked++;
+      if (k + 1e-6 < need) {
+        var theme = (el.closest('[data-theme]') || document.documentElement).getAttribute('data-theme') || 'light';
+        var cls = (el.className && typeof el.className === 'string') ? '.' + el.className.trim().split(/\s+/).join('.') : el.tagName.toLowerCase();
+        var rec = { theme: theme, el: cls, text: el.textContent.trim().slice(0, 40), ratio: Math.round(k * 100) / 100, need: need };
+        fails.push(rec);
+        console.error('контраст ' + rec.ratio + ':1 < ' + need + ' — ' + rec.el + ' «' + rec.text + '» (' + theme + ')');
+      }
+    });
+    window.psContrast = { checked: checked, fails: fails };
+    document.documentElement.setAttribute('data-contrast', fails.length ? 'fail:' + fails.length : 'ok');
+  }
+  if (document.readyState === 'complete') run(); else window.addEventListener('load', run);
+})();
+</script>
+</body>
+</html>

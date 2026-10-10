@@ -322,3 +322,19 @@
 - [x] validate, версия 1.0.0, merge, тег product-strategy/v1.0.0, установка плагина глобально (user), проверка установленной копии: 100 тестов, build_all 13 OK, smoke 20/0
 ### Где остановился
 product-strategy 1.0.0 влит в main, тег запушен, плагин установлен глобально. Скилл виден в новой сессии Claude Code (или после /reload-plugins). Открытых пунктов нет. Следующий шаг (по желанию): первый полный прогон на реальном продукте с веб-исследованием и обратная связь → 1.1. Идеи агентов на потом: check_strategy.py (P-id, вставки, метки чисел), fill_brief.py, --draft у check_registry, аудит контраста макетов, калибровка по данным владельца, квартальное обновление (diff прогонов).
+
+## 2026-10-10 (17) product-strategy 1.1.0 — по обратной связи реального прогона (issues #80–#92)
+Источник: SKILL_FEEDBACK_product-strategy.md. Ветка feature/product-strategy-1-1 (worktree ../claude-code-skills-ps).
+- [ ] #80–#81 build_html: геометрия раскрытой строки, дефекты страницы, --lite
+- [x] #82 фаза 5.5 gap-audit, blocked_by/unlocks, dep_rank, critical-path
+- [x] #83 merge --pairs, семантические дубли, check_registry
+- [x] #84 опрос: проект/цель/видимость/валюта, from-askuser, auto
+- [x] #85 check_env/build_all: единый источник, TypeSafe auto
+- [x] #86 repo_scan: шум, цены, совместимость, распространение
+- [x] #87 audit_site: хэш-маршруты, клики, темы, песочница
+- [x] #88 mockup-kit, shoot_mockups, measure_hotspots --draw
+- [x] #89 assemble_strategy, link_mockups, charts --list-keys
+- [x] #90 git/relocate/кэш node/merge_sources/methodology/facts/readme
+- [x] #91 брифы, локаль ru, профиль zero-budget-solo
+- [x] #92 интеграция (build_all, SKILL.md, контракт, INSTALL), 189 тестов, сквозной прогон на реальных данных (smoke 27/0), версия 1.1.0
+- [ ] выпуск: влить в main, тег, установить, проверить установленную копию, удалить ветки

@@ -134,7 +134,11 @@ def main(argv=None):
         "product": {"name": "Demo App", "url": "https://example.com", "local_run": "none", "run_command": "", "type": "saas", "known_facts": ""},
         "strategy": {"kind": "growth", "goal": "рост активной аудитории и выручки", "depth": "standard", "proposals_min": a.proposals,
                      "horizon_months": 12, "vision_years": 3, "markets": ["ru", "en"],
-                     "budget": {"variants": ["zero", "small", "medium"], "note": ""}, "paid_tier": "auto", "constraints": ""},
+                     "budget": {"variants": ["zero", "small", "medium"], "note": ""}, "paid_tier": "auto", "constraints": "",
+                     "categories_na": [], "profile": "standard"},
+        "project": {"goal": "commercial", "repo_visibility": "public", "publish_code": "undecided", "currency": "USD",
+                    "price_hint": None, "traffic_hint": None, "team_size": 3},
+        "phases": {"gap_audit": True},
         "scope": {"repo_analysis": True, "app_run": False, "competitors": True, "competitors_min": 10, "communities": True,
                   "keywords": True, "events": True, "legal": True, "issues": False, "design_mockups": True, "mockups_min": 6,
                   "design_refs": True, "unit_economics": True, "experiments": 4, "specs_top": 5, "kanban_cards": 20},
@@ -146,13 +150,16 @@ def main(argv=None):
         "assumptions": ["Демо-данные, все цифры вымышлены"]})
     write(out, "data/proposals.json", props)
     write(out, "data/competitors.json", [{"slug": "self", "name": "Demo App", "url": "https://example.com", "self": True, "type": "direct",
-                                          "features": {"Шаблоны": True, "API": False, "Офлайн": False, "Команды": True}}] + [
+                                          "features": {"templates": True, "api": False, "offline": False, "teams": True},
+                                          "features_labels": {"templates": "Шаблоны", "api": "Публичный API", "offline": "Офлайн", "teams": "Команды"},
+                                          "verdict": "наш продукт", "verdict_long": "Наш продукт: сильные шаблоны и команды, слабее API и офлайн-режим"}] + [
         {"slug": "rival-%d" % i, "name": "Rival %d" % i, "url": "https://example.com/rival-%d" % i, "type": rnd.choice(["direct", "indirect"]),
          "segment": "SMB", "price": "$%d/мес" % rnd.choice([0, 9, 19, 49]), "monetization": "подписка", "languages": "en",
          "audience": "команды", "freshness": "обновлялся в этом месяце", "traffic": None,
-         "features": {"Шаблоны": rnd.random() < 0.7, "API": rnd.random() < 0.5, "Офлайн": rnd.random() < 0.3, "Команды": rnd.random() < 0.6},
+         "features": {"templates": rnd.random() < 0.7, "api": rnd.random() < 0.5, "offline": rnd.random() < 0.3, "teams": rnd.random() < 0.6},
+         "features_labels": {"templates": "Шаблоны", "api": "Публичный API", "offline": "Офлайн", "teams": "Команды"},
          "better_than_us": ["онбординг"], "we_better": ["цена"], "best_solutions": ["шаблоны на старте"], "design_note": "светлая тема, крупные карточки",
-         "complaints": ["дорого"], "adopt": ["галерея шаблонов"], "avoid": ["принудительная регистрация"], "verdict": "демо-вердикт",
+         "complaints": ["дорого"], "adopt": ["галерея шаблонов"], "avoid": ["принудительная регистрация"], "verdict": "сильнее по онбордингу", "verdict_long": "Сильнее нас по онбордингу и шаблонам, слабее по цене и открытости; стоит перенять галерею шаблонов, не повторять обязательную регистрацию",
          "shot": None, "shot_blocked": False, "sources": ["https://example.com/rival-%d" % i]} for i in range(1, 11)])
     write(out, "data/communities.json", [{"name": "Демо-форум %d" % i, "url": "https://example.com/forum/%d" % i, "platform": "форум",
                                           "language": "ru", "audience_size": None, "self_promo_rules": "только в пятничной ветке",

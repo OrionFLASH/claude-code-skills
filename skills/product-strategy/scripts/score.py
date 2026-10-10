@@ -4,10 +4,18 @@
   score.py <OUT> [--weights FILE] [--reset-weights]
 
 Вход:  <OUT>/data/proposals.json (схема — references/data-contract.md);
-       необязательно <OUT>/data/typesafe-jev.json (отдельная колонка typesafe, в composite не входит).
+       необязательно <OUT>/data/typesafe-jev.json (отдельная колонка typesafe, в composite не входит);
+       необязательно <OUT>/data/gap-audit-deps.json {id: [предпосылка…]} — предпосылки из аудита пробелов (фаза 5.5).
 Веса:  встроенные по умолчанию; поверх них — <OUT>/data/weights.json, если он уже есть (ручная перенастройка),
        и затем файл --weights (частичный JSON, сливается рекурсивно). --reset-weights игнорирует старый data/weights.json.
-Выход: data/scores.json, data/scores.csv, data/weights.json (действующие веса), data/sensitivity.json.
+Выход: data/scores.json, data/scores.csv, data/weights.json (действующие веса), data/sensitivity.json,
+       data/critical-path.json; предупреждения о зависимостях — stdout и ключ dependency_warnings в
+       data/registry-check.json (если файл есть).
+
+Зависимости (ранг rank не меняется): blocked_by — все транзитивные предпосылки, unlocks — все, кого предложение
+разблокирует; dep_rank — порядок с учётом зависимостей (предложение не выше своей предпосылки, разблокирующее
+получает бонус); critical_path — самая ценная цепочка зависимостей, ведущая в топ-N. Циклы обнаруживаются и
+разрываются детерминированно (внутри цикла остаётся только связь «предпосылка выше по рангу»).
 
 Все формулы — references/scoring.md (держать в синхроне с этим файлом). Только стандартная библиотека.
 """
@@ -50,6 +58,11 @@ DEFAULT_WEIGHTS = {
                "risky_risk": 3.0, "fast_days": 14, "slow_days": 90, "strategic_moat": 4,
                "strategic_horizons": ["next", "later", "vision"], "tempting_value": 3.3, "tempting_confidence": 0.55},
     "sensitivity": {"factors": [0.5, 1.5], "groups": ["composite", "value", "cost", "risk"], "top_n": 20},
+    # ранг с учётом зависимостей: бонус = min(bonus_cap, unlock_bonus · Σ composite(q) · decay^(d−1)) по всем q,
+    # которых разблокирует предложение (d — длина кратчайшего пути); критический путь — в топ-critical_top_n;
+    # предупреждение, если предложение из топ-warn_top зависит от предложения ниже топ-warn_below
+    "dependency": {"unlock_bonus": 0.10, "decay": 0.5, "bonus_cap": 0.15, "critical_top_n": 20,
+                   "warn_top": 20, "warn_below": 60},
 }
 
 PERTURB_GROUPS = ("composite", "value", "cost", "risk")
@@ -292,6 +305,202 @@ def sensitivity(props, W, base_rows):
             "top_n": top_n, "factors": S["factors"], "top20_base": sorted(base_top), "always_top20": sorted(always)}
 
 
+# ---------------------------------------------------------------- зависимости
+def dependency_graph(props, extra=None):
+    """Предпосылки каждого предложения: dependencies + gap-audit-deps; неизвестные и self-ссылки отбрасываются.
+
+    Возвращает (prereq {id: [id…]}, unknown [(id, ссылка, источник)])."""
+    ids = [p["id"] for p in props]
+    known = set(ids)
+    prereq = {pid: [] for pid in ids}
+    unknown = []
+    for p in props:
+        for d in p.get("dependencies") if isinstance(p.get("dependencies"), list) else []:
+            if not isinstance(d, str) or d == p["id"]:
+                continue
+            if d in known:
+                if d not in prereq[p["id"]]:
+                    prereq[p["id"]].append(d)
+            else:
+                unknown.append((p["id"], d, "dependencies"))
+    for pid, lst in sorted((extra or {}).items()):
+        if pid not in known:
+            unknown.append((pid, None, "gap-audit-deps"))
+            continue
+        for d in lst if isinstance(lst, list) else [lst]:
+            if not isinstance(d, str) or d == pid:
+                continue
+            if d in known:
+                if d not in prereq[pid]:
+                    prereq[pid].append(d)
+            else:
+                unknown.append((pid, d, "gap-audit-deps"))
+    return prereq, unknown
+
+
+def strongly_connected(nodes, succ):
+    """Компоненты сильной связности (итеративный Тарьян): список списков, только размер ≥ 2."""
+    index, low, on, stack, out = {}, {}, set(), [], []
+    counter = [0]
+    for root in nodes:
+        if root in index:
+            continue
+        work = [(root, iter(succ.get(root, [])))]
+        index[root] = low[root] = counter[0]
+        counter[0] += 1
+        stack.append(root)
+        on.add(root)
+        while work:
+            v, it = work[-1]
+            pushed = False
+            for w in it:
+                if w not in index:
+                    index[w] = low[w] = counter[0]
+                    counter[0] += 1
+                    stack.append(w)
+                    on.add(w)
+                    work.append((w, iter(succ.get(w, []))))
+                    pushed = True
+                    break
+                if w in on:
+                    low[v] = min(low[v], index[w])
+            if pushed:
+                continue
+            work.pop()
+            if work:
+                low[work[-1][0]] = min(low[work[-1][0]], low[v])
+            if low[v] == index[v]:
+                comp = []
+                while True:
+                    w = stack.pop()
+                    on.discard(w)
+                    comp.append(w)
+                    if w == v:
+                        break
+                if len(comp) > 1:
+                    out.append(sorted(comp))
+    return out
+
+
+def break_cycles(prereq, rank):
+    """Разрыв циклов: внутри компоненты сильной связности остаётся только связь «предпосылка выше по рангу, чем
+    зависимое» (меньший rank). Возвращает (новый prereq, циклы [ids], снятые связи [[предпосылка, зависимое]])."""
+    succ = {v: [] for v in prereq}
+    for v, ps in prereq.items():
+        for u in ps:
+            succ[u].append(v)
+    comps = strongly_connected(sorted(prereq, key=lambda x: rank[x]), succ)
+    member = {v: k for k, comp in enumerate(comps) for v in comp}
+    new, dropped = {}, []
+    for v, ps in prereq.items():
+        keep = []
+        for u in ps:
+            if v in member and member.get(u) == member[v] and rank[u] > rank[v]:
+                dropped.append([u, v])
+            else:
+                keep.append(u)
+        new[v] = keep
+    return new, comps, sorted(dropped, key=lambda e: (rank[e[1]], rank[e[0]]))
+
+
+def dependency_analysis(props, rows, W, extra=None):
+    """blocked_by, unlocks, dep_rank, dep_bonus, critical_path для строк rows (на месте) + сводка critical-path.json."""
+    D = W.get("dependency") or DEFAULT_WEIGHTS["dependency"]
+    rank = {r["id"]: r["rank"] for r in rows}
+    comp = {r["id"]: r["composite"] for r in rows}
+    title = {p["id"]: p.get("title", "") for p in props}
+    prereq, unknown = dependency_graph(props, extra)
+    prereq, cycles, dropped = break_cycles(prereq, rank)
+    succ = {v: [] for v in prereq}
+    for v in sorted(prereq, key=lambda x: rank[x]):
+        for u in prereq[v]:
+            succ[u].append(v)
+
+    def reach(start, nxt):
+        """Кратчайшие расстояния от start по рёбрам nxt (BFS)."""
+        dist, frontier = {}, [start]
+        d = 0
+        while frontier:
+            d += 1
+            new = []
+            for x in frontier:
+                for y in nxt[x]:
+                    if y not in dist and y != start:
+                        dist[y] = d
+                        new.append(y)
+            frontier = new
+        return dist
+
+    anc = {v: reach(v, prereq) for v in prereq}
+    desc = {v: reach(v, succ) for v in prereq}
+    ub, decay, cap = float(D.get("unlock_bonus", 0.10)), float(D.get("decay", 0.5)), float(D.get("bonus_cap", 0.15))
+    bonus = {v: min(cap, ub * sum(comp[q] * decay ** (d - 1) for q, d in desc[v].items())) for v in prereq}
+    dscore = {v: comp[v] + bonus[v] for v in prereq}
+    eff = {v: max([dscore[v]] + [dscore[q] for q in desc[v]]) for v in prereq}
+    # Kahn: из доступных (все предпосылки уже размещены) — наибольший eff, затем dep_score, затем rank
+    left = {v: len(prereq[v]) for v in prereq}
+    ready = [v for v in prereq if not left[v]]
+    order = []
+    while ready:
+        ready.sort(key=lambda v: (-round(eff[v], 9), -round(dscore[v], 9), rank[v]))
+        v = ready.pop(0)
+        order.append(v)
+        for w in succ[v]:
+            left[w] -= 1
+            if not left[w]:
+                ready.append(w)
+    dep_rank = {v: k for k, v in enumerate(order, 1)}
+    # критический путь: самая ценная (Σ composite) цепочка ≥ 2 звеньев в замыкании топ-N, оканчивающаяся в топ-N
+    n_top = min(int(D.get("critical_top_n", 20)), len(rows))
+    top = [r["id"] for r in rows[:n_top]]
+    closure = set(top)
+    for v in top:
+        closure |= set(anc[v])
+    best, back, length = {}, {}, {}
+    for v in order:
+        if v not in closure:
+            continue
+        cands = [u for u in prereq[v] if u in closure]
+        u = min(cands, key=lambda x: (-round(best[x], 9), -length[x], rank[x])) if cands else None
+        best[v] = comp[v] + (best[u] if u else 0.0)
+        length[v] = 1 + (length[u] if u else 0)
+        back[v] = u
+    ends = [v for v in top if length.get(v, 0) >= 2]
+    path = []
+    if ends:
+        end = min(ends, key=lambda v: (-round(best[v], 9), -length[v], rank[v]))
+        while end:
+            path.append(end)
+            end = back[end]
+        path.reverse()
+    on_path = set(path)
+    for r in rows:
+        v = r["id"]
+        r["blocked_by"] = sorted(anc[v], key=lambda x: rank[x])
+        r["unlocks"] = sorted(desc[v], key=lambda x: rank[x])
+        r["dep_rank"] = dep_rank[v]
+        r["dep_bonus"] = bonus[v]
+        r["critical_path"] = v in on_path
+    wt, wb = int(D.get("warn_top", 20)), int(D.get("warn_below", 60))
+    warnings = []
+    for r in rows:
+        if r["rank"] > wt:
+            continue
+        for b in r["blocked_by"]:
+            if rank[b] > wb:
+                warnings.append({"id": r["id"], "rank": r["rank"], "prereq": b, "prereq_rank": rank[b],
+                                 "text": "%s (ранг %d) зависит от %s (ранг %d) — ниже топ-%d" % (r["id"], r["rank"], b, rank[b], wb)})
+    edges = sorted([[u, v] for v in closure for u in prereq[v] if u in closure], key=lambda e: (rank[e[1]], rank[e[0]]))
+    nodes = sorted(closure, key=lambda x: rank[x])
+    summary = {"order": path, "edges": edges, "top_n": n_top, "value": round(best[path[-1]], 6) if path else 0.0,
+               "nodes": [{"id": v, "rank": rank[v], "dep_rank": dep_rank[v], "title": title.get(v, ""), "in_top": v in top,
+                          "critical": v in on_path} for v in nodes],
+               "cycles": cycles, "dropped_edges": dropped,
+               "unknown": [{"id": a, "ref": b, "source": c} for a, b, c in unknown],
+               "warnings": warnings, "params": D}
+    return summary
+
+
 # ---------------------------------------------------------------- io
 ROUND = {"value_index": 4, "cost_index": 4, "risk_index": 4, "confidence_calc": 4, "effort_days_mid": 2, "rice": 3,
          "ice": 3, "cost_of_delay": 4, "wsjf": 4, "value_per_effort": 4, "risk_adjusted": 4, "composite": 6}
@@ -316,6 +525,9 @@ def build_output(rows, props_by_id, W, jev):
             o["n_" + k] = round(r["n_" + k], 4)
         o.update({"quadrant": r["quadrant"], "priority": r["priority"], "moscow": r["moscow"], "labels": r["labels"],
                   "typesafe": ts_item(items.get(r["id"]))})
+        if "dep_rank" in r:
+            o.update({"blocked_by": r["blocked_by"], "unlocks": r["unlocks"], "dep_rank": r["dep_rank"],
+                      "dep_bonus": round(r["dep_bonus"], 6), "critical_path": r["critical_path"]})
         out.append(o)
     return out
 
@@ -364,6 +576,11 @@ def main(argv=None):
     props = [p for p in props if isinstance(p, dict) and p.get("id")]
     by_id = {p["id"]: p for p in props}
     rows = classify(rank_rows(props, W), by_id, W)
+    extra = load_json(out_dir / "data" / "gap-audit-deps.json") or {}
+    if not isinstance(extra, dict):
+        print("data/gap-audit-deps.json должен быть объектом {id: [предпосылки]} — пропущен", file=sys.stderr)
+        extra = {}
+    crit = dependency_analysis(props, rows, W, extra)
     sens = sensitivity(props, W, rows)
     jev = load_json(out_dir / "data" / "typesafe-jev.json")
     out = build_output(rows, by_id, W, jev)
@@ -373,10 +590,32 @@ def main(argv=None):
     write_csv(data / "scores.csv", out)
     (data / "weights.json").write_text(json.dumps(W, ensure_ascii=False, indent=2), encoding="utf-8")
     (data / "sensitivity.json").write_text(json.dumps(sens, ensure_ascii=False, indent=2), encoding="utf-8")
+    (data / "critical-path.json").write_text(json.dumps(crit, ensure_ascii=False, indent=2), encoding="utf-8")
+    rc_path = data / "registry-check.json"
+    if rc_path.exists():
+        try:
+            rc = json.loads(rc_path.read_text(encoding="utf-8"))
+            rc["dependency_warnings"] = [w["text"] for w in crit["warnings"]]
+            rc["dependency_cycles"] = crit["cycles"]
+            rc_path.write_text(json.dumps(rc, ensure_ascii=False, indent=2), encoding="utf-8")
+        except (json.JSONDecodeError, AttributeError, TypeError):
+            pass
     print("Оценено предложений: %d; устойчивость топ-%d: %.0f %%; прогонов чувствительности: %d"
           % (len(out), sens["top_n"], sens["top20_stability"] * 100, sens["runs"]))
     for r in out[:10]:
         print("%3d %s %.3f %s %-9s %s" % (r["rank"], r["id"], r["composite"], r["priority"], r["quadrant"], r["title"]))
+    if crit["order"]:
+        print("Критический путь (топ-%d): %s" % (crit["top_n"], " → ".join(crit["order"])))
+    for c in crit["cycles"]:
+        print("  ! цикл зависимостей %s — разорван (сняты связи: %s)" % (
+            " ↔ ".join(c), ", ".join("%s→%s" % (a, b) for a, b in crit["dropped_edges"] if a in c and b in c)))
+    for u in crit["unknown"]:
+        print("  ! %s: предпосылка %r не найдена (%s) — пропущена" % (u["id"], u["ref"], u["source"]))
+    for w in crit["warnings"]:
+        print("  ! " + w["text"])
+    if crit["warnings"]:
+        print("Зависимости: %d предупр. (топ-%d зависит от предложений ниже топ-%d) — см. data/critical-path.json"
+              % (len(crit["warnings"]), crit["params"].get("warn_top", 20), crit["params"].get("warn_below", 60)))
     return 0
 
 

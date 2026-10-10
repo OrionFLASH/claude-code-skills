@@ -10,7 +10,7 @@
 // Без входа в аккаунты и без других кликов; навигации не-GET (формы) блокируются; загрузки запрещены.
 // Файл competitors.json перезаписывается после каждой карточки (устойчиво к обрыву).
 // Код выхода: 0 — готово, 2 — ошибка аргументов, 3 — нет playwright/Chromium.
-// Модули: --node-dir | $PS_NODE_DIR | <OUT>/build/node | папка скрипта.
+// Модули: --node-dir | $PS_NODE_DIR | <OUT>/build/node | ~/.cache/product-strategy/node | папка скрипта.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -35,7 +35,7 @@ function parseArgs(argv, flags) {
 }
 
 function loadPlaywright(opt, out) {
-  const cands = opt['node-dir'] ? [opt['node-dir']] : [process.env.PS_NODE_DIR, out && path.join(out, 'build', 'node'), HERE].filter(Boolean);
+  const cands = opt['node-dir'] ? [opt['node-dir']] : [process.env.PS_NODE_DIR, out && path.join(out, 'build', 'node'), path.join(process.env.HOME || process.env.USERPROFILE || '', '.cache', 'product-strategy', 'node'), HERE].filter(Boolean);
   for (const d of cands) {
     const p = path.join(path.resolve(d), 'node_modules', 'playwright');
     if (fs.existsSync(path.join(p, 'package.json'))) {

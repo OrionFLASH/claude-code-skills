@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """Issues и Pull Requests репозитория как карта спроса (только чтение через gh).
 
-  issues_export.py <repo> <OUT> [--limit 500]
+  issues_export.py <repo> <OUT> [--limit 500] [--summary-only]
+
+При scope.issues=false (или sources.issues=false) в <OUT>/build/run-config.json, либо с --summary-only, пишется только
+сводка счётчиков <OUT>/data/issues-summary.json ({repo, date, open, closed, total, limit_reached, detailed: false,
+note: «подробный анализ выключен»}) — самый дешёвый факт фазы 1. В полном режиме сводка пишется тоже (detailed: true).
 
 Если есть `gh` и удалённый адрес на GitHub — читает `gh issue list --json …` и `gh pr list --json …`
 (ничего не создаёт и не комментирует). Иначе пишет файл с полем `skipped` и причиной.
@@ -283,6 +287,47 @@ def render_md(d):
     return "\n".join(L)
 
 
+def issue_counts(gh, slug, limit=5000):
+    """Счётчики Issues открыто/закрыто (только чтение: gh issue list --json state). {open, closed, total, limit_reached}
+    или {skipped: причина}."""
+    if not slug:
+        return {"skipped": "нет удалённого адреса на GitHub"}
+    if not gh:
+        return {"skipped": "не установлен gh (GitHub CLI)"}
+    code, so, se = run([gh, "issue", "list", "-R", slug, "--state", "all", "--limit", str(limit), "--json", "state"], timeout=300)
+    if code != 0:
+        return {"skipped": "gh issue list не выполнился: %s" % ((se.strip().splitlines() or ["ошибка gh"])[0][:200])}
+    try:
+        rows = json.loads(so or "[]")
+    except json.JSONDecodeError:
+        return {"skipped": "ответ gh issue list не разобран"}
+    states = [str((r or {}).get("state", "")).upper() for r in rows if isinstance(r, dict)]
+    opened = sum(1 for s in states if s == "OPEN")
+    return {"open": opened, "closed": len(states) - opened, "total": len(states), "limit_reached": len(states) >= limit}
+
+
+def summary_data(slug, counts, detailed, note=None):
+    d = {"repo": slug, "date": date.today().isoformat(), "detailed": detailed, "tool": "issues_export.py"}
+    d.update(counts)
+    if note:
+        d["note"] = note
+    return d
+
+
+def write_summary(out, data):
+    (out / "data").mkdir(parents=True, exist_ok=True)
+    (out / "data" / "issues-summary.json").write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def issues_disabled(out):
+    """scope.issues=false (или sources.issues=false) в build/run-config.json."""
+    try:
+        cfg = json.loads((out / "build" / "run-config.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    return (cfg.get("scope") or {}).get("issues") is False or (cfg.get("sources") or {}).get("issues") is False
+
+
 def skipped_data(repo_name, reason, limit):
     return {"repo": repo_name, "date": date.today().isoformat(), "skipped": reason, "limit": limit,
             "counts": {}, "issues": [], "prs": [], "clusters": [], "suspicious": []}
@@ -293,11 +338,22 @@ def main(argv=None):
     ap.add_argument("repo")
     ap.add_argument("out")
     ap.add_argument("--limit", type=int, default=500, help="максимум Issues и PR (по отдельности), по умолчанию 500")
+    ap.add_argument("--summary-only", action="store_true",
+                    help="только счётчики открыто/закрыто → data/issues-summary.json (так же при scope.issues=false в run-config)")
     ap.add_argument("--gh", default="gh", help=argparse.SUPPRESS)
     a = ap.parse_args(argv)
     repo, out = Path(a.repo).expanduser().resolve(), Path(a.out).expanduser().resolve()
     slug = github_remote(repo)
     gh = shutil.which(a.gh)
+    if a.summary_only or issues_disabled(out):
+        why = "подробный анализ выключен (scope.issues=false)" if not a.summary_only else "подробный анализ выключен (--summary-only)"
+        counts = issue_counts(gh, slug, max(a.limit, 5000))
+        write_summary(out, summary_data(slug, counts, False, why))
+        if counts.get("skipped"):
+            print("issues_export: сводка пропущена — %s" % counts["skipped"])
+        else:
+            print("issues_export: %s — Issues открыто %d, закрыто %d (%s) → data/issues-summary.json" % (slug, counts["open"], counts["closed"], why))
+        return 0
     reason = None
     if not slug:
         reason = "нет удалённого адреса на GitHub"
@@ -305,6 +361,7 @@ def main(argv=None):
         reason = "не установлен gh (GitHub CLI)"
     if reason:
         write_outputs(out, skipped_data(slug, reason, a.limit))
+        write_summary(out, summary_data(slug, {"skipped": reason}, True))
         print("issues_export: пропущено — %s" % reason)
         return 0
     code, so, se = run([gh, "issue", "list", "-R", slug, "--state", "all", "--limit", str(a.limit), "--json", ISSUE_FIELDS], timeout=300)
@@ -360,6 +417,8 @@ def main(argv=None):
         "notes": [n for n in [pr_note] if n],
     }
     write_outputs(out, data)
+    write_summary(out, summary_data(slug, {"open": data["counts"]["open"], "closed": data["counts"]["closed"], "total": len(issues),
+                                           "limit_reached": len(issues) >= a.limit}, True))
     print("issues_export: %s — Issues %d, PR %d, кластеров %d, подозрительных %d" % (slug, len(issues), len(prs), len(clusters), len(sus)))
     return 0
 

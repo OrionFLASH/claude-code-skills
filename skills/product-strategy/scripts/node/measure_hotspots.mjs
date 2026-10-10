@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Замер кликабельных зон карточки референса дизайна (product-strategy).
 //
-//   node measure_hotspots.mjs <OUT> <design-ref.json> --spec <spec.json> [--min 24] [--node-dir <dir>]
+//   node measure_hotspots.mjs <OUT> <design-ref.json> --spec <spec.json> [--min 24] [--draw out.png] [--node-dir <dir>]
+//   node measure_hotspots.mjs <OUT> <design-ref.json> --draw out.png      (только нарисовать уже записанные hotspots)
 //
 // <design-ref.json> — карточка design-refs/NN-slug.json (путь от текущей папки или от <OUT>); из неё берутся
 // file (HTML внутри <OUT>), width×height (по умолчанию 1440×900), scale (deviceScaleFactor, по умолчанию 1), png.
@@ -11,9 +12,12 @@
 // Необязательно: "clipBottom": "<selector>" — обрезать рамку по верхнему краю этого элемента.
 // Рамки — CSS-пиксели исходного размера (getBoundingClientRect), обрезаются по экрану, минимум --min×--min.
 // Записывает hotspots в карточку (на месте) и PNG карточки (<OUT>/<png>). Внешние запросы блокируются.
+// --draw out.png — поверх PNG карточки рисует рамки зон (пунктир) и номера для проверки глазами; цвет по state:
+// new — #FFD60A, changed — #30D158, shared — #BF5AF2 (как в аннотациях). Путь — от текущей папки; без --spec
+// берутся hotspots из карточки (PNG карточки должен существовать).
 // Код выхода: 0 — все селекторы найдены, 1 — есть ненайденные (найденные всё равно записаны),
 // 2 — ошибка аргументов, 3 — нет playwright/Chromium.
-// Модули: --node-dir | $PS_NODE_DIR | <OUT>/build/node | папка скрипта.
+// Модули: --node-dir | $PS_NODE_DIR | <OUT>/build/node | ~/.cache/product-strategy/node | папка скрипта.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -21,7 +25,7 @@ import { createRequire } from 'node:module';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SKILL_DIR = path.resolve(HERE, '..', '..');
-const USAGE = 'node measure_hotspots.mjs <OUT> <design-ref.json> --spec <spec.json> [--min 24] [--node-dir <dir>]';
+const USAGE = 'node measure_hotspots.mjs <OUT> <design-ref.json> (--spec <spec.json> [--min 24] | --draw out.png) [--draw out.png] [--node-dir <dir>]';
 
 function parseArgs(argv, flags) {
   const pos = []; const opt = {};
@@ -38,7 +42,7 @@ function parseArgs(argv, flags) {
 }
 
 function loadPlaywright(opt, out) {
-  const cands = opt['node-dir'] ? [opt['node-dir']] : [process.env.PS_NODE_DIR, out && path.join(out, 'build', 'node'), HERE].filter(Boolean);
+  const cands = opt['node-dir'] ? [opt['node-dir']] : [process.env.PS_NODE_DIR, out && path.join(out, 'build', 'node'), path.join(process.env.HOME || process.env.USERPROFILE || '', '.cache', 'product-strategy', 'node'), HERE].filter(Boolean);
   for (const d of cands) {
     const p = path.join(path.resolve(d), 'node_modules', 'playwright');
     if (fs.existsSync(path.join(p, 'package.json'))) {
@@ -50,18 +54,22 @@ function loadPlaywright(opt, out) {
 }
 
 const { pos, opt } = parseArgs(process.argv.slice(2), new Set());
-if (opt.help || pos.length < 2 || !opt.spec) { console.log(USAGE); process.exit(opt.help ? 0 : 2); }
+if (opt.help || pos.length < 2 || (!opt.spec && !opt.draw)) { console.log(USAGE); process.exit(opt.help ? 0 : 2); }
 const OUT = path.resolve(pos[0]);
 const OUT_REAL = fs.realpathSync(OUT);
 const resolveIn = (p) => (fs.existsSync(path.resolve(p)) ? path.resolve(p) : path.resolve(OUT, p));
 const cardPath = resolveIn(pos[1]);
-const specPath = resolveIn(opt.spec);
 const MIN = parseInt(opt.min || '24', 10);
-let card, spec;
+const DRAW = opt.draw ? path.resolve(String(opt.draw)) : null;
+let card, spec = null;
 try { card = JSON.parse(fs.readFileSync(cardPath, 'utf8')); } catch (e) { console.error('ошибка: карточка не прочитана: ' + e.message); process.exit(2); }
-try { spec = JSON.parse(fs.readFileSync(specPath, 'utf8')); } catch (e) { console.error('ошибка: spec не прочитан: ' + e.message); process.exit(2); }
-if (spec && !Array.isArray(spec)) spec = spec.hotspots;
-if (!Array.isArray(spec) || !spec.length) { console.error('ошибка: spec должен быть непустым списком [{n, selector, …}]'); process.exit(2); }
+if (opt.spec) {
+  try { spec = JSON.parse(fs.readFileSync(resolveIn(opt.spec), 'utf8')); } catch (e) { console.error('ошибка: spec не прочитан: ' + e.message); process.exit(2); }
+  if (spec && !Array.isArray(spec)) spec = spec.hotspots;
+  if (!Array.isArray(spec) || !spec.length) { console.error('ошибка: spec должен быть непустым списком [{n, selector, …}]'); process.exit(2); }
+} else if (!Array.isArray(card.hotspots) || !card.hotspots.length) {
+  console.error('ошибка: в карточке нет hotspots — сначала замерьте зоны с --spec'); process.exit(2);
+}
 if (!card.file) { console.error('ошибка: в карточке нет поля file'); process.exit(2); }
 
 function inside(p) {
@@ -77,6 +85,35 @@ const pngRel = card.png || `design-refs/${base}.png`;
 const pngAbs = path.resolve(OUT, pngRel);
 if (!pngAbs.startsWith(OUT_REAL + path.sep) && !pngAbs.startsWith(OUT + path.sep)) { console.error('ошибка: png вне <OUT>'); process.exit(2); }
 
+if (!spec && !fs.existsSync(pngAbs)) { console.error('ошибка: нет PNG карточки ' + pngRel + ' — запустите с --spec'); process.exit(2); }
+if (DRAW && !/\.png$/i.test(DRAW)) { console.error('ошибка: --draw ожидает путь к .png'); process.exit(2); }
+
+const COLORS = { new: '#FFD60A', changed: '#30D158', shared: '#BF5AF2' };
+async function drawOverlay(browser, hotspots) {
+  const img = 'data:image/png;base64,' + fs.readFileSync(pngAbs).toString('base64');
+  const boxes = hotspots.map((h) => {
+    const c = COLORS[h.state] || COLORS.new;
+    const lx = h.x + 4 > W - 30 ? Math.max(0, W - 30) : h.x;
+    const ly = h.y >= 26 ? h.y - 26 : h.y + 2;
+    return `<div class="b" style="left:${h.x}px;top:${h.y}px;width:${h.w}px;height:${h.h}px;border-color:${c};background:${c}1f"></div>` +
+      `<div class="n" style="left:${lx}px;top:${ly}px;background:${c}">${Number(h.n)}</div>`;
+  }).join('');
+  const html = `<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;width:${W}px;height:${H}px;overflow:hidden}` +
+    `img{position:absolute;left:0;top:0;width:${W}px;height:${H}px}.b{position:absolute;box-sizing:border-box;border:2px dashed;` +
+    `box-shadow:0 0 0 1px rgba(0,0,0,.55),inset 0 0 0 1px rgba(0,0,0,.35);border-radius:4px}` +
+    `.n{position:absolute;min-width:24px;height:24px;padding:0 6px;box-sizing:border-box;border-radius:12px;color:#111;` +
+    `font:700 13px/24px system-ui,-apple-system,"Segoe UI",Arial,sans-serif;text-align:center;box-shadow:0 0 0 1.5px rgba(0,0,0,.7)}` +
+    `</style></head><body><img src="${img}">${boxes}</body></html>`;
+  const dctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: SCALE });
+  await dctx.route('**/*', (route) => (route.request().url().startsWith('data:') ? route.continue() : route.abort('blockedbyclient')));
+  const dp = await dctx.newPage();
+  await dp.setContent(html, { waitUntil: 'load' });
+  fs.mkdirSync(path.dirname(DRAW), { recursive: true });
+  await dp.screenshot({ path: DRAW, fullPage: false });
+  await dctx.close();
+  console.log(`рисунок зон (${hotspots.length}) → ${DRAW}`);
+}
+
 const pw = loadPlaywright(opt, OUT);
 let browser;
 try { browser = await pw.chromium.launch({ headless: true }); }
@@ -84,6 +121,11 @@ catch (e) {
   console.error('не запустился Chromium: ' + String(e.message || e).split('\n')[0]);
   console.error(`поставьте браузер: python3 ${path.join(SKILL_DIR, 'scripts', 'check_env.py')} --install-node ${OUT}`);
   process.exit(3);
+}
+if (!spec) {                                   // только рисунок по уже записанным зонам
+  await drawOverlay(browser, card.hotspots);
+  await browser.close();
+  process.exit(0);
 }
 const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: SCALE, acceptDownloads: false, serviceWorkers: 'block' });
 const external = [];
@@ -161,6 +203,7 @@ for (const [i, s] of spec.entries()) {
 }
 fs.mkdirSync(path.dirname(pngAbs), { recursive: true });
 await page.screenshot({ path: pngAbs, fullPage: false });
+if (DRAW) await drawOverlay(browser, hotspots);
 await browser.close();
 
 card.hotspots = hotspots.sort((a, b) => a.n - b.n);

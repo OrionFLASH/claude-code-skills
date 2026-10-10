@@ -4,7 +4,7 @@
 //
 //   node deck_pdf.mjs <OUT> [--node-dir <dir>]
 //
-// Модули: --node-dir, env PS_NODE_DIR, <OUT>/build/node, папка скрипта (<dir>/node_modules). Нет playwright —
+// Модули: --node-dir, env PS_NODE_DIR, <OUT>/build/node, ~/.cache/product-strategy/node, папка скрипта (<dir>/node_modules). Нет playwright —
 // код 3 и совет по установке. HTML-двойник остаётся в <OUT>/build/deck.html (для отладки вёрстки).
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
@@ -37,7 +37,7 @@ function loadModule(name, dirs) {
 const args = parseArgs(process.argv.slice(2));
 if (!args.out) { console.error('использование: node deck_pdf.mjs <OUT> [--node-dir <dir>]'); process.exit(2); }
 const OUT = path.resolve(args.out);
-const pw = loadModule('playwright', [args.nodeDir, process.env.PS_NODE_DIR, path.join(OUT, 'build', 'node'), SCRIPT_DIR]);
+const pw = loadModule('playwright', [args.nodeDir, process.env.PS_NODE_DIR, path.join(OUT, 'build', 'node'), path.join(process.env.HOME || process.env.USERPROFILE || '', '.cache', 'product-strategy', 'node'), SCRIPT_DIR]);
 if (!pw) {
   console.error(`нет playwright: python3 ${path.join(SKILL_DIR, 'scripts', 'check_env.py')} --install-node ${OUT}`);
   process.exit(3);
