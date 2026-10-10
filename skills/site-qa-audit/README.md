@@ -244,3 +244,6 @@ tests/                  unit.sh (офлайн + наборы test_stream_a, test
                         test_v170_browser — ролики),
                         фикстуры, сценарий dry-run
 ```
+
+## Лицензия
+[PolyForm Noncommercial 1.0.0](LICENSE): некоммерческое использование свободно; коммерческое — по согласованию с автором (OrionFLASH). Подробно — в [README репозитория](../../README.md#лицензия).

@@ -10,7 +10,7 @@
       "name": "android-qa-audit",
       "source": "./skills/android-qa-audit",
       "description": "Универсальное QA-тестирование Android-приложений по APK, AAB или установленному пакету на эмуляторах и устройствах через adb: функциональность, логика, UX, UI, версии Android и конфигурации устройств (ОЗУ, ядра, экран, шрифт, тема, язык, сеть), жизненный цикл, доступность, производительность, пассивная безопасность, тексты; матрица стендов, до 4 потоков; звук в микрофон эмулятора, долгие сценарии с метриками, аннотированные скриншоты и короткие ролики находок без звука; черновики GitHub issues по их формам, со скриншотами веткой",
-      "version": "1.5.0",
+      "version": "1.5.1",
       "keywords": [
         "qa",
         "testing",
@@ -26,13 +26,14 @@
         "soak",
         "video",
         "screencast"
-      ]
+      ],
+      "license": "PolyForm-Noncommercial-1.0.0"
     },
     {
       "name": "product-strategy",
       "source": "./skills/product-strategy",
       "description": "Подробнейшая стратегия развития продукта по текущему репозиторию: опрос владельца, проверка и установка инструментов, анализ кода и приложения, конкуренты, сообщества, спрос, право; реестр 50–200 предложений с оценками (RICE, ICE, WSJF, Кано, чувствительность, TypeSafe), план на месяцы и видение на годы, юнит-экономика, Гант, Kanban, макеты и референсы дизайна, интерактивная веб-страница, XLSX, PPTX, PDF",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "keywords": [
         "strategy",
         "growth",
@@ -47,13 +48,14 @@
         "pptx",
         "xlsx",
         "dashboard"
-      ]
+      ],
+      "license": "PolyForm-Noncommercial-1.0.0"
     },
     {
       "name": "site-qa-audit",
       "source": "./skills/site-qa-audit",
       "description": "Универсальный QA-аудит любого сайта или локального веб-приложения (file://) через браузер: функциональность, логика, UX, UI, адаптивность, доступность, производительность, SEO, тексты и локализация, пассивная безопасность, продуктовые предложения; параллельные исполнители, сверка с issues, перепроверка исправлений, группы по первопричине и публикация по правилам",
-      "version": "1.7.0",
+      "version": "1.7.1",
       "keywords": [
         "qa",
         "testing",
@@ -64,20 +66,22 @@
         "ux",
         "playwright",
         "github-issues"
-      ]
+      ],
+      "license": "PolyForm-Noncommercial-1.0.0"
     },
     {
       "name": "typesafe-triage",
       "source": "./skills/typesafe-triage",
       "description": "Универсальный триаж любых задач через TypeSafe (Jev) и локальные сигналы: уровень модели haiku/sonnet/opus/fable, reasoning effort low…max и одно действие — сам, Agent или спросить (haiku, fable, low и max — только с подтверждения пользователя); проверка хука, пакетный режим, журнал фактов и их автозапись после субагента (опция)",
-      "version": "2.9.2",
+      "version": "2.9.3",
       "keywords": [
         "typesafe",
         "triage",
         "model-routing",
         "reasoning-effort",
         "hook"
-      ]
+      ],
+      "license": "PolyForm-Noncommercial-1.0.0"
     }
   ]
 }

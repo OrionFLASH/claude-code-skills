@@ -178,3 +178,6 @@ scripts/                check_env (.py/.sh/.ps1), apk_info, avd_manager, adb_hel
 tests/                  unit.sh + v12.sh + v13.sh + v15.sh, helpers/ (фейковые adb, SDK, gh, node, сервер gRPC), helpers/shared/
                         (общие проверки примеров документации — копии shared/tests), fixtures/
 ```
+
+## Лицензия
+[PolyForm Noncommercial 1.0.0](LICENSE): некоммерческое использование свободно; коммерческое — по согласованию с автором (OrionFLASH). Подробно — в [README репозитория](../../README.md#лицензия).
