@@ -5,12 +5,12 @@
 python3 <SKILL_DIR>/scripts/check_env.py --out <OUT> --json <OUT>/build/env.json --session-skills "<скиллы из списка сессии через запятую>"
 python3 <SKILL_DIR>/scripts/check_env.py --plan --out <OUT>      # что поставить самому, что спросить
 ```
-`--session-skills` — имена скиллов из системного списка текущей сессии (например `superpowers:brainstorming,data:analyze,dataviz`): плагины, подключённые не через `installed_plugins.json`, иначе не видны.
+`--session-skills` — имена скиллов из системного списка текущей сессии (например `superpowers:brainstorming,data:analyze,dataviz`): плагины, подключённые не через `installed_plugins.json`, иначе не видны. Список запоминается в `<OUT>/build/session-skills.txt` (или env `PS_SESSION_SKILLS`) — **один источник** и для таблицы, и для `--plan`: скилл, видимый в сессии, в плане не станет «нужно согласие».
 
 ## Политика установки (`run-config.tools.install`)
 | Что | `local-auto` (по умолчанию) | `ask` | `never` |
 |---|---|---|---|
-| Node-модули прогона (playwright, pptxgenjs) в `<OUT>/build/node` и Chromium в кэш Playwright: `check_env.py --install-node <OUT>` | ставить без вопроса | спросить | не ставить |
+| Node-модули (playwright, pptxgenjs) в **кэш пользователя** `~/.cache/product-strategy/node` (общие для прогонов, результат остаётся чистым и переносимым; `PS_NODE_DIR` или `tools.node_dir` меняют место; прежние `<OUT>/build/node` работают) и Chromium в кэш Playwright: `check_env.py --install-node [<OUT>]`; папку печатает `check_env.py --print-node-dir` | ставить без вопроса | спросить | не ставить |
 | Python-пакеты (`pip install --user certifi openpyxl`) | спросить | спросить | не ставить |
 | Системные (`brew install node gh`, Python) | спросить | спросить | не ставить |
 | Плагины и скиллы Claude Code (`claude plugin install …`) | спросить одним вопросом списком | спросить | не ставить |

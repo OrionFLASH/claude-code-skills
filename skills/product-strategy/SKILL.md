@@ -38,32 +38,35 @@ description: >
 ## Порядок работы
 ### 0. Опрос, инструменты, папка
 1. `intake.py from-text "<запрос>"` → явные параметры (не переспрашивать).
-2. Опрос раундами 1–4 (`intake.py questions --round N` → `AskUserQuestion` с этими вопросами без изменений), затем открытые вопросы одним сообщением (`intake.py open`). Подробно — `references/intake.md`.
-3. `intake.py apply --repo <корень репозитория> --answers answers.json --open open.json [--set k=v]` → сводка и `OUT=…`; `init_run.py <OUT>`.
-4. `check_env.py --out <OUT> --json <OUT>/build/env.json --session-skills "<скиллы сессии>"` и `check_env.py --plan --out <OUT>`: локальные Node-модули и Chromium ставь сам (`check_env.py --install-node <OUT>`), системное и плагины — одним вопросом пользователю (`references/tools.md`). Чего нет — заменить по таблице замен и отметить.
+2. **Опрос полностью через `AskUserQuestion`** (текст вопросов — только из `intake.py`, без правок): раунды 1–5 (`intake.py questions --round N`: «Проект» — цель, видимость репозитория, команда, валюта; «Цель и объём»; «Что анализируем»; «Рынки и деньги»; «Место и инструменты»), затем **открытые вопросы тоже карточками** (`intake.py open --json`: две пачки по ≤ 4, у каждого вопроса вариант по умолчанию и «Other» для своего текста). Подробно — `references/intake.md`.
+3. `intake.py apply --repo <корень репозитория> --from-askuser '<ответы AskUserQuestion как есть>' [--set k=v]` (ключи — текст вопроса или header; отдельные `answers.json`/`open.json` собирать не нужно) → сводка и `OUT=…`; значения `auto` (рынки, тип продукта, валюта, профиль) разрешаются по репозиторию и записываются в допущения. Затем `init_run.py <OUT>` (создаёт папки, `build/STATUS.md` с фазами 0–9 и 5.5, `STRATEGY_TASKS.md`).
+4. `check_env.py --out <OUT> --json <OUT>/build/env.json --session-skills "<скиллы из системного списка сессии>"`; затем `check_env.py --plan --out <OUT>` (список сессии запоминается в `<OUT>/build/session-skills.txt`, план и таблица опираются на один источник). Node-модули и Chromium ставь сам (`check_env.py --install-node <OUT>` → кэш пользователя `~/.cache/product-strategy/node`, не в результат); системное и плагины — одним вопросом (`references/tools.md`). Чего нет — заменить по таблице замен и отметить.
 5. Показать сводку (`intake.py show`) и спросить «Начинаю?». Ветка `docs/strategy-<дата>` до первой записи в репозиторий. Если доступен `superpowers:writing-plans` — короткий план под этот продукт в `<OUT>/build/plan.md`.
+6. Если `<OUT>` внутри репозитория — до коммита `check_gitignore.py <OUT> --fix` (корневые правила вроде `build/` молча исключают `<OUT>/build`); перенос готовой папки — `init_run.py <OUT> --relocate <NEW>`.
 
 ### 1–9. Фазы (детали, артефакты и критерии готовности — `references/phases.md`)
 | Фаза | Что | Команды и брифы |
 |---|---|---|
-| 1 | Понимание продукта по коду (по умолчанию всегда) | `repo_scan.py <repo> <OUT>`, `issues_export.py <repo> <OUT>` → `research/product-understanding.md` (JTBD, инвентарь функций с `file:line`, стадия, стек, монетизация, распространение, пробелы, неизвестное) |
-| 2 | Запуск и изучение приложения | локальный запуск по README (тестовые данные) или публичный адрес; `node/audit_site.mjs <url> <OUT> --mobile` → скриншоты, `mockups/tokens.css`; `research/ui-inventory.md`, пути пользователя, трения; UX/CRO-скиллы, если есть |
-| 3 | Тип продукта → акценты | таблица типов в `references/phases.md` |
-| 4 | Рынок | субагенты по `templates/briefs/research-{competitors,communities,keywords,events,legal}.md` → `data/competitors.json` и др.; `node/shoot_competitors.mjs <OUT>`; правила — `references/competitors.md` |
-| 5 | Реестр ≥ `proposals_min` (+20–40 % кандидатов) | генераторы по `templates/briefs/registry-generator.md` (по категориям, `references/growth-library.md` как затравки) → `merge_proposals.py` → `check_registry.py` |
-| 6 | Оценка | `score.py`, `validate_scores.py`, `typesafe_eval.py` (если ключ и не выключено), `model.py`, `charts.py`; формулы — `references/scoring.md`, якоря — `references/methodology-anchors.md` |
-| 7 | Стратегия | разделы по `references/strategy-outline.md` (брифы `strategy-section.md`), спеки топ-N, эксперименты A/B, `data/gantt.json`, `data/kanban.json`, `research/questions-owner.md` (≤ 10) |
-| 8 | Дизайн и схемы | дизайн-язык → макеты (`templates/briefs/mockups.md`) → `node/shoot_mockups.mjs`; блок-схемы (`flows.md`); референсы (`design-refs.md`, `node/measure_hotspots.mjs`); правила — `references/design.md` |
-| 9 | Сборка и QA | `build_all.py <OUT> --strict --links` (registry → score → … → html → smoke → xlsx → pptx → pdf → links), `deliverables/REPORT.md` по `references/report-template.md`, `README.md` по `templates/README-deliverables.md` |
+| 1 | Понимание продукта по коду (по умолчанию всегда) | `repo_scan.py <repo> <OUT>` (учитывает git и `.gitignore`, цены, совместимость платформ), `repo_facts.py <repo> <OUT>` (видимость, лицензия, звёзды, отслеживаемые секретоподобные файлы), `issues_export.py <repo> <OUT>` → `research/product-understanding.md` (JTBD, инвентарь функций с `file:line`, стадия, стек, монетизация, **распространение**, пробелы, неизвестное) и сверка внешних фактов (число тестов, цены) |
+| 2 | Запуск и изучение приложения | песочница без боевых данных — `references/run-sandbox.md`; `node/audit_site.mjs <url> <OUT> --mobile [--routes-from hash] [--click-safe …] [--themes light,dark]` → скриншоты, `mockups/tokens.css` (обе темы); `research/ui-inventory.md`, пути пользователя, трения |
+| 3 | Тип продукта → акценты | таблица типов и профиль `strategy.profile` (standard / zero-budget-solo) в `references/phases.md` |
+| 4 | Рынок (пакет локали — `references/locales/<язык>.md`) | субагенты по `templates/briefs/research-*.md` (входы отключённых направлений вычёркиваются из брифа, `{MISSING_INPUTS}`) → `data/*.json`; `node/shoot_competitors.mjs <OUT>`; `references/competitors.md` |
+| 5 | Реестр ≥ `proposals_min` (+20–40 % кандидатов), **двухпроходная генерация** (заголовки → квоты → детали) | `templates/briefs/registry-generator.md` → `merge_proposals.py` (`--suggest`, `--pairs`) → `check_registry.py` |
+| 5.5 | **Аудит пробелов и предпосылок** | `gap_audit.py <OUT>` → агент-аудитор (`templates/briefs/gap-audit.md`, opus) → `research/gap-audit.md`, черновики `G7`, зависимости → `merge_proposals.py` → `gap_audit.py <OUT> --check` |
+| 6 | Оценка (с зависимостями) | `score.py` (`blocked_by`, `unlocks`, `dep_rank`, критический путь), `validate_scores.py`, `typesafe_eval.py`, `model.py`, `charts.py` (`--list-keys` до фазы 7); формулы — `references/scoring.md` |
+| 7 | Стратегия | `facts_scaffold.py <OUT>` → `build/strategy-facts.md`; разделы по `references/strategy-outline.md` (брифы `strategy-section.md`, лимиты слов, без повторов, `{rank:P…}` вместо чисел), спеки, эксперименты, Гант, Kanban, `research/questions-owner.md` (≤ 10), сверка фактов между агентами (`data/fact-check.json`) |
+| 8 | Дизайн и схемы | `templates/mockup-kit/` → макеты (`templates/briefs/mockups.md`) → `node/shoot_mockups.mjs` (автообнаружение, результаты по ключу); блок-схемы; референсы (`node/measure_hotspots.mjs --draw`); `link_mockups.py`, `build_design_refs_readme.py` |
+| 9 | Сборка и QA | `merge_sources.py`, `build_methodology.py`, `assemble_strategy.py <OUT> --insert-mockups`, затем `build_all.py <OUT> --strict --links`; `check_gitignore.py`; `deliverables/REPORT.md` по `references/report-template.md` |
 
 ### Оркестрация
 - Сам: опрос, конфиг, сборщики, QA, git, сверка выдачи агентов, итоговый текст резюме и трёх главных ставок.
 - Субагентам (если `tools.subagents`): сбор данных, генерация кандидатов по категориям, тексты разделов, спеки, эксперименты, макеты, карточки референсов и конкурентов. Не больше `tools.max_parallel_agents` одновременно, пути не пересекаются, бриф самодостаточный (шаблоны в `templates/briefs/`).
 - Модель: если есть `typesafe-triage` — `typesafe_triage.py --batch tasks.json` и `model` из таблицы; иначе сбор/механика — sonnet, синтез/оценка/дизайн — opus. `model` у `Agent` — всегда явно. Подробно — `references/orchestration.md`.
+- **Не затирать общие файлы**: агенты пишут только свои пути (макеты — `mockups-check.<ключ>.json`). **Не передавать агентам абсолютные пути пользователя** в публикуемых файлах — относительные `<OUT>/…`.
 - Выдачу агента проверяй скриптом (`check_registry.py`, `shoot_mockups.mjs`) и глазами (скриншоты через Read); расхождения — в «Открытые вопросы», а не молча.
 
 ## Ворота качества (всё — до отчёта)
-`check_registry.py` (минимумы, классы, URL, цитаты) · `validate_scores.py` (ранги совпали) · `check_links.py` (без `--offline`) · `node/shoot_mockups.mjs` (бейдж концепта, нет внешних запросов) · `node/smoke_html.mjs` (ошибки консоли 0, внешние запросы 0) · нет секретов в `<OUT>` (`grep` по ключевым словам) · `git status` репозитория — только файлы прогона. Непройденное — честно в отчёт.
+`check_registry.py` (минимумы, классы, внутренние/внешние доказательства, URL, цитаты) · `gap_audit.py --check` · `validate_scores.py` (ранги совпали) · `assemble_strategy.py` (битые маркеры, P-id, ключи графиков = ошибка) · `check_links.py` (без `--offline`) · `node/shoot_mockups.mjs` (бейдж концепта, нет внешних запросов) · `node/smoke_html.mjs` (геометрия раскрытых строк, контраст, ошибки консоли 0, внешние запросы 0) · `check_gitignore.py` · нет секретов в `<OUT>` (`grep` по ключевым словам) · `git status` репозитория — только файлы прогона. Непройденное — честно в отчёт.
 
 ## Результат (`<OUT>/deliverables/`)
 `index.html` — главный: офлайн-страница с реестром (фильтры, сортировка по любой метрике, карточки), стратегией, графиками, Гантом, Kanban, схемами, макетами, референсами, конкурентами, источниками; `strategy.xlsx` (формулы и веса), `strategy.pptx` и `strategy.pdf`, `REPORT.md`, `README.md`. В конце сообщи пути, три главные ставки, число предложений и что не удалось; при `output.inside_repo` — коммит в ветку и дальше по правилам пользователя. Опубликовать страницу (Artifact) — только по просьбе.
@@ -73,6 +76,8 @@ description: >
 ## Справочники
 - `references/data-contract.md` — схемы файлов `<OUT>`
 - `references/intake.md` — опрос, автопилот, глубина → объём
+- `references/run-sandbox.md` — запуск без боевых данных; `references/locales/` — пакеты локалей (ru, en)
+- `templates/mockup-kit/` — набор компонентов макетов
 - `references/tools.md` — проверка, установка, замены, TypeSafe
 - `references/phases.md` — фазы подробно
 - `references/scoring.md`, `references/methodology-anchors.md` — формулы и якоря шкал
