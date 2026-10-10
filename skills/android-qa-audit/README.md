@@ -8,6 +8,8 @@ QA-тестирование Android-приложения — по APK, split APK
 
 **Запуск.** Командой `/android-qa-audit`, названием скила в просьбе («используя скилл Android qa audit…») или обычной просьбой протестировать или проверить приложение, APK, Android-приложение, найти баги, проверить на разных версиях Android или на слабом телефоне, в том числе с путём к `.apk`. Если скил подхвачен по смыслу (не назван), он сначала спрашивает: «Похоже, вы хотите протестировать Android-приложение <что понял>. Запустить?» — при «Нет, это другое» ничего не создаёт. На разработку приложения, написание тестов Espresso/Appium и сайты (для них — `site-qa-audit`) не срабатывает. Исследовательский прогон, когда задача уже описана, — **лёгкий режим**: один вопрос «только неясное», затем сразу работа (`references/intake.md`).
 
+**Что нового в 1.5.0:** **короткие ролики находок без звука** — дополнение к скриншоту, когда дефект виден только во времени (анимация, мерцание, зависание, жест, переход, падение): `adb_helpers.py clip … -- <шаги>` (старт записи, шаги воспроизведения теми же командами через guard, стоп), `clip-start` / `clip-stop`, непрерывная запись для падений `clip-rolling` и `soak --clips-on-crash`; сжатие под бюджет (≤ 10 с, ≤ 3 МБ), GIF, постер и лента кадров для обязательного просмотра; показ касаний на эмуляторе с обязательным возвратом настройки; метки и подпись в кадре; «чёрный экран» FLAG_SECURE; ролик из скриншотов, если у стенда нет кодека. Ролики — в находках, отчёте («Ролики находок»), черновиках issues (GIF + `[▶ ролик, 6 с, 0,4 МБ]`), вложениях веткой и выгрузке. ffmpeg — необязательная, но рекомендуемая зависимость. Подробно — [references/clips.md](references/clips.md).
+
 **Что нового в 1.3.0:** график PSS картинкой (SVG) и спарклайн в разделе «Длинные сценарии» отчёта; контактный лист скриншотов (`annotate_android.py sheet` — 8 снимков на картинку, HTML-лист рядом); `job stop` на Windows дожидается сводки soak (запрос остановки файлом, `--grace`); честное описание пути loopback на Windows. Подробно — [CHANGELOG.md](CHANGELOG.md).
 
 **Что нового в 1.2.0** (по отзыву реального прогона голосового приложения): звук в микрофон эмулятора (`mic-inject`: gRPC с токеном, loopback, файл), долгие сценарии с проверкой предусловий и фоновые задачи (`soak`, `job`), нажатия на экранах с бесконечной анимацией (`tap X Y --no-ui`), полные тексты экрана (`dump-ui --texts`), неоднозначные совпадения и проверка результата нажатия, уведомления с прогрессом, аннотированные скриншоты (`screenshot --mark`, `finding.py add`), публикация по их формам issue со скриншотами веткой и документами «уже известно», `disclosure: tool|none`, выбор файла в системном пикере (`import-file`), кириллица через буфер обмена, обёртка `qa` для zsh, переиспользование своих AVD в матрице.
@@ -39,6 +41,7 @@ QA-тестирование Android-приложения — по APK, split APK
 | 5 | Настройки: тёмная тема, шрифт 1.3/2.0, ориентация, масштаб экрана, язык и RTL, сеть (Wi-Fi/4G/3G/EDGE/офлайн/смена), низкий заряд, экономия, Doze, часовой пояс | по глубине |
 | 6 | Виды тестов: ручные сценарии, monkey с seed, UI по дереву элементов, жизненный цикл, разрешения, уведомления, deep links, фон, нехватка памяти, падения и ANR, производительность, доступность, безопасность, установка/обновление, краевой ввод | ручные сценарии + падения |
 | 7 | Направления (11) и глубина: smoke / standard / deep | все, standard |
+| 7a | Видео-ролики находок: авто (когда дефект виден во времени) / для каждой находки / не нужны (`clips.mode`); фразы «с видео», «без видео» | авто |
 | 8 | Стенды: эмуляторы скила / мои устройства (с согласием: только чтение / только приложение / всё) / мои AVD (только `-read-only`); headless | эмуляторы скила |
 | 9 | Запреты и куда не заходить | только базовые |
 | 10 | Параллельные потоки (стенды одновременно) | 2 (максимум 4, по ресурсам) |
@@ -46,7 +49,7 @@ QA-тестирование Android-приложения — по APK, split APK
 | 12 | Куда записать итоги: папка, GitHub, Artifact, свой вариант | только папка прогона |
 | 13 | Папка результатов | путь из запроса / `ANDROID_QA_OUTPUT_DIR` / `<cwd>/qa-runs/` |
 
-Результаты — в `<OUTPUT_ROOT>/qa-runs/<YYYY-MM-DD>-<package>/`: `run-config.yaml`, `env.json`, `apk-info.json`, `device-matrix.json`, `stands.json`, `journal.md`, `findings.json`, `report.md`, `summary.md`, `apk/` (копии с SHA256), `screenshots/`, `recordings/`, `logs/` (logcat, действия, запреты), `raw/`, `drafts/`. Память о приложении — `<OUTPUT_ROOT>/qa-runs/.app-context/<package>/context.md`. Если папка внутри git-репозитория — сразу, до первой записи, `qa-runs/` и `*.apk`, `*.aab`, `*.apks`, `*.xapk`, `*.keystore`, `*.jks` попадают в `.gitignore` (без вопроса; коммитить результаты — только по явному разрешению в запросе, `git.allow_commit_results`); уже закоммиченные результаты не удаляются — один вопрос про `git rm -r --cached`. «Другая папка» для итогов (`report_destinations: folder`) получает только `summary.md`, `report.md`, `findings.json` и скриншоты находок. В конце — вопрос, что сделать с эмуляторами и AVD прогона.
+Результаты — в `<OUTPUT_ROOT>/qa-runs/<YYYY-MM-DD>-<package>/`: `run-config.yaml`, `env.json`, `apk-info.json`, `device-matrix.json`, `stands.json`, `journal.md`, `findings.json`, `report.md`, `summary.md`, `apk/` (копии с SHA256), `screenshots/`, `recordings/`, `clips/` (ролики находок; не коммитятся — `.gitignore` прогона), `logs/` (logcat, действия, запреты), `raw/`, `drafts/`. Память о приложении — `<OUTPUT_ROOT>/qa-runs/.app-context/<package>/context.md`. Если папка внутри git-репозитория — сразу, до первой записи, `qa-runs/` и `*.apk`, `*.aab`, `*.apks`, `*.xapk`, `*.keystore`, `*.jks` попадают в `.gitignore` (без вопроса; коммитить результаты — только по явному разрешению в запросе, `git.allow_commit_results`); уже закоммиченные результаты не удаляются — один вопрос про `git rm -r --cached`. «Другая папка» для итогов (`report_destinations: folder`) получает только `summary.md`, `report.md`, `findings.json`, скриншоты и ролики находок. В конце — вопрос, что сделать с эмуляторами и AVD прогона.
 
 ## Примеры вызова
 ```text
@@ -57,6 +60,7 @@ QA-тестирование Android-приложения — по APK, split APK
 QA установленного приложения com.example.app на моём телефоне по USB: только смотреть, ничего не менять.
 Глубокий тест app.aab: жизненный цикл, разрешения, уведомления, monkey; ошибки — черновиками в owner/repo.
 Test this APK on emulators: Android 12 and 14, accessibility and performance, English report.
+Протестируй app.apk с видео: анимации меню и поворот экрана.
 !qa deep autopilot ~/Downloads/app-release.apk
 !android-qa:smoke app.apk
 Запусти скилл android-qa-audit для установленного приложения com.example.app.
@@ -109,6 +113,12 @@ python3 $S/attachments.py push $R --repo owner/repo --branch qa-screens --dir qa
 python3 $S/build_report.py report $R                                      # + charts/soak-*-pss.svg под «Длинными сценариями»
 python3 $S/annotate_android.py sheet --soak $R/raw/soak-rec30-emulator-5556.json --out $R/screenshots/rec30-sheet.png   # 8 снимков на лист
 python3 $S/adb_helpers.py job stop rec30 --grace 180 --run-dir $R          # Windows: ждёт сводку soak до 180 с
+# 1.5.0: ролики находок без звука (references/clips.md)
+python3 $S/adb_helpers.py clip --name F-003-menu --finding F-003 --caption "Меню закрывается само" --serial emulator-5554 --run-dir $R -- tap --text "Меню" --then wait 1
+python3 $S/finding.py clip-viewed $R --id F-003 --file clips/F-003-menu.mp4   # после просмотра ленты кадров clips/F-003-menu-sheet.png
+python3 $S/adb_helpers.py clip-start --name F-004-swipe --serial emulator-5554 --run-dir $R   # … шаги … затем clip-stop --finding F-004
+python3 $S/adb_helpers.py clip-rolling start --segment 8 --serial emulator-5554 --run-dir $R  # непрерывно; save --name … при падении; stop
+python3 $S/validate_findings.py $R/findings.json --publish                 # перед публикацией: ролики просмотрены, без звука, в бюджете
 ```
 Короткая форма для zsh и bash — обёртка `qa`: `export QA_RUN_DIR=<RUN_DIR>` и `<SKILL_DIR>/scripts/qa emulator-5554 tap --text "Далее"` (Windows — `qa.ps1`).
 
@@ -129,7 +139,8 @@ python3 $S/adb_helpers.py job stop rec30 --grace 180 --run-dir $R          # Win
 | bundletool | AAB → APK |
 | gh + вход | сверка с issues и (после «да») публикация |
 | scrcpy, Maestro, Appium (uiautomator2) | показ экрана, повторяемые сценарии — необязательные усилители |
-| Node.js 18+ и Playwright в `scripts/node` (`npm install` локально) | аннотированные скриншоты (`annotate.js` — вендорная копия из site-qa-audit) и PNG контактного листа (`sheet.js`); без них — HTML-лист |
+| ffmpeg + ffprobe (системный пакет, ставится только с согласия) | ролики находок: сжатие под бюджет, GIF, постер, лента кадров, проверка «чёрного экрана», склейка сегментов; без него ролик сохраняется как есть, а вместо ленты — скриншоты по шагам |
+| Node.js 18+ и Playwright в `scripts/node` (`npm install` локально) | аннотированные скриншоты (`annotate.js` — вендорная копия из site-qa-audit), PNG контактного листа (`sheet.js`) и плашка подписи на ролике, если в ffmpeg нет `drawtext` (`plaque.js`); без них — HTML-лист, подпись ролика только в находке |
 | виртуальное аудиоустройство (BlackHole / Loopback / snd-aloop / VB-Cable) | только для пути loopback подачи звука (macOS, Linux; на Windows — только вручную); скил его не ставит, только проверяет |
 | Скилы ui-ux-pro-max, laws-of-ux, ux-heuristics, ux-audit, ux-design-principles, qa-skills (resilience-audit, adversarial-audit — только пассивно) | методики для направлений, `references/plugins-map.md` |
 
@@ -144,15 +155,16 @@ python3 $S/adb_helpers.py job stop rec30 --grace 180 --run-dir $R          # Win
 - Образы старше API 24 под arm64 (Apple Silicon) обычно отсутствуют: нижняя граница minSdk проверяется на реальном устройстве или x86_64-хосте.
 - Подпись AAB проверяется только у собранных из него APK (bundletool подписывает отладочным ключом — подпись отличается от магазинной).
 - GitHub не принимает картинки через `gh`: вложения — веткой в репозиторий до создания issues (`attachments.py`, ссылки `blob/…?raw=true`) или ссылками на локальные файлы.
+- Ролики: `screenrecord` есть с Android 4.4 (API 19); у части эмуляторов нет кодека (headless со swiftshader, образы arm64 API ≤ 30 на Apple Silicon — `Encoder failed`): `avd_manager.py start … --gpu host` или ролик из скриншотов (`clip --fallback auto`, 2–4 кадра/с — плавность по нему не оценивать). Окна `FLAG_SECURE` записываются чёрными. Подписи в кадре — через `drawtext` ffmpeg или Chromium; рамки — сплошные (у `drawbox` нет пунктира).
 - Безопасность — только пассивная; это не пентест.
-- Версия 1.0.0 проверена офлайн и первым боевым прогоном на эмуляторе (smoke, API 34); 1.0.1 — исправления по нему, проверены офлайн (фейковые adb и SDK); 1.1.0 (fail closed, находки текстом, перепроверка, прямая публикация, стенды потоков) — только офлайн; 1.2.0 (микрофон, soak и job, экраны без дерева, аннотации, формы issue, вложения веткой) — офлайн на фейковых adb, SDK, gh, node и поддельном сервере gRPC; 1.3.0 — офлайн, контактный лист и SVG-график дополнительно отрисованы вживую (Chromium через Playwright, просмотр в macOS), `job stop` на Windows не проверялся (поведение Windows проверено режимом `ANDROID_QA_JOB_STOP=file`); статус «в разработке».
+- Версия 1.0.0 проверена офлайн и первым боевым прогоном на эмуляторе (smoke, API 34); 1.0.1 — исправления по нему, проверены офлайн (фейковые adb и SDK); 1.1.0 (fail closed, находки текстом, перепроверка, прямая публикация, стенды потоков) — только офлайн; 1.2.0 (микрофон, soak и job, экраны без дерева, аннотации, формы issue, вложения веткой) — офлайн на фейковых adb, SDK, gh, node и поддельном сервере gRPC; 1.3.0 — офлайн, контактный лист и SVG-график дополнительно отрисованы вживую (Chromium через Playwright, просмотр в macOS), `job stop` на Windows не проверялся (поведение Windows проверено режимом `ANDROID_QA_JOB_STOP=file`); 1.5.0 (ролики) — офлайн на фейковом adb и живым прогоном на эмуляторе API 34 (`clip`, `clip-start`/`clip-stop`, `clip-rolling` с реальным screenrecord, ffmpeg и Chromium; на API 29 headless — проверен код 4 «нет кодека»), `soak --clips-on-crash` вживую с настоящим падением не проверялся; статус «в разработке».
 - Правовые утверждения (разрешения, персональные данные, реклама) — только факты и «возможно применимо»; вторая проверка другим исполнителем и юристом обязательна.
 
 ## Структура
 ```text
 SKILL.md                порядок работы
 INSTALL.md              установка и обновление, настройка Android SDK, промпты для Claude Code
-references/             setup, intake, safety-rules, stands, device-control, audio-input, long-runs, screenshots,
+references/             setup, intake, safety-rules, stands, device-control, audio-input, long-runs, screenshots, clips,
                         depth-matrix, parallelism, plugins-map, severity, repo-sync, run-files,
                         checklists/ (11 направлений + audio-voice)
 hooks/                  hooks.json — хук плагина «принудительный запуск» (scripts/shared/qa_force.py)
@@ -160,8 +172,9 @@ templates/              run-config.example.yaml, finding.schema.json, issue-deta
 scripts/                check_env (.py/.sh/.ps1), apk_info, avd_manager, adb_helpers, guard, masking, matrix, intake,
                         journal, fingerprint, validate_findings, render_draft, build_report, gitignore_helper,
                         export_results, sdkutil, grpc_emu, mic, soak, annotate_android, finding, issue_forms,
-                        known_docs, attachments, qa (+ qa.ps1), node/ (annotate.js — копия из site-qa-audit, sheet.js),
+                        known_docs, attachments, clip_android, qa (+ qa.ps1), node/ (annotate.js — копия из site-qa-audit,
+                        sheet.js, plaque.js),
                         shared/ (вендоренные модули репозитория)
-tests/                  unit.sh + v12.sh + v13.sh, helpers/ (фейковые adb, SDK, gh, node, сервер gRPC), helpers/shared/
+tests/                  unit.sh + v12.sh + v13.sh + v15.sh, helpers/ (фейковые adb, SDK, gh, node, сервер gRPC), helpers/shared/
                         (общие проверки примеров документации — копии shared/tests), fixtures/
 ```

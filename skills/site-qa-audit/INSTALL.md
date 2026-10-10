@@ -47,8 +47,9 @@ https://github.com/OrionFLASH/claude-code-skills (папка skills/site-qa-audi
    куда ведет), .claude/skills текущего проекта, плагин (claude plugin list). Версия - в
    .claude-plugin/plugin.json.
 4) Подключен ли Playwright MCP (claude plugin list -> playwright, или claude mcp list).
-5) Заданы ли SITE_QA_OUTPUT_DIR, SITE_QA_AUDIT_DIR, SITE_QA_HEADLESS, SITE_QA_SLOWMO
+5) Заданы ли SITE_QA_OUTPUT_DIR, SITE_QA_AUDIT_DIR, SITE_QA_HEADLESS, SITE_QA_SLOWMO, QA_FFMPEG
    (~/.claude/settings.json -> env или окружение) - только значения путей и флагов.
+6) Есть ли ffmpeg и ffprobe (ffmpeg -version, ffprobe -version) - для роликов находок, необязательно.
 Покажи сводку таблицей.
 
 ШАГ 1. ВОПРОСЫ
@@ -60,7 +61,9 @@ https://github.com/OrionFLASH/claude-code-skills (папка skills/site-qa-audi
 4) Папка результатов: «По умолчанию <папка запуска>/qa-runs (Recommended)» / «Одна папка для всех
    прогонов: задать SITE_QA_OUTPUT_DIR (укажу путь)».
 5) Дополнительно (мультивыбор): «Браузеры WebKit и Firefox (Recommended)» / «playwright-cli для
-   параллельных потоков (npm -g)» / «Ничего». Chromium ставится всегда. Если Playwright MCP не
+   параллельных потоков (npm -g)» / «ffmpeg для роликов находок (системный пакет)» / «Ничего».
+   Chromium ставится всегда. ffmpeg предлагай, только если его нет: без него ролики сохраняются
+   без сжатия, GIF, постера и ленты кадров; ставится лишь после моего «да». Если Playwright MCP не
    подключен - отдельный вопрос: он обязателен, поставить плагин playwright@claude-plugins-official?
 6) Путь скила: «Определять автоматически (Recommended)» / «Зафиксировать SITE_QA_AUDIT_DIR»;
    окно браузера: «Видимое (Recommended)» / «Скрытое: SITE_QA_HEADLESS=1» (раздел «Переменные окружения»).
@@ -82,6 +85,9 @@ https://github.com/OrionFLASH/claude-code-skills (папка skills/site-qa-audi
   npx playwright install chromium (+ webkit firefox, если выбрано).
 - Playwright MCP (если согласен): claude plugin install playwright@claude-plugins-official.
 - playwright-cli (если выбрано): npm install -g @playwright/cli@latest.
+- ffmpeg (если выбрано): macOS - brew install ffmpeg; Debian/Ubuntu - sudo apt install ffmpeg;
+  Windows - winget install Gyan.FFmpeg (новое окно терминала после установки). Без прав или без
+  пакетного менеджера - не обходи: покажи команду или задай QA_FFMPEG = путь к ffmpeg (env).
 - SITE_QA_OUTPUT_DIR (если выбрано): резервная копия settings.json, затем env.SITE_QA_OUTPUT_DIR =
   абсолютный путь (Windows: в JSON обратные слэши удваиваются или пишутся прямые); создай папку.
   Путь не должен вести в репозиторий скилов.
@@ -92,6 +98,7 @@ https://github.com/OrionFLASH/claude-code-skills (папка skills/site-qa-audi
 - check_env из <SKILL_DIR>: macOS/Linux - bash scripts/check_env.sh; Windows -
   powershell -ExecutionPolicy Bypass -File scripts\check_env.ps1 (или <python> scripts\check_env.py).
   Покажи таблицу и строку «Итог». FAIL в обязательном - предложи исправление (глобальное - после «да»).
+  Строки ffmpeg / ffprobe / Playwright screencast - рекомендуемые (WARN не мешает работе).
 - Если есть bash: bash tests/unit.sh из <SKILL_DIR> - покажи последнюю строку (PASS/FAIL).
 
 ШАГ 5. ИТОГ
@@ -121,10 +128,13 @@ https://github.com/OrionFLASH/claude-code-skills (папка skills/site-qa-audi
    plugin.json и CHANGELOG.md в origin/main; для плагина - claude plugin marketplace update
    claude-code-skills и claude plugin list; иначе - CHANGELOG.md скилла на GitHub.
 3) Для клона: git status (есть ли мои локальные правки) и текущая ветка.
+4) Есть ли ffmpeg и ffprobe (с 1.7.0 - ролики находок; необязательно).
 Покажи сводку: текущая версия -> последняя, заголовки изменений из CHANGELOG.md между ними.
 
 ШАГ 1. ВОПРОСЫ: обновить X -> Y? Способ - по разведке. Есть дубль - что оставить (плагин или папку)?
 Есть локальные правки в клоне - «Отложить их (git stash) и обновить» / «Не обновлять».
+Нет ffmpeg (обновление до 1.7.0+) - «Поставить ffmpeg для роликов находок (Recommended)» / «Не нужно»:
+brew install ffmpeg / sudo apt install ffmpeg / winget install Gyan.FFmpeg - только после «да».
 
 ШАГ 2. ОБНОВЛЕНИЕ
 - Плагин: claude plugin marketplace update claude-code-skills;
@@ -161,6 +171,7 @@ bash tests/unit.sh, если есть bash.
 | Playwright MCP | да | `/plugin install playwright@claude-plugins-official` | то же | `claude plugin list` |
 | Браузеры Playwright | Chromium — да; WebKit, Firefox — желательно | `npx playwright install …` в `scripts/node` | то же | `check_env` (реальный запуск) |
 | `@playwright/cli` | нет — нужен для параллельных потоков (до 4) | `npm install -g @playwright/cli@latest` | то же | `playwright-cli --version` |
+| ffmpeg + ffprobe | нет, **рекомендуется** для роликов находок (1.7.0): сжатие до ≤ 3 МБ, GIF, постер, лента кадров; без него ролик сохраняется как есть (webm). Ставить только с согласия (системный пакет); путь — `QA_FFMPEG` | `brew install ffmpeg` | `winget install Gyan.FFmpeg` (Linux: `sudo apt install ffmpeg`) | `ffmpeg -version`, `check_env` |
 | `@playwright/test` | **не нужен**: заготовки e2e запускает `node/e2e_run.js` тем же пакетом `playwright` из `scripts/node` (Playwright Test входит в него) | — | — | `tests/test_v150_browser.sh e2e_run` |
 | Claude in Chrome | нет — режим «текущий экран» | расширение «Claude» в Chrome + `claude --chrome` | то же | `check_env` |
 
@@ -338,6 +349,8 @@ Windows — `%USERPROFILE%\.claude\settings.json`; в JSON обратный сл
 | `SITE_QA_SLOWMO` | замедление действий в видимом окне, мс (`browser.slowmo` прогона главнее) | `250` |
 | `SITE_QA_PYTHON` | команда Python для node-скриптов (мост к `url_guard.py`), если `python3` не подходит (Windows: `python` или `py`) | `python3` (Windows — `python`) |
 | `QA_GUARD_DEBUG` | любое значение — `guard.js` пишет в stderr ошибки перехвата запросов (отладка; в обычной работе не нужна) | не задана |
+| `QA_FFMPEG`, `QA_FFPROBE` | путь к ffmpeg / ffprobe для роликов находок, если их нет в `PATH` (портативная сборка, Windows без перезапуска терминала) | ищутся в `PATH` |
+| `SITE_QA_CLIP_MODE` | `screencast` / `video` — принудительно выбрать способ записи `clip.js` (`page.screencast` или `recordVideo`; для тестов и обхода сбоя) | автоматически: screencast, если он есть в Playwright скила |
 | `SITE_QA_RUN_DIR`, `SITE_QA_OWNER` | папка прогона и имя потока для реестра вкладок `tabs.json`, если node-скрипт запускается без `--rules <RUN_DIR>/rules.json` / `--owner`; `SITE_QA_TABS=0` — не регистрировать | папка `--rules` (рядом `run-config.yaml`), владелец `node` |
 
 Пример (macOS / Linux; `<версия>` — из `claude plugin list`, после каждого обновления плагина путь меняется):
@@ -377,6 +390,9 @@ Windows — `%USERPROFILE%\.claude\settings.json`; в JSON обратный сл
 | `playwright-cli`: «Access to "file:" protocol is blocked» | локальное приложение: открывать сессию с `--config <RUN_DIR>/playwright-cli.json` (его пишут `local_app.py copy --update-config` и `browser_mode.py show`) — `references/local-files.md` |
 | Локальное приложение нужно открыть через Playwright MCP («Access to "file:" protocol is blocked») | отдельный MCP прогона: `python3 <SKILL_DIR>/scripts/browser_mode.py mcp <RUN_DIR> --check` → напечатанная команда `claude mcp add …` (решение пользователя) → перезапуск сессии — `references/local-files.md` |
 | `publish_shots.py plan`: режим `local` («gh не авторизован», «репозиторий не виден») | войти самому: `gh auth login` (для приватных — `gh auth refresh -s repo`); скил вход не выполняет; без входа — скриншоты при отчёте (`publish_shots.py local`) |
+| `clip.js` / `clips.py`: «ffmpeg не найден — ролик не сжат» | ролик сохранён как есть (webm, может быть больше бюджета), без GIF, постера и ленты кадров; поставить ffmpeg (с согласия: `brew install ffmpeg` / `sudo apt install ffmpeg` / `winget install Gyan.FFmpeg`) или задать `QA_FFMPEG`; проверить — `python3 <SKILL_DIR>/scripts/clips.py caps` |
+| `clip.js` код 3 «запись запрещена: поле пароля / страница входа» | так задумано: вход и оплата не записываются — записывать после входа (`--state`, `--cdp`) или на гостевом экране (`references/clips.md`) |
+| `clip.js` по CDP код 4 «требует page.screencast» | в `scripts/node` старый Playwright: `npm install` (версия из `package.json`) или записывать в эмуляции (`--device`) |
 | `skill_snapshot.py`: «в копии нет node_modules» | `npm install` в установленной папке скила (`<installPath>/scripts/node`), затем `skill_snapshot.py <RUN_DIR> --force` |
 
 Подробности — [README.md](README.md) (параметры, примеры, ограничения) и [SKILL.md](SKILL.md) (порядок работы).

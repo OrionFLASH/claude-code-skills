@@ -388,6 +388,17 @@ def _split_adb(args):
     return sub, rest, shells
 
 
+def _sigint_kill(rest):
+    """`kill -2|-INT|-SIGINT|-s INT <pid>…` (1–4 numeric PIDs) — nothing else."""
+    if rest[:2] in (["-s", "INT"], ["-s", "SIGINT"]):
+        pids = rest[2:]
+    elif rest[:1] in (["-2"], ["-INT"], ["-SIGINT"]):
+        pids = rest[1:]
+    else:
+        return False
+    return 1 <= len(pids) <= 4 and all(p.isdigit() for p in pids)
+
+
 def _classify_shell(toks, app):
     """(risk, target_pkg, reason) — risk: read | app | device | deny."""
     c = toks[0]
@@ -464,6 +475,11 @@ def _classify_shell(toks, app):
         return "app", None, "ввод (жест/текст/клавиша) — элемент проверяется guard.py action"
     if c == "screenrecord":
         return "app", None, "запись экрана во временный файл"
+    if c == "kill" and _sigint_kill(rest):
+        # 1.5.0 clip-stop: SIGINT makes screenrecord finish its MP4 (moov). Only SIGINT and explicit PIDs (the caller
+        # picks the PID of its own `screenrecord … /sdcard/qa-clip-*`); without root the shell user can signal only
+        # processes started over adb. Any other kill stays «device».
+        return "app", None, "SIGINT записи экрана скила (clip-stop: screenrecord дописывает файл и выходит)"
     if c == "content":
         return ("read" if first == "query" and not re.search(r"contacts|sms|mms|call_log|telephony", " ".join(rest)) else "deny"), \
             None, f"content {first}"
@@ -741,6 +757,13 @@ def selftest():
         (D("shell run-as com.other.app cat x"), DENY), (D("shell run-as com.example.app cat files/x", "real", "R3"), ALLOW),
         (P(text="Downloads", pkg="com.google.android.documentsui"), ALLOW), (A(text="Downloads", pkg="com.google.android.documentsui"), CONFIRM),
         (P(text="Удалить", pkg="com.google.android.documentsui"), CONFIRM), (P(text="Install", pkg="com.android.vending"), DENY),
+        # 1.5.0: clips — SIGINT to the skill's screenrecord, show_touches, temp files qa-clip-* / qa-roll-*
+        (D("shell kill -2 4321", "real", "R1"), ALLOW), (D("shell kill -s INT 4321"), ALLOW),
+        (D("shell kill -9 4321", "real", "R1"), CONFIRM), (D("shell kill -2 4321", "real", "R3"), DENY),
+        (D("shell kill -2 $(pidof system_server)", "real", "R1"), CONFIRM),
+        (D("shell screenrecord --time-limit 10 --size 720x1600 /sdcard/qa-clip-F-003.mp4", "real", "R1"), ALLOW),
+        (D("shell settings put system show_touches 1", "real", "R1"), CONFIRM), (D("shell settings put system show_touches 1"), ALLOW),
+        (D("shell rm -f /sdcard/qa-roll-emulator-5554-3.mp4"), ALLOW), (D("shell rm -f /sdcard/qa-roll-*"), DENY),
     ]
     failed = [(i, got, exp) for i, (got, exp) in enumerate(cases) if got != exp]
     for i, got, exp in failed:

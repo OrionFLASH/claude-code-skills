@@ -24,6 +24,9 @@
   avd_manager.py stop SERIAL|NAME [--run-dir R] [--any-qa] [--owner w1]   --owner: a stand of another thread -> exit 3
   avd_manager.py delete NAME --yes                          only AVDs created by the skill (qa- + marker), not running
   avd_manager.py cleanup --run-dir R [--stop] [--delete-avds] [--delete-apk-copies] [--delete-recordings] [--yes]
+                       always first: an unfinished clip recording of the run (raw/clip-*.json, raw/rolling-*.json) is
+                       stopped and show_touches returned (adb_helpers.py clip-stop --restore-only / clip-rolling stop);
+                       --delete-recordings: recordings/, raw/rolling-*/ and clips/ files no finding / soak refers to
 
 Ownership: name starts with "qa-" AND <name>.avd/android-qa-audit.json exists (written by create).
 <RUN_DIR>/stands.json records what this run created and started (cleanup works only with that).
@@ -753,8 +756,16 @@ def cmd_cleanup(a):
         plan += [("delete-avd", x["name"], "") for x in data["avds_created"] if find_avd(x["name"])]
     if a.delete_apk_copies and (run / "apk").is_dir():
         plan += [("rm", str(p), "") for p in sorted((run / "apk").iterdir()) if p.suffix.lower() in (".apk", ".aab", ".apks", ".xapk")]
+    plan = clip_states(run) + plan        # 1.5.0: return the device settings before emulators are stopped
     if a.delete_recordings and (run / "recordings").is_dir():
         plan += [("rm", str(p), "") for p in sorted((run / "recordings").iterdir()) if p.is_file()]
+    if a.delete_recordings:
+        plan += [("rm", str(p), "") for d in sorted((run / "raw").glob("rolling-*")) if d.is_dir()
+                 for p in sorted(d.iterdir()) if p.is_file()]
+        keep = referenced_clips(run)
+        if (run / "clips").is_dir():
+            plan += [("rm", str(p), "не в находках") for p in sorted((run / "clips").iterdir())
+                     if p.is_file() and p.resolve() not in keep]
     if not plan:
         print("уборка: нечего делать")
         return
@@ -786,9 +797,52 @@ def cmd_cleanup(a):
                     if x["name"] == what:
                         x["deleted_at"] = now()
                 r.save(d)
+        elif act in ("clip-restore", "rolling-stop"):
+            cmd = [sys.executable, str(HERE / "adb_helpers.py")] + (
+                ["clip-stop", "--restore-only"] if act == "clip-restore" else ["clip-rolling", "stop"]) + \
+                ["--serial", what, "--run-dir", str(run)]
+            import subprocess
+            r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
+            print(f"  {act} {what}: код {r.returncode} {(r.stdout or r.stderr).strip()[-200:]}")
         else:
             Path(what).unlink(missing_ok=True)
     print("уборка: готово")
+
+
+def clip_states(run):
+    """Unfinished clip recordings of this run → plan entries (serial from the state file)."""
+    out = []
+    for kind, pattern in (("clip-restore", "clip-*.json"), ("rolling-stop", "rolling-*.json")):
+        for p in sorted((run / "raw").glob(pattern)) if (run / "raw").is_dir() else []:
+            try:
+                st = json.loads(p.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if isinstance(st, dict) and st.get("serial"):
+                out.append((kind, st["serial"], "запись не завершена — остановить и вернуть show_touches"))
+    return out
+
+
+def referenced_clips(run):
+    """Files of clips/ that findings or soak summaries refer to (results — never removed by cleanup)."""
+    refs = []
+    try:
+        data = json.loads((run / "findings.json").read_text(encoding="utf-8"))
+        for f in data.get("findings", []) if isinstance(data, dict) else data:
+            for c in f.get("clips") or []:
+                if isinstance(c, dict):
+                    refs += [c.get(k) for k in ("file", "gif", "poster", "sheet")] + list(c.get("frames") or [])
+    except (OSError, ValueError, AttributeError):
+        pass
+    for p in sorted((run / "raw").glob("soak-*.json")) if (run / "raw").is_dir() else []:
+        try:
+            s = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        for c in s.get("clips") or [] if isinstance(s, dict) else []:
+            if isinstance(c, dict):
+                refs += [c.get(k) for k in ("file", "gif", "poster", "sheet")]
+    return {(run / r).resolve() for r in refs if r}
 
 
 def main():

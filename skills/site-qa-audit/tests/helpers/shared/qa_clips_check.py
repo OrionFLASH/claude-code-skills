@@ -25,10 +25,14 @@ def check(name, cond):
 s = c.settings(None)
 check("settings: умолчания (10 с, 3 МБ, 720, mp4+gif)", (s["max_seconds"], s["max_mb"], s["width"], s["format"], s["mode"]) == (10.0, 3.0, 720, "both", "auto"))
 s = c.settings({"clips": {"mode": "ON", "max_seconds": 999, "max_mb": "0.05", "format": "avi", "width": "540", "mask": "#a"}})
+check("settings: целый run-config без ключа clips не считается секцией", c.settings({"mode": "dry-run", "repo": {}})["mode"] == "auto"
+      and c.settings({"mode": "dry-run", "clips": {"max_mb": 2}})["max_mb"] == 2.0)
+check("settings: gif_max_seconds по умолчанию 8", c.settings(None)["gif_max_seconds"] == 8.0)
 check("settings: границы и мусор", (s["mode"], s["max_seconds"], s["max_mb"], s["format"], s["width"], s["mask"]) == ("on", 60.0, 0.2, "both", 540, ["#a"]))
 
 # политика auto
-for text, want in [("Меню закрывается само через 0,4 с — мерцание при открытии", True), ("Приложение зависает при повороте экрана", True),
+for text, want in [("Кнопка не нажимается: нет фокуса и нет реакции на клик", False), ("Элемент появляется на странице", False),
+                   ("Меню закрывается само через 0,4 с — мерцание при открытии", True), ("Приложение зависает при повороте экрана", True),
                    ("Краш при нажатии «Сохранить»", True), ("Контраст текста 3,19:1 — нужно 4,5:1", False), ("Подпись обрезана при шрифте 2.0", False),
                    ("Опечатка в заголовке", False), ("Button flickers on hover", True), ("Drawer does not react to swipe", True)]:
     check("should_record: %s → %s" % (text[:40], want), c.should_record(text, "auto")[0] == want)
@@ -55,6 +59,12 @@ else:
     check("gif: ok и > 0", g["ok"] and (tmp / "out.gif").stat().st_size > 0 and (tmp / "out.gif").read_bytes()[:3] == b"GIF")
     check("poster: PNG", c.poster(tmp / "out.mp4", tmp / "p.png")["ok"] and (tmp / "p.png").read_bytes()[:4] == b"\x89PNG")
     check("sheet: PNG", c.sheet(tmp / "out.mp4", tmp / "s.png", frames=6, cols=3)["ok"] and (tmp / "s.png").stat().st_size > 1000)
+    # чёрный экран и рамки до масштабирования
+    subprocess.run([ff, "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=black:s=360x640:r=10:d=4", str(tmp / "b.mp4")], check=True)
+    br_black, br_norm = c.black_ratio(tmp / "b.mp4"), c.black_ratio(out_mp4 := tmp / "out.mp4")
+    check("black_ratio: чёрный ролик ≥ 0,8, обычный ≤ 0,2", br_black is not None and br_black >= 0.8 and br_norm is not None and br_norm <= 0.2)
+    check("_vf: рамки рисуются до масштаба", c._vf(180, 10, None, [{"x": 1, "y": 1, "w": 5, "h": 5}]).index("drawbox") < c._vf(180, 10, None, [{"x": 1, "y": 1, "w": 5, "h": 5}]).index("scale="))
+    check("compress: ролик с рамкой собран", c.compress(raw, tmp / "m.mp4", max_seconds=2, width=180, marks=[{"x": 10, "y": 10, "w": 100, "h": 60}])["ok"])
     # полный цикл
     run = tmp / "run"
     (run / "recordings").mkdir(parents=True)

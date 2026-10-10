@@ -9,8 +9,13 @@ screenshot as viewed. The finding is checked against templates/finding.schema.js
                  [--serial S] [--env key=value]… [--repro-rate 2/2] [--frequency always] [--suggestion …]
                  [--hypothesis …] [--source own:checklist] [--repro "find --text …"] [--id F-012] [--json]
   finding.py shot <RUN_DIR> --id F-003 --shot screenshots/y.png [--mark …]… [--ui …] [--density 420]
-  finding.py viewed <RUN_DIR> --id F-003         the annotated screenshots were looked at (Read) — before publication
-  finding.py list <RUN_DIR> [--json]
+  finding.py viewed <RUN_DIR> --id F-003 [--clips]  the annotated screenshots (and with --clips the clips' frame
+                                                  sheets) were looked at (Read) — before publication
+  finding.py clip <RUN_DIR> --id F-003 --file clips/F-003-menu.mp4 [--kind error|ok|note|after] [--caption "…"]
+                 [--step "…"]…   attach a clip (references/clips.md); a file outside clips/ is compressed into clips/
+                 first (qa_clips.finalize: no sound, ≤ clips.max_mb, GIF, poster, frame sheet)
+  finding.py clip-viewed <RUN_DIR> --id F-003 [--file clips/…mp4]   the frame sheet (clips/…-sheet.png) was looked at
+  finding.py list <RUN_DIR> [--json]               also: clips and the ones not viewed yet
 
 --shot outside <RUN_DIR>/screenshots/ is copied there as F-NNN-<name>.png. --mark draws the annotation
 (annotate_android.py): shots: [{original, annotated, spec, marks, viewed}], screenshots: [annotated, original].
@@ -31,6 +36,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE / "shared"))
 sys.path.insert(0, str(HERE))
 import miniyaml  # noqa: E402
+import qa_clips  # noqa: E402 — clips of findings (1.5.0)
 from masking import mask  # noqa: E402
 
 SCHEMA = HERE.parent / "templates" / "finding.schema.json"
@@ -177,6 +183,8 @@ def cmd_add(a):
     fs.append(f)
     if a.shot:
         _, warn = attach(run, f, a.shot, a.mark, a.ui, a.density or dens)
+    for clip in a.clip or []:
+        add_clip(f, clip_entry(run, fid, clip, a.clip_kind, a.clip_caption, f.get("steps")))
     errors = validate_one(f)
     if errors:
         for e in errors:
@@ -212,8 +220,119 @@ def cmd_viewed(a):
     f = find(data, a.id)
     for s in f.get("shots") or []:
         s["viewed"] = True
+    clips = [c for c in f.get("clips") or [] if isinstance(c, dict)] if a.clips else []
+    for c in clips:
+        c["viewed"] = True
     path.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
-    print(json.dumps({"ok": True, "id": a.id, "viewed": len(f.get("shots") or [])}, ensure_ascii=False))
+    print(json.dumps({"ok": True, "id": a.id, "viewed": len(f.get("shots") or []), "clips_viewed": len(clips)},
+                     ensure_ascii=False))
+
+
+# ---------- clips (1.5.0, references/clips.md) ----------
+
+def resolve_file(run, value):
+    p = Path(value)
+    if not p.is_absolute():
+        p = (run / p) if (run / p).exists() else Path.cwd() / p
+    if not p.is_file():
+        fail(f"нет файла {value}")
+    return p
+
+
+def clip_entry(run, fid, value, kind="error", caption="", steps=None):
+    """findings[].clips[] entry for a file: a finished clip in clips/ (its GIF, poster and frame sheet are found by
+    name) or any video — then it is compressed into clips/<F-NNN>-<name>.mp4 first (no sound, budget, sheet)."""
+    run = Path(run)
+    p = resolve_file(run, value)
+    rc = miniyaml.load_file(run / "run-config.yaml") if (run / "run-config.yaml").exists() else {}
+    cfg = {"clips": (rc or {}).get("clips") if isinstance((rc or {}).get("clips"), dict) else {}}
+    try:
+        import gitignore_helper
+        gitignore_helper.ensure_run_ignore(run)
+    except OSError:
+        pass
+    clips = (run / "clips").resolve()
+    if p.suffix.lower() not in qa_clips.VIDEO_EXT:
+        fail(f"{p.name}: нужен ролик ({', '.join(qa_clips.VIDEO_EXT)})")
+    if p.resolve().parent == clips:
+        side = lambda suffix: p.with_name(p.stem + suffix) if p.with_name(p.stem + suffix).is_file() else None  # noqa: E731
+        sheet = side("-sheet.png")
+        e = qa_clips.entry(p, run, kind, mask(caption or ""), gif=side(".gif"), poster_file=side("-poster.png"),
+                           steps=steps, extra={"sheet": str(sheet.resolve().relative_to(run.resolve())) if sheet else None})
+        issues = [x[1] for x in qa_clips.check_entry(dict(e, viewed=True), run, cfg)]
+        if issues:
+            e["warning"] = "; ".join(issues)
+        return e
+    name = re.sub(r"[^A-Za-z0-9_.-]+", "-", p.stem).strip("-.") or "clip"
+    name = name if name.startswith(fid) else f"{fid}-{name}"
+    n, i = name, 2
+    while (run / "clips" / f"{n}.mp4").exists():
+        n, i = f"{name}-{i}", i + 1
+    fin = qa_clips.finalize(p, run, n, cfg, caption=mask(caption or ""), kind=kind, steps=steps)
+    if not fin["ok"]:
+        fail(f"ролик не сжат: {(fin.get('result') or {}).get('warning')}", 1)
+    return fin["entry"]
+
+
+def add_clip(f, e):
+    """qa_clips.add_to_finding, but the viewed mark survives re-attaching the very same file (same sha256)."""
+    old = next((c for c in f.get("clips") or [] if isinstance(c, dict) and c.get("file") == e["file"]), None)
+    if old and old.get("viewed") and old.get("sha256") and old.get("sha256") == e.get("sha256"):
+        e["viewed"] = True
+    return qa_clips.add_to_finding(f, e)
+
+
+def attach_clip(run_dir, fid, e):
+    """Write a clip entry into finding fid (used by adb_helpers.py clip-stop / clip / clip-rolling save --finding)."""
+    run = Path(run_dir)
+    path, data = load(run)
+    f = find(data, fid)
+    add_clip(f, e)
+    errors = validate_one(f)
+    if errors:
+        for x in errors:
+            sys.stderr.write(f"finding: {x}\n")
+        fail("ролик не записан в находку — схема", 1)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+    return f
+
+
+def cmd_clip(a):
+    run = Path(a.run_dir)
+    path, data = load(run)
+    f = find(data, a.id)
+    e = clip_entry(run, a.id, a.file, a.kind, a.caption, a.step or f.get("steps"))
+    add_clip(f, e)
+    errors = validate_one(f)
+    if errors:
+        for x in errors:
+            print("ERROR", x)
+        fail("ролик не записан — исправить поля", 1)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+    nxt = (f"посмотреть ленту кадров {e['sheet']} (Read), затем finding.py clip-viewed {run} --id {a.id} --file {e['file']}"
+           if e.get("sheet") else "ленты кадров нет (без ffmpeg) — посмотреть кадры по шагам, затем finding.py clip-viewed")
+    print(json.dumps({"ok": True, "id": a.id, "clip": e, "warning": e.get("warning"), "next": "" if e.get("viewed") else nxt},
+                     ensure_ascii=False, indent=1 if a.json else None))
+
+
+def cmd_clip_viewed(a):
+    run = Path(a.run_dir)
+    path, data = load(run)
+    f = find(data, a.id)
+    clips = [c for c in f.get("clips") or [] if isinstance(c, dict)]
+    if a.file:
+        want = a.file.replace("\\", "/")
+        clips = [c for c in clips if c.get("file") == want or Path(c.get("file") or "").name == Path(want).name]
+    if not clips:
+        fail(f"у находки {a.id} нет {'такого ролика' if a.file else 'роликов'} (finding.py clip)")
+    notes = []
+    for c in clips:
+        c["viewed"] = True
+        if not (c.get("sheet") and (run / c["sheet"]).is_file()) and not c.get("frames"):
+            notes.append(f"{c.get('file')}: ленты кадров нет — подтверждение только если ролик или кадры по шагам просмотрены")
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+    print(json.dumps({"ok": True, "id": a.id, "clips_viewed": [c.get("file") for c in clips], "notes": notes},
+                     ensure_ascii=False))
 
 
 def cmd_list(a):
@@ -224,9 +343,13 @@ def cmd_list(a):
     for f in data["findings"]:
         shots = f.get("shots") or []
         notv = sum(1 for s in shots if s.get("annotated") and not s.get("viewed"))
+        clips = [c for c in f.get("clips") or [] if isinstance(c, dict)]
+        notc = sum(1 for c in clips if not c.get("viewed"))
         print(f"{f['id']} [{f.get('severity')}] {f.get('status') or 'NEW'} {f.get('title')}"
               + (f" · снимков {len(f.get('screenshots') or [])}" if f.get("screenshots") else "")
-              + (f" · не просмотрено аннотаций: {notv}" if notv else ""))
+              + (f" · не просмотрено аннотаций: {notv}" if notv else "")
+              + (f" · роликов {len(clips)}" if clips else "")
+              + (f" · не просмотрено роликов: {notc} (лента кадров → finding.py clip-viewed)" if notc else ""))
 
 
 def main():
@@ -256,6 +379,9 @@ def main():
     p.add_argument("--env", action="append", help="key=value в environment (api=34, cell=c01, …)")
     p.add_argument("--id")
     p.add_argument("--json", action="store_true")
+    p.add_argument("--clip", action="append", help="ролик находки (clips/….mp4 или любой ролик — будет сжат в clips/)")
+    p.add_argument("--clip-kind", default="error", choices=list(qa_clips.KINDS))
+    p.add_argument("--clip-caption", default="", help="подпись-факт ролика")
     for q in (p, sub.add_parser("shot")):
         if q is not p:
             q.add_argument("run_dir")
@@ -269,11 +395,25 @@ def main():
     v = sub.add_parser("viewed")
     v.add_argument("run_dir")
     v.add_argument("--id", required=True)
+    v.add_argument("--clips", action="store_true", help="и ролики находки (их ленты кадров просмотрены)")
+    cl = sub.add_parser("clip")
+    cl.add_argument("run_dir")
+    cl.add_argument("--id", required=True)
+    cl.add_argument("--file", required=True, help="clips/F-003-menu.mp4 или любой ролик (будет сжат в clips/)")
+    cl.add_argument("--kind", default="error", choices=list(qa_clips.KINDS))
+    cl.add_argument("--caption", default="")
+    cl.add_argument("--step", action="append")
+    cl.add_argument("--json", action="store_true")
+    cv = sub.add_parser("clip-viewed")
+    cv.add_argument("run_dir")
+    cv.add_argument("--id", required=True)
+    cv.add_argument("--file", help="один ролик; без него — все ролики находки")
     ls = sub.add_parser("list")
     ls.add_argument("run_dir")
     ls.add_argument("--json", action="store_true")
     a = ap.parse_args()
-    {"add": cmd_add, "shot": cmd_shot, "viewed": cmd_viewed, "list": cmd_list}[a.cmd](a)
+    {"add": cmd_add, "shot": cmd_shot, "viewed": cmd_viewed, "list": cmd_list, "clip": cmd_clip,
+     "clip-viewed": cmd_clip_viewed}[a.cmd](a)
 
 
 if __name__ == "__main__":

@@ -23,10 +23,11 @@
 // (phone: isMobile + hasTouch + mobile UA). Browser window: visible by default, SITE_QA_HEADLESS=1 hides it,
 // SITE_QA_SLOWMO=<ms> slows visible actions down.
 //
-// API: openDevice({ device, browser, cdp, storageState, rules, logFile, locale, track }) ->
+// API: openDevice({ device, browser, cdp, storageState, rules, logFile, locale, track, contextOptions }) ->
 //        { browser, context, page, close, device, media, tabId }
 //      the page is registered in <RUN_DIR>/tabs.json when the run folder is known (lib.js → tabs(): --run-dir,
-//      SITE_QA_RUN_DIR or the folder of --rules; --owner <qa-id>); track: false — not registered (probes)
+//      SITE_QA_RUN_DIR or the folder of --rules; --owner <qa-id>); track: false — not registered (probes);
+//      contextOptions — extra options of browser.newContext (clip.js: recordVideo for the fallback recorder)
 //      configsFrom({ sizes, devices }) -> [{ name, options, engine }]
 //      filterState(state, domains) -> { state, kept, dropped }
 const fs = require('fs');
@@ -257,7 +258,7 @@ async function attachCdp(cdpUrl, pageMatch) {
   return { browser, context, page, close, device: null, media: null, created, tabId };
 }
 
-async function openDevice({ device, browser: engineOverride, cdp, storageState, rules, logFile, headless, pageMatch, locale, readOnly, track = true } = {}) {
+async function openDevice({ device, browser: engineOverride, cdp, storageState, rules, logFile, headless, pageMatch, locale, readOnly, track = true, contextOptions = null } = {}) {
   if (cdp && !device) return attachCdp(cdp, pageMatch);
   const d = resolveDevice(device || 'desktop', engineOverride);
   const pw = require('playwright');
@@ -266,7 +267,7 @@ async function openDevice({ device, browser: engineOverride, cdp, storageState, 
   const { storageState: st, sessionStorage } = storageForContext(state);
   const browser = await pw[d.engine].launch(launchOptions(headless === undefined ? {} : { headless }, rules));
   const ctxOpts = { ...d.options, ...(st ? { storageState: st } : {}),
-    ...(locale ? { locale, extraHTTPHeaders: { 'Accept-Language': locale } } : {}) };
+    ...(locale ? { locale, extraHTTPHeaders: { 'Accept-Language': locale } } : {}), ...(contextOptions || {}) };
   const context = await browser.newContext(ctxOpts);
   if (sessionStorage.length) {
     await context.addInitScript((list) => {

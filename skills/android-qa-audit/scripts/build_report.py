@@ -8,6 +8,7 @@
 Sources in RUN_DIR (missing optional files are skipped): findings.json (required), run-config.yaml, apk-info.json,
 device-matrix.json, stands.json, raw/metrics.jsonl, raw/crashes-*.json, raw/soak-*.json (long scenarios: status,
 duration, PSS, events, host load), logs/blocked.jsonl. Metrics taken while other emulators were running are marked.
+«Ролики находок» (1.5.0): findings[].clips and soak clips (--clips-on-crash) — finding, kind, duration, size, viewed, link.
 Exit codes: 0 ok, 2 no findings.json.
 """
 import argparse
@@ -394,6 +395,39 @@ def crashes_block(run):
     return L
 
 
+CLIP_KIND = {"error": "ошибка", "ok": "работает", "note": "пояснение", "after": "после исправления"}
+
+
+def clips_block(run, base):
+    """«Ролики находок»: findings[].clips (+ clips saved by soak --clips-on-crash), links relative to report.md."""
+    import os
+    rows = []
+    for f in run.findings:
+        for c in f.get("clips") or []:
+            if isinstance(c, dict) and c.get("file"):
+                rows.append((f["id"], c))
+    linked = {c.get("file") for _, c in rows}
+    for s in run.soaks:
+        for e in s.get("clips") or []:
+            if isinstance(e, dict) and e.get("file") and e["file"] not in linked:
+                rows.append((f"soak {s.get('tag')} ({e.get('event') or 'падение'})", e))
+    if not rows:
+        return []
+    L = ["", "## Ролики находок", "", "| Находка | Вид | Длительность | Размер | Просмотрен | Подпись | Ролик |", "|---|---|---|---|---|---|---|"]
+    for fid, c in rows:
+        try:
+            rel = os.path.relpath(str((run.dir / c["file"]).resolve()), str(base)).replace(os.sep, "/")
+        except ValueError:                       # another drive (Windows)
+            rel = str((run.dir / c["file"]).resolve())
+        secs = f"{c['seconds']:.1f} с".replace(".", ",") if isinstance(c.get("seconds"), (int, float)) else "—"
+        size = f"{c['bytes'] / 1048576:.2f} МБ".replace(".", ",") if isinstance(c.get("bytes"), (int, float)) else "—"
+        warn = " ⚠ " + cell(c["warning"], 60) if c.get("warning") else ""
+        L.append(f"| {fid} | {CLIP_KIND.get(c.get('kind'), c.get('kind') or '—')} | {secs} | {size} | "
+                 f"{'да' if c.get('viewed') else 'нет — не публикуется'} | {cell(c.get('caption'), 70)}{warn} | [{Path(c['file']).name}]({rel}) |")
+    L += ["", "Звук в роликах не пишется; в черновики issues попадают только просмотренные (лента кадров, `finding.py clip-viewed`)."]
+    return L
+
+
 def apk_block(run):
     risks = run.apk.get("risks") or []
     if not risks:
@@ -419,6 +453,7 @@ def build_report(run, out=None):
                  f"{cell((f.get('screen') or '').split('.')[-1], 40)} | {cell(where, 60)} | {pub or '—'} |")
     if not fs:
         L.append("| — | — | — | находок нет | — | — | — |")
+    L += clips_block(run, base)
     L += apk_block(run)
     nc = (run.data.get("not_checked") or []) if isinstance(run.data, dict) else []
     L += ["", "## Что не проверено и почему", "", "| Что | Причина |", "|---|---|"]

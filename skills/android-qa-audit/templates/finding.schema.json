@@ -116,7 +116,30 @@
             }
           }
         },
-        "recordings": {"type": "array", "items": {"type": "string"}},
+        "recordings": {"type": "array", "items": {"type": "string"}, "description": "Пути видео относительно папки прогона; пути роликов clips[] дублируются сюда для совместимости"},
+        "clips": {
+          "type": "array",
+          "description": "Короткие ролики без звука (1.5.0, references/clips.md; qa_clips.entry): дополнение к скриншоту, когда дефект виден во времени",
+          "items": {
+            "type": "object",
+            "required": ["file"],
+            "properties": {
+              "file": {"type": "string", "description": "clips/F-003-menu.mp4 (относительно папки прогона)"},
+              "gif": {"type": ["string", "null"]}, "poster": {"type": ["string", "null"]}, "sheet": {"type": ["string", "null"], "description": "лента кадров PNG — её смотрят (Read) вместо видео"},
+              "kind": {"enum": ["error", "ok", "note", "after"]},
+              "seconds": {"type": ["number", "null"]}, "bytes": {"type": ["integer", "null"]},
+              "width": {"type": ["integer", "null"]}, "height": {"type": ["integer", "null"]}, "fps": {"type": ["number", "null"]},
+              "codec": {"type": ["string", "null"]}, "audio": {"type": "boolean", "description": "всегда false: звук не пишется"},
+              "caption": {"type": "string"}, "steps": {"type": "array", "items": {"type": "string"}},
+              "encoder": {"type": ["string", "null"]}, "sha256": {"type": ["string", "null"]},
+              "viewed": {"type": "boolean", "description": "лента кадров просмотрена и ролик подтверждён (finding.py clip-viewed) — иначе не публикуется"},
+              "created": {"type": "string"}, "warning": {"type": "string"},
+              "marks": {"type": "array"}, "frames": {"type": "array", "items": {"type": "string"}, "description": "без ffmpeg: скриншоты после каждого шага"},
+              "source": {"enum": ["screenrecord", "rolling", "frames", "file"], "description": "frames — screenrecord недоступен, ролик из скриншотов (clip --fallback)"}, "serial": {"type": "string"},
+              "black_ratio": {"type": ["number", "null"]}, "touches": {"type": "boolean"}, "caption_in_video": {"type": "boolean"}
+            }
+          }
+        },
         "ui_dump": {"type": "string", "description": "raw/ui-….xml"},
         "metrics": {"type": "object", "description": "Числа: TotalTime, janky_percent, total_pss_kb…"},
         "evidence": {"type": "object", "description": "Направленческие данные; sensitive: true — не публиковать без решения"},

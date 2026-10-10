@@ -6,7 +6,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; S="$HERE/../scripts"; F="$HERE/fixtures"; T="$HERE/../templates"
 PY="${PY:-$(command -v python3 || command -v python)}"
 export PYTHONDONTWRITEBYTECODE=1
-TMP="$(mktemp -d)"; trap 'pkill -f "fake_tools.py emulator" >/dev/null 2>&1; rm -rf "$TMP"' EXIT
+TMP="$(mktemp -d)"; trap 'pkill -f "fake_tools.py emulator" >/dev/null 2>&1; pkill -f "clip-rolling-run .*$TMP" >/dev/null 2>&1; rm -rf "$TMP"' EXIT
 pass=0; fail=0
 ok(){ echo "PASS $1"; pass=$((pass+1)); }; bad(){ echo "FAIL $1"; fail=$((fail+1)); }
 check(){ local name="$1"; shift; if "$@"; then ok "$name"; else bad "$name"; fi; }
@@ -671,6 +671,10 @@ check "build_report publish-table: колонка «Перепроверка», 
 # ---------- 1.3.0: PSS chart, contact sheet, job stop by the stop file, shared test helpers (tests/v13.sh) ----------
 # shellcheck source=v13.sh
 . "$HERE/v13.sh"
+
+# ---------- 1.5.0: clips of findings — screenrecord, show_touches, rolling, soak --clips-on-crash (tests/v15.sh) ----------
+# shellcheck source=v15.sh
+. "$HERE/v15.sh"
 
 # ---------- documentation: every command example is accepted by argparse (--help only, nothing runs) ----------
 check "примеры команд в SKILL.md, README, INSTALL и references/*.md принимаются скриптами (подкоманды и --опции)" \

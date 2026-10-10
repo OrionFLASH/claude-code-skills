@@ -14,7 +14,7 @@
 8. **Обратная совместимость.** Поле `clips` в находке необязательно; старые находки и прогоны без `clips` работают; параметр `clips` в run-config необязателен (по умолчанию `auto`).
 
 ## Формат данных
-Папка `<RUN_DIR>/clips/` (оба скила): `F-003-menu.mp4`, `F-003-menu.gif` (если ролик ≤ 6 с и GIF влез в 1,5 МБ), `F-003-menu-poster.png`, `F-003-menu-sheet.png`. Сырые исходники: `<RUN_DIR>/recordings/` (android) или временная папка (site); после сжатия удаляются (`clips.keep_raw: true` — оставить).
+Папка `<RUN_DIR>/clips/` (оба скила): `F-003-menu.mp4`, `F-003-menu.gif` (если ролик ≤ 8 с и GIF влез в 1,5 МБ), `F-003-menu-poster.png`, `F-003-menu-sheet.png`. Сырые исходники: `<RUN_DIR>/recordings/` (android) или временная папка (site); после сжатия удаляются (`clips.keep_raw: true` — оставить).
 
 Запись в находке (`findings[].clips[]`, строит `qa_clips.entry`; пути относительно `<RUN_DIR>`):
 ```json
@@ -25,7 +25,7 @@
 ```
 Совместимость: путь ролика дублируется в `findings[].recordings` (поле уже есть в схеме android).
 
-`run-config` (`clips:`, все ключи необязательны): `mode` auto|on|off, `max_seconds` 10, `max_mb` 3, `width` 720, `fps` 12, `format` mp4|gif|both (по умолчанию both), `gif_max_seconds` 6, `gif_max_mb` 1.5, `caption` true, `touches` auto (android), `keep_raw` false, `mask` [] (site).
+`run-config` (`clips:`, все ключи необязательны): `mode` auto|on|off, `max_seconds` 10, `max_mb` 3, `width` 720, `fps` 12, `format` mp4|gif|both (по умолчанию both), `gif_max_seconds` 8, `gif_max_mb` 1.5, `caption` true, `touches` auto (android), `keep_raw` false, `mask` [] (site).
 
 ## Интеграция по слоям (что меняется в скилах)
 | Слой | site-qa-audit 1.7.0 | android-qa-audit 1.5.0 |

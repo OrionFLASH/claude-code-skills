@@ -327,7 +327,7 @@ product-strategy 1.0.0 влит в main, тег запушен, плагин у�
 Запрос: сохранять не только скриншоты, но и короткие ролики без звука (несколько секунд, мало места) — что происходило в момент ошибки или проверки.
 Ветка feature/qa-screencasts. Дизайн: docs/plans/qa-clips-design.md.
 - [x] Дизайн, общее ядро shared/scripts/qa_clips.py (+ тесты shared/tests/qa_clips_check.py), вендоринг в оба скила
-- [ ] site-qa-audit: clip.js, интеграция (находки, отчёт, черновики, публикация, export, check_env, intake, safety), тесты, docs
-- [ ] android-qa-audit: запись screenrecord, буфер для падений, интеграция, тесты, docs
-- [ ] Сведение, validate, тесты обоих скилов, версии, CHANGELOG, INSTALL
+- [x] site-qa-audit 1.7.0: clip.js (page.screencast, CDP), clips.py, интеграция, 84 проверки, docs
+- [x] android-qa-audit 1.5.0: clip-start/stop/rolling, касания, чёрный кадр, 292 проверки, проверено на эмуляторе API 34
+- [x] Сведение, исправления ядра qa_clips (чёрный экран, рамки до масштаба, drawtext, Python 3.8, auto уже), validate, тесты обоих скилов, версии, CHANGELOG, INSTALL
 - [ ] Влить, тег, установить плагины, проверить установленные копии

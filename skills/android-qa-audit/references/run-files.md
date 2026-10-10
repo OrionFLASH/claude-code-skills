@@ -8,12 +8,17 @@ stands.json       созданные AVD, запущенные эмулятор�
 journal.md        журнал для продолжения               findings.json     находки (finding.schema.json)
 matches.json      сверка с issues                     report.md, summary.md
 apk/              копии APK/AAB + SHA256SUMS          screenshots/      снимки экрана (PNG)
-recordings/       видео (screenrecord)                 logs/             logcat-*.txt, actions.jsonl, blocked.jsonl, emulator-*.log
+recordings/       видео (screenrecord) и сырые записи роликов (удаляются после сжатия, clips.keep_raw)
+clips/            ролики находок: F-NNN-….mp4, .gif, -poster.png, -sheet.png (лента кадров), -step-N.png (без ffmpeg) — clips.md
+.gitignore        clips/, recordings/, raw/rolling-*/ — записи экрана не коммитятся (пишется сам)
+logs/             logcat-*.txt, actions.jsonl, blocked.jsonl, emulator-*.log, clip-<serial>.log (вывод screenrecord)
 raw/              ui-*.xml/json, metrics.jsonl (с host — загрузкой хоста), crashes-*.json, findings-<поток>.json, issues-*.json,
                   messages/ (сообщения исполнителей с блоком qa-findings — ingest_findings.py),
                   soak-<tag>-<serial>.jsonl / .json (метрики и сводка долгого прогона), jobs/<id>.json (фоновые задачи),
                   forms/<owner__repo>/ (их формы issue, issue_forms.py), known/ (документы «уже известно», known_docs.py),
-                  .ui-cache-<serial>.json (последнее дерево стенда для tap --no-ui)
+                  .ui-cache-<serial>.json (последнее дерево стенда для tap --no-ui),
+                  clip-<serial>.json (идущая запись: PID, файл на устройстве, прежний show_touches — clips.md),
+                  rolling-<serial>.json и rolling-<serial>/seg-N.mp4 (непрерывная запись clip-rolling, последние сегменты)
 screenshots/      F-NNN-….png, F-NNN-….spec.json (разметка), F-NNN-…-annotated.png (screenshots.md); soak-*.png; before-tap-*.png
 logs/             … job-<id>.log (вывод фоновой задачи), logcat-<serial>.summary.json (logcat stop --summary)
 drafts/           черновики issues (dry-run)
@@ -22,7 +27,7 @@ published/        тела опубликованных issues (прямая п�
 attachments.json  вложения веткой: файлы, ссылки, проверка (attachments.py)
 ```
 Находку без ручного JSON добавляет `finding.py add <RUN_DIR> --title … --severity … --direction … --shot … --mark …` (схема проверяется до записи); `finding.py list` — список и непросмотренные аннотации.
-В `findings.json` у находки: `repro` (как перезапустить проверку), `recheck` (результат независимой перепроверки, `recheck.py`), `legal` (нормы и вторая проверка); в `stands.json` у эмулятора — `owner` (поток).
+В `findings.json` у находки: `repro` (как перезапустить проверку), `recheck` (результат независимой перепроверки, `recheck.py`), `legal` (нормы и вторая проверка), `clips` (ролики: `file`, `gif`, `poster`, `sheet`, `kind` error/ok/note/after, `seconds`, `bytes`, `audio: false`, `caption`, `steps`, `sha256`, `viewed`, `marks`, `warning`; путь дублируется в `recordings`; `finding.py clip` / `clip-viewed`, `clips.md`); в `stands.json` у эмулятора — `owner` (поток).
 Общее для прогонов: память о приложении `<OUTPUT_ROOT>/qa-runs/.app-context/<package>/`.
 
 ## journal.md — продолжение после обрыва
@@ -40,7 +45,7 @@ python3 <SKILL_DIR>/scripts/journal.py status <RUN_DIR>
 python3 <SKILL_DIR>/scripts/build_report.py report <RUN_DIR>
 python3 <SKILL_DIR>/scripts/build_report.py summary <RUN_DIR>
 ```
-`report.md`: шапка (приложение, версия, min/target, стенды, sha256 APK, время, папка), итог (severity, статусы, падения, не проверено, запреты; для `release-gate` — есть ли блокеры), статистика severity × статус, по направлениям, матрица стендов (находки по ячейкам), падения и ANR (из находок и `raw/crashes-*.json`), метрики (`raw/metrics.jsonl`; замеры рядом с другими эмуляторами помечены ⚠), **длинные сценарии** (`raw/soak-*.json`: статус, длительность, итог, PSS, события, нагрузка хоста; недействительные — отдельно), находки, уже известное (`KNOWN` — документ и цитата), пассивная проверка APK (кандидаты), что не проверено, сработавшие запреты (`logs/blocked.jsonl`), публикация. `summary.md` — шапка, итог, статистика, направления и ссылка на `report.md`. Итог в 3–5 строк дописать вручную по `goal.success` (образец — `templates/run-report.md`): `findings` — главные проблемы, `scenarios` — таблица «сценарий — прошёл / нет», `release-gate` — блокеры. Повторный `report` затирает ручные дополнения — дописывать после последней сборки.
+`report.md`: шапка (приложение, версия, min/target, стенды, sha256 APK, время, папка), итог (severity, статусы, падения, не проверено, запреты; для `release-gate` — есть ли блокеры), статистика severity × статус, по направлениям, матрица стендов (находки по ячейкам), падения и ANR (из находок и `raw/crashes-*.json`), метрики (`raw/metrics.jsonl`; замеры рядом с другими эмуляторами помечены ⚠), **длинные сценарии** (`raw/soak-*.json`: статус, длительность, итог, PSS, события, нагрузка хоста; недействительные — отдельно), находки, уже известное (`KNOWN` — документ и цитата), пассивная проверка APK (кандидаты), что не проверено, сработавшие запреты (`logs/blocked.jsonl`), публикация. 1.5.0: **ролики находок** — таблица «находка / вид / длительность / размер / просмотрен / подпись / ссылка», в т.ч. ролики soak `--clips-on-crash`. `summary.md` — шапка, итог, статистика, направления и ссылка на `report.md`. Итог в 3–5 строк дописать вручную по `goal.success` (образец — `templates/run-report.md`): `findings` — главные проблемы, `scenarios` — таблица «сценарий — прошёл / нет», `release-gate` — блокеры. Повторный `report` затирает ручные дополнения — дописывать после последней сборки.
 
 ## Куда записаны итоги (`report_destinations`)
 1. `github` и `artifact` — сначала, чтобы получить ссылки. Перед выходом за пределы машины убрать локальные пути и находки с `evidence.sensitive`. `github` — по `repo-sync.md` §5 (в dry-run — черновик `drafts/<owner__repo>/summary.md`); `artifact` — если в сессии есть инструмент Artifact: страница из `report.md`, иначе «не опубликовано — инструмента нет».
@@ -60,9 +65,9 @@ python3 <SKILL_DIR>/scripts/build_report.py summary <RUN_DIR>
    ```
    | Копируется | Не копируется никогда |
    |------------|-----------------------|
-   | `summary.md`, `report.md`, `findings.json`; скриншоты, на которые ссылаются находки (`findings[].screenshots` из `screenshots/`), с тем же относительным путём | `apk/` (APK, AAB, `SHA256SUMS`), `logs/` (`logcat-*`, `actions.jsonl`, `blocked.jsonl`, журналы эмулятора), `raw/`, `recordings/`, `drafts/`, `journal.md`, `run-config.yaml`, `env.json`, `stands.json`, `rules.json`, прочие скриншоты |
+   | `summary.md`, `report.md`, `findings.json`; скриншоты, на которые ссылаются находки (`findings[].screenshots` из `screenshots/`), с тем же относительным путём; ролики находок (`findings[].clips`: mp4, GIF, постер) в `clips/` | `apk/` (APK, AAB, `SHA256SUMS`), `logs/` (`logcat-*`, `actions.jsonl`, `blocked.jsonl`, журналы эмулятора), `raw/`, `recordings/`, `drafts/`, `journal.md`, `run-config.yaml`, `env.json`, `stands.json`, `rules.json`, прочие скриншоты |
 
-   `--screenshots all` — все изображения из `screenshots/`, `none` — без них. Одноимённый файл с другим содержимым не перезаписывается: код 1 и список → спросить «Перезаписать» (`--overwrite`) / «Другое имя» (`--name`); одинаковые файлы пропускаются. Последняя строка вывода — готовая строка для «Куда записаны итоги». `.gitignore` в папке назначения не трогается: это место, которое выбрал пользователь. `custom` — только после подтверждения.
+   `--screenshots all` — все изображения из `screenshots/`, `none` — без них; `--clips referenced` (по умолчанию) / `all` (вся папка `clips/`) / `none`. Одноимённый файл с другим содержимым не перезаписывается: код 1 и список → спросить «Перезаписать» (`--overwrite`) / «Другое имя» (`--name`); одинаковые файлы пропускаются. Последняя строка вывода — готовая строка для «Куда записаны итоги». `.gitignore` в папке назначения не трогается: это место, которое выбрал пользователь. `custom` — только после подтверждения.
 4. `journal.py note <RUN_DIR> "итоги: …"`.
 
 ## Память о приложении (`.app-context/<package>/`)
@@ -103,7 +108,7 @@ python3 <SKILL_DIR>/scripts/gitignore_helper.py check <OUTPUT_ROOT> --json      
 ## Уборка
 1. `adb_helpers.py logcat stop` на каждом стенде (файл маскируется).
 2. Вернуть настройки вариаций (`device-matrix.json → variants.*.reset`), особенно на реальных устройствах; `battery reset`, `animations on`.
-3. Вопрос (один, SKILL.md шаг 13): «Остановить эмуляторы, AVD qa-* оставить (Recommended)» / «Остановить и удалить AVD qa-*, созданные прогоном» / «Удалить ещё копии APK и видео прогона» / «Ничего не трогать» → `avd_manager.py cleanup --run-dir <RUN_DIR> --stop [--delete-avds] [--delete-apk-copies] [--delete-recordings]` — сначала план, затем `--yes`. AVD пользователя и эмуляторы, запущенные не этим прогоном, не трогаются никогда.
+3. Вопрос (один, SKILL.md шаг 13): «Остановить эмуляторы, AVD qa-* оставить (Recommended)» / «Остановить и удалить AVD qa-*, созданные прогоном» / «Удалить ещё копии APK и видео прогона» / «Ничего не трогать» → `avd_manager.py cleanup --run-dir <RUN_DIR> --stop [--delete-avds] [--delete-apk-copies] [--delete-recordings]` — сначала план, затем `--yes`. AVD пользователя и эмуляторы, запущенные не этим прогоном, не трогаются никогда. Первым пунктом плана — незавершённые записи роликов (`raw/clip-*.json`, `raw/rolling-*.json`): запись останавливается, `show_touches` возвращается; `--delete-recordings` удаляет `recordings/`, сегменты `raw/rolling-*/` и файлы `clips/`, на которые не ссылаются находки и soak (ролики находок — результат, остаются).
 4. Ответ можно запомнить на будущее: `stands.cleanup: keep | delete-run-avds` в конфиге (при повторе прогона — без вопроса, но с показом плана).
 5. Тестируемое приложение на реальном устройстве — удалить только если его поставил прогон и пользователь согласен.
 6. `journal.py done <RUN_DIR> "Отчёт"` и запись о завершении.

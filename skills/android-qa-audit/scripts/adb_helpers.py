@@ -23,6 +23,10 @@ Permissions:      permissions [PKG] | grant PERM [PKG] | revoke PERM [PKG] | not
 Logs and metrics: logcat start|stop|dump|clear [--out F] [--package P] [--all] [--lines N] | crashes [PKG] |
                   meminfo [PKG] | gfxinfo [PKG] [--reset] | start-time [PKG] [--mode cold|warm|hot] [--runs 5] |
                   batterystats [PKG] [--reset] | size [PKG] | monkey [PKG] --events 500 --seed 42 [--throttle 300]
+Clips (1.5.0, references/clips.md; short silent screencasts of findings, scripts/clip_android.py):
+                  clip-start --name N [--seconds 10] [--size 720] [--bit-rate 2000000] [--touches auto|on|off] |
+                  clip-stop [--finding F-003 --caption "…" --kind error|ok|note|after] [--mark …] [--force] [--restore-only] |
+                  clip --name N [--seconds 8] … -- <step> --then <step> … | clip-rolling start|save|stop|status
 Exit codes: 0 ok, 2 needs confirmation / bad input, 3 denied by guard, 4 not supported on this device, 5 failed,
 6 guard unavailable (FAIL CLOSED: --config missing or broken, bad rule, guard error) — nothing was executed, STOP.
 """
@@ -2231,9 +2235,15 @@ def cmd_job(c):
     soak.job(c, sys.modules[__name__])
 
 
+def cmd_clip(c):
+    import clip_android
+    clip_android.dispatch(c, sys.modules[__name__])
+
+
 # ---------- CLI ----------
 
-def main():
+def build_parser():
+    """The CLI parser (also parses the steps of `clip … -- <step> --then <step>`)."""
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--serial")
     common.add_argument("--run-dir")
@@ -2422,6 +2432,10 @@ def main():
     p.add_argument("--expect-minutes", type=float, help="ожидаемая длительность итога, если не равна --minutes")
     p.add_argument("--result-file", help="файл итога на устройстве (общая папка, можно * ?): длительность ≈ --minutes")
     p.add_argument("--tolerance", type=float, default=0.05, help="допуск длительности (доля, не меньше 30 с)")
+    p.add_argument("--clips-on-crash", action="store_true",
+                   help="непрерывная запись экрана сегментами (clip-rolling); падение или ANR — ролик последних секунд в clips/")
+    p.add_argument("--clips-segment", type=float, default=8, help="длина сегмента записи, с (--clips-on-crash)")
+    p.add_argument("--clips-last", type=float, help="сколько последних секунд в ролике (по умолчанию clips.max_seconds)")
     p = add("job", cmd_job)
     p.add_argument("action", choices=["start", "status", "list", "stop", "log"])
     p.add_argument("id", nargs="?")
@@ -2432,8 +2446,15 @@ def main():
     p.epilog = "job start [--name N] --serial S --run-dir R -- <подкоманда adb_helpers.py и её аргументы>"
     p = sub.add_parser("job-run")  # internal: started by job start
     p.add_argument("--job-file", required=True)
+    import clip_android  # 1.5.0: clip-start / clip-stop / clip / clip-rolling (references/clips.md)
+    clip_android.register(add, sub, common, cmd_clip)
+    return ap
+
+
+def main():
+    ap = build_parser()
     argv, job_cmd = sys.argv[1:], []
-    if argv[:1] == ["job"] and "--" in argv:  # everything after «--» is the job's own command line
+    if argv[:1] in (["job"], ["clip"]) and "--" in argv:  # after «--»: the job's command line / the clip's steps
         k = argv.index("--")
         argv, job_cmd = argv[:k], argv[k + 1:]
     a = ap.parse_args(argv)

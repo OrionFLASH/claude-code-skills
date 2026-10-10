@@ -5,6 +5,8 @@ annotate.js: copies --in to --out (a PNG) and prints the report annotate.js prin
 outside the picture and covers another box (to test the warnings). The spec is saved for inspection.
 sheet.js --spec sheet.json: writes one tiny PNG per `per` items (out, or out-1.png, out-2.png …) and prints
 {"sheets": [...]}; FAKE_NODE_BAD=1 — exit 1 without output.
+plaque.js --spec plaque.json (1.5.0, clip captions): writes a small opaque PNG (40×12) to "out" and prints
+{"out", "width", "height"}; FAKE_NODE_BAD=1 — exit 1.
 """
 import json
 import os
@@ -42,9 +44,27 @@ def sheet():
     print(json.dumps({"sheets": sheets}))
 
 
+def plaque():
+    spec = json.load(open(arg("--spec"), encoding="utf-8"))
+    if os.environ.get("FAKE_NODE_BAD") == "1":
+        sys.stderr.write("chromium crashed\n")
+        sys.exit(1)
+    w, h = 40, 12
+
+    def chunk(t, d):
+        return struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xFFFFFFFF)
+    raw = b"".join(b"\x00" + b"\x20\x20\x20\xc0" * w for _ in range(h))
+    with open(spec["out"], "wb") as f:
+        f.write(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 6, 0, 0, 0))
+                + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
+    print(json.dumps({"out": spec["out"], "width": w, "height": h, "lines": len(spec.get("lines") or [])}))
+
+
 def main():
     if len(sys.argv) > 1 and sys.argv[1].endswith("sheet.js"):
         return sheet()
+    if len(sys.argv) > 1 and sys.argv[1].endswith("plaque.js"):
+        return plaque()
     src, spec, out = arg("--in"), arg("--spec"), arg("--out")
     data = json.load(open(spec, encoding="utf-8"))
     shutil.copyfile(src, out)

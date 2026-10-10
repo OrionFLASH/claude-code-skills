@@ -284,6 +284,43 @@
           },
           "description": "Пути относительно папки прогона"
         },
+        "clips": {
+          "type": "array",
+          "description": "Короткие ролики без звука (1.7.0, references/clips.md): записи clip.js / clips.py finalize или пути clips/….mp4 (ingest_findings.py превращает путь в запись). В черновики и публикацию — только viewed: true",
+          "items": {
+            "type": ["object", "string"],
+            "required": ["file"],
+            "properties": {
+              "file": {"type": "string", "description": "clips/F-NNN-кратко.mp4 (относительно папки прогона)"},
+              "gif": {"type": ["string", "null"]},
+              "poster": {"type": ["string", "null"]},
+              "sheet": {"type": ["string", "null"], "description": "лента кадров — её смотрят (Read) перед viewed: true"},
+              "kind": {"enum": ["error", "ok", "note", "after"]},
+              "seconds": {"type": ["number", "null"]},
+              "bytes": {"type": ["integer", "null"]},
+              "width": {"type": ["integer", "null"]},
+              "height": {"type": ["integer", "null"]},
+              "fps": {"type": ["number", "null"]},
+              "codec": {"type": ["string", "null"]},
+              "audio": {"type": "boolean"},
+              "caption": {"type": "string", "maxLength": 200},
+              "steps": {"type": "array", "items": {"type": "string"}},
+              "encoder": {"type": ["string", "null"]},
+              "sha256": {"type": ["string", "null"]},
+              "viewed": {"type": "boolean"},
+              "viewed_at": {"type": "string"},
+              "created": {"type": "string"},
+              "warning": {"type": "string"}
+            }
+          }
+        },
+        "recordings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Пути роликов (дубль clips[].file для совместимости со схемой android-qa-audit)"
+        },
         "console": {
           "type": "array",
           "items": {

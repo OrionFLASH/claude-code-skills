@@ -72,7 +72,9 @@ export function preparePlaceholders(body, shots) {
   for (const shot of shots) {
     const name = path.basename(shot);
     const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    out = out.replace(new RegExp(`!\\[[^\\]]*\\]\\([^)\\s]*${esc}(?:\\?[^)\\s]*)?\\)`, 'g'), tokenFor(name));
+    // a clip (1.7.0): the link «[▶ ролик, 6 с, 0,4 МБ](…/F-004.mp4)» becomes the placeholder too (GitHub shows a player)
+    const bang = isVideo(name) ? '!?' : '!';
+    out = out.replace(new RegExp(`${bang}\\[[^\\]]*\\]\\([^)\\s]*${esc}(?:\\?[^)\\s]*)?\\)`, 'g'), tokenFor(name));
     if (!out.includes(tokenFor(name))) {
       const m = out.match(/\n?<!-- site-qa-audit:[^>]*-->\s*$/);
       out = m ? out.slice(0, m.index) + `\n\n${tokenFor(name)}\n` + m[0] : `${out.replace(/\s*$/, '')}\n\n${tokenFor(name)}\n`;
@@ -284,7 +286,8 @@ export async function uploadOne(page, box, file, { timeoutMs = 60000 } = {}) {
       // the full snippet: <img ... src="url" ... /> or ![alt](url)
       const esc = url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const m = val.match(new RegExp(`<img[^>]*${esc}[^>]*>`)) || val.match(new RegExp(`!\\[[^\\]]*\\]\\(${esc}\\)`)) || val.match(new RegExp(`\\[[^\\]]*\\]\\(${esc}\\)`));
-      return { url, snippet: m ? m[0] : `![${path.basename(file)}](${url})` };
+      // a video is inserted as a bare link (GitHub renders a player); an image without a snippet — as ![](url)
+      return { url, snippet: m ? m[0] : isVideo(file) ? `\n${url}\n` : `![${path.basename(file)}](${url})` };
     }
     await sleep(250);
   }
@@ -328,11 +331,22 @@ export function readText(file, what) {
   catch (e) { throw new StopError(EXIT.USAGE, `Не удалось прочитать ${what} (${file}): ${e.code || e.message}`); }
 }
 
-export function checkShots(shots) {
+export const isVideo = (f) => /\.(mp4|mov|webm)$/i.test(String(f));
+// GitHub attachment limit: 10 MB for images and videos on the free plan (100 MB for videos on paid plans) —
+// checked before the browser is touched; --max-attach-mb raises it when the user knows the plan allows more.
+export const ATTACH_LIMIT_MB = 10;
+
+export function checkShots(shots, maxMb = ATTACH_LIMIT_MB) {
   if (!shots.length) throw new StopError(EXIT.USAGE, 'Нужен хотя бы один --shot <файл.png> (для публикации без картинок используйте gh напрямую).');
   for (const s of shots) {
     if (!fs.existsSync(s)) throw new StopError(EXIT.USAGE, `Файл скриншота не найден: ${s}`);
-    if (!/\.(png|jpe?g|gif|webp|mp4|mov)$/i.test(s)) throw new StopError(EXIT.USAGE, `Неподдерживаемый тип файла для вложения: ${s}`);
+    if (!/\.(png|jpe?g|gif|webp|mp4|mov|webm)$/i.test(s)) throw new StopError(EXIT.USAGE, `Неподдерживаемый тип файла для вложения: ${s}`);
+    const mb = fs.statSync(s).size / 1048576;
+    if (mb > maxMb) {
+      throw new StopError(EXIT.USAGE, `${path.basename(s)} — ${mb.toFixed(1)} МБ: GitHub принимает вложения до ${maxMb} МБ. ` +
+        (isVideo(s) ? 'Сократите ролик (clips.py finalize … --max-mb 3 или короче --seconds в clip.js) или опубликуйте ссылкой из ветки ' +
+          '(publish_shots.py push). Ничего не загружено.' : 'Уменьшите изображение. Ничего не загружено.'));
+    }
   }
   const names = shots.map(s => path.basename(s));
   const dup = names.find((n, i) => names.indexOf(n) !== i);

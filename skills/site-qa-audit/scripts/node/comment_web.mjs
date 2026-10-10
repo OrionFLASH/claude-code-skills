@@ -18,6 +18,8 @@
 //        [--issue-url-template "{base}/{repo}/issues/{number}"] [--gh gh] [--upload-timeout 60000]
 //        [--throttle 1500] [--blocked-log <run>/logs/blocked.jsonl] [--out result.json] [--confirm-publish]
 //   node comment_web.mjs --verify-only --repo owner/repo --number 12 --nonce <hex> --expect 1
+//   Clips (1.7.0): --shot may be a .mp4 / .mov / .webm (GitHub shows a player); a file over 10 MB stops the run before
+//   the browser is touched ([--max-attach-mb N] when the plan allows more).
 import path from 'node:path';
 import * as L from './web_upload_lib.mjs';
 
@@ -55,7 +57,7 @@ async function main() {
   const throttle = Number(a.throttle ?? 1500);
   const uploadTimeout = Number(a['upload-timeout'] ?? 60000);
   const shots = a.shot.map(s => path.resolve(s));
-  L.checkShots(shots);
+  L.checkShots(shots, (a['max-attach-mb'] && a['max-attach-mb'] !== true ? Number(a['max-attach-mb']) : L.ATTACH_LIMIT_MB) || L.ATTACH_LIMIT_MB);
   const nonce = L.nonce();
   let body = L.preparePlaceholders(L.readText(a['body-file'], '--body-file'), shots).replace(/\s*$/, '');
   body += `\n${nonceMarker(nonce)}\n`;
