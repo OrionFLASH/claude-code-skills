@@ -241,19 +241,22 @@ def test_shoot_mockups_discovery_and_parallel_merge(mock_out):
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) for key in ("M02-b", "M03-c")]
     outs = [p.communicate(timeout=240) for p in procs]
     assert all(p.returncode == 0 for p in procs), outs
+    # --only не пишет общие файлы — только mockups-check.<ключ>.json (новые HTML находятся в памяти)
+    idx = json.loads((mock_out / "data" / "mockups-index.json").read_text(encoding="utf-8"))
+    assert [i["key"] for i in idx] == ["M01-a"]
+    assert not (mock_out / "data" / "mockups-check.json").exists()
+    rec2 = json.loads((mock_out / "data" / "mockups-check.M02-b.json").read_text(encoding="utf-8"))
+    assert rec2["ok"] and rec2["viewport"] == "390x844" and (mock_out / "data" / "mockups-check.M03-c.json").exists()
+    r = node("shoot_mockups.mjs", mock_out)                                                   # оркестратор после волны
+    assert r.returncode == 0, r.stdout + r.stderr
     idx = json.loads((mock_out / "data" / "mockups-index.json").read_text(encoding="utf-8"))
     keys = [i["key"] for i in idx]
     assert keys.count("M02-b") == 1 and keys.count("M03-c") == 1 and "_base" not in keys and len(idx) == 3
     m1 = idx[0]
-    assert m1["title"] == "Заголовок владельца" and m1["proposals"] == ["P009"]                 # существующая запись не тронута
+    assert m1["title"] == "Заголовок владельца" and m1["proposals"] == ["P009"]                 # ручная запись не тронута
     m2 = next(i for i in idx if i["key"] == "M02-b")
     assert m2["viewport"] == "390x844" and m2["proposals"] == ["P001", "P002"] and m2["title"] == "Второй макет"
     assert next(i for i in idx if i["key"] == "M03-c")["viewport"] == "390x844"
-    chk = json.loads((mock_out / "data" / "mockups-check.json").read_text(encoding="utf-8"))
-    assert {i["key"] for i in chk["items"]} == {"M02-b", "M03-c"} and chk["summary"]["not_shot"] == 1
-    assert (mock_out / "data" / "mockups-check.M02-b.json").exists() and (mock_out / "data" / "mockups-check.M03-c.json").exists()
-    r = node("shoot_mockups.mjs", mock_out, "--only", "M01-a")
-    assert r.returncode == 0, r.stdout + r.stderr
     chk = json.loads((mock_out / "data" / "mockups-check.json").read_text(encoding="utf-8"))
     assert {i["key"] for i in chk["items"]} == {"M01-a", "M02-b", "M03-c"} and chk["summary"]["ok"] == 3
     assert not list((mock_out / "data").glob("*.tmp")) and not (mock_out / "data" / ".mockups.lock").exists()

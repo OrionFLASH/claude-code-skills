@@ -8,10 +8,12 @@
 // Ctrl+колесо, стрелки, Esc, #lb=key), зоны (hotspots) референсов, слои (лайтбокс поверх модалки, Esc — верхний слой,
 // блокировка прокрутки), модалки Ганта/Kanban/узла схемы, поиск и фильтр конкурентов, scrollspy, тему, авторство,
 // отсутствие горизонтального переполнения на 390 px.
-// Геометрия (1440×900 и 390×844, Chromium и WebKit): раскрывает КАЖДУЮ строку реестра и меряет её — строка
-// display:table-row, высота < --max-row-height (2500 px), столбец значения dl.kv ≥ 120 px, секция ≥ 200 px, карточка в
-// видимой части реестра, ничего не торчит из карточки, нет заголовка-«сироты» внизу колонки; карточка в окне P-id —
-// те же правила; таблицы: на 1440 не шире рамки, последняя колонка не обрезана, на 390 — прокрутка внутри рамки;
+// Геометрия (1440×900, 820×1180 и 390×844, Chromium и WebKit): раскрывает КАЖДУЮ строку реестра и меряет её — строка
+// display:table-row, столбец значения dl.kv ≥ 120 px, секция ≥ 200 px, карточка в видимой части реестра, ничего не торчит
+// из карточки, нет заголовка-«сироты» внизу колонки; высота ≥ --max-row-height (2500 px) — ПРЕДУПРЕЖДЕНИЕ (статус warn), не
+// провал; карточка в окне P-id — те же правила; таблицы: на 1440 не шире рамки, последняя колонка не обрезана, на 820/390 —
+// прокрутка внутри рамки; на 1440 — предупреждение «пустая область» (колонка > 40 % ширины таблицы при медиане текста < 20
+// знаков, если таблица упирается в рамку);
 // Гант: подписи месяцев не обрезаны, ромбы вех внутри диаграммы; ширина документа ≤ ширины окна.
 // Контраст ≥ 4,5:1 (крупный текст ≥ 3:1) по computed color для бейджей, тегов, подписей, ссылок — в светлой, тёмной и
 // «авто» при тёмной системной теме. WebKit берётся из playwright или из кэша ~/Library/Caches/ms-playwright
@@ -21,10 +23,23 @@
 // линией «Сегодня» внутри диаграммы на 1440 и 390 px, модалка задачи со статусами, переключатель Kanban «Как в плане / По
 // фактам», ссылки только https://github.com/, контраст статусных чипов в трёх темах, нет переполнения на 390 px.
 // Раздела нет — эти проверки «skip» по условию (страница без прогресса), --require all их не требует.
+// Интерактивные графики (charts/<ключ>.meta.json → встроенный SVG с панелью пояснений; references/interactive-site.md, 2.3–2.4):
+// все графики смонтированы (site: assets/charts-*.js подгружены), у каждого «Как читать график», элементы ↔ пояснения 1:1, одна
+// остановка Tab на график; клик по выборке элементов (≤ 40 на график, у маленьких — все) открывает непустую панель, плюс клики
+// мышью; клавиатура (→ без панели двигает фокус, Enter/Space открывают, ←/→ по кругу, Esc закрывает и возвращает фокус); при печати
+// панель скрыта; легенда подсвечивает группу, подпись data-ps-ref открывает элемент, подсказка при наведении; каждая уникальная
+// ссылка из пояснений разрешается роутером и ведёт к видимой цели (и по 2 ссылки каждого вида — настоящим кликом в панели);
+// глубокая ссылка #chart/<ключ>/<id> после загрузки; на 390 px — нижний лист без горизонтальной прокрутки; контраст панели в
+// трёх темах и контура выбранного элемента ≥ 3:1. В WebKit и Firefox (если запускается) — клик, →, Esc и ссылка из панели.
 // Lite-страница (build_html.py --lite): картинки assets/ рядом со страницей существуют и грузятся; локальные файлы
 // разрешены только внутри папки страницы, всё прочее — «внешний запрос».
+// Сайт (build_html.py по умолчанию, режим site: index.html + assets/ + data/): передайте deliverables/index.html или <OUT>.
+// Те же проверки, что для single, плюс: страница открыта по file://, все ссылки assets/* (css, js, img, миниатюры) существуют,
+// нет инлайн-скриптов (CSP script-src 'self'), нарушений CSP, 404 и ошибок консоли, внешних запросов 0, data/*.csv|json на
+// месте и совпадают с реестром страницы; размеры: index.html > 1 МБ — предупреждение, сайт > 25 МБ — совет. Загрузка по file://
+// проверяется отдельно в каждом доступном движке (Chromium, WebKit, Firefox); итог печатается списком «проверено на: …».
 // Нет данных для проверки — она «skip» (не провал), если не перечислена в --require (all — любая пропущенная проверка
-// данных считается провалом).
+// данных считается провалом). Статус «warn» — предупреждение (итог «пройдено с предупреждениями», код выхода 0).
 //
 // Playwright ищется так: --node-dir, env PS_NODE_DIR, <OUT>/build/node, ~/.cache/product-strategy/node, папка скрипта (<dir>/node_modules).
 // Ничего не ставится глобально. Коды выхода: 0 — всё прошло; 1 — есть провалы; 2 — неверные аргументы или нет файла;
@@ -37,11 +52,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const SKILL_DIR = path.resolve(SCRIPT_DIR, '..', '..');
-const USAGE = 'node smoke_html.mjs <index.html | OUT> [--node-dir <dir>] [--require all|a,b] [--engines chromium,webkit] '
+const USAGE = 'node smoke_html.mjs <index.html | OUT> [--node-dir <dir>] [--require all|a,b] [--engines chromium,webkit,firefox] '
   + '[--max-row-height 2500] [--shots <dir>] [--json] [--headed]';
 
 function parseArgs(argv) {
-  const a = { target: null, nodeDir: null, require: [], shots: null, json: false, headed: false, engines: ['chromium', 'webkit'], maxRowH: 2500 };
+  const a = { target: null, nodeDir: null, require: [], shots: null, json: false, headed: false, engines: ['chromium', 'webkit', 'firefox'], maxRowH: 2500 };
   for (let i = 0; i < argv.length; i++) {
     const x = argv[i];
     if (x === '--node-dir') a.nodeDir = argv[++i];
@@ -92,11 +107,27 @@ const PAGE_DIR = path.dirname(HTML);
 const errors = [], external = [];
 const localFiles = new Set();
 const checks = [];
+let IS_SITE = false;
 const counts = {};
 const SKIP = (reason, env) => ({ skip: reason, env: !!env });
 const OK = (detail) => ({ ok: true, detail });
 const FAIL = (detail) => ({ ok: false, detail });
+const WARN = (detail) => ({ ok: true, warn: true, detail });   // предупреждение: не провал, но в итоге отдельной строкой
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+// скрипт, который Playwright добавляет в каждую страницу: единый доступ к данным (site: window.PS_DATA; single: <script type=application/json>)
+// и сбор нарушений CSP (securitypolicyviolation)
+const INIT = () => {
+  window.__psData = id => {
+    const D = window.PS_DATA;
+    if (D && Object.prototype.hasOwnProperty.call(D, id)) return D[id];
+    const e = document.getElementById(id);
+    try { return e ? JSON.parse(e.textContent) : null; } catch (x) { return null; }
+  };
+  window.__cspv = [];
+  document.addEventListener('securitypolicyviolation', e => window.__cspv.push((e.violatedDirective || '') + ' ' + (e.blockedURI || '')));
+};
+const warnings = [];       // советы и предупреждения (не провалы)
+const engines = [];        // {name, version, status: tested|unavailable, scope: [...], note}
 
 function watch(page, tag) {
   page.on('pageerror', e => errors.push(tag + ' pageerror: ' + String(e.message || e).split('\n')[0]));
@@ -144,7 +175,7 @@ async function check(page, name, fn) {
   let res;
   try { res = await fn(); } catch (e) { res = FAIL(String((e && e.message) || e).split('\n')[0]); }
   try { await closeLayers(page); } catch (e) { /* страница могла закрыться */ }
-  const status = res && res.skip ? 'skip' : res && res.ok ? 'pass' : 'fail';
+  const status = res && res.skip ? 'skip' : res && res.ok ? (res.warn ? 'warn' : 'pass') : 'fail';
   const item = { name, status, detail: res ? (res.skip || res.detail || '') : '' };
   if (res && res.env) item.env = true;    // пропуск из-за окружения (нет WebKit), а не из-за данных
   if (res && res.data) item.data = res.data;
@@ -158,6 +189,7 @@ async function shot(page, name) {
 }
 
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, acceptDownloads: true });
+await ctx.addInitScript(INIT);
 const page = await ctx.newPage();
 page.setDefaultTimeout(10000);
 watch(page, 'desktop');
@@ -171,7 +203,7 @@ await check(page, 'counts', async () => {
     nav: document.querySelectorAll('nav.side a[data-sec]').length,
     rows: document.querySelectorAll('#tb tr.row').length,
     figures: document.querySelectorAll('figure.lb').length,
-    images: Object.keys(JSON.parse((document.getElementById('d-img') || { textContent: '{}' }).textContent)).length,
+    images: Object.keys(window.__psData('d-img') || {}).length,
     pid_links: document.querySelectorAll('a.pid').length,
     gantt_rows: document.querySelectorAll('.grow[data-g]').length,
     kanban_cards: document.querySelectorAll('.kcard[data-k]').length,
@@ -179,11 +211,18 @@ await check(page, 'counts', async () => {
     refcards: document.querySelectorAll('article.ref').length,
     competitors: document.querySelectorAll('.ccard').length,
     csp: !!document.querySelector('meta[http-equiv="Content-Security-Policy"][content*="default-src \'none\'"]'),
+    site: !!window.PS_DATA && !!document.querySelector('script[src*="data.js"]'),
+    referrer: !!document.querySelector('meta[name="referrer"][content="no-referrer"]'),
   })));
   if (!counts.sections) return FAIL('нет разделов main > section');
   if (counts.nav !== counts.sections) return FAIL(`ссылок навигации ${counts.nav}, разделов ${counts.sections}`);
-  if (!counts.csp) return FAIL('нет CSP default-src none');
-  return OK(`разделов ${counts.sections}, строк ${counts.rows}, фигур ${counts.figures}, P-ссылок ${counts.pid_links}`);
+  if (!counts.csp) {
+    // site без CSP-мета допустим только как запасной вариант (--site-csp none): referrer no-referrer и «внешних запросов 0»
+    if (!(counts.site && counts.referrer)) return FAIL('нет CSP default-src none');
+    warnings.push('страница site собрана без CSP-мета (запасной вариант --site-csp none): защита — referrer no-referrer и проверка «внешних запросов 0»');
+  }
+  IS_SITE = counts.site;
+  return OK(`режим ${counts.site ? 'site' : 'single/lite'}, разделов ${counts.sections}, строк ${counts.rows}, фигур ${counts.figures}, P-ссылок ${counts.pid_links}`);
 });
 await shot(page, 'desktop-top');
 
@@ -323,7 +362,7 @@ await check(page, 'pid-modal', async () => {
 // ---------------------------------------------------------------- P-ссылки в тексте, который рисует скрипт (карточка)
 await check(page, 'pid-dynamic', async () => {
   const t = await page.evaluate(() => {
-    const reg = JSON.parse(document.getElementById('d-registry').textContent || '[]'), ids = new Set(reg.map(r => r.id));
+    const reg = (window.__psData('d-registry') || []), ids = new Set(reg.map(r => r.id));
     for (const r of reg) { for (const f of ['description', 'rationale', 'cheap_test', 'current_feature']) {
       const m = String(r[f] || '').match(/P\d{3}/g) || []; const hit = m.find(x => ids.has(x) && x !== r.id); if (hit) return { id: r.id, ref: hit }; } }
     return null;
@@ -426,8 +465,8 @@ await check(page, 'hotspot', async () => {
 // ---------------------------------------------------------------- слои: лайтбокс поверх модалки
 await check(page, 'layers', async () => {
   const id = await page.evaluate(() => {
-    const reg = JSON.parse(document.getElementById('d-registry').textContent || '[]');
-    const img = JSON.parse(document.getElementById('d-img').textContent || '{}');
+    const reg = (window.__psData('d-registry') || []);
+    const img = (window.__psData('d-img') || {});
     const r = reg.find(x => (x.concepts || []).some(c => c.img && img[c.img]));
     return r ? r.id : null;
   });
@@ -547,7 +586,7 @@ async function pgLinks(p) {   // внешние ссылки блоков про
       const h = a.getAttribute('href') || ''; if (seen.has(a)) return; seen.add(a);
       if (/^[a-z][a-z0-9+.-]*:/i.test(h) && !/^https:\/\/github\.com\//.test(h)) bad.push(h.slice(0, 80));
     }));
-    const reg = JSON.parse((document.getElementById('d-registry') || { textContent: '[]' }).textContent);
+    const reg = (window.__psData('d-registry') || []);
     let n = 0;
     for (const r of reg) { const g = r.pg; if (!g) continue;
       for (const x of [...(g.issues || []), ...(g.prs || []), ...(g.commits || [])]) { if (!x.url) continue; n++; if (!/^https:\/\/github\.com\//.test(x.url)) bad.push('data: ' + x.url.slice(0, 80)); } }
@@ -618,7 +657,7 @@ await check(page, 'progress-registry', async () => {
   for (const q of ['notdone', 'work', 'behind']) {
     const b = page.locator(`#registry [data-qf="${q}"]`); if (!await b.count()) return FAIL('нет быстрого фильтра ' + q);
     await b.click(); await sleep(30);
-    const r = await page.evaluate(q => { const reg = Object.fromEntries(JSON.parse(document.getElementById('d-registry').textContent).map(x => [x.id, x]));
+    const r = await page.evaluate(q => { const reg = Object.fromEntries(window.__psData('d-registry').map(x => [x.id, x]));
       const rows = [...document.querySelectorAll('#tb tr.row')].map(x => reg[x.dataset.id]);
       const ok = rows.every(x => q === 'notdone' ? x.status && !['done', 'dropped', 'obsolete'].includes(x.status) : q === 'work' ? ['in_progress', 'partial'].includes(x.status) : (x.pg && x.pg.behind || []).length > 0);
       return { n: rows.length, ok, pressed: document.querySelector(`#registry [data-qf="${q}"]`).getAttribute('aria-pressed') }; }, q);
@@ -640,7 +679,7 @@ await check(page, 'progress-registry', async () => {
 });
 await check(page, 'progress-card', async () => {
   if (!HAS_PG) return SKIP(NO_PG, true);
-  const id = await page.evaluate(() => { const reg = JSON.parse(document.getElementById('d-registry').textContent);
+  const id = await page.evaluate(() => { const reg = window.__psData('d-registry');
     const r = reg.find(x => x.pg && (x.pg.issues || []).length && (x.pg.commits || []).length) || reg.find(x => x.pg); return r ? r.id : null; });
   if (!id) return FAIL('ни у одного предложения нет данных выполнения');
   await page.evaluate(id => { location.hash = '#p=' + id; }, id);
@@ -700,8 +739,239 @@ await check(page, 'progress-links', async () => {
   return OK(`ссылок в блоках прогресса ${l.links}, ссылок в данных ${l.dataLinks} — все https://github.com/ или внутренние`);
 });
 
+// ---------------------------------------------------------------- интерактивные графики (references/interactive-site.md, 2.3–2.4)
+// Графики с charts/<ключ>.meta.json — встроенный SVG (site: подгружается из assets/charts-<группа>.js). Клик по выборке элементов
+// (все у графиков ≤ 40 элементов, иначе 40 равномерно; полный обход — tests/test_charts_ui.py) открывает непустую панель; настоящие
+// клики мышью по точке, где элемент сверху; клавиатура (Enter, ←/→, Esc возвращает фокус); подпись-ссылка и легенда; «Как читать
+// график»; подсказка при наведении; все ссылки из пояснений разрешаются и ведут к видимой цели; глубокая ссылка #chart/<ключ>/<id>.
+const CH_SAMPLE = 40;
+// Нет интерактивных графиков (старый прогон без meta или графиков нет) — «skip» по условию, как у прогресса: --require all его не требует
+// (сборщик в этом случае печатает предупреждение «графики без пояснений»).
+const NO_CH = 'нет интерактивных графиков (нет charts/<ключ>.meta.json — графики статичные или их нет)';
+const HAS_CH = (await page.locator('figure.ps-ichart').count()) > 0;
+async function chartsReady(p) {
+  return p.evaluate(() => new Promise(res => { if (!window.PS_ROUTER) { res(false); return; } const t = setTimeout(() => res(false), 20000); PS_ROUTER.loadAll(() => { clearTimeout(t); res(true); }); }));
+}
+function chartsInPage() {     // по одному экземпляру на ключ (основной — в разделе «Графики»)
+  const figs = [...document.querySelectorAll('figure.ps-ichart')], seen = new Set(), out = [];
+  for (const f of figs.filter(x => x.classList.contains('ps-primary')).concat(figs)) {
+    const key = f.dataset.chart; if (seen.has(key)) continue; seen.add(key);
+    const svg = f.querySelector('svg[data-ps-chart]'), meta = PS_ROUTER.meta(key) || {};
+    const ids = svg ? [...svg.querySelectorAll('.ps-el[data-ps-el]')].map(e => e.getAttribute('data-ps-el')) : [];
+    const mids = (meta.elements || []).map(e => e.id);
+    out.push({ key, ids: mids, n: ids.length, ready: f.classList.contains('ps-ready'), howto: ((f.querySelector('.ps-howto') || {}).textContent || '').trim().length,
+      noMeta: ids.filter(i => !mids.includes(i)), noEl: mids.filter(i => !ids.includes(i)), img: !!f.querySelector('img'),
+      tabstops: svg ? svg.querySelectorAll('.ps-el[tabindex="0"]').length : 0, svgKey: svg ? svg.getAttribute('data-ps-chart') : null });
+  }
+  return { figs: figs.length, charts: out };
+}
+const sampleIds = ids => ids.length <= CH_SAMPLE ? ids : Array.from({ length: CH_SAMPLE }, (_, i) => ids[Math.round(i * (ids.length - 1) / (CH_SAMPLE - 1))]);
+function clickInPage({ key, ids }) {      // синтетический клик (делегированный обработчик) → панель
+  const q = s => window.CSS && CSS.escape ? CSS.escape(s) : s;
+  const f = document.querySelector(`figure.ps-ichart.ps-primary[data-chart="${q(key)}"]`) || document.querySelector(`figure.ps-ichart[data-chart="${q(key)}"]`);
+  const bad = []; let ok = 0;
+  for (const id of ids) {
+    const el = f.querySelector(`svg [data-ps-el="${q(id)}"]`);
+    if (!el) { bad.push(id + ': нет элемента'); continue; }
+    el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    const st = PS_ROUTER.state(), cp = document.getElementById('cp');
+    const title = document.getElementById('cp-title').textContent.trim(), secs = document.querySelectorAll('#cp-body > section').length;
+    const vis = !!cp && !cp.hidden && cp.getBoundingClientRect().width > 0, ring = !!f.querySelector('.ps-ovl .ps-sel-line');
+    if (!vis || st.key !== key || st.id !== id || !title || !secs || !ring || !el.classList.contains('ps-on'))
+      bad.push(`${id}: панель ${vis}, выбран ${st.id}, заголовок «${title.slice(0, 24)}», блоков ${secs}, контур ${ring}`);
+    else ok++;
+  }
+  PS_ROUTER.close();
+  return { ok, bad };
+}
+function hitPoint({ key, id }) {          // точка, где элемент (или его подпись data-ps-ref) — верхний под курсором
+  const q = s => window.CSS && CSS.escape ? CSS.escape(s) : s;
+  const f = document.querySelector(`figure.ps-ichart.ps-primary[data-chart="${q(key)}"]`) || document.querySelector(`figure.ps-ichart[data-chart="${q(key)}"]`);
+  const el = f && f.querySelector(`svg [data-ps-el="${q(id)}"]`); if (!el) return null;
+  el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
+  for (const c of [el, ...el.querySelectorAll('*')]) {
+    const r = c.getBoundingClientRect(); if (!r.width && !r.height) continue;
+    for (const [fx, fy] of [[0.5, 0.5], [0.15, 0.5], [0.85, 0.5], [0.5, 0.2], [0.5, 0.8]]) {
+      const x = r.left + r.width * fx, y = r.top + r.height * fy;
+      if (x < 1 || y < 1 || x >= innerWidth - 1 || y >= innerHeight - 1) continue;
+      const g = (document.elementFromPoint(x, y) || {}).closest?.('[data-ps-ref], .ps-el');
+      if (g && (g.getAttribute('data-ps-ref') || g.getAttribute('data-ps-el')) === id && g.closest('figure.ps-ichart') === f) return { x, y };
+    }
+  }
+  return null;
+}
+function verifyInPage(h) {               // после перехода: цель существует и видна на экране
+  const r = PS_ROUTER.parse(h); if (!r) return 'ссылка не разбирается';
+  const inView = el => { if (!el || !el.getClientRects().length) return false; const b = el.getBoundingClientRect(); return b.bottom > 0 && b.top < innerHeight && b.right > 0 && b.left < innerWidth; };
+  const q = s => window.CSS && CSS.escape ? CSS.escape(s) : s;
+  switch (r.t) {
+    case 'sec': return inView(document.getElementById('s-' + r.n)) ? '' : 'раздел не на экране';
+    case 'prow': { const tr = document.querySelector(`#tb tr.row.open[data-id="${q(r.id)}"]`); return tr && inView(tr) ? '' : 'строка реестра не раскрыта или не видна'; }
+    case 'reg': {
+      if (r.bare) return inView(document.getElementById('registry')) ? '' : 'реестр не на экране';
+      const rows = [...document.querySelectorAll('#tb tr.row')];
+      const sel = Object.entries(r.f).every(([k, v]) => { const s = document.querySelector(`#registry select[data-f="${k}"]`); return !s || s.value === v; });
+      const cat = !r.f.category || rows.every(x => x.dataset.cat === r.f.category);
+      return sel && cat && inView(document.getElementById('registry')) ? '' : `фильтр не применён (строк ${rows.length})`;
+    }
+    case 'chart': {
+      const st = PS_ROUTER.state(), f = PS_ROUTER.resolve(h);
+      if (!r.id) return inView(f) ? '' : 'график не на экране';
+      const el = f && f.querySelector(`svg [data-ps-el="${q(r.id)}"]`);
+      return st.open && st.key === r.key && st.id === r.id && inView(el) ? '' : `элемент не выбран (выбран ${st.key}/${st.id})`;
+    }
+    default: { const st = PS_ROUTER.state(); return inView(PS_ROUTER.resolve(h)) && !st.open ? '' : 'цель не на экране или панель не закрылась'; }
+  }
+}
+await check(page, 'charts-structure', async () => {
+  if (!HAS_CH) return SKIP(NO_CH, true);
+  if (!await chartsReady(page)) return FAIL('файлы графиков не подгрузились (PS_ROUTER.loadAll)');
+  const r = await page.evaluate(chartsInPage);
+  const bad = [];
+  for (const c of r.charts) {
+    if (!c.ready || c.svgKey !== c.key) bad.push(`${c.key}: не смонтирован`);
+    if (!c.howto) bad.push(`${c.key}: нет «Как читать график»`);
+    if (c.img) bad.push(`${c.key}: <img> вместо встроенного SVG`);
+    if (c.noMeta.length) bad.push(`${c.key}: элементы без пояснения ${c.noMeta.slice(0, 3).join(', ')}`);
+    if (c.noEl.length) bad.push(`${c.key}: пояснения без элемента ${c.noEl.slice(0, 3).join(', ')}`);
+    if (c.tabstops !== 1) bad.push(`${c.key}: остановок Tab ${c.tabstops} (нужна 1, внутри — ←/→)`);
+  }
+  Object.assign(counts, { charts: r.charts.length, chart_figures: r.figs, chart_elements: r.charts.reduce((a, c) => a + c.n, 0) });
+  if (bad.length) return FAIL(bad.slice(0, 6).join('; '));
+  return OK(`графиков ${r.charts.length} (вставок ${r.figs}), элементов ${counts.chart_elements}; у каждого howto, 1 остановка Tab`);
+});
+await check(page, 'charts-click', async () => {
+  if (!HAS_CH) return SKIP(NO_CH, true);
+  const r = await page.evaluate(chartsInPage);
+  let ok = 0, n = 0, real = 0, nohit = 0; const bad = [];
+  for (const c of r.charts) {
+    const ids = sampleIds(c.ids); n += ids.length;
+    const res = await page.evaluate(clickInPage, { key: c.key, ids });
+    ok += res.ok; bad.push(...res.bad.map(x => c.key + '/' + x));
+    for (const id of [...new Set([ids[0], ids[Math.floor(ids.length / 2)], ids[ids.length - 1]])]) {      // настоящие клики мышью
+      const pt = await page.evaluate(hitPoint, { key: c.key, id });
+      if (!pt) { nohit++; continue; }
+      await page.mouse.click(pt.x, pt.y); await sleep(30);
+      const st = await page.evaluate(() => ({ s: PS_ROUTER.state(), t: document.getElementById('cp-title').textContent.trim() }));
+      if (!st.s.open || st.s.key !== c.key || st.s.id !== id || !st.t) bad.push(`${c.key}/${id}: клик мышью открыл ${st.s.key}/${st.s.id}`); else real++;
+      await page.keyboard.press('Escape'); await sleep(20);
+    }
+  }
+  await shot(page, 'desktop-chart-panel');
+  if (bad.length) return FAIL(`${bad.length} из ${n}: ` + bad.slice(0, 5).join('; '));
+  if (!real) return FAIL('ни один элемент не кликается мышью (перекрыт)');
+  if (nohit) warnings.push(`графики: у ${nohit} элементов выборки нет точки, где они сверху (перекрыты соседями) — клик мышью не проверен`);
+  return OK(`панель открыта для ${ok} из ${n} элементов выборки (≤ ${CH_SAMPLE} на график), кликов мышью ${real}`);
+});
+await check(page, 'charts-keyboard', async () => {
+  if (!HAS_CH) return SKIP(NO_CH, true);
+  const c = (await page.evaluate(chartsInPage)).charts.find(x => x.ids.length >= 3);
+  if (!c) return SKIP('нет графика с 3+ элементами');
+  const sel = `figure.ps-ichart.ps-primary[data-chart="${c.key}"] svg [data-ps-el="${c.ids[0]}"]`;
+  await page.evaluate(s => { const el = document.querySelector(s); el.scrollIntoView({ block: 'center' }); el.focus(); }, sel);
+  const state = () => page.evaluate(() => ({ s: PS_ROUTER.state(), a: document.activeElement && document.activeElement.getAttribute('data-ps-el'), cp: !document.getElementById('cp').hidden }));
+  await page.keyboard.press('ArrowRight'); const f1 = await state();
+  if (f1.cp || f1.a !== c.ids[1]) return FAIL(`→ без панели: фокус ${f1.a}, ожидался ${c.ids[1]}`);
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('Enter'); const s1 = await state();
+  if (!s1.cp || s1.s.id !== c.ids[0] || s1.a !== c.ids[0]) return FAIL('Enter не открыл панель: ' + JSON.stringify(s1));
+  await page.keyboard.press('ArrowRight'); const s2 = await state();
+  if (s2.s.id !== c.ids[1] || s2.a !== c.ids[1]) return FAIL('→ не перешёл к следующему элементу: ' + JSON.stringify(s2));
+  await page.keyboard.press('ArrowLeft'); await page.keyboard.press('ArrowLeft'); const s3 = await state();
+  if (s3.s.id !== c.ids[c.ids.length - 1]) return FAIL('← с первого элемента не перешёл к последнему: ' + s3.s.id);
+  await page.keyboard.press(' '); const s4 = await state();
+  if (!s4.cp || s4.s.id !== c.ids[c.ids.length - 1]) return FAIL('Space не открыл элемент');
+  const hash = await page.evaluate(() => location.hash);
+  await page.keyboard.press('Escape'); const s5 = await state();
+  if (s5.cp || s5.a !== c.ids[c.ids.length - 1]) return FAIL(`Esc: панель ${s5.cp}, фокус ${s5.a}`);
+  const hash2 = await page.evaluate(() => location.hash);
+  await page.emulateMedia({ media: 'print' });
+  await page.evaluate(s => document.querySelector(s).dispatchEvent(new MouseEvent('click', { bubbles: true })), sel);
+  const printHidden = await page.evaluate(() => getComputedStyle(document.getElementById('cp')).display === 'none');
+  await page.emulateMedia({ media: 'screen' }); await page.keyboard.press('Escape');
+  if (!printHidden) return FAIL('панель видна при печати');
+  return OK(`${c.key}: → без панели, Enter, →, ← по кругу, Space, Esc вернул фокус; hash ${hash} → «${hash2}»; при печати панель скрыта`);
+});
+await check(page, 'charts-legend-ref-howto', async () => {
+  if (!HAS_CH) return SKIP(NO_CH, true);
+  const r = await page.evaluate(() => {
+    const out = {};
+    const leg = document.querySelector('figure.ps-ichart.ps-ready svg .ps-el[data-ps-highlight]');
+    if (leg) { leg.dispatchEvent(new MouseEvent('click', { bubbles: true })); const svg = leg.ownerSVGElement;
+      out.legend = { id: leg.getAttribute('data-ps-el'), on: svg.classList.contains('ps-hl-on'), n: svg.querySelectorAll('.ps-hl').length, txt: /подсвечено/.test(document.getElementById('cp-body').textContent), sel: PS_ROUTER.state().id };
+      PS_ROUTER.close(); out.legend.off = !svg.classList.contains('ps-hl-on'); }
+    const ref = [...document.querySelectorAll('figure.ps-ichart.ps-ready svg [data-ps-ref]')].find(x => !x.closest('.ps-el') || x.closest('.ps-el').getAttribute('data-ps-el') !== x.getAttribute('data-ps-ref'));
+    if (ref) { ref.dispatchEvent(new MouseEvent('click', { bubbles: true })); out.ref = { want: ref.getAttribute('data-ps-ref'), got: PS_ROUTER.state().id }; PS_ROUTER.close(); }
+    const btn = document.querySelector('figure.ps-ichart .ps-howto-btn');
+    if (btn) { btn.click(); const hw = document.getElementById(btn.getAttribute('aria-controls')); out.howto = { vis: !!hw && !hw.hidden && hw.getClientRects().length > 0, exp: btn.getAttribute('aria-expanded'), len: hw ? hw.textContent.trim().length : 0, dl: hw ? hw.querySelectorAll('.ps-legend dt').length : 0 }; btn.click(); }
+    return out;
+  });
+  if (!r.legend) return FAIL('нет пунктов легенды (data-ps-highlight)');
+  if (!r.legend.on || !r.legend.n || !r.legend.txt || r.legend.sel !== r.legend.id || !r.legend.off) return FAIL('легенда: ' + JSON.stringify(r.legend));
+  if (r.ref && r.ref.got !== r.ref.want) return FAIL(`подпись data-ps-ref=${r.ref.want} открыла ${r.ref.got}`);
+  if (!r.howto || !r.howto.vis || r.howto.exp !== 'true' || r.howto.len < 20) return FAIL('«Как читать график»: ' + JSON.stringify(r.howto));
+  // подсказка при наведении
+  const c = (await page.evaluate(chartsInPage)).charts[0];
+  const pt = await page.evaluate(hitPoint, { key: c.key, id: c.ids[Math.floor(c.ids.length / 2)] });
+  let tip = 'не проверена (нет точки)';
+  if (pt) { await page.mouse.move(pt.x, pt.y); await page.mouse.move(pt.x + 1, pt.y + 1); await sleep(50);
+    const t = await page.evaluate(() => { const e = document.getElementById('cp-tip'); return e && !e.hidden ? e.textContent : ''; });
+    if (!t) return FAIL('нет подсказки при наведении'); tip = `«${t.slice(0, 30)}»`; await page.mouse.move(2, 2); }
+  return OK(`легенда ${r.legend.id}: подсвечено ${r.legend.n}; ${r.ref ? 'подпись → ' + r.ref.got : 'подписей-ссылок нет'}; howto ${r.howto.len} зн., легенда ${r.howto.dl}; подсказка ${tip}`);
+});
+await check(page, 'charts-links', async () => {
+  if (!HAS_CH) return SKIP(NO_CH, true);
+  const hrefs = await page.evaluate(() => { const hs = new Set(); document.querySelectorAll('figure.ps-ichart').forEach(f => { ((PS_ROUTER.meta(f.dataset.chart) || {}).elements || []).forEach(e => (e.links || []).forEach(l => hs.add(l.href))); }); return [...hs]; });
+  if (!hrefs.length) return FAIL('в пояснениях графиков нет ни одной ссылки');
+  const bad = [], types = {};
+  for (const h of hrefs) {      // переход роутером к каждой уникальной ссылке
+    const err = await page.evaluate(h => new Promise(res => { if (!PS_ROUTER.resolve(h)) { res('нет цели на странице'); return; } PS_ROUTER.go(h);
+      requestAnimationFrame(() => requestAnimationFrame(() => res(''))); }), h);
+    const v = err || await page.evaluate(verifyInPage, h);
+    const t = h.replace(/^#(\w+).*/, '$1'); types[t] = (types[t] || 0) + 1;
+    if (v) bad.push(`${h}: ${v}`);
+  }
+  // настоящие клики по ссылкам в панели: по 2 ссылки каждого вида
+  const sample = await page.evaluate(() => {
+    const by = {}; document.querySelectorAll('figure.ps-ichart.ps-primary').forEach(f => { ((PS_ROUTER.meta(f.dataset.chart) || {}).elements || []).forEach(e => (e.links || []).forEach(l => {
+      const t = l.href.replace(/^#(\w+).*/, '$1'); by[t] = by[t] || []; if (by[t].length < 2 && !by[t].some(x => x.href === l.href)) by[t].push({ key: f.dataset.chart, id: e.id, href: l.href }); })); });
+    return Object.values(by).flat();
+  });
+  let clicked = 0;
+  for (const s of sample) {
+    await page.evaluate(s => { PS_ROUTER.go('#chart/' + s.key + '/' + s.id); }, s); await sleep(30);
+    const a = page.locator(`#cp-body a[href="${s.href}"]`).first();
+    if (!await a.count()) { bad.push(`${s.key}/${s.id}: в панели нет ссылки ${s.href}`); continue; }
+    await a.scrollIntoViewIfNeeded(); await a.click(); await sleep(60);
+    const v = await page.evaluate(verifyInPage, s.href);
+    if (v) bad.push(`клик ${s.href} (из ${s.key}/${s.id}): ${v}`); else clicked++;
+  }
+  const back = await page.evaluate(() => { const r = document.getElementById('reg-reset'); if (r) r.click(); PS_ROUTER.close(); return location.hash; });
+  if (bad.length) return FAIL(`${bad.length} из ${hrefs.length}: ` + bad.slice(0, 5).join('; '));
+  return OK(`уникальных ссылок ${hrefs.length} (${Object.entries(types).map(([k, v]) => k + ' ' + v).join(', ')}) — все цели есть и видны; кликов в панели ${clicked}; hash ${back}`);
+});
+await check(page, 'charts-deeplink', async () => {
+  if (!HAS_CH) return SKIP(NO_CH, true);
+  const cs = (await page.evaluate(chartsInPage)).charts;
+  const c = cs[cs.length - 1], id = c.ids[Math.min(2, c.ids.length - 1)];
+  const c2 = await ctx.newPage(); watch(c2, 'deeplink');
+  try {
+    await c2.goto(URL_ + '#chart/' + c.key + '/' + encodeURIComponent(id), { waitUntil: 'load' });
+    await c2.waitForFunction(() => window.PS_ROUTER && PS_ROUTER.state().open, null, { timeout: 15000 });
+    const st = await c2.evaluate(() => ({ s: PS_ROUTER.state(), a: document.activeElement && document.activeElement.getAttribute('data-ps-el'), t: document.getElementById('cp-title').textContent }));
+    const v = await c2.evaluate(verifyInPage, '#chart/' + c.key + '/' + id);
+    if (st.s.key !== c.key || st.s.id !== id || st.a !== id || v) return FAIL(`#chart/${c.key}/${id}: ${JSON.stringify(st)} ${v}`);
+    const lb = await c2.evaluate(k => { PS_ROUTER.close(); location.hash = '#p=' + ((window.__psData('d-registry') || [])[0] || {}).id; return k; }, c.key);
+    await c2.waitForSelector('#pm.open', { timeout: 5000 }).catch(() => {});
+    const legacy = await c2.evaluate(() => !!document.querySelector('#pm.open'));
+    if (!legacy) return FAIL('старая ссылка #p=… не открыла карточку');
+    return OK(`#chart/${c.key}/${id} после загрузки: выбран «${st.t.slice(0, 40)}», фокус на элементе; старая #p=… открывает карточку`);
+  } finally { await c2.close(); }
+});
+
 // ---------------------------------------------------------------- мобильная ширина 390 px
-const mctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, hasTouch: true });
+const mctx =await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, hasTouch: true });
+await mctx.addInitScript(INIT);
 const mpage = await mctx.newPage();
 mpage.setDefaultTimeout(10000);
 watch(mpage, 'mobile');
@@ -760,6 +1030,24 @@ await check(mpage, 'mobile-modal', async () => {
   if (w.l < 0 || w.r > w.W) return FAIL('карточка шире экрана: ' + JSON.stringify(w));
   return OK(`карточка ${w.r - w.l}px`);
 });
+await check(mpage, 'charts-mobile', async () => {
+  if (!HAS_CH) return SKIP(NO_CH, true);
+  if (!await chartsReady(mpage)) return FAIL('файлы графиков не подгрузились');
+  const c = (await mpage.evaluate(chartsInPage)).charts.find(x => x.ids.length > 2) || (await mpage.evaluate(chartsInPage)).charts[0];
+  const pt = await mpage.evaluate(hitPoint, { key: c.key, id: c.ids[Math.floor(c.ids.length / 2)] });
+  if (pt) await mpage.touchscreen.tap(pt.x, pt.y); else await mpage.evaluate(c => PS_ROUTER.go('#chart/' + c.key + '/' + c.ids[0]), c);
+  await sleep(150);
+  const r = await mpage.evaluate(() => { const p = document.getElementById('cp').getBoundingClientRect(), el = document.querySelector('svg .ps-el.ps-on'), e = el && el.getBoundingClientRect();
+    return { open: PS_ROUTER.state().open, l: Math.round(p.left), r: Math.round(p.right), b: Math.round(p.bottom), t: Math.round(p.top), W: innerWidth, H: innerHeight,
+      sw: document.documentElement.scrollWidth, body: document.getElementById('cp-body').textContent.trim().length, elTop: e ? Math.round(e.top) : null, elBottom: e ? Math.round(e.bottom) : null }; });
+  await shot(mpage, 'mobile-chart-panel');
+  await mpage.keyboard.press('Escape');
+  if (!r.open || !r.body) return FAIL('панель не открылась: ' + JSON.stringify(r));
+  if (r.l < 0 || r.r > r.W || r.b < r.H - 1 || r.t < r.H * 0.3) return FAIL('не нижний лист: ' + JSON.stringify(r));
+  if (r.sw > r.W + 1) return FAIL(`горизонтальная прокрутка документа: ${r.sw} > ${r.W}`);
+  if (r.elTop != null && (r.elBottom <= 0 || r.elTop >= r.t)) return FAIL(`выбранный элемент закрыт листом: элемент ${r.elTop}–${r.elBottom}, лист с ${r.t}`);
+  return OK(`${pt ? 'касание' : 'переход'}: нижний лист ${r.r - r.l}×${r.b - r.t} px, элемент над листом, ширина документа ${r.sw} ≤ ${r.W}`);
+});
 await check(mpage, 'progress-gantt-390', async () => {
   if (!HAS_PG) return SKIP(NO_PG, true);
   if (!await mpage.locator('#gantt .gantt').count()) return SKIP('нет диаграммы Ганта');
@@ -791,12 +1079,13 @@ await check(mpage, 'progress-mobile', async () => {
 });
 
 // ---------------------------------------------------------------- геометрия: все раскрытые строки, окно P-id, таблицы, Гант
-const GEOM_VIEWS = [{ name: '1440', w: 1440, h: 900 }, { name: '390', w: 390, h: 844 }];
+const GEOM_VIEWS = [{ name: '1440', w: 1440, h: 900 }, { name: '820', w: 820, h: 1180 }, { name: '390', w: 390, h: 844 }];
+const EMPTY_SHARE = 0.4, EMPTY_MEDIAN = 20;   // «пустая область»: колонка > 40 % ширины таблицы при медиане текста < 20 знаков
 const MIN_DD = 120, MIN_SEC = 200;
 
 // выполняется в странице (одним evaluate): раскрывает каждую строку реестра по очереди и меряет её
-async function geomInPage({ maxH, minDD, minSec, view }) {
-  const R = { view, rows: 0, heights: [], tallest: null, minDD: null, minSec: null, bad: [], modal: [], tables: 0, tableBad: [], gantt: null, ganttBad: [], pageW: 0, vw: innerWidth };
+async function geomInPage({ maxH, minDD, minSec, view, emptyShare, emptyMedian }) {
+  const R = { view, rows: 0, heights: [], tallest: null, minDD: null, minSec: null, bad: [], tall: [], modal: [], tables: 0, tableBad: [], tableWarn: [], gantt: null, ganttBad: [], pageW: 0, vw: innerWidth };
   const vis = el => !!el && el.getClientRects().length > 0;
   const wait = ms => new Promise(r => setTimeout(r, ms));
   function card(cardEl, frame) {
@@ -835,7 +1124,7 @@ async function geomInPage({ maxH, minDD, minSec, view }) {
       if (c) c.querySelectorAll('details').forEach(d => { d.open = true; });   // свёрнутые секции (телефон) — ширины меряем раскрытыми
       const m = c ? card(c, wrap) : { bad: ['нет карточки div.detail'], minD: null, minS: null };
       if (disp !== 'table-row') m.bad.unshift('display ' + disp + ' (нужно table-row)');
-      if (h >= maxH) m.bad.unshift('высота ' + h + ' px ≥ ' + maxH);
+      if (h >= maxH) R.tall.push(id + ' ' + h + ' px');           // длинная карточка — предупреждение, не провал (B-48)
       R.heights.push(h);
       if (!R.tallest || h > R.tallest.h) R.tallest = { id, h };
       if (m.minD != null) R.minDD = R.minDD == null ? m.minD : Math.min(R.minDD, m.minD);
@@ -862,6 +1151,8 @@ async function geomInPage({ maxH, minDD, minSec, view }) {
     if (!t || !vis(box)) continue;
     R.tables++;
     let name = '', e = box;
+    const det = box.closest('details'), dsum = det && det.querySelector(':scope > summary');
+    if (dsum && det.contains(box)) name = dsum.textContent.trim();     // таблица в свёрнутом блоке — по его заголовку
     while (e && !name) { let p = e.previousElementSibling; while (p && !name) { if (/^H[2-4]$/.test(p.tagName)) name = p.textContent.trim(); p = p.previousElementSibling; } e = e.parentElement; if (e && e.tagName === 'SECTION') { name = name || ((e.querySelector('h2') || {}).textContent || e.id || ''); break; } }
     name = '«' + name.replace(/\s+/g, ' ').slice(0, 48) + '»';
     const over = Math.round(t.getBoundingClientRect().width - box.clientWidth), ox = getComputedStyle(box).overflowX;
@@ -870,6 +1161,29 @@ async function geomInPage({ maxH, minDD, minSec, view }) {
     if (view === '1440' && over > 1) R.tableBad.push(name + ': шире рамки на ' + over + ' px (последняя колонка уходит за край)');
     if (over > 1 && ox !== 'auto' && ox !== 'scroll') R.tableBad.push(name + ': обрезана без прокрутки');
     if (cut) R.tableBad.push(name + ': в последней колонке обрезано ячеек: ' + cut);
+    // «пустые области» (A-1.13): таблица упирается в рамку (естественная ширина ≥ рамки), а одна колонка с короткими
+    // значениями (медиана < 20 знаков) забирает > 40 % ширины — её раздувает одно длинное значение или nowrap
+    if (view === '1440') {
+      const head = t.tHead && t.tHead.rows[0], body = t.tBodies[0];
+      const ncol = head ? head.cells.length : 0;
+      if (ncol >= 3 && body && body.rows.length >= 2) {
+        const prevW = t.style.width; t.style.width = 'max-content';
+        const natural = t.getBoundingClientRect().width; t.style.width = prevW;
+        const tw = t.getBoundingClientRect().width;
+        if (natural >= box.clientWidth - 1 && tw > 0) {
+          for (let k = 0; k < ncol; k++) {
+            const hc = head.cells[k]; if (!hc || hc.colSpan > 1) continue;
+            const share = hc.getBoundingClientRect().width / tw;
+            // медиана по непустым ячейкам: колонка примечаний, заполненная в паре строк, — не «пустая область»
+            const lens = [...body.rows].map(r => r.cells[k]).filter(Boolean).map(c => c.textContent.replace(/\s+/g, ' ').trim()).filter(x => x && !/^[—–-]$/.test(x)).map(x => x.length).sort((a, b) => a - b);
+            if (!lens.length) continue;
+            const med = lens[Math.floor(lens.length / 2)];
+            if (share > emptyShare && med < emptyMedian)
+              R.tableWarn.push(name + ', колонка «' + hc.textContent.replace(/\s+/g, ' ').trim().slice(0, 32) + '»: ' + Math.round(share * 100) + ' % ширины при медиане ' + med + ' знаков (пустая область)');
+          }
+        }
+      }
+    }
   }
   // Гант: подписи месяцев не обрезаны, ромбы вех внутри диаграммы, рамка в пределах экрана
   const g = document.querySelector('.gantt'), gin = g && g.querySelector('.gin');
@@ -912,18 +1226,22 @@ async function geometryPass(br, engine) {
       try {
         const p = await c.newPage(); p.setDefaultTimeout(30000); watch(p, engine + '-' + v.name);
         await p.goto(URL_, { waitUntil: 'load', timeout: 180000 }); await sleep(300);
-        const r = await p.evaluate(geomInPage, { maxH: args.maxRowH, minDD: MIN_DD, minSec: MIN_SEC, view: v.name });
+        const r = await p.evaluate(geomInPage, { maxH: args.maxRowH, minDD: MIN_DD, minSec: MIN_SEC, view: v.name, emptyShare: EMPTY_SHARE, emptyMedian: EMPTY_MEDIAN });
         await geomShots(p, engine, v, r);
         if (!r.rows && !r.tables && !r.gantt) return SKIP('нет реестра, таблиц и Ганта');
         const hs = r.heights.slice().sort((a, b) => a - b);
         const data = { rows: r.rows, height: hs.length ? { min: hs[0], median: hs[Math.floor(hs.length / 2)], max: hs[hs.length - 1], maxId: r.tallest.id } : null,
-          minDD: r.minDD, minSection: r.minSec, tables: r.tables, gantt: r.gantt, pageWidth: r.pageW, viewport: r.vw };
+          minDD: r.minDD, minSection: r.minSec, tables: r.tables, gantt: r.gantt, pageWidth: r.pageW, viewport: r.vw, tall: r.tall, tableWarn: r.tableWarn };
         const bad = [...r.bad, ...r.modal, ...r.tableBad, ...r.ganttBad];
         if (r.pageW > r.vw) bad.push(`ширина документа ${r.pageW} > ${r.vw} (горизонтальная прокрутка страницы)`);
         const sum = `строк ${r.rows}` + (data.height ? `, высота мин/мед/макс ${data.height.min}/${data.height.median}/${data.height.max} px (${data.height.maxId})` : '')
           + (r.minDD != null ? `, столбец значения ≥ ${r.minDD} px` : '') + `, таблиц ${r.tables}` + (r.gantt ? `, Гант: подписей ${r.gantt.labels}, вех ${r.gantt.milestones}${r.gantt.scroll ? ', прокрутка в рамке' : ''}` : '')
           + `, ширина ${r.pageW} ≤ ${r.vw}`;
-        const res = bad.length ? FAIL(`${bad.length} проблем: ` + bad.slice(0, 8).join('; ') + ' | ' + sum) : OK(sum);
+        // предупреждения (не провал): карточки выше --max-row-height, «пустые области» таблиц
+        const warn = [...(r.tall.length ? [`карточек выше ${args.maxRowH} px: ${r.tall.length} (${r.tall.slice(0, 6).join(', ')}) — проверьте объём текста`] : []), ...r.tableWarn];
+        for (const w of r.tableWarn) if (!warnings.includes('таблица ' + w)) warnings.push('таблица ' + w);
+        const wtxt = warn.length ? ' | предупреждения: ' + warn.slice(0, 6).join('; ') : '';
+        const res = bad.length ? FAIL(`${bad.length} проблем: ` + bad.slice(0, 8).join('; ') + wtxt + ' | ' + sum) : warn.length ? WARN(sum + wtxt) : OK(sum);
         res.data = data;
         return res;
       } finally { await c.close(); }
@@ -935,7 +1253,10 @@ async function geometryPass(br, engine) {
 const CONTRAST_SELS = ['.b', '.tag', '.st', '.st-ok', '.st-bad', '.st-unk', '.ok', '.badge-concept', '.risk', '.kcount', '.muted', 'figcaption',
   '.zoom', 'main a', 'nav.side a', 'summary', '.lblh', '.cmeta', '.count', '.eyebrow', '.kpi .n', '.kpi .l', '.kpi .s', 'dl.kv dt', '.dsec h4',
   '.gid', '.kid', '.gscale span', 'table.cm td', 'th', '.hsn', '.facts dt', '.lead', '.untitled', '.missing', 'code',
-  '.pst', '.gst', '.gpl', '.gtd', '.kmoved', '.pg-sub', '.pg-ok', '.pg-warn', '.pst-go', '.kbv-r+label'];
+  '.pst', '.gst', '.gpl', '.gtd', '.kmoved', '.pg-sub', '.pg-ok', '.pg-warn', '.pst-go', '.kbv-r+label',
+  // панель пояснений графика (открыта на элементе с метриками и ссылками) и «Как читать график»
+  '#cp h3', '#cp h4', '#cp p', '#cp li', '#cp a', '#cp dt', '#cp dd', '#cp .tag', '.cp-kind', '#cp-pos', '.cp-chart', '#cp button',
+  '.ps-howto p', '.ps-legend dt', '.ps-legend dd', '.ps-acts .linkbtn'];
 // статусные чипы и подписи режима «Отслеживание» — отдельная проверка в трёх темах (доска «По фактам» включается)
 const PG_CONTRAST_SELS = ['.pst', '.gst', '.gpl', '.gtd', '.kmoved', '.pgk .n', '.pgk .l', '.pgk .s', '.pg-sub', '.pg-ok', '.pg-warn', '.pst-go b', '.kbv-r+label', 'a.gh'];
 function contrastInPage(sels) {
@@ -983,6 +1304,15 @@ async function contrastPass(br) {
   const p = await c.newPage(); p.setDefaultTimeout(30000); watch(p, 'contrast');
   await p.goto(URL_, { waitUntil: 'load', timeout: 180000 }); await sleep(300);
   await p.evaluate(() => { const tr = document.querySelector('#tb tr.row'); if (tr) (tr.querySelector('td.c-title') || tr.cells[2]).click(); });
+  const chOpen = await p.evaluate(() => new Promise(res => {      // панель графика: элемент с метриками и ссылками, раскрытый «Как читать график»
+    if (!window.PS_ROUTER || !document.querySelector('figure.ps-ichart')) { res(false); return; }
+    const t = setTimeout(() => res(false), 20000);
+    PS_ROUTER.loadAll(() => { clearTimeout(t); let pick = null;
+      document.querySelectorAll('figure.ps-ichart.ps-primary').forEach(f => { if (pick) return; const e = ((PS_ROUTER.meta(f.dataset.chart) || {}).elements || []).find(x => (x.metrics || []).length && (x.links || []).length); if (e) pick = [f, e.id]; });
+      if (!pick) { res(false); return; }
+      const b = pick[0].querySelector('.ps-howto-btn'); if (b) b.click();
+      PS_ROUTER.go('#chart/' + pick[0].dataset.chart + '/' + pick[1]); res(true); });
+  }));
   const modes = [['contrast-light', 'light', null], ['contrast-dark', 'dark', null], ['contrast-auto-dark', null, 'dark']];
   for (const [name, attr, scheme] of modes) {
     await check(page, name, async () => {
@@ -995,6 +1325,25 @@ async function contrastPass(br) {
       for (const f of r.fails) { const k = f.sel + '|' + f.fg + '|' + f.bg; if (!keys.has(k)) { keys.add(k); uniq.push(f); } }
       if (uniq.length) return FAIL(`${r.fails.length} из ${r.checked} ниже порога: ` + uniq.slice(0, 8).map(f => `${f.sel} «${f.text}» ${f.ratio}:1 (${f.fg} на ${f.bg})`).join('; '));
       return OK(`проверено элементов ${r.checked}, все ≥ 4,5:1 (крупный текст ≥ 3:1)`);
+    });
+  }
+  // контур выбранного элемента графика: ≥ 3:1 к подложке графика и не только цвет (рамка вокруг элемента) — в светлой и тёмной теме
+  for (const [name, attr] of [['charts-ring-contrast-light', 'light'], ['charts-ring-contrast-dark', 'dark']]) {
+    await check(page, name, async () => {
+      if (!chOpen) return SKIP(NO_CH, true);
+      await p.evaluate(a => document.documentElement.setAttribute('data-theme', a), attr); await sleep(60);
+      const r = await p.evaluate(() => {
+        const parse = s => { const m = /rgba?\(([^)]+)\)/.exec(s || ''); return m ? m[1].split(/[\s,/]+/).filter(Boolean).map(parseFloat) : null; };
+        const lin = x => { x /= 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); };
+        const lum = c => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+        const line = document.querySelector('.ps-ovl .ps-sel-line'), halo = document.querySelector('.ps-ovl .ps-sel-halo'); if (!line) return null;
+        const box = line.closest('.ps-svg'), bg = parse(getComputedStyle(box).backgroundColor), fg = parse(getComputedStyle(line).stroke), hb = line.getBoundingClientRect();
+        const ratio = (Math.max(lum(fg), lum(bg)) + 0.05) / (Math.min(lum(fg), lum(bg)) + 0.05);
+        return { ratio: Math.round(ratio * 100) / 100, w: parseFloat(getComputedStyle(line).strokeWidth), halo: !!halo, box: Math.round(hb.width) + '×' + Math.round(hb.height), fg: getComputedStyle(line).stroke, bg: getComputedStyle(box).backgroundColor };
+      });
+      if (!r) return FAIL('нет контура выбранного элемента');
+      if (r.ratio < 3 || r.w < 2 || !r.halo) return FAIL('контур: ' + JSON.stringify(r));
+      return OK(`контур ${r.fg} на ${r.bg}: ${r.ratio}:1, ${r.w} px + белый ореол, рамка ${r.box}`);
     });
   }
   // статусные чипы прогресса: светлая, тёмная, «авто» при тёмной системной теме
@@ -1022,8 +1371,9 @@ await contrastPass(browser);
 
 // ---------------------------------------------------------------- lite: картинки — файлы в assets/ рядом со страницей
 await check(page, 'lite-assets', async () => {
-  const urls = await page.evaluate(() => Object.values(JSON.parse((document.getElementById('d-img') || { textContent: '{}' }).textContent)).filter(u => typeof u === 'string' && !/^data:/.test(u)));
-  if (!urls.length) return SKIP('страница автономная (собрана без --lite)', true);
+  const urls = await page.evaluate(() => Object.values(window.__psData('d-img') || {}).concat(Object.values(window.__psData('d-thumb') || {}).map(t => t && t[0]))
+    .filter(u => typeof u === 'string' && !/^data:/.test(u)));
+  if (!urls.length) return SKIP('страница автономная (собрана без --lite и site)', true);
   const outside = [], missing = [];
   for (const u of urls) {
     let rel = u; try { rel = decodeURIComponent(u.split('#')[0]); } catch (e) { /* как есть */ }
@@ -1032,9 +1382,9 @@ await check(page, 'lite-assets', async () => {
   }
   if (outside.length) return FAIL('ссылки на картинки вне папки страницы: ' + outside.slice(0, 3).join(', '));
   if (missing.length) return FAIL(`нет файлов (${missing.length} из ${urls.length}): ` + missing.slice(0, 3).join(', '));
-  const thumbs = await page.evaluate(() => Object.keys(JSON.parse((document.getElementById('d-thumb') || { textContent: '{}' }).textContent)).length);
+  const thumbs = await page.evaluate(() => Object.keys(window.__psData('d-thumb') || {}).length);
   const key = await page.evaluate(() => {
-    const m = JSON.parse(document.getElementById('d-img').textContent), al = JSON.parse((document.getElementById('d-alias') || { textContent: '{}' }).textContent);
+    const m = window.__psData('d-img'), al = (window.__psData('d-alias') || {});
     const f = [...document.querySelectorAll('figure.lb[data-key]')].find(x => { const k = al[x.dataset.key] || x.dataset.key; return m[k] && !/^data:/.test(m[k]) && x.offsetParent; });
     document.querySelectorAll('[data-smoke-lite]').forEach(x => x.removeAttribute('data-smoke-lite'));
     if (f) f.setAttribute('data-smoke-lite', ''); return f ? f.dataset.key : null;
@@ -1054,12 +1404,179 @@ await check(page, 'lite-assets', async () => {
   return OK(`ссылок на assets/: ${urls.length}, все файлы на месте, миниатюр в странице: ${thumbs}${info}; локальных файлов запрошено: ${localFiles.size}`);
 });
 
-// ---------------------------------------------------------------- WebKit (Safari): та же геометрия
-let wk = null;
+// ---------------------------------------------------------------- сайт (режим site): файлы, ссылки, размеры, открытые данные
+function tinyCsv(text) {   // минимальный разбор CSV (кавычки, переводы строк внутри полей) → массив строк
+  const rows = []; let row = [], f = '', q = false;
+  text = text.replace(/^﻿/, '');
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === ',') { row.push(f); f = ''; }
+    else if (c === '\n') { row.push(f); rows.push(row); row = []; f = ''; }
+    else if (c !== '\r') f += c;
+  }
+  if (f !== '' || row.length) { row.push(f); rows.push(row); }
+  return rows;
+}
+function walkFiles(dir, base = dir) {
+  const out = [];
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const f = path.join(dir, e.name);
+    if (e.isDirectory()) out.push(...walkFiles(f, base)); else out.push(path.relative(base, f).split(path.sep).join('/'));
+  }
+  return out;
+}
+await check(page, 'site-structure', async () => {
+  if (!IS_SITE) return SKIP('страница не в режиме site (single/lite)', true);
+  const src = fs.readFileSync(HTML, 'utf8');
+  const refs = [...src.matchAll(/<(?:link|script|img)\b[^>]*?\b(?:href|src)="([^"]+)"/g)].map(m => m[1]).filter(u => !/^(#|data:|mailto:)/.test(u) && !/rel="icon"/.test(u));
+  const ext = refs.filter(u => /^[a-z][a-z0-9+.-]*:/i.test(u) || u.startsWith('//'));
+  if (ext.length) return FAIL('внешние ссылки в оболочке: ' + ext.slice(0, 3).join(', '));
+  const missing = [], outside = [];
+  for (const u of refs) {
+    let rel = u.split('#')[0].split('?')[0]; try { rel = decodeURIComponent(rel); } catch (e) { /* как есть */ }
+    const f = path.resolve(PAGE_DIR, rel);
+    if (!f.startsWith(PAGE_DIR + path.sep)) outside.push(u); else if (!fs.existsSync(f)) missing.push(u);
+  }
+  if (outside.length) return FAIL('ссылки вне папки сайта: ' + outside.slice(0, 3).join(', '));
+  if (missing.length) return FAIL(`нет файлов (${missing.length} из ${refs.length}): ` + missing.slice(0, 3).join(', '));
+  const inline = [...src.matchAll(/<script\b([^>]*)>/g)].filter(m => !/\bsrc=/.test(m[1]));
+  if (inline.length) return FAIL(`инлайн-скриптов: ${inline.length} (запрещены CSP script-src 'self')`);
+  if (/<script[^>]+type="application\/json"/.test(src)) return FAIL('данные остались в index.html (<script type=application/json>) — должны быть в assets/data.js');
+  const pageUrl = await page.evaluate(() => location.protocol);
+  if (pageUrl !== 'file:') return FAIL('страница открыта не по file://: ' + pageUrl);
+  const cspv = await page.evaluate(() => window.__cspv || []);
+  if (cspv.length) return FAIL('нарушения CSP: ' + cspv.slice(0, 3).join(' | '));
+  const fetched = [...localFiles].filter(f => !fs.existsSync(f));
+  if (fetched.length) return FAIL('запрошены несуществующие файлы: ' + fetched.slice(0, 3).join(', '));
+  const idx = fs.statSync(HTML).size;
+  let total = idx; let n = 0;
+  for (const d of ['assets', 'data']) { const dir = path.join(PAGE_DIR, d); if (fs.existsSync(dir)) for (const r of walkFiles(dir)) { if (!path.basename(r).startsWith('.')) { total += fs.statSync(path.join(dir, r)).size; n++; } } }
+  const mb = x => (x / 1048576).toFixed(2) + ' МБ';
+  if (idx > 1048576) warnings.push(`index.html ${mb(idx)} — больше 1 МБ без данных: проверьте объём текста стратегии и встроенных SVG`);
+  if (total > 25 * 1048576) warnings.push(`сайт ${mb(total)} — больше 25 МБ: перекодируйте картинки в WebP (Pillow/ffmpeg), уменьшите скриншоты; для пересылки одним файлом — --single`);
+  Object.assign(counts, { site_index_bytes: idx, site_total_bytes: total, site_files: n + 1, site_refs: refs.length });
+  return OK(`по file://, ссылок в оболочке ${refs.length} — все файлы на месте, запрошено локальных файлов ${localFiles.size}, инлайн-скриптов 0, нарушений CSP 0; index.html ${mb(idx)}, весь сайт ${mb(total)} (${n + 1} файлов)`);
+});
+await check(page, 'site-open-data', async () => {
+  if (!IS_SITE) return SKIP('страница не в режиме site (single/lite)', true);
+  const dir = path.join(PAGE_DIR, 'data');
+  if (!fs.existsSync(dir)) return FAIL('нет папки data/ рядом со страницей');
+  const rows = await page.evaluate(() => (window.__psData('d-registry') || []).length);
+  const have = fs.readdirSync(dir).sort();
+  const info = [];
+  if (rows) {
+    for (const need of ['proposals.json', 'proposals.csv']) if (!have.includes(need)) return FAIL('нет data/' + need);
+    const pj = JSON.parse(fs.readFileSync(path.join(dir, 'proposals.json'), 'utf8'));
+    if (pj.length !== rows) return FAIL(`data/proposals.json: ${pj.length} предложений, на странице ${rows}`);
+    const pc = tinyCsv(fs.readFileSync(path.join(dir, 'proposals.csv'), 'utf8'));
+    if (pc.length - 1 !== rows) return FAIL(`data/proposals.csv: ${pc.length - 1} строк, на странице ${rows}`);
+    if (pc[0][0] !== 'id' || pc.slice(1).some(r => r.length !== pc[0].length)) return FAIL('data/proposals.csv: ширина строк не совпадает с заголовком');
+    info.push(`proposals ${rows}`);
+  }
+  for (const f of have.filter(f => f.endsWith('.csv') && f !== 'proposals.csv')) {
+    const t = tinyCsv(fs.readFileSync(path.join(dir, f), 'utf8'));
+    if (t.length < 2) return FAIL(`data/${f}: пустая таблица`);
+    if (t.slice(1).some(r => r.length !== t[0].length)) return FAIL(`data/${f}: ширина строк не совпадает с заголовком`);
+    info.push(`${f.replace('.csv', '')} ${t.length - 1}`);
+  }
+  return OK(`data/: ${have.length} файлов (${info.join(', ')}); страница от них не зависит`);
+});
+
+// ---------------------------------------------------------------- движки: загрузка по file:// и ключевое действие в каждом
+// Chromium — основной (все проверки выше); WebKit и Firefox — геометрия (WebKit) и эта проверка загрузки: скрипты и стили
+// выполнились (CSP 'self' на file://), данные подключены, нарушений CSP, ошибок консоли и внешних запросов нет, P-ссылка открывает карточку.
+const errLine = e => { const l = String((e && e.message) || e).split('\n'); const m = l.find(x => /\[err\]/.test(x) && !/headless mode/.test(x)); return (m ? m.replace(/^.*\[err\]\s*/, '') : l[0]).slice(0, 160); };
+async function launchFirefox() {
+  try { return { browser: await pw.firefox.launch({ headless: !args.headed }), how: 'playwright' }; } catch (e) { var first = errLine(e); }
+  const bases = [process.env.PLAYWRIGHT_BROWSERS_PATH, path.join(os.homedir(), 'Library', 'Caches', 'ms-playwright'),
+    path.join(os.homedir(), '.cache', 'ms-playwright'), path.join(process.env.LOCALAPPDATA || '', 'ms-playwright')].filter(Boolean);
+  for (const base of bases) {
+    if (!fs.existsSync(base)) continue;
+    const cands = fs.readdirSync(base).filter(n => /^firefox-\d+$/.test(n)).sort((a, b) => +b.split('-')[1] - +a.split('-')[1]);
+    for (const c of cands) {
+      const exe = [path.join(base, c, 'firefox', 'Nightly.app', 'Contents', 'MacOS', 'firefox'), path.join(base, c, 'firefox', 'firefox'), path.join(base, c, 'firefox', 'firefox.exe')].find(p => fs.existsSync(p));
+      if (!exe) continue;
+      try { return { browser: await pw.firefox.launch({ executablePath: exe, headless: !args.headed }), how: c }; } catch (e) { first = errLine(e) || first; }
+    }
+  }
+  return { browser: null, why: first || 'нет Firefox в кэше Playwright' };
+}
+async function engineLoad(br, name) {
+  await check(page, `engine-load-${name}`, async () => {
+    const c = await br.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
+    try {
+      await c.addInitScript(INIT);
+      const p = await c.newPage(); p.setDefaultTimeout(30000); watch(p, 'load-' + name);
+      await p.goto(URL_, { waitUntil: 'load', timeout: 180000 }); await sleep(500);
+      const r = await p.evaluate(() => ({
+        proto: location.protocol, rows: document.querySelectorAll('#tb tr.row').length, sections: document.querySelectorAll('main > section').length,
+        site: !!window.PS_DATA, reg: (window.__psData('d-registry') || []).length, cspv: window.__cspv || [],
+        styled: getComputedStyle(document.body).fontSize !== '16px' || getComputedStyle(document.querySelector('nav.side') || document.body).position !== 'static',
+      }));
+      if (r.proto !== 'file:') return FAIL('не file://: ' + r.proto);
+      if (!r.sections) return FAIL('разделов нет — скрипты/стили не выполнились');
+      if (r.reg && !r.rows) return FAIL(`реестр (${r.reg}) не нарисован — app.js/data.js не выполнились`);
+      if (r.cspv.length) return FAIL('нарушения CSP: ' + r.cspv.slice(0, 3).join(' | '));
+      let modal = '';
+      const link = p.locator('main a.pid:not(#registry a.pid):visible').first();
+      if (await link.count()) { await link.scrollIntoViewIfNeeded(); await link.click(); await p.waitForSelector('#pm.open', { timeout: 10000 }); await p.keyboard.press('Escape'); modal = ', карточка предложения открывается'; }
+      let charts = '';
+      if (HAS_CH) {           // интерактивный график в этом движке: подгрузка, клик мышью, →, Esc с возвратом фокуса, ссылка из панели
+        if (!await chartsReady(p)) return FAIL('графики не подгрузились (assets/charts-*.js)');
+        const cs = (await p.evaluate(chartsInPage)).charts;
+        const bad = cs.filter(c => !c.ready || !c.howto || c.noMeta.length || c.noEl.length).map(c => c.key);
+        if (bad.length) return FAIL('графики не готовы: ' + bad.slice(0, 5).join(', '));
+        const c = cs.find(x => x.ids.length > 2) || cs[0];
+        let pt = null, id = null;
+        for (const cand of sampleIds(c.ids)) { pt = await p.evaluate(hitPoint, { key: c.key, id: cand }); if (pt) { id = cand; break; } }
+        if (!pt) return FAIL(`${c.key}: ни одного элемента нельзя нажать мышью`);
+        await p.mouse.click(pt.x, pt.y); await sleep(80);
+        const s1 = await p.evaluate(() => ({ s: PS_ROUTER.state(), t: document.getElementById('cp-title').textContent.trim(), secs: document.querySelectorAll('#cp-body > section').length }));
+        if (!s1.s.open || s1.s.id !== id || !s1.t || !s1.secs) return FAIL(`клик по ${c.key}/${id}: ` + JSON.stringify(s1));
+        await p.keyboard.press('ArrowRight'); await sleep(40);
+        const s2 = await p.evaluate(() => ({ s: PS_ROUTER.state(), a: document.activeElement && document.activeElement.getAttribute('data-ps-el') }));
+        if (s2.s.id === id || s2.a !== s2.s.id) return FAIL('→ не перешёл к следующему элементу: ' + JSON.stringify(s2));
+        await p.keyboard.press('Escape'); await sleep(40);
+        const s3 = await p.evaluate(() => ({ open: PS_ROUTER.state().open, a: document.activeElement && document.activeElement.getAttribute('data-ps-el') }));
+        if (s3.open || s3.a !== s2.s.id) return FAIL('Esc: ' + JSON.stringify(s3));
+        const lk = await p.evaluate(c => { for (const e of (PS_ROUTER.meta(c) || {}).elements || []) { const l = (e.links || []).find(x => /^#p\//.test(x.href)); if (l) return { id: e.id, href: l.href }; } return null; }, c.key);
+        if (lk) {
+          await p.evaluate(([k, i]) => PS_ROUTER.go('#chart/' + k + '/' + i), [c.key, lk.id]); await sleep(40);
+          await p.locator(`#cp-body a[href="${lk.href}"]`).first().click(); await sleep(80);
+          const v = await p.evaluate(verifyInPage, lk.href);
+          if (v) return FAIL(`ссылка ${lk.href} из панели: ${v}`);
+        }
+        charts = `, график ${c.key}: клик, →, Esc${lk ? ', ссылка ' + lk.href : ''}`;
+      }
+      return OK(`${r.site ? 'site' : 'single/lite'} по file://: разделов ${r.sections}, строк реестра ${r.rows}${modal}${charts}`);
+    } finally { await c.close(); }
+  });
+}
+engines.push({ name: 'chromium', version: browser.version(), status: 'tested', scope: ['все проверки', 'геометрия', 'контраст', 'загрузка по file://', 'графики'] });
+await engineLoad(browser, 'chromium');
+let wk = null, ff = null;
 if (args.engines.includes('webkit')) {
   wk = await launchWebkit();
-  if (wk) await geometryPass(wk.browser, 'webkit');
-  else for (const v of GEOM_VIEWS) await check(page, `geometry-webkit-${v.name}`, async () => SKIP('WebKit не установлен в кэше Playwright: npx --prefix <node-dir> playwright install webkit', true));
+  if (wk) {
+    await geometryPass(wk.browser, 'webkit'); await engineLoad(wk.browser, 'webkit');
+    engines.push({ name: 'webkit', version: wk.browser.version(), status: 'tested', scope: ['геометрия', 'загрузка по file://'].concat(HAS_CH ? ['графики: клик, клавиатура, ссылка'] : []) });
+  } else {
+    for (const v of GEOM_VIEWS) await check(page, `geometry-webkit-${v.name}`, async () => SKIP('WebKit не установлен в кэше Playwright: npx --prefix <node-dir> playwright install webkit', true));
+    await check(page, 'engine-load-webkit', async () => SKIP('WebKit не установлен в кэше Playwright', true));
+    engines.push({ name: 'webkit', status: 'unavailable', note: 'не установлен в кэше Playwright' });
+  }
+}
+if (args.engines.includes('firefox')) {
+  ff = await launchFirefox();
+  if (ff.browser) {
+    await engineLoad(ff.browser, 'firefox');
+    engines.push({ name: 'firefox', version: ff.browser.version(), status: 'tested', scope: ['загрузка по file://'].concat(HAS_CH ? ['графики: клик, клавиатура, ссылка'] : []) });
+  } else {
+    await check(page, 'engine-load-firefox', async () => SKIP('Firefox не запустился: ' + ff.why, true));
+    engines.push({ name: 'firefox', status: 'unavailable', note: ff.why });
+  }
 }
 
 // ---------------------------------------------------------------- итог
@@ -1067,20 +1584,25 @@ checks.push({ name: 'console-errors', status: errors.length ? 'fail' : 'pass', d
 checks.push({ name: 'external-requests', status: external.length ? 'fail' : 'pass', detail: external.length ? external.slice(0, 5).join(' | ') : '0' });
 await browser.close();
 if (wk) await wk.browser.close();
+if (ff && ff.browser) await ff.browser.close();
 
 const reqAll = args.require.includes('all');
 for (const c of checks) {   // --require all не требует проверок, пропущенных из-за окружения (нет WebKit, страница без --lite)
   if (c.status === 'skip' && ((reqAll && !c.env) || args.require.includes(c.name))) { c.status = 'fail'; c.detail = 'обязательная проверка пропущена: ' + c.detail; }
 }
 const failed = checks.filter(c => c.status === 'fail');
-const result = { ok: failed.length === 0, file: HTML, counts, passed: checks.filter(c => c.status === 'pass').length,
-  failed: failed.length, skipped: checks.filter(c => c.status === 'skip').length, checks, errors, external };
+const result = { ok: failed.length === 0, file: HTML, mode: IS_SITE ? 'site' : 'single', counts, passed: checks.filter(c => c.status === 'pass').length,
+  failed: failed.length, warned: checks.filter(c => c.status === 'warn').length, skipped: checks.filter(c => c.status === 'skip').length, checks, errors, external, engines, warnings };
+const testedOn = engines.filter(e => e.status === 'tested').map(e => `${e.name} ${e.version} (${e.scope.join(', ')})`);
+const notRun = engines.filter(e => e.status !== 'tested').map(e => `${e.name} — не проверен: ${e.note}`);
 if (args.json) {
   console.log(JSON.stringify(result, null, 1));
 } else {
-  const mark = { pass: 'OK  ', fail: 'FAIL', skip: 'skip' };
+  const mark = { pass: 'OK  ', fail: 'FAIL', skip: 'skip', warn: 'WARN' };
   for (const c of checks) console.log(`${mark[c.status]} ${c.name.padEnd(18)} ${c.detail}`);
-  console.log(`ИТОГ: ${result.ok ? 'пройдено' : 'есть провалы'} — ok ${result.passed}, fail ${result.failed}, skip ${result.skipped}; ` +
+  console.log('проверено на: ' + testedOn.join('; ') + (notRun.length ? ' | ' + notRun.join('; ') : ''));
+  for (const w of warnings) console.log('ВНИМАНИЕ: ' + w);
+  console.log(`ИТОГ: ${result.ok ? (result.warned ? 'пройдено с предупреждениями' : 'пройдено') : 'есть провалы'} — ok ${result.passed}, warn ${result.warned}, fail ${result.failed}, skip ${result.skipped}; ` +
     `ошибок консоли ${errors.length}, внешних запросов ${external.length}; ${HTML}`);
 }
 process.exit(result.ok ? 0 : 1);

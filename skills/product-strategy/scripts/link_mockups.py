@@ -11,7 +11,12 @@
   - предупреждает: о макетах без предложений (служебные `_base`, `_kit` — только заметка), об id в индексе/карточках,
     которых нет в реестре, о карточках design-refs с макетом, которого нет в индексе, и о предложениях, где `mockup`
     указывает на несуществующий файл (такое значение заменяется, если у предложения есть другие макеты, иначе остаётся);
-  - ничего не удаляет: предложения без макетов не меняются. Повторный запуск не меняет файл (идемпотентно).
+  - ничего не удаляет: предложения без макетов не меняются. Повторный запуск не меняет файл (идемпотентно);
+  - не связывает служебные макеты и карточки: запись индекса или карточка design-refs с `kind: component`
+    (общий дизайн-язык, набор компонентов — например, карточка 00 / `M00-design-language`) или `links: false`,
+    а также карточки на служебные `_*.html` (`_base`, `_kit-demo`, `_app-demo`) — их `proposals` перечисляют
+    предложения, где элемент используется, а не макеты этих предложений (иначе `mockup` у десятков предложений
+    указывал бы на макет вне индекса и assemble_strategy падал с `bad_mockup`). Пропуски — в заметках.
 
 --dry-run — показать изменения, файл не писать; --strict — код 1, если есть предупреждения.
 Код выхода: 0 — готово (предупреждения допустимы); 1 — есть предупреждения при --strict; 2 — нет data/proposals.json.
@@ -43,6 +48,12 @@ def rel_html(path):
 
 def exists(out, rel):
     return bool(rel) and ((out / "mockups" / rel).exists() or (out / rel).exists())
+
+
+def no_links(rec, html=""):
+    """Служебная запись: kind=component, links=false или файл _*.html — в связывание не идёт."""
+    base = str(html or rec.get("html") or rec.get("file") or "").replace("\\", "/").rsplit("/", 1)[-1]
+    return str(rec.get("kind") or "").lower() == "component" or rec.get("links") is False or base.startswith("_")
 
 
 def reorder(p, add):
@@ -87,6 +98,10 @@ def main(argv=None):
         html = rel_html(m.get("html") or "concepts/%s.html" % m["key"])
         index_keys.add(html)
         plist = [x for x in (m.get("proposals") or []) if x]
+        if no_links(m, html):
+            notes.append("макет %s — служебный (kind: %s%s), с предложениями не связывается" % (
+                m["key"], m.get("kind") or "—", ", links: false" if m.get("links") is False else ""))
+            continue
         if not plist:
             (notes if str(m["key"]).startswith("_") else warnings).append("макет %s без предложений" % m["key"])
             orphans.append(m["key"])
@@ -102,6 +117,10 @@ def main(argv=None):
         if not isinstance(card, dict) or not card.get("file"):
             continue
         html = rel_html(card["file"])
+        if no_links(card, html):
+            notes.append("карточка %s — служебная (kind: %s, %s), с предложениями не связывается" % (
+                f.name, card.get("kind") or "—", "links: false" if card.get("links") is False else html))
+            continue
         if index and html not in index_keys:
             warnings.append("карточка %s: макета %s нет в mockups-index.json" % (f.name, html))
         for pid in card.get("proposals") or []:

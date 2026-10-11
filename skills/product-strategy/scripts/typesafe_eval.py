@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Необязательная оценка каждого предложения моделью TypeSafe Jev → data/typesafe-jev.json.
 
-  typesafe_eval.py <OUT> [--limit N] [--dry-run] [--redo] [--force]
+  typesafe_eval.py <OUT> [--limit N] [--dry-run] [--redo [--yes]] [--force]
 
 Каждому предложению задаются узкие вопросы (вероятности «да/нет», шкалы 1–5, выбор класса Кано) одним запросом.
 Результат — отдельная колонка typesafe в scores.json (score.py), в composite не входит.
@@ -9,7 +9,10 @@
 Ключ — только из переменной окружения TYPESAFE_API_KEY; никуда не пишется и не печатается.
 Нет ключа или run-config tools.typesafe = "off" (без --force) → файл с полем skipped и код 0.
 --dry-run — без сети: печатает вопросы и состояние первого предложения, файл не пишет.
+--limit N — оценить не больше N предложений (N ≥ 1; --limit 0 — ошибка: «без ограничения» — это отсутствие флага).
 --redo — переспросить уже оценённые; иначе оценки дописываются к имеющимся (можно продолжить после обрыва).
+  --redo тратит запросы заново, поэтому требует подтверждения: в терминале — вопрос «Продолжить? [y/N]», без
+  терминала (агент, CI) — только с --yes. Перед запросами печатается, сколько их будет («Будет запросов: N»).
 Адрес API можно переопределить TYPESAFE_API_URL (только для тестов). Только стандартная библиотека.
 """
 import argparse
@@ -149,12 +152,44 @@ def skeleton(prev=None, skipped=None):
             "items": dict((prev or {}).get("items") or {}), "skipped": skipped}
 
 
+def positive_int(text):
+    try:
+        n = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError("--limit: нужно целое число ≥ 1, получено %r" % text)
+    if n < 1:
+        raise argparse.ArgumentTypeError("--limit %s: нужно число ≥ 1 (0 не означает «без ограничения» — чтобы оценить "
+                                         "все предложения, не указывайте --limit)" % text)
+    return n
+
+
+def pending(todo, items, redo):
+    """Предложения, по которым будет запрос: без оценки, с ошибкой или все при --redo."""
+    return [p for p in todo if redo or p["id"] not in items or "error" in (items.get(p["id"]) or {})]
+
+
+def confirm_redo(n, yes, stream=None):
+    """--redo: True — можно продолжать. Без терминала — только с --yes."""
+    if yes:
+        return True
+    stream = stream or sys.stdin
+    if not (hasattr(stream, "isatty") and stream.isatty()):
+        print("--redo переспросит уже оценённые предложения (%d запросов к TypeSafe). Без терминала нужно подтверждение "
+              "флагом --yes — остановлено." % n, file=sys.stderr)
+        return False
+    sys.stdout.write("--redo: будет %d запросов к TypeSafe, прежние оценки перезапишутся. Продолжить? [y/N] " % n)
+    sys.stdout.flush()
+    ans = stream.readline().strip().lower()
+    return ans in ("y", "yes", "д", "да")
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Оценка предложений моделью TypeSafe Jev (необязательно).")
     ap.add_argument("out", help="папка прогона <OUT>")
-    ap.add_argument("--limit", type=int, help="оценить не больше N предложений")
+    ap.add_argument("--limit", type=positive_int, help="оценить не больше N предложений (N ≥ 1)")
     ap.add_argument("--dry-run", action="store_true", help="без сети: показать вопросы и состояние, файл не писать")
-    ap.add_argument("--redo", action="store_true", help="переспросить уже оценённые")
+    ap.add_argument("--redo", action="store_true", help="переспросить уже оценённые (нужно подтверждение или --yes)")
+    ap.add_argument("--yes", action="store_true", help="подтвердить --redo без вопроса (для неинтерактивного запуска)")
     ap.add_argument("--force", action="store_true", help="игнорировать tools.typesafe = off в run-config")
     a = ap.parse_args(argv)
     out_dir = Path(a.out).resolve()
@@ -168,16 +203,19 @@ def main(argv=None):
     cfg = json.loads(cfg_path.read_text(encoding="utf-8")) if cfg_path.exists() else {}
     context = context_from_config(cfg)
     todo = props[:a.limit] if a.limit else props
+    prev = json.loads(out_path.read_text(encoding="utf-8")) if out_path.exists() else None
+    prev_items = (prev or {}).get("items") or {}
+    will = pending(todo, prev_items, a.redo)
 
     if a.dry_run:
         print("Вопросы (%d): %s" % (len(QUESTIONS), ", ".join(QUESTIONS)))
         if todo:
             print("Состояние для %s:" % todo[0]["id"])
             print(json.dumps(build_state(context, todo[0]), ensure_ascii=False, indent=2))
-        print("Запросов было бы: %d (файл не записан)" % len(todo))
+        print("Запросов было бы: %d из %d предложений%s (файл не записан)" % (
+            len(will), len(todo), "; --redo — все заново" if a.redo else "; уже оценённые пропускаются"))
         return 0
 
-    prev = json.loads(out_path.read_text(encoding="utf-8")) if out_path.exists() else None
     key = os.environ.get("TYPESAFE_API_KEY", "").strip()
     mode = str((cfg.get("tools") or {}).get("typesafe", "auto")).lower()
     reason = None
@@ -191,6 +229,10 @@ def main(argv=None):
         print("TypeSafe пропущен: %s → %s" % (reason, out_path))
         return 0
 
+    print("Будет запросов: %d (предложений в выборке %d, уже оценено и пропускается %d%s)" % (
+        len(will), len(todo), len(todo) - len(will), "; --redo" if a.redo else ""))
+    if a.redo and will and not confirm_redo(len(will), a.yes):
+        return 2
     doc = skeleton(prev, None)
     done = errors = 0
     model_name = None

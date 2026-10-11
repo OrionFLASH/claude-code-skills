@@ -1,0 +1,86 @@
+<!doctype html>
+<!-- Раскадровка: 2–4 экрана телефона в ряд с подписями (сценарий по шагам). Скопируйте в mockups/concepts/Mxx-<slug>.html.
+     Viewport по числу экранов (ширина × высота, высота ≥ 960 — иначе подписи под телефонами обрезаются):
+       4 экрана — 1720x1000, 3 — 1320x1000, 2 — 900x1000; длинные подписи — поднимите высоту или снимайте с --full-page.
+     Номер кадра: data-screen="N" у .pm-frame — measure_hotspots.mjs запишет его в hotspots[].screen.
+     Бейдж: полоса .is-strip в каждом телефоне (снимок кадра можно вырезать) + .is-inline в шапке раскадровки. -->
+<html lang="ru" data-viewport="1720x1000" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="ps:viewport" content="1720x1000">
+<meta name="ps:proposals" content="P000">
+<title>Mxx — сценарий по шагам (раскадровка)</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="_kit.css">
+<link rel="stylesheet" href="_icons.css">
+<link rel="stylesheet" href="_mobile.css">
+</head>
+<body>
+<div class="pm-board">
+  <div class="pm-board-head"><h1>Сценарий: первая задача за минуту</h1>
+    <div class="ps-concept-badge is-inline">Концепт, не существующая функция · Продукт · ГГГГ-ММ-ДД</div></div>
+
+  <div class="pm-frame" data-screen="1">
+    <div class="pm-phone">
+      <div class="ps-concept-badge is-strip">Концепт, не существующая функция · Продукт · ГГГГ-ММ-ДД</div>
+      <div class="pm-status"><span>9:41</span><span class="pm-status-icons"><i class="ps-i ps-i-signal"></i><i class="ps-i ps-i-wifi"></i><i class="ps-i ps-i-battery"></i></span></div>
+      <header class="pm-appbar is-large"><div class="pm-appbar-row"><span style="flex:1"></span><button class="pm-iconbtn" aria-label="Ещё"><i class="ps-i ps-i-more"></i></button></div>
+        <h1>Привет!</h1><div class="pm-sub">Пустой список — с чего начать</div></header>
+      <main class="pm-body">
+        <div class="pm-card is-gradient ps-new"><h3>Первая задача за минуту</h3><p>Скажите или напишите, что нужно сделать, — срок и список мы предложим сами.</p>
+          <button class="ps-btn is-primary pm-btn-block"><i class="ps-i ps-i-mic is-20"></i>Сказать задачу</button></div>
+        <div class="pm-item is-card"><span class="pm-lead"><i class="ps-i ps-i-edit"></i></span><div class="pm-grow"><b>Написать вручную</b><small>как сейчас</small></div><i class="ps-i ps-i-chevron-right"></i></div>
+      </main>
+      <nav class="pm-tabbar"><a class="pm-tab is-active" href="#"><span class="pm-tab-pill"><i class="ps-i ps-i-list"></i></span>Задачи</a>
+        <a class="pm-tab" href="#"><span class="pm-tab-pill"><i class="ps-i ps-i-calendar"></i></span>План</a><a class="pm-tab" href="#"><span class="pm-tab-pill"><i class="ps-i ps-i-user"></i></span>Профиль</a></nav>
+      <div class="pm-gesture"></div>
+    </div>
+    <div class="pm-cap"><span class="pm-step">1</span>Пустой список предлагает первое действие<small>P000 — карточка вместо пустого экрана</small></div>
+  </div>
+
+  <div class="pm-frame" data-screen="2">
+    <div class="pm-phone">
+      <div class="ps-concept-badge is-strip">Концепт, не существующая функция · Продукт · ГГГГ-ММ-ДД</div>
+      <div class="pm-status"><span>9:41</span><span class="pm-status-icons"><i class="ps-i ps-i-signal"></i><i class="ps-i ps-i-wifi"></i><i class="ps-i ps-i-battery"></i></span></div>
+      <header class="pm-appbar"><button class="pm-iconbtn" aria-label="Закрыть"><i class="ps-i ps-i-close"></i></button><h1>Новая задача</h1></header>
+      <main class="pm-body is-center">
+        <span class="pm-lead is-round" style="width:96px;height:96px"><i class="ps-i ps-i-mic is-32"></i></span>
+        <h2>Слушаю…</h2>
+        <p class="ps-muted">«Оплатить интернет завтра до шести вечера»</p>
+      </main>
+      <div class="pm-gesture"></div>
+    </div>
+    <div class="pm-cap"><span class="pm-step">2</span>Голосом: одна фраза<small>P000 — распознавание на устройстве</small></div>
+  </div>
+
+  <div class="pm-frame" data-screen="3">
+    <div class="pm-phone">
+      <div class="ps-concept-badge is-strip">Концепт, не существующая функция · Продукт · ГГГГ-ММ-ДД</div>
+      <div class="pm-status"><span>9:42</span><span class="pm-status-icons"><i class="ps-i ps-i-signal"></i><i class="ps-i ps-i-wifi"></i><i class="ps-i ps-i-battery"></i></span></div>
+      <header class="pm-appbar"><button class="pm-iconbtn" aria-label="Меню"><i class="ps-i ps-i-menu"></i></button><h1>Задачи</h1></header>
+      <main class="pm-body"><div class="pm-item is-card"><span class="pm-lead is-round"><i class="ps-i ps-i-check"></i></span><div class="pm-grow"><b>Оплатить интернет</b><small>завтра до 18:00 · Дом</small></div></div></main>
+      <div class="pm-scrim"></div>
+      <div class="pm-sheet ps-new is-inside"><div class="pm-grabber"></div><h3>Так верно?</h3><p>Срок — завтра, 18:00. Список — «Дом». Напомним за час.</p>
+        <div class="pm-actions"><button class="ps-btn is-primary pm-btn-block">Да, сохранить</button><button class="ps-btn is-ghost pm-btn-block">Изменить</button></div></div>
+      <div class="pm-gesture"></div>
+    </div>
+    <div class="pm-cap"><span class="pm-step">3</span>Подтверждение срока и списка<small>P000 — нижний лист вместо формы</small></div>
+  </div>
+
+  <div class="pm-frame" data-screen="4">
+    <div class="pm-phone is-lock">
+      <div class="ps-concept-badge is-strip">Концепт, не существующая функция · Продукт · ГГГГ-ММ-ДД</div>
+      <div class="pm-status"><span>Завтра</span><span class="pm-status-icons"><i class="ps-i ps-i-signal"></i><i class="ps-i ps-i-wifi"></i><i class="ps-i ps-i-battery"></i></span></div>
+      <div class="pm-lock-clock">17:00</div><div class="pm-lock-date">Суббота, 12 октября</div>
+      <main class="pm-body"><div class="pm-notif"><div class="pm-notif-head"><span class="pm-notif-ico"><i class="ps-i ps-i-check"></i></span><b>Продукт</b>· сейчас</div>
+        <div class="pm-notif-title">Оплатить интернет до 18:00</div><div class="pm-notif-text">Остался час.</div>
+        <div class="pm-notif-actions"><button>Готово</button><button>Через 30 мин</button></div></div></main>
+      <div class="pm-lock-bottom"><span class="pm-lock-btn"><i class="ps-i ps-i-flashlight"></i></span><span class="pm-lock-btn"><i class="ps-i ps-i-camera"></i></span></div>
+      <div class="pm-gesture"></div>
+    </div>
+    <div class="pm-cap"><span class="pm-step">4</span>Напоминание за час<small>P000 — действие прямо из уведомления</small></div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,260 @@
+<!doctype html>
+<!-- Демо мобильного слоя: все компоненты pm-* в светлой и тёмной теме, набор иконок, автопроверка контраста.
+     В прогоне: mockups/concepts/_kit-demo-mobile.html (рядом _kit.css, _icons.css, _mobile.css, ../tokens.css);
+     снимок и проверка — shoot_mockups.mjs <OUT> --kit (замечания — в data/mockups-check._kit-demo-mobile.json). -->
+<html lang="ru" data-viewport="2120x1000" data-viewports="2120x1000,390x844" data-kind="kit">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Мобильный набор — проверка</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="_kit.css">
+<link rel="stylesheet" href="_icons.css">
+<link rel="stylesheet" href="_mobile.css">
+<style>
+  /* только для демо-страницы */
+  .kd-theme > .pm-board { padding-top: 20px; }
+  .kd-title { flex: 1 0 100%; margin: 0; text-align: center; font-size: 20px; }
+  .kd-icons { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 6px; max-width: 2060px; margin: 0 auto; padding: 20px 24px 32px; }
+  .kd-icons div { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 8px; border-radius: 8px; background: var(--c-surface); border: 1px solid var(--c-border); font-size: 12px; }
+  .kd-icons .ps-i { width: 20px; height: 20px; color: var(--c-text); }
+  .kd-icons-head { max-width: 2060px; margin: 0 auto; padding: 0 24px; }
+  @media (max-width: 440px) { .kd-icons { padding: 12px; } .kd-icons-head { padding: 0 12px; } }
+</style>
+</head>
+<body>
+<template id="kd-phones">
+  <!-- 1. Список: строка состояния, крупная панель, поиск, чипы, карточки, градиентная карточка «НОВОЕ», снекбар, вкладки с FAB -->
+  <div class="pm-frame">
+    <div class="pm-phone">
+      <div class="ps-concept-badge is-strip">Концепт, не существующая функция · Дела · проверка набора</div>
+      <div class="pm-status"><span>9:41</span><span class="pm-status-icons"><i class="ps-i ps-i-signal"></i><i class="ps-i ps-i-wifi"></i><i class="ps-i ps-i-battery"></i></span></div>
+      <header class="pm-appbar is-large">
+        <div class="pm-appbar-row"><button class="pm-iconbtn" aria-label="Меню"><i class="ps-i ps-i-menu"></i></button><span style="flex:1"></span>
+          <button class="pm-iconbtn" aria-label="Поиск"><i class="ps-i ps-i-search"></i></button><button class="pm-iconbtn" aria-label="Ещё"><i class="ps-i ps-i-more"></i></button></div>
+        <h1>Сегодня</h1><div class="pm-sub">Пятница, 11 октября · 5 задач</div>
+      </header>
+      <main class="pm-body">
+        <div class="pm-chips"><button class="ps-chip is-active" aria-pressed="true">Все <span class="ps-count">5</span></button><button class="ps-chip">Дом</button><button class="ps-chip">Работа</button><button class="ps-chip">Покупки</button></div>
+        <div class="pm-card is-gradient ps-new">
+          <h3>Умные напоминания</h3>
+          <p>Напомним, когда вы будете рядом с магазином или дома — без лишних уведомлений.</p>
+          <div class="pm-actions is-row"><button class="ps-btn is-ghost is-small">Позже</button><button class="ps-btn is-primary is-small">Включить</button></div>
+        </div>
+        <div class="pm-overline"><span>Сегодня</span><span>3 из 5</span></div>
+        <div class="pm-list">
+          <div class="pm-item"><span class="pm-lead is-round"><i class="ps-i ps-i-check"></i></span><div class="pm-grow"><b>Оплатить интернет</b><small>до 18:00 · Дом</small></div><span class="pm-trail"><i class="ps-i ps-i-bell is-16"></i></span></div>
+          <div class="pm-item"><span class="pm-lead is-round"><i class="ps-i ps-i-cart"></i></span><div class="pm-grow"><b>Купить молоко и хлеб</b><small>Покупки · 2 пункта</small></div><span class="pm-trail">19:30</span></div>
+          <div class="pm-item ps-changed is-inside"><span class="pm-lead is-round"><i class="ps-i ps-i-calendar"></i></span><div class="pm-grow"><b>Созвон с командой</b><small>Работа · каждый вторник</small></div></div>
+        </div>
+      </main>
+      <div class="pm-snackbar"><span class="pm-grow">Задача «Вынести мусор» выполнена</span><button class="pm-snack-action">Отменить</button></div>
+      <nav class="pm-tabbar has-fab">
+        <a class="pm-tab is-active" href="#"><span class="pm-tab-pill"><i class="ps-i ps-i-list"></i></span>Задачи</a>
+        <a class="pm-tab" href="#"><span class="pm-tab-pill"><i class="ps-i ps-i-calendar"></i></span>План</a>
+        <button class="pm-fab" aria-label="Новая задача"><i class="ps-i ps-i-plus"></i></button>
+        <a class="pm-tab" href="#"><span class="pm-tab-pill"><i class="ps-i ps-i-chart"></i></span>Итоги</a>
+        <a class="pm-tab" href="#"><span class="pm-tab-pill"><i class="ps-i ps-i-user"></i></span>Профиль</a>
+      </nav>
+      <div class="pm-gesture"></div>
+    </div>
+    <div class="pm-cap"><span class="pm-step">1</span>Список: карточки, чипы, снекбар, FAB<small>.pm-appbar.is-large · .pm-list > .pm-item · .pm-card.is-gradient · .ps-new · .pm-snackbar · .pm-tabbar.has-fab</small></div>
+  </div>
+
+  <!-- 2. Нижний лист поверх затемнения -->
+  <div class="pm-frame">
+    <div class="pm-phone">
+      <div class="ps-concept-badge is-strip">Концепт, не существующая функция · Дела · проверка набора</div>
+      <div class="pm-status"><span>9:42</span><span class="pm-status-icons"><i class="ps-i ps-i-signal"></i><i class="ps-i ps-i-wifi"></i><i class="ps-i ps-i-battery"></i></span></div>
+      <header class="pm-appbar"><button class="pm-iconbtn" aria-label="Меню"><i class="ps-i ps-i-menu"></i></button><h1>Задачи</h1><button class="pm-iconbtn" aria-label="Фильтр"><i class="ps-i ps-i-filter"></i></button></header>
+      <main class="pm-body">
+        <div class="pm-search"><i class="ps-i ps-i-search"></i>Найти задачу</div>
+        <div class="pm-item is-card"><span class="pm-lead"><i class="ps-i ps-i-home"></i></span><div class="pm-grow"><b>Дом</b><small>4 задачи</small></div><i class="ps-i ps-i-chevron-right"></i></div>
+        <div class="pm-item is-card"><span class="pm-lead"><i class="ps-i ps-i-doc"></i></span><div class="pm-grow"><b>Работа</b><small>7 задач</small></div><i class="ps-i ps-i-chevron-right"></i></div>
+      </main>
+      <div class="pm-scrim"></div>
+      <div class="pm-sheet" role="dialog" aria-label="Новая задача">
+        <div class="pm-grabber"></div>
+        <h3>Новая задача</h3>
+        <div class="ps-field"><label>Что сделать</label><div class="ps-input">Записаться к стоматологу</div></div>
+        <div class="pm-chips"><button class="ps-chip is-active" aria-pressed="true"><i class="ps-i ps-i-calendar is-16"></i>Завтра</button><button class="ps-chip">В выходные</button><button class="ps-chip"><i class="ps-i ps-i-bell is-16"></i>10:00</button></div>
+        <p>Напомним за час. Список — «Дом».</p>
+        <div class="pm-actions"><button class="ps-btn is-primary pm-btn-block">Сохранить</button><button class="ps-btn is-ghost pm-btn-block">Отмена</button></div>
+      </div>
+      <div class="pm-gesture"></div>
+    </div>
+    <div class="pm-cap"><span class="pm-step">2</span>Нижний лист<small>.pm-scrim + .pm-sheet > .pm-grabber · поля .ps-field/.ps-input · .pm-actions</small></div>
+  </div>
+
+  <!-- 3. Диалог поверх настроек -->
+  <div class="pm-frame">
+    <div class="pm-phone">
+      <div class="ps-concept-badge is-strip">Концепт, не существующая функция · Дела · проверка набора</div>
+      <div class="pm-status"><span>9:43</span><span class="pm-status-icons"><i class="ps-i ps-i-signal"></i><i class="ps-i ps-i-wifi"></i><i class="ps-i ps-i-battery"></i></span></div>
+      <header class="pm-appbar is-surface"><button class="pm-iconbtn" aria-label="Назад"><i class="ps-i ps-i-back"></i></button><h1>Настройки</h1></header>
+      <main class="pm-body">
+        <div class="pm-overline"><span>Уведомления</span></div>
+        <div class="pm-list">
+          <div class="pm-item"><div class="pm-grow"><b>Напоминания</b><small>за час до срока</small></div><label class="ps-switch"><input type="checkbox" role="switch" checked><span class="ps-track"></span></label></div>
+          <div class="pm-item"><div class="pm-grow"><b>Итоги дня</b><small>в 21:00</small></div><label class="ps-switch"><input type="checkbox" role="switch"><span class="ps-track"></span></label></div>
+        </div>
+        <div class="pm-overline"><span>Данные</span></div>
+        <div class="pm-list"><div class="pm-item"><span class="pm-lead"><i class="ps-i ps-i-trash"></i></span><div class="pm-grow"><b>Удалить выполненные</b><small>38 задач за месяц</small></div></div></div>
+      </main>
+      <div class="pm-scrim"></div>
+      <div class="pm-dialog" role="dialog" aria-label="Удалить выполненные">
+        <span class="pm-dialog-ico"><i class="ps-i ps-i-trash"></i></span>
+        <h3>Удалить 38 выполненных задач?</h3>
+        <p>Задачи исчезнут со всех устройств. Это действие нельзя отменить.</p>
+        <div class="pm-actions is-row"><button class="ps-btn is-ghost">Отмена</button><button class="ps-btn is-danger">Удалить</button></div>
+      </div>
+      <nav class="pm-tabbar">
+        <a class="pm-tab" href="#"><span class="pm-tab-pill"><i class="ps-i ps-i-list"></i></span>Задачи</a>
+        <a class="pm-tab" href="#"><span class="pm-tab-pill"><i class="ps-i ps-i-calendar"></i></span>План</a>
+        <a class="pm-tab is-active" href="#"><span class="pm-tab-pill"><i class="ps-i ps-i-settings"></i></span>Настройки</a>
+      </nav>
+      <div class="pm-gesture"></div>
+    </div>
+    <div class="pm-cap"><span class="pm-step">3</span>Диалог<small>.pm-dialog · .pm-appbar.is-surface · .ps-switch в строке · .pm-tabbar без FAB</small></div>
+  </div>
+
+  <!-- 4. Экран блокировки с уведомлениями -->
+  <div class="pm-frame">
+    <div class="pm-phone is-lock">
+      <div class="ps-concept-badge is-strip">Концепт, не существующая функция · Дела · проверка набора</div>
+      <div class="pm-status"><span>Билайн</span><span class="pm-status-icons"><i class="ps-i ps-i-signal"></i><i class="ps-i ps-i-wifi"></i><i class="ps-i ps-i-battery"></i></span></div>
+      <div class="pm-lock-clock">9:44</div>
+      <div class="pm-lock-date">Пятница, 11 октября</div>
+      <main class="pm-body">
+        <div class="pm-notifs">
+          <div class="pm-notif ps-new"><div class="pm-notif-head"><span class="pm-notif-ico"><i class="ps-i ps-i-check"></i></span><b>Дела</b>· сейчас</div>
+            <div class="pm-notif-title">Оплатить интернет до 18:00</div><div class="pm-notif-text">Осталось 8 часов. Список «Дом».</div>
+            <div class="pm-notif-actions"><button>Готово</button><button>Через час</button></div></div>
+          <div class="pm-notif"><div class="pm-notif-head"><span class="pm-notif-ico"><i class="ps-i ps-i-chart"></i></span><b>Дела</b>· 8:00</div>
+            <div class="pm-notif-title">План на сегодня: 5 задач</div><div class="pm-notif-text">Самая срочная — «Оплатить интернет».</div></div>
+        </div>
+      </main>
+      <div class="pm-lock-bottom"><span class="pm-lock-btn"><i class="ps-i ps-i-flashlight"></i></span><span class="pm-lock-hint">Проведите вверх</span><span class="pm-lock-btn"><i class="ps-i ps-i-camera"></i></span></div>
+      <div class="pm-gesture"></div>
+    </div>
+    <div class="pm-cap"><span class="pm-step">4</span>Экран блокировки<small>.pm-phone.is-lock · .pm-lock-clock · .pm-notifs > .pm-notif · .pm-lock-bottom</small></div>
+  </div>
+
+  <!-- 5. Рабочий стол: всплывающее уведомление, виджет, иконки, док -->
+  <div class="pm-frame">
+    <div class="pm-phone is-home">
+      <div class="ps-concept-badge is-strip">Концепт, не существующая функция · Дела · проверка набора</div>
+      <div class="pm-status"><span>9:45</span><span class="pm-status-icons"><i class="ps-i ps-i-signal"></i><i class="ps-i ps-i-wifi"></i><i class="ps-i ps-i-battery"></i></span></div>
+      <div class="pm-notif is-heads-up"><div class="pm-notif-head"><span class="pm-notif-ico"><i class="ps-i ps-i-bell"></i></span><b>Дела</b>· сейчас</div>
+        <div class="pm-notif-title">Вы рядом с магазином</div><div class="pm-notif-text">В списке «Покупки» 2 пункта: молоко, хлеб.</div></div>
+      <main class="pm-body" style="padding:0">
+        <div class="pm-home-grid" style="padding-top:150px">
+          <div class="pm-widget ps-new">
+            <div class="pm-widget-head"><b>Дела · сегодня</b><span>9:45</span></div>
+            <div class="pm-widget-value">3 из 5</div>
+            <div class="pm-widget-bars"><i style="height:60%"></i><i style="height:80%"></i><i style="height:45%"></i><i style="height:100%"></i><i class="is-dim" style="height:30%"></i><i class="is-dim" style="height:20%"></i><i class="is-dim" style="height:25%"></i></div>
+            <button class="ps-btn is-primary is-small"><i class="ps-i ps-i-plus is-16"></i>Задача</button>
+          </div>
+          <span class="pm-app"><i class="pm-app-ico is-accent"><i class="ps-i ps-i-check"></i></i>Дела</span>
+          <span class="pm-app"><i class="pm-app-ico"><i class="ps-i ps-i-calendar"></i></i>Календарь</span>
+          <span class="pm-app"><i class="pm-app-ico"><i class="ps-i ps-i-mail"></i></i>Почта</span>
+          <span class="pm-app"><i class="pm-app-ico"><i class="ps-i ps-i-pin"></i></i>Карты</span>
+        </div>
+      </main>
+      <div class="pm-dock"><span class="pm-app"><i class="pm-app-ico"><i class="ps-i ps-i-phone"></i></i></span><span class="pm-app"><i class="pm-app-ico"><i class="ps-i ps-i-chat"></i></i></span>
+        <span class="pm-app"><i class="pm-app-ico"><i class="ps-i ps-i-globe"></i></i></span><span class="pm-app"><i class="pm-app-ico"><i class="ps-i ps-i-camera"></i></i></span></div>
+      <div class="pm-gesture"></div>
+    </div>
+    <div class="pm-cap"><span class="pm-step">5</span>Рабочий стол: уведомление и виджет<small>.pm-notif.is-heads-up · .pm-widget (4×2, .is-2x2) · .pm-home-grid > .pm-app · .pm-dock</small></div>
+  </div>
+</template>
+
+<section class="kd-theme" data-theme="light"><div class="pm-board"><h2 class="kd-title">Светлая тема</h2><div class="kd-slot" style="display:contents"></div></div></section>
+<section class="kd-theme" data-theme="dark"><div class="pm-board"><h2 class="kd-title">Тёмная тема</h2><div class="kd-slot" style="display:contents"></div></div></section>
+<section class="kd-theme" data-theme="light" style="background:var(--c-bg)">
+  <div class="kd-icons-head"><h2>Иконки <span class="ps-muted ps-small">— class="ps-i ps-i-&lt;имя&gt;", цвет currentColor</span></h2></div>
+  <div class="kd-icons" id="kd-icons"></div>
+</section>
+
+<script>
+// Одинаковые экраны в обеих темах и галерея иконок (список = _icons.css; тест сверяет)
+(function () {
+  var tpl = document.getElementById('kd-phones');
+  document.querySelectorAll('.kd-slot').forEach(function (slot) { slot.appendChild(tpl.content.cloneNode(true)); });
+  var ICONS = ['menu', 'back', 'forward', 'close', 'search', 'more', 'more-h', 'plus', 'minus', 'check', 'chevron-right', 'chevron-left', 'chevron-down',
+    'chevron-up', 'home', 'list', 'grid', 'settings', 'sliders', 'user', 'users', 'bell', 'mic', 'mic-off', 'play', 'pause', 'stop', 'record', 'wave',
+    'star', 'heart', 'bookmark', 'trash', 'share', 'edit', 'copy', 'download', 'upload', 'send', 'calendar', 'clock', 'lock', 'camera', 'image', 'pin',
+    'chat', 'mail', 'phone', 'wifi', 'signal', 'battery', 'flashlight', 'filter', 'info', 'alert', 'shield', 'gift', 'cart', 'card', 'chart', 'doc',
+    'folder', 'globe', 'sun', 'moon', 'eye', 'link', 'refresh', 'sparkle', 'text', 'headphones', 'volume', 'qr', 'book', 'tag', 'logout'];
+  var box = document.getElementById('kd-icons');
+  box.innerHTML = ICONS.map(function (n) { return '<div><i class="ps-i ps-i-' + n + '"></i>' + n + '</div>'; }).join('');
+})();
+
+// Автопроверка контраста текста (WCAG: 4,5:1, крупный текст ≥ 24px или ≥ 18,66px жирный — 3:1).
+// Градиенты: проверяется каждый цвет градиента (худший случай); картинки-фоны пропускаются.
+// Итог: window.psContrast = {checked, fails}; каждое нарушение — console.error (shoot_mockups считает это замечанием).
+(function () {
+  var cv = document.createElement('canvas'); cv.width = cv.height = 1;
+  var cx = cv.getContext('2d', { willReadFrequently: true });
+  var COLOR_RE = /(?:rgba?|hsla?|color|oklab|oklch|lab|lch)\((?:[^()]|\([^()]*\))*\)|#[0-9a-fA-F]{3,8}\b/g;
+  function rgba(c) {
+    if (!c || c === 'transparent') return [0, 0, 0, 0];
+    cx.clearRect(0, 0, 1, 1); cx.fillStyle = '#000'; cx.fillStyle = c; cx.fillRect(0, 0, 1, 1);
+    var d = cx.getImageData(0, 0, 1, 1).data; return [d[0], d[1], d[2], d[3] / 255];
+  }
+  function over(top, under) { var a = top[3]; return [top[0] * a + under[0] * (1 - a), top[1] * a + under[1] * (1 - a), top[2] * a + under[2] * (1 - a), 1]; }
+  function lum(c) { var f = function (v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); }
+  function ratio(a, b) { var x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+  function backgrounds(el) {
+    var layers = [];
+    for (var e = el; e && e.nodeType === 1; e = e.parentElement) {
+      var s = getComputedStyle(e), img = s.backgroundImage, done = false;
+      if (img && img !== 'none') {
+        if (!/gradient/.test(img) || /url\(/.test(img)) return null;
+        var g = (img.match(COLOR_RE) || []).map(rgba);
+        if (!g.length) return null;
+        layers.push(g); done = g.every(function (x) { return x[3] >= 0.999; });
+      }
+      if (!done) { var c = rgba(s.backgroundColor); if (c[3] > 0) { layers.push([c]); done = c[3] >= 0.999; } }
+      if (done) break;
+    }
+    var bases = [[255, 255, 255, 1]];
+    for (var i = layers.length - 1; i >= 0; i--) {
+      var next = [];
+      bases.forEach(function (b) { layers[i].forEach(function (l) { next.push(over(l, b)); }); });
+      bases = next.slice(0, 32);
+    }
+    return bases;
+  }
+  function run() {
+    var fails = [], checked = 0;
+    document.querySelectorAll('body *').forEach(function (el) {
+      if (el.closest('[aria-hidden="true"], script, style, template, .ps-lock-body')) return;
+      var own = false;
+      for (var n = el.firstChild; n; n = n.nextSibling) if (n.nodeType === 3 && n.textContent.trim()) { own = true; break; }
+      if (!own) return;
+      var r = el.getBoundingClientRect(); if (!r.width || !r.height) return;
+      var s = getComputedStyle(el);
+      if (s.visibility === 'hidden' || +s.opacity === 0 || el.matches(':disabled, .is-disabled')) return;
+      var bgs = backgrounds(el); if (!bgs) return;
+      var col = rgba(s.color), k = Infinity;
+      bgs.forEach(function (bg) { k = Math.min(k, ratio(over(col, bg), bg)); });
+      var size = parseFloat(s.fontSize), bold = parseInt(s.fontWeight, 10) >= 700;
+      var need = (size >= 24 || (bold && size >= 18.66)) ? 3 : 4.5;
+      checked++;
+      if (k + 1e-6 < need) {
+        var theme = (el.closest('[data-theme]') || document.documentElement).getAttribute('data-theme') || 'light';
+        var cls = (el.className && typeof el.className === 'string') ? '.' + el.className.trim().split(/\s+/).join('.') : el.tagName.toLowerCase();
+        var rec = { theme: theme, el: cls, text: el.textContent.trim().slice(0, 40), ratio: Math.round(k * 100) / 100, need: need };
+        fails.push(rec);
+        console.error('контраст ' + rec.ratio + ':1 < ' + need + ' — ' + rec.el + ' «' + rec.text + '» (' + theme + ')');
+      }
+    });
+    window.psContrast = { checked: checked, fails: fails };
+    document.documentElement.setAttribute('data-contrast', fails.length ? 'fail:' + fails.length : 'ok');
+  }
+  if (document.readyState === 'complete') run(); else window.addEventListener('load', run);
+})();
+</script>
+</body>
+</html>

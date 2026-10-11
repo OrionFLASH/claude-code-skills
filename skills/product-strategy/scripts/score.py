@@ -17,6 +17,12 @@
 получает бонус); critical_path — самая ценная цепочка зависимостей, ведущая в топ-N. Циклы обнаруживаются и
 разрываются детерминированно (внутри цикла остаётся только связь «предпосылка выше по рангу»).
 
+Неприменимые подшкалы ценности: значение null в scores или ключ в списке scores_na предложения
+(например, "scores_na": ["seo", "revenue"]) — подшкала исключается из индекса ценности (вес не участвует), а не
+подменяется value; в RICE/WSJF на её месте по-прежнему value (references/methodology-anchors.md). Отсутствующая
+подшкала без флага — как раньше, value. Сравнения с медианой (квадранты) и порогами меток — через round(x, 9),
+как в validate_scores.py: разница в последнем знаке плавающей точки не меняет квадрант.
+
 Все формулы — references/scoring.md (держать в синхроне с этим файлом). Только стандартная библиотека.
 """
 import argparse
@@ -66,6 +72,21 @@ DEFAULT_WEIGHTS = {
 }
 
 PERTURB_GROUPS = ("composite", "value", "cost", "risk")
+NDIGITS = 9                    # точность сравнений с медианой и порогами (как в validate_scores.py)
+
+
+def R(x):
+    return round(x, NDIGITS)
+
+
+def na_subscales(p):
+    """Неприменимые подшкалы ценности: null в scores или перечислены в scores_na (value неприменимой быть не может)."""
+    s = p.get("scores") if isinstance(p.get("scores"), dict) else {}
+    na = {k for k, v in s.items() if v is None}
+    if isinstance(p.get("scores_na"), list):
+        na |= {str(k) for k in p["scores_na"]}
+    na.discard("value")
+    return na
 
 
 # ---------------------------------------------------------------- utils
@@ -138,10 +159,13 @@ def base_metrics(p, W):
     cost = clamp(num(s.get("cost"), 3))
     risk = clamp(num(s.get("risk"), 3))
     conf_expert = clamp(num(s.get("confidence"), 3))
-    # подшкалы ценности: известные + любые свои ключи из весов; нет значения → value
-    sub = {k: clamp(num(s.get(k), value)) for k in set(VALUE_SUBSCALES) | set(W["value"]) if k != "value"}
+    # подшкалы ценности: известные + любые свои ключи из весов; нет значения → value;
+    # неприменимые (null / scores_na) — исключаются из индекса ценности, в RICE/WSJF на их месте value
+    na = na_subscales(p)
+    sub = {k: (value if k in na else clamp(num(s.get(k), value))) for k in set(VALUE_SUBSCALES) | set(W["value"]) if k != "value"}
     vvals = dict(sub, value=value)
-    value_index = wmean({k: vvals[k] for k in W["value"]}, W["value"])
+    vw = {k: w for k, w in W["value"].items() if k not in na}
+    value_index = wmean({k: vvals[k] for k in vw}, vw)
 
     ed = p.get("effort_days")
     if isinstance(ed, list) and len(ed) == 2 and all(num(x, None) is not None for x in ed):
@@ -188,7 +212,7 @@ def base_metrics(p, W):
         "confidence_calc": confidence, "effort_days_mid": effort_mid if effort_mid is not None else effort_for_rice,
         "reach_units": reach_units, "rice": rice, "ice": ice, "cost_of_delay": cost_of_delay, "wsjf": wsjf,
         "value_per_effort": value_per_effort, "risk_adjusted": risk_adjusted,
-        "_sub": sub, "_time_days": ttfr, "_money": money,
+        "_sub": sub, "_time_days": ttfr, "_money": money, "_na": na,
     }
 
 
@@ -227,7 +251,7 @@ def classify(rows, props_by_id, W):
     med_v = statistics.median(r["value_index"] for r in rows)
     med_c = statistics.median(r["cost_index"] for r in rows)
     for r in rows:
-        hi_v, lo_c = r["value_index"] >= med_v, r["cost_index"] <= med_c
+        hi_v, lo_c = R(r["value_index"]) >= R(med_v), R(r["cost_index"]) <= R(med_c)
         r["quadrant"] = ("quick_win" if lo_c else "big_bet") if hi_v else ("filler" if lo_c else "money_pit")
     pr = W["priority"]
     k0 = max(1, half_up(n * pr["p0_share"]))
@@ -253,22 +277,22 @@ def classify(rows, props_by_id, W):
         days = r["_time_days"]
         cost_raw = clamp(num((p.get("scores") or {}).get("cost"), 3))
         labels = []
-        if r["value_index"] >= L["important_value"]:
+        if R(r["value_index"]) >= R(L["important_value"]):
             labels.append("important")
-        if r["value_per_effort"] >= vpe_q:
+        if R(r["value_per_effort"]) >= R(vpe_q):
             labels.append("effective")
-        if r["cost_index"] >= L["expensive_cost"] or (r["_money"] is not None and r["_money"] >= L["expensive_money"]):
+        if R(r["cost_index"]) >= R(L["expensive_cost"]) or (r["_money"] is not None and r["_money"] >= L["expensive_money"]):
             labels.append("expensive")
-        if r["risk_index"] >= L["risky_risk"]:
+        if R(r["risk_index"]) >= R(L["risky_risk"]):
             labels.append("risky")
         if (days <= L["fast_days"]) if days is not None else cost_raw <= 2:
             labels.append("fast")
         if (days >= L["slow_days"]) if days is not None else cost_raw >= 4:
             labels.append("slow")
-        if sub["moat"] >= L["strategic_moat"] and p.get("horizon") in L["strategic_horizons"]:
+        if "moat" not in r["_na"] and sub["moat"] >= L["strategic_moat"] and p.get("horizon") in L["strategic_horizons"]:
             labels.append("strategic")
-        if r["value_index"] >= L["tempting_value"] and (r["confidence_calc"] < L["tempting_confidence"]
-                                                         or p.get("evidence_class") == "D"):
+        if R(r["value_index"]) >= R(L["tempting_value"]) and (R(r["confidence_calc"]) < R(L["tempting_confidence"])
+                                                               or p.get("evidence_class") == "D"):
             labels.append("tempting_weak")
         r["labels"] = labels
     return rows

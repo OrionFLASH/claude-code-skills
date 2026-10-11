@@ -22,7 +22,7 @@ def run(*args, **kw):
 # ---------- intake: вопросы подходят AskUserQuestion ----------
 def test_rounds_fit_ask_user_question_limits():
     rounds = intake.questions_json()
-    assert len(rounds) == 5
+    assert len(rounds) == 6
     headers = []
     for r in rounds:
         assert 1 <= len(r["questions"]) <= 4

@@ -1,23 +1,43 @@
 #!/usr/bin/env python3
-"""Сборка интерактивной веб-страницы стратегии: одна самодостаточная офлайн-страница <OUT>/deliverables/index.html.
+"""Сборка интерактивной веб-страницы стратегии: по умолчанию сайт из нескольких файлов <OUT>/deliverables/ (режим site),
+работающий офлайн по двойному клику (file://); `--single` — прежняя одна самодостаточная страница index.html.
 
 Читает папку прогона <OUT> по references/data-contract.md; каждый раздел пропускается, если для него нет данных:
 research/strategy.md, data/*.json (реестр, оценки, Гант, Kanban, схемы, конкуренты, модель, источники…),
 charts/charts-index.json, mockups/ (tokens.css, current/, concepts/), design-refs/, competitors/shots/, build/run-config.json.
 
-CSS, JS, данные и картинки встроены в страницу: каждая картинка — один раз (карта IMG, data URI, ссылка по ключу),
-JSON — в <script type="application/json">, CSP без внешних источников, ни одного внешнего запроса.
+  build_html.py <OUT> [--site | --single | --lite] [--zip] [--site-csp self|none] [--out <file>] [--title "…"]
+                      [--lite-encoder auto|pillow|ffmpeg|none] [--strict]
+
+Режим site (по умолчанию), спецификация — references/interactive-site.md, раздел 1:
+  deliverables/index.html           оболочка: разметка и текст разделов (≤ 1 МБ), относительные ссылки с ?v=<хеш содержимого>
+  deliverables/assets/app.css|app.js|head.js   стили, логика страницы, ранняя установка темы
+  deliverables/assets/data.js       window.PS_DATA = {реестр, оценки, конкуренты, Гант, Kanban, ссылки на картинки…} — JS, не JSON
+                                    (fetch() по file:// запрещён)
+  deliverables/assets/img/…         картинки: одна копия на изображение, WebP при Pillow/ffmpeg, иначе как есть; thumbs/ — миниатюры
+  deliverables/assets/extra.css|extra.js   пользовательские правки из <OUT>/build/extra.css|js (если файлы есть)
+  deliverables/assets/charts-<группа>.js   window.PS_CHARTS[ключ] = {svg, meta}: SVG интерактивных графиков и пояснения к их
+                                    элементам по группам (scores, registry, plan, model, market…); подключаются динамическим
+                                    <script src> при первом показе графика группы или по глубокой ссылке #chart/<ключ>/<id>
+Интерактивные графики (references/interactive-site.md, п. 2.3): график с charts/<ключ>.meta.json — встроенный SVG с панелью
+пояснений (клик/Enter/Space по элементу, ←/→, Esc), подсветкой легенды, «Как читать график»; единый роутер ссылок страницы
+(#s<N>, #p/<P-id>, #registry?…, #gantt/…, #kanban/…, #competitor/…, #mockup/…, #flow/…, #chart/<ключ>/<id>; старые #p=…, #s-N
+работают). Цели всех ссылок из meta проверяются по собранной странице: ссылка без цели в панель не попадает (предупреждение;
+с --strict — код выхода 1). Графики без meta (старые прогоны) — статичные картинки, как раньше.
+  deliverables/data/…               открытые данные рядом: proposals.json|csv, scores.csv, competitors.csv, gantt.csv, kanban.csv, sources.csv
+  deliverables/strategy-site.zip    с --zip
+  deliverables/.ps-site.json        манифест созданных файлов: пересборка в другом режиме удаляет их (и файлы --lite); чужие не трогает
+CSP site: default-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' (хеши не нужны). Внешних запросов нет.
+
+--single: CSS, JS, данные и картинки встроены в страницу: каждая картинка — один раз (карта IMG, data URI, ссылка по ключу),
+JSON — в <script type="application/json">, CSP с хешами sha256 без внешних источников. Страница > 12 МБ — совет собрать сайт или --lite.
+--lite: single, но крупные растровые картинки пишутся файлами в <папка страницы>/assets/ (WebP, если есть Pillow или ffmpeg; иначе
+PNG/JPEG как есть), в странице — относительные ссылки и миниатюры ≤ 320 px в data: для превью (полная картинка подгружается,
+когда превью видно и крупнее миниатюры). SVG и мелкие картинки встраиваются всегда.
 Весь текст из данных экранируется: HTML и скрипты в данных — это данные, не код.
 
-  build_html.py <OUT> [--out <file>] [--title "…"] [--lite [--lite-encoder auto|pillow|ffmpeg|none]]
-
---lite: крупные растровые картинки не встраиваются, а пишутся файлами в <папка страницы>/assets/ (WebP, если есть
-Pillow или ffmpeg; иначе PNG/JPEG как есть), в странице — относительные ссылки и миниатюры ≤ 320 px в data: для превью
-(полная картинка подгружается, когда превью видно и крупнее миниатюры). SVG и мелкие картинки встраиваются всегда.
-Без --lite страница автономна, как прежде; если она больше 12 МБ — печатается совет собрать с --lite.
-
-В конце печатает размер страницы, топ-10 самых тяжёлых вложений и предупреждения. Только стандартная библиотека
-(Pillow и ffmpeg для --lite — необязательны и используются, только если есть).
+В конце печатает размеры (index.html, assets/, data/, весь сайт), топ-10 самых тяжёлых вложений и предупреждения
+(index.html > 1 МБ; сайт > 25 МБ — совет). Только стандартная библиотека (Pillow и ffmpeg — необязательны).
 """
 import argparse
 import base64
@@ -35,6 +55,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+from collections import OrderedDict
 from datetime import date
 from pathlib import Path
 from urllib.parse import quote, urlsplit
@@ -294,6 +315,12 @@ def clean_json(o):
     return o
 
 
+def js_literal(obj):
+    """Значение для assets/*.js (JSON как литерал JS): < > & и U+2028/2029 экранированы — безопасно и внутри <script>."""
+    t = json.dumps(clean_json(obj), ensure_ascii=False, separators=(",", ":"))
+    return t.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
+
+
 def json_script(id_, obj):
     """JSON в <script type="application/json">: < > & → \\u003c… (в том числе </script>)."""
     s = json.dumps(clean_json(obj), ensure_ascii=False, separators=(",", ":"))
@@ -350,7 +377,7 @@ def data_url(u):
 def ext_link(url, text=None, cls=""):
     """Внешняя ссылка (новая вкладка) или просто текст, если это не валидный http(s)/mailto-адрес."""
     s = data_url(url)
-    t = esc(text if text not in (None, "") else url)
+    t = esc(text) if text not in (None, "") else wbr_long(esc(url))     # голый URL вместо названия — с мягкими переносами
     if not s:
         return t
     c = ' class="' + cls + '"' if cls else ""
@@ -416,6 +443,48 @@ def verdict_parts(verdict, verdict_long):
     if not short and vl:
         short = (vl[:VERDICT_MAX].rstrip(" ,.;:—–-") + "…") if len(vl) > VERDICT_MAX else vl
     return short, (vl or (v if cut else "")), bool(cut and not vl)
+
+
+# число в ячейке: «12 000», «~50k», «1,5 млн», «≈ 30 %», «12 000+», «$9.99», «12–15k»; «—» и пусто — нейтральны
+_NUM_PART = r"\d[\d\s  .,]*\s*(?:%|[kKmMкКмМ]|тыс\.?|млн\.?|млрд\.?|[$€₽£])?"
+NUM_CELL_RE = re.compile(r"[~≈<>±+\-−]?\s*[$€₽£]?\s*" + _NUM_PART + r"(?:\s*[–—\-]\s*[$€₽£]?\s*" + _NUM_PART + r")?\s*\+?")
+
+
+def is_num_text(v):
+    """Значение выглядит как число (с разрядами, знаком, % или сокращением тыс./млн/k/M) — без слов вокруг."""
+    if isinstance(v, bool):
+        return False
+    if isinstance(v, (int, float)):
+        return True
+    return bool(NUM_CELL_RE.fullmatch(str(v or "").strip()))
+
+
+def num_col(values):
+    """Класс num (вправо, без переноса) — только если ВСЕ непустые значения колонки числа (A-1.13, B-48): длинная текстовая
+    «аудитория» в колонке num с white-space:nowrap раздувала таблицу «Сообщества» за рамку."""
+    vals = [v for v in values if not (v is None or (isinstance(v, str) and v.strip() in ("", "—", "-", "–")))]
+    return bool(vals) and all(is_num_text(v) for v in vals)
+
+
+LONG_TOKEN_RE = re.compile(r"[^\s<>]{22,}")
+
+
+def wbr_long(html_text):
+    """Мягкие переносы <wbr> в длинных «словах» без пробелов (URL, пути, camelCase, snake_case) внутри текста HTML —
+    только вне тегов. Обычные слова не трогаются: колонка таблицы не сжимается до обрывков, но и не раздувается."""
+    def fix(m):
+        ents = []
+
+        def keep(e):                       # сущности (&amp; &#39;) — целиком, без переносов внутри
+            ents.append(e.group(0))
+            return "\x00%d\x00" % (len(ents) - 1)
+        t = re.sub(r"&(?:\w+|#\d+|#x[0-9a-fA-F]+);", keep, m.group(0))
+        t = re.sub(r"([/_.=?\-:,;])(?=[^\s/_.=?\-:,;\x00])", r"\1<wbr>", t)
+        t = re.sub(r"(?<=[a-zа-яё])(?=[A-ZА-ЯЁ])", "<wbr>", t)
+        t = re.sub(r"(\x00\d+\x00)(?=[^\s\x00])", r"\1<wbr>", t) if "\x00" in t else t
+        return re.sub(r"\x00(\d+)\x00", lambda e: ents[int(e.group(1))], t)
+    parts = re.split(r"(<[^>]*>)", html_text or "")
+    return "".join(p if p.startswith("<") else LONG_TOKEN_RE.sub(fix, p) for p in parts)
 
 
 def _same_value(a, b):
@@ -672,6 +741,10 @@ class LiteStore:
         self.written = {}            # имя файла → байты
         self.thumb_bytes = 0
 
+    def wants(self, mime, size):
+        """--lite: растровые картинки крупнее LITE_INLINE_MAX — файлом; SVG и мелочь — встраиваются."""
+        return mime != "image/svg+xml" and size > LITE_INLINE_MAX
+
     def store(self, src, data, mime, key):
         """→ (относительный URL, размер файла, (data URI миниатюры, ширина) | None)."""
         h = hashlib.sha1(data).hexdigest()[:10]
@@ -710,6 +783,102 @@ class LiteStore:
             (self.dir / ASSETS_MANIFEST).write_text(json.dumps(sorted(self.written), ensure_ascii=False, indent=1), encoding="utf-8")
         elif (self.dir / ASSETS_MANIFEST).is_file():
             (self.dir / ASSETS_MANIFEST).unlink()
+
+
+class SiteStore(LiteStore):
+    """Картинки режима site: assets/img/<ключ>-<хеш>.<ext> (одна копия на изображение; WebP при Pillow/ffmpeg, иначе как есть),
+    миниатюры (картинки > 32 КБ) — assets/img/thumbs/. SVG пишется как есть. В странице — только относительные ссылки.
+    written: путь относительно папки страницы → размер (для манифеста и очистки)."""
+
+    EXT = dict(LiteStore.EXT, **{"image/svg+xml": ".svg"})
+
+    def __init__(self, page_dir, encoder):
+        super().__init__(page_dir, encoder)
+        self.dir = Path(page_dir) / "assets" / "img"
+        self.tdir = self.dir / "thumbs"
+
+    def wants(self, mime, size):
+        return mime in self.EXT
+
+    def store(self, src, data, mime, key):
+        """→ (относительный URL, размер файла, (URL миниатюры, ширина) | None)."""
+        h = hashlib.sha1(data).hexdigest()[:10]
+        stem = slug(key)[:60] + "-" + h
+        existing = [p for p in (self.dir.glob(stem + ".*") if self.dir.is_dir() else []) if p.suffix in self.EXT.values()]
+        if existing:
+            name, size = existing[0].name, existing[0].stat().st_size
+        else:
+            out, omime = (data, mime) if mime == "image/svg+xml" else self.enc.full(src, data, mime)
+            name = stem + self.EXT.get(omime, Path(str(src)).suffix.lower() or ".bin")
+            self.dir.mkdir(parents=True, exist_ok=True)
+            (self.dir / name).write_bytes(out)
+            size = len(out)
+        self.written["assets/img/" + name] = size
+        thumb = None
+        th = self.enc.thumb(src, data, mime) if len(data) > LITE_INLINE_MAX else None
+        if th:
+            tb, tm = th
+            tname = stem + self.EXT.get(tm, ".webp")
+            self.tdir.mkdir(parents=True, exist_ok=True)
+            (self.tdir / tname).write_bytes(tb)
+            self.written["assets/img/thumbs/" + tname] = len(tb)
+            self.thumb_bytes += len(tb)
+            tw, _ = image_size(tb, tm)
+            thumb = ("assets/img/thumbs/" + quote(tname), tw or THUMB_MAX)
+        return "assets/img/" + quote(name), size, thumb
+
+    def finish(self):
+        pass                                   # манифест и очистка — cleanup_previous() в main()
+
+
+SITE_MANIFEST = ".ps-site.json"
+ZIP_NAME = "strategy-site.zip"
+
+
+def read_site_manifest(page_dir):
+    try:
+        v = json.loads((Path(page_dir) / SITE_MANIFEST).read_text(encoding="utf-8"))
+        return [str(x) for x in v.get("files", [])] if isinstance(v, dict) else []
+    except (OSError, ValueError):
+        return []
+
+
+def write_site_manifest(page_dir, files):
+    f = Path(page_dir) / SITE_MANIFEST
+    if files:
+        f.write_text(json.dumps({"version": 1, "note": "файлы, созданные build_html.py (режим site); пересборка в другом режиме удаляет их",
+                                 "files": sorted(files)}, ensure_ascii=False, indent=1), encoding="utf-8")
+    elif f.is_file():
+        f.unlink()
+
+
+def cleanup_previous(page_dir, keep):
+    """Удалить файлы прошлых сборок (site по .ps-site.json и --lite по assets/.ps-assets.json), которых нет в keep
+    (пути относительно папки страницы, posix). Чужие файлы не трогаются. → число удалённых файлов."""
+    page_dir = Path(page_dir).resolve()
+    old = set(read_site_manifest(page_dir))
+    old.update("assets/" + n for n in read_manifest(page_dir / "assets"))
+    n = 0
+    for rel in sorted(old - set(keep)):
+        parts = rel.replace("\\", "/").split("/")
+        if rel.startswith("/") or ".." in parts or not rel:
+            continue
+        f = (page_dir / rel)
+        try:
+            f.resolve().relative_to(page_dir)
+            if f.is_file():
+                f.unlink()
+                n += 1
+        except (OSError, ValueError):
+            pass
+    for d in sorted({(page_dir / r).parent for r in old}, key=lambda x: -len(x.parts)):     # пустые папки, оставшиеся от режима
+        while d != page_dir and page_dir in d.parents:
+            try:
+                d.rmdir()
+            except OSError:
+                break
+            d = d.parent
+    return n
 
 
 def read_manifest(d):
@@ -803,7 +972,7 @@ class Images:
             self.by_path[p] = k
             return k
         self.by_hash[digest] = k
-        if self.lite and mime != "image/svg+xml" and len(data) > LITE_INLINE_MAX:
+        if self.lite and self.lite.wants(mime, len(data)):
             url, size, thumb = self.lite.store(p, data, mime, k)
             self.map[k] = url
             self.meta[k] = {"src": self.rel(p), "bytes": len(thumb[0]) if thumb else 0, "w": w, "h": h, "mime": mime,
@@ -940,6 +1109,33 @@ def sanitize_svg(src, scope, known_nodes=None):
     return s
 
 
+def chart_svg_fragment(src):
+    """SVG интерактивного графика → фрагмент для DOM страницы. В отличие от sanitize_svg классы и id не переименовываются
+    (панель пояснений ищет .ps-el и data-ps-*), а <style> удаляется целиком: встроенный стиль действовал бы на всю страницу."""
+    m = re.search(r"<svg\b.*</svg\s*>", src or "", re.S | re.I)
+    if not m:
+        return None
+    s = m.group(0)
+    s = re.sub(r"<!--.*?-->", "", s, flags=re.S)
+    s = re.sub(r"<!\[CDATA\[(.*?)\]\]>", lambda mm: mm.group(1).replace("<", "&lt;"), s, flags=re.S)
+    for tag in ("script", "style", "foreignObject", "iframe", "object", "embed", "audio", "video", "canvas", "handler",
+                "listener", "set", "animate", "a"):
+        s = re.sub(r"<" + tag + r"\b[^>]*?/>", "", s, flags=re.I)
+        s = re.sub(r"<" + tag + r"\b.*?</" + tag + r"\s*>", "", s, flags=re.S | re.I) if tag != "a" else \
+            re.sub(r"</?a\b[^>]*>", "", s, flags=re.I)
+        s = re.sub(r"<" + tag + r"\b[^>]*>", "", s, flags=re.I)
+    s = re.sub(r"\s+on[a-zA-Z]+\s*=\s*(\"[^\"]*\"|'[^']*'|[^\s>]+)", "", s)
+    s = re.sub(r"\s((?:xlink:)?href)\s*=\s*([\"'])(?!#)(.*?)\2", "", s, flags=re.I | re.S)
+    s = re.sub(r"url\(\s*(['\"]?)(?!#)[^)]*\)", "none", s, flags=re.I)
+    root = re.match(r"<svg\b[^>]*>", s, re.S).group(0)
+    new = re.sub(r"\s(width|height)\s*=\s*([\"']).*?\2", "", root, flags=re.S)
+    if not re.search(r"\sviewBox\s*=", new):
+        w, h = svg_size(root)
+        if w and h:
+            new = new[:-1] + ' viewBox="0 0 %d %d">' % (w, h)
+    return new + s[len(root):]
+
+
 # ---------------------------------------------------------------- тема
 def parse_color(v):
     v = (v or "").strip().lower()
@@ -1044,7 +1240,13 @@ def parse_tokens(css):
                     depth -= 1
                 k += 1
             body = text[j + 1:k - 1]
-            is_dark = in_dark or "dark" in sel
+            # «dark» внутри :not(...) — это НЕ тёмная тема (:root:not([data-theme="dark"]) в светлом @media — B-48: светлые
+            # токены уходили в тёмную тему, и статус-метки #4ade80 оказывались на светлом фоне)
+            sel_pos = re.sub(r":not\([^()]*(?:\([^()]*\)[^()]*)*\)", "", sel)
+            if sel.startswith("@media") and re.search(r"prefers-color-scheme\s*:\s*light", sel):
+                is_dark = False
+            else:
+                is_dark = in_dark or "dark" in sel_pos
             if sel.startswith("@media") or sel.startswith("@supports"):
                 walk(body, is_dark)
             elif not sel.startswith("@"):
@@ -1098,6 +1300,8 @@ def theme_vars(base_tokens, dark_tokens):
         if not bg or not text or contrast(bg, text) < 4.5:
             continue
         mode = forced or ("dark" if luminance(bg) < 0.2 else "light")
+        if (mode == "dark") != (luminance(bg) < 0.2):
+            continue      # «тёмные» токены со светлым фоном (или наоборот) — тема страницы остаётся нейтральной, а не перевёрнутой
         md = modes[mode]
         md["bg"], md["text"] = bg, text
         surf = pick(tokens, "surface")
@@ -1119,14 +1323,37 @@ def theme_vars(base_tokens, dark_tokens):
         link = fit_contrast(link, md["bg"])
         link = fit_contrast(link, md["surface-2"])      # раскрытая строка реестра, шапки таблиц
         on_acc = (255, 255, 255) if contrast(acc, (255, 255, 255)) >= contrast(acc, (17, 17, 17)) else (17, 17, 17)
+        ok, bad = status_colors(md, m)
         out[m] = {
             "--ps-bg": hexc(md["bg"]), "--ps-surface": hexc(md["surface"]), "--ps-surface-2": hexc(md["surface-2"]),
             "--ps-text": hexc(md["text"]), "--ps-muted": hexc(md["muted"]), "--ps-border": hexc(md["border"]),
             "--ps-accent": hexc(acc), "--ps-link": hexc(link), "--ps-accent-text": hexc(link), "--ps-on-accent": hexc(on_acc),
             "--ps-accent-soft": "rgba(%d,%d,%d,%s)" % (acc[0], acc[1], acc[2], ".13" if m == "light" else ".22"),
+            "--ps-ok": hexc(ok), "--ps-bad": hexc(bad),
             "--ps-font": font, "--ps-radius": radius.strip(),
         }
     return out
+
+
+STATUS_BASE = {"light": ((22, 101, 52), (159, 31, 20)), "dark": ((74, 222, 128), (248, 113, 113))}
+
+
+def status_colors(md, mode):
+    """Цвета статус-меток (.st-ok/.ok/✓ матрицы, .st-bad) под фон темы: ≥ 4,5:1 на surface, surface-2, на своей
+    полупрозрачной подложке и на строке «мы» матрицы (accent-soft) — B-48: цвет не должен расходиться с фоном."""
+    surf, surf2, acc = md["surface"], md["surface-2"], md["accent"]
+    soft = 0.13 if mode == "light" else 0.22
+    out = []
+    for base, tint in zip(STATUS_BASE[mode], ((21, 128, 61), (180, 35, 24))):
+        bgs = [surf, surf2, mix(surf, tint, 0.14), mix(surf2, tint, 0.14), mix(surf, acc, soft), mix(surf2, acc, soft)]
+        c = base
+        for _ in range(3):
+            for bg in bgs:
+                c = fit_contrast(c, bg)
+            if all(contrast(c, bg) >= 4.5 for bg in bgs):
+                break
+        out.append(c)
+    return out[0], out[1]
 
 
 def theme_css(tokens_text):
@@ -1294,7 +1521,8 @@ class Markdown:
 
         def cell(tag, txt, k):
             al = aligns[k] if k < len(aligns) else ""
-            return "<" + tag + (' class="al-' + al + '"' if al else "") + ">" + self.inline(txt) + "</" + tag + ">"
+            body = self.inline(txt)
+            return "<" + tag + (' class="al-' + al + '"' if al else "") + ">" + (wbr_long(body) if tag == "td" else body) + "</" + tag + ">"
         thead = "".join(cell("th", head[k], k) for k in range(ncol))
         body = "".join("<tr>" + "".join(cell("td", r[k] if k < len(r) else "", k) for k in range(ncol)) + "</tr>" for r in rows)
         many = ' class="many"' if ncol >= 7 else ""     # много столбцов — компактнее, чтобы на 1440 влезть в рамку
@@ -1490,12 +1718,18 @@ def pid_link(pid, titles):
 
 # ---------------------------------------------------------------- сборщик
 class Builder:
-    def __init__(self, out, out_file, title=None, lite=False, lite_encoder="auto"):
+    def __init__(self, out, out_file, title=None, lite=False, lite_encoder="auto", site=False, site_csp="self"):
         self.out = out.resolve()
         self.out_file = out_file
         self.warnings = []
+        self.strict_errors = []                # --strict: эти предупреждения — ошибка (код выхода 1)
         self.lite = None
-        if lite:
+        self.site = bool(site)                 # режим site: оболочка + assets/ + data/ (см. references/interactive-site.md)
+        self.site_csp = site_csp               # "self" (CSP 'self') | "none" (запасной вариант без CSP-мета)
+        self.site_files = {}                   # относительный путь → байты (app.css, app.js, data.js, head.js, extra.*, charts.js)
+        if self.site:
+            self.lite = SiteStore(out_file.parent, LiteEncoder(lite_encoder, self.warn))
+        elif lite:
             self.lite = LiteStore(out_file.parent, LiteEncoder(lite_encoder, self.warn))
         self.img = Images(self.out, self.warn, self.lite)
         self.cfg = self.json("build/run-config.json", dict) or {}
@@ -1506,6 +1740,7 @@ class Builder:
         self.nav = []          # (id, label, group)
         self.sections = []     # html
         self.figs = 0
+        self.anchors = {"gantt": set(), "kanban": set(), "mockup": set(), "flow": set()}   # цели ссылок #gantt/…, #kanban/…, #mockup/…, #flow/…
         self.load()
 
     # --- ввод
@@ -1700,8 +1935,11 @@ class Builder:
         return (self.pg_items.get(pid) or {}).get("status", "") if self.pg else ""
 
     def load_charts(self):
+        """charts/charts-index.json → графики. С charts/<ключ>.meta.json и SVG — интерактивный встроенный SVG с панелью пояснений
+        (references/interactive-site.md, п. 2.3): в single/lite SVG — в разметке, пояснения — блок d-charts; в site SVG и пояснения —
+        в assets/charts-<группа>.js (подгружаются при показе). Без meta (старые прогоны) — статичная картинка, как раньше."""
         idx = self.json("charts/charts-index.json", list)
-        entries = []
+        entries, static_old = [], []
         if idx is None and (self.out / "charts").is_dir():
             files = sorted(p for p in (self.out / "charts").iterdir() if p.suffix.lower() in (".svg", ".png", ".jpg", ".jpeg", ".webp"))
             if files:
@@ -1711,14 +1949,58 @@ class Builder:
         for c in idx or []:
             if not isinstance(c, dict) or not c.get("key"):
                 continue
+            key = str(c["key"])
             path = c.get("svg") or c.get("png") or c.get("file")
-            k = self.img.add(path, "c-" + str(c["key"])) if path else None
-            if not k:
-                self.warn("график %s: нет файла %s" % (c.get("key"), path))
-            entries.append({"key": str(c["key"]), "img": k, "title": text_of(c.get("title")) or str(c["key"]),
-                            "caption": text_of(c.get("caption")), "section": str(c.get("section") or "")})
+            e = {"key": key, "img": None, "svg": None, "meta": None, "title": text_of(c.get("title")) or key,
+                 "caption": text_of(c.get("caption")), "section": str(c.get("section") or "")}
+            meta = self.load_chart_meta(c, key)
+            if meta is not None and path and str(path).lower().endswith(".svg") and re.fullmatch(r"[\w-]+", key):
+                svg = self.inline_chart_svg(path, key)
+                if svg:
+                    e["svg"], e["meta"] = svg, meta
+            if not e["svg"]:
+                k = self.img.add(path, "c-" + key) if path else None
+                if not k:
+                    self.warn("график %s: нет файла %s" % (key, path))
+                elif meta is None:
+                    static_old.append(key)
+                e["img"] = k
+            entries.append(e)
+        if static_old:
+            self.warn("графики без пояснений (нет charts/<ключ>.meta.json — старый прогон): %s — показаны статичными картинками без панели; "
+                      "перестройте графики: charts.py <OUT>" % (", ".join(static_old[:8]) + (" и ещё %d" % (len(static_old) - 8) if len(static_old) > 8 else "")))
         self.charts = entries
         self.charts_by_key = {c["key"]: c for c in entries}
+        # есть интерактивные графики → якоря целей ссылок (data-gid/kid/mock/flow), стили панели; без них страница прежняя байт в байт
+        self.ich = any(c.get("svg") for c in entries)
+        self.chart_n = 0                       # счётчик вставок интерактивных графиков (уникальные id блоков «Как читать график»)
+
+    def load_chart_meta(self, c, key):
+        rel = c.get("meta") if isinstance(c.get("meta"), str) else "charts/%s.meta.json" % key
+        p = self.img.resolve(rel)
+        if p is None or not p.is_file():
+            return None
+        m = self.json(Path(p).relative_to(self.out).as_posix(), dict)
+        if not m or not isinstance(m.get("elements"), dict):
+            self.warn("график %s: %s без elements — показан статичной картинкой" % (key, rel))
+            return None
+        return m
+
+    def inline_chart_svg(self, path, key):
+        """SVG графика (charts.py) → фрагмент для встраивания в страницу: без скриптов, обработчиков, стилей и внешних ссылок;
+        классы и data-ps-* сохраняются (на них держится панель), размеры — по viewBox."""
+        p = self.img.resolve(str(path))
+        if p is None or not p.is_file():
+            return None
+        try:
+            src = p.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return None
+        s = chart_svg_fragment(src)
+        if not s or 'data-ps-chart="' + key + '"' not in s:
+            self.warn("график %s: в %s нет корня <svg data-ps-chart> — показан статичной картинкой" % (key, path))
+            return None
+        return s
 
     def load_refs(self):
         self.refs = {}
@@ -1809,12 +2091,12 @@ class Builder:
         return linkify(text, self.titles)
 
     # --- фигуры
-    def fig(self, key, caption_html, cap_text, group, cls="", ref="", extra=""):
+    def fig(self, key, caption_html, cap_text, group, cls="", ref="", extra="", attrs=""):
         meta = self.img.meta.get(key, {})
         w, h = meta.get("w"), meta.get("h")
         size = (' width="%d" height="%d"' % (w, h)) if w and h else ""
         self.figs += 1
-        return ('<figure class="lb ' + cls + '" data-key="' + esc(key) + '" data-group="' + esc(group) + '" data-ref="' + esc(ref)
+        return ('<figure class="lb ' + cls + '"' + attrs + ' data-key="' + esc(key) + '" data-group="' + esc(group) + '" data-ref="' + esc(ref)
                 + '" data-cap="' + esc(cap_text) + '" tabindex="0" role="button" aria-label="Увеличить: ' + esc(cap_text) + '">'
                 + '<img data-img="' + esc(key) + '" alt="' + esc(cap_text) + '"' + size + ' loading="lazy" decoding="async">'
                 + "<figcaption>" + caption_html + ' <span class="zoom">⤢ увеличить</span>' + extra + "</figcaption></figure>")
@@ -1836,9 +2118,9 @@ class Builder:
     def embed(self, kind, key, inline):
         if kind == "chart":
             c = self.charts_by_key.get(key)
-            if c and c.get("img"):
+            if c and (c.get("img") or c.get("svg")):
                 if inline:
-                    return '<a class="emb" href="#lb=' + esc(c["img"]) + '">график «' + esc(c["title"]) + "»</a>"
+                    return '<a class="emb" href="' + esc(self.chart_href(c)) + '">график «' + esc(c["title"]) + "»</a>"
                 return self.chart_fig(c)
             self.warn("research/strategy.md: ![[chart:%s]] — нет графика в charts/charts-index.json" % key)
             return self.missing("график «" + key + "» ещё не построен (charts/charts-index.json)", inline)
@@ -1872,9 +2154,49 @@ class Builder:
             return '<span class="missing">[' + esc(text) + "]</span>"
         return '<p class="missing">' + esc(text) + "</p>"
 
-    def chart_fig(self, c):
+    def chart_fig(self, c, primary=False):
         cap = "<b>" + esc(c["title"]) + "</b>" + (" — " + esc(c["caption"]) if c.get("caption") else "")
+        if c.get("svg"):
+            return self.ichart_fig(c, cap, primary)
         return self.fig(c["img"], self.links(cap), c["title"] + (" — " + c["caption"] if c.get("caption") else ""), "charts", "chart")
+
+    @staticmethod
+    def chart_href(c):
+        """Ссылка на график: интерактивный — #chart/<ключ> (роутер страницы), статичный — #lb=<картинка> (лайтбокс)."""
+        return "#chart/" + c["key"] if c.get("svg") else "#lb=" + str(c.get("img") or "")
+
+    def chart_group(self, c):
+        """Файл assets/charts-<группа>.js режима site: группа — раздел графика (scores, registry, plan, model, market…)."""
+        return slug(c.get("section") or "other").lower()
+
+    def ichart_fig(self, c, cap, primary):
+        """Интерактивный график: встроенный SVG (single/lite) или место под него (site: SVG подгружается из assets/charts-<группа>.js
+        при показе), подпись, кнопки «Как читать график» и «увеличить», блок howto + легенда (виден и без скрипта по кнопке)."""
+        key, meta = c["key"], c["meta"]
+        self.chart_n += 1
+        hid = "howto-%s-%d" % (key, self.chart_n)
+        cap_text = c["title"] + (" — " + c["caption"] if c.get("caption") else "")
+        if self.site:
+            g = self.chart_group(c)
+            box = ('<div class="ps-svg ps-wait" data-chart="' + esc(key) + '" data-ps-src="@@charts-' + esc(g) + '@@">'
+                   '<p class="ps-ph muted">График загружается…</p><noscript><p class="missing">Интерактивный график показывается скриптом '
+                   "страницы; без JavaScript см. charts/" + esc(key) + ".svg.</p></noscript></div>")
+        else:
+            box = '<div class="ps-svg" data-chart="' + esc(key) + '">' + c["svg"] + "</div>"
+        legend = [x for x in as_list(meta.get("legend")) if isinstance(x, dict) and text_of(x.get("label"))]
+        howto = text_of(meta.get("howto"))
+        how = ('<div class="ps-howto" id="' + esc(hid) + '" hidden>' + ("<p>" + esc(howto) + "</p>" if howto else "")
+               + ('<dl class="ps-legend">' + "".join("<dt>" + esc(text_of(x.get("label"))) + "</dt><dd>" + esc(text_of(x.get("text"))) + "</dd>"
+                                                    for x in legend) + "</dl>" if legend else "")
+               + '<p class="small muted">Нажмите на элемент графика (или выберите его клавишей Tab и нажмите Enter) — справа откроется '
+                 "панель: что это, что значит, что делать и ссылки. ←/→ — соседний элемент, Esc — закрыть.</p></div>")
+        acts = ('<span class="ps-acts"><button type="button" class="linkbtn ps-howto-btn" aria-expanded="false" aria-controls="' + esc(hid)
+                + '">Как читать график</button> · <button type="button" class="lb linkbtn" data-key="c-' + esc(key) + '" data-group="charts" '
+                'data-ref="" data-cap="' + esc(cap_text) + '">⤢ увеличить</button></span>')
+        self.anchors.setdefault("chart", set()).add(key)
+        return ('<figure class="ps-ichart' + (" ps-primary" if primary else "") + '" data-chart="' + esc(key) + '"'
+                + (' id="chart-' + esc(key) + '"' if primary else "") + ">" + box + "<figcaption>" + self.links(cap) + " " + acts
+                + "</figcaption>" + how + "</figure>")
 
     def ref_for_mock(self, m):
         """Референс того же макета: design-refs/*.json с file == html макета (или тем же ключом)."""
@@ -1909,11 +2231,14 @@ class Builder:
                 return '<a class="emb" href="#lb=' + esc(m["img"]) + '">макет «' + esc(title) + "»</a>"
             return '<span class="emb">макет «' + esc(title) + "»</span>"
         cap = "<b>" + esc(title) + "</b> " + badge + (" · " + pr if pr else "") + (" · " + esc(m.get("viewport")) if m.get("viewport") else "")
+        self.anchors["mockup"].add(m["key"])
+        mattr = (' data-mock="' + esc(m["key"]) + '"' + (' data-pids="' + esc(" ".join(str_list(m.get("proposals")))) + '"' if str_list(m.get("proposals")) else "")
+                 if self.ich else "")
         if not m.get("img"):
-            return ('<div class="ph mock-ph" id="mock-' + esc(slug(m["key"])) + '"><div class="ph-t">Нет PNG макета</div>'
+            return ('<div class="ph mock-ph" id="mock-' + esc(slug(m["key"])) + '"' + mattr + (' tabindex="-1"' if self.ich else "") + '><div class="ph-t">Нет PNG макета</div>'
                     + cap + open_html + "</div>")
         mob = "mobile" if self.is_mobile_img(m["img"], str(m.get("viewport") or "")) else ""
-        return self.fig(m["img"], cap, title, group, mob, self.mock_ref(m), extra=open_html)
+        return self.fig(m["img"], cap, title, group, mob, self.mock_ref(m), extra=open_html, attrs=mattr)
 
     def ref_fig(self, r, with_link=False):
         title = text_of(r.get("title")) or r["stem"]
@@ -2191,7 +2516,7 @@ class Builder:
         if self.refs:
             tiles.append((str(len(self.refs)), "референсов дизайна", ""))
         if self.charts:
-            tiles.append((str(len([c for c in self.charts if c.get("img")])), "графиков", ""))
+            tiles.append((str(len([c for c in self.charts if c.get("img") or c.get("svg")])), "графиков", ""))
         kpi = "".join('<div class="kpi"><div class="n">' + esc(a) + '</div><div class="l">' + esc(b) + "</div>"
                       + ('<div class="s">' + esc(c) + "</div>" if c else "") + "</div>" for a, b, c in tiles)
         pre = ""
@@ -2708,25 +3033,30 @@ class Builder:
             parts.append('<p class="muted">TypeSafe: модель ' + esc(self.jev.get("model") or "") + (", " + esc(self.jev.get("date")) if self.jev.get("date") else "")
                          + (" · пропущено: " + esc(self.jev.get("skipped")) if self.jev.get("skipped") else "")
                          + ". Значения — в карточках предложений и в сортировке реестра («TypeSafe: …»).</p>")
-        sch = [c for c in self.charts if c.get("img") and c["section"] in ("scores", "registry")]
+        sch = [c for c in self.charts if (c.get("img") or c.get("svg")) and c["section"] in ("scores", "registry")]
         if parts and sch:
-            parts.append('<p class="muted">Графики оценок: ' + ", ".join('<a class="emb" href="#lb=' + esc(c["img"]) + '">' + esc(c["title"]) + "</a>" for c in sch) + "</p>")
+            parts.append('<p class="muted">Графики оценок: ' + ", ".join('<a class="emb" href="' + esc(self.chart_href(c)) + '">' + esc(c["title"]) + "</a>" for c in sch) + "</p>")
         if parts:
             self.add("scores", "Оценки и чувствительность", self.section("scores", "Оценки и чувствительность", self.links("".join(parts))))
 
     # --- 5. графики
     def sec_charts(self):
-        ch = [c for c in self.charts if c.get("img")]
+        ch = [c for c in self.charts if c.get("img") or c.get("svg")]
         if not ch:
             return
         groups = {}
         for c in ch:
             groups.setdefault(c["section"], []).append(c)
-        inner = '<p class="lead">Нажмите на график, чтобы открыть его крупно (вписать, 1:1, 2×) и листать стрелками.</p>'
+        if any(c.get("svg") for c in ch):
+            inner = ('<p class="lead">Графики интерактивные: нажмите на точку, столбец, ступень или ячейку — справа откроется панель «что это, '
+                     "что значит, что делать» со ссылками на разделы и предложения; ←/→ — соседний элемент, Esc — закрыть. "
+                     "«Как читать график» — под каждым графиком, «увеличить» — крупный просмотр.</p>")
+        else:
+            inner = '<p class="lead">Нажмите на график, чтобы открыть его крупно (вписать, 1:1, 2×) и листать стрелками.</p>'
         for sec, cs in groups.items():
             if len(groups) > 1 or sec:
                 inner += "<h3>" + esc(CHART_SECTION_LABELS.get(sec, sec or "Прочее")) + "</h3>"
-            inner += '<div class="gallery charts">' + "".join(self.chart_fig(c) for c in cs) + "</div>"
+            inner += '<div class="gallery charts">' + "".join(self.chart_fig(c, primary=True) for c in cs) + "</div>"
         self.add("charts", "Графики", self.section("charts", "Графики", inner))
 
     # --- 6. блок-схемы
@@ -2766,8 +3096,10 @@ class Builder:
             self.warn("блок-схема %s: в файле нет <svg>" % key)
         chips = "".join('<button type="button" class="nchip" data-node="' + esc(n["id"]) + '">' + esc(text_of(n.get("label")) or n["id"])
                         + "</button>" for n in nodes)
-        anchor = "" if embedded else ' id="flow-' + esc(slug(key)) + '"'
-        body = '<div class="flow' + (" embedded" if embedded else "") + '"' + anchor + "><h3>" + esc(title) + "</h3>"
+        anchor = "" if embedded else ' id="flow-' + esc(slug(key)) + '"' + (' tabindex="-1"' if self.ich else "")
+        if not embedded:
+            self.anchors["flow"].add(key)
+        body = '<div class="flow' + (" embedded" if embedded else "") + '"' + (' data-flow="' + esc(key) + '"' if self.ich else "") + anchor + "><h3>" + esc(title) + "</h3>"
         if svg_html:
             body += ('<div class="flowsvg" id="' + scope + '" data-imgkey="flow-' + esc(slug(key)) + '" data-cap="' + esc(title) + '">'
                      + svg_html + "</div>")
@@ -2895,16 +3227,20 @@ class Builder:
                     bar = '<span class="gbar c%d%s" style="left:%.2f%%;width:%.2f%%" title="%s"></span>' % (
                         pi % 8, " vis" if vis or t["start"] > H else "", left, max(0.8, right - left), esc(js[i]["when"]))
                 sep = '<span class="gsep" style="left:%.2f%%"></span>' % Wm if V else ""
-                rows += ('<div class="grow" data-g="%d" tabindex="0" role="button" aria-label="%s"><div class="glabel">%s%s%s</div>'
+                gid = (' data-gid="' + esc(t["id"]) + '"') if self.ich and t["id"] and t["id"] not in self.anchors["gantt"] else ""
+                if t["id"]:
+                    self.anchors["gantt"].add(t["id"])
+                rows += ('<div class="grow" data-g="%d"%s tabindex="0" role="button" aria-label="%s"><div class="glabel">%s%s%s</div>'
                          '<div class="gtrack">%s%s</div></div>') % (
-                    i, esc(t["task"] + ", " + js[i]["when"] + aria_st), ('<span class="gid">' + esc(t["id"]) + "</span> " if t["id"] else ""),
+                    i, gid, esc(t["task"] + ", " + js[i]["when"] + aria_st), ('<span class="gid">' + esc(t["id"]) + "</span> " if t["id"] else ""),
                     self.links(esc(t["task"])), (' <span class="muted">· ' + esc(t["owner"]) + "</span>" if t["owner"] else ""), sep, bar + plab)
         self.gantt_js = js
         gch = self.charts_by_key.get("gantt")
         legend = ('<p class="muted small">Шкала: месяцы плана 1–%d (с %s)%s. Полоса — работа, ромб — веха. Нажмите на строку: '
                   "критерий готовности, зависимости и шаги связанных предложений.%s</p>") % (
             H, self.month_label(1, True), (", дальше — годы видения" if V else ""),
-            (' <a class="emb" href="#lb=' + esc(gch["img"]) + '">Гант как картинка</a>' if gch and gch.get("img") else ""))
+            (' <a class="emb" href="' + esc(self.chart_href(gch)) + '">Гант как ' + ("интерактивный график" if gch.get("svg") else "картинка") + "</a>"
+             if gch and (gch.get("img") or gch.get("svg")) else ""))
         today, gin_cls = "", ""
         if pgon and self.pg_cur:
             cur = self.pg_cur
@@ -2954,9 +3290,13 @@ class Builder:
                 lo, hi = parse_range(k.get("effort_days"))
                 eff = (fmt_num(lo) + ("–" + fmt_num(hi) if hi != lo else "") + " дн.") if lo is not None else ""
                 pr = text_of(k.get("priority"))
-                html_cards += ('<div class="kcard" data-k="%d" tabindex="0" role="button"><div class="kid">%s</div><div class="kt">%s</div>'
+                kid = text_of(k.get("id"))
+                kattr = (' data-kid="' + esc(kid) + '"') if self.ich and kid and kid not in self.anchors["kanban"] else ""
+                if kid:
+                    self.anchors["kanban"].add(kid)
+                html_cards += ('<div class="kcard" data-k="%d"%s tabindex="0" role="button"><div class="kid">%s</div><div class="kt">%s</div>'
                                '<div class="kmeta">%s%s</div>%s</div>') % (
-                    i, esc(text_of(k.get("id"))), esc(text_of(k.get("title"))), (self.badge("p", pr) + " " if pr else ""),
+                    i, kattr, esc(text_of(k.get("id"))), esc(text_of(k.get("title"))), (self.badge("p", pr) + " " if pr else ""),
                     ('<span class="muted">' + esc(eff) + "</span>" if eff else ""),
                     ('<div class="ktags">' + "".join('<span class="tag">' + esc(t) + "</span>" for t in str_list(k.get("tags"))) + "</div>"
                      if k.get("tags") else ""))
@@ -3131,15 +3471,19 @@ class Builder:
                     k = self.img.add("mockups/current/" + p.name, "cur-" + p.stem)
                     if k and k not in seen:
                         seen.add(k)
-                        items.append((k, p.stem.replace("_", " ").replace("-", " "), p.name))
+                        items.append((k, p.stem.replace("_", " ").replace("-", " "), p.name))       # (ключ, подпись, подсказка[, ключ макета])
         for m in self.mock.values():
             if str(m.get("kind")) == "current" and m.get("img") and m["img"] not in seen:
                 seen.add(m["img"])
-                items.append((m["img"], text_of(m.get("title")) or m["key"], str(m.get("viewport") or "")))
+                items.append((m["img"], text_of(m.get("title")) or m["key"], str(m.get("viewport") or ""), m["key"]))
         if not items:
             return
-        figs = "".join(self.fig(k, "<b>" + esc(t) + '</b> <span class="tag">факт</span>', "Текущее состояние — " + t, "current",
-                                "mobile" if self.is_mobile_img(k, hint) else "") for k, t, hint in items)
+        for it in items:
+            if len(it) > 3:
+                self.anchors["mockup"].add(it[3])
+        figs = "".join(self.fig(it[0], "<b>" + esc(it[1]) + '</b> <span class="tag">факт</span>', "Текущее состояние — " + it[1], "current",
+                                "mobile" if self.is_mobile_img(it[0], it[2]) else "", attrs=(' data-mock="' + esc(it[3]) + '"' if len(it) > 3 and self.ich else ""))
+                       for it in items)
         inner = ('<p class="lead">Скриншоты того, что есть сейчас (факт на ' + esc(self.date) + "). Концепты их не заменяют.</p>"
                  '<div class="gallery">' + figs + "</div>")
         self.add("current", "Текущее состояние", self.section("current", "Текущее состояние (скриншоты)", inner))
@@ -3269,9 +3613,10 @@ class Builder:
             cols = []
             for x in mon:
                 cols += [k for k in x if k not in cols]
+            ncls = {c: (' class="num"' if num_col([x.get(c) for x in mon]) else "") for c in cols}
             parts.append("<details><summary>Помесячно: " + esc(SCENARIO_LABELS.get(s, s)) + " (" + str(len(mon)) + " мес.)</summary><div class=\"tbl\"><table class=\"data\"><thead><tr>"
-                         + "".join('<th class="num">' + esc(self.MODEL_NAMES.get(c, c)) + "</th>" for c in cols) + "</tr></thead><tbody>"
-                         + "".join("<tr>" + "".join('<td class="num">' + esc(text_of(x.get(c))) + "</td>" for c in cols) + "</tr>" for x in mon)
+                         + "".join("<th" + ncls[c] + ">" + esc(self.MODEL_NAMES.get(c, c)) + "</th>" for c in cols) + "</tr></thead><tbody>"
+                         + "".join("<tr>" + "".join("<td" + ncls[c] + ">" + esc(text_of(x.get(c))) + "</td>" for c in cols) + "</tr>" for x in mon)
                          + "</tbody></table></div></details>")
         notes = str_list(md.get("notes"))
         if notes:
@@ -3349,27 +3694,31 @@ class Builder:
         parts = []
         if self.communities:
             trs = ""
+            # «Аудитория» — числовая колонка, только если все значения числа; иначе текст с переносом (A-1.13, B-48)
+            aud_num = num_col([c.get("audience_size") for c in self.communities])
+            aud_cls = ' class="num"' if aud_num else ' class="aud"'
             for c in self.communities:
                 br = to_int(c.get("ban_risk"))
-                trs += ("<tr><td>" + ext_link(c.get("url"), text_of(c.get("name")) or c.get("url")) + "</td><td>" + esc(text_of(c.get("platform")))
-                        + "</td><td>" + esc(text_of(c.get("language"))) + '</td><td class="num">' + esc(text_of(c.get("audience_size")) or "—")
-                        + "</td><td>" + esc(text_of(c.get("self_promo_rules"))) + "</td><td>" + esc(", ".join(str_list(c.get("allowed_formats"))))
+                trs += ("<tr><td>" + ext_link(c.get("url"), text_of(c.get("name")) or None) + "</td><td>" + esc(text_of(c.get("platform")))
+                        + "</td><td>" + esc(text_of(c.get("language"))) + "</td><td" + aud_cls + ">" + wbr_long(esc(text_of(c.get("audience_size")) or "—"))
+                        + '</td><td class="rules">' + wbr_long(esc(text_of(c.get("self_promo_rules")))) + "</td><td>" + wbr_long(esc(", ".join(str_list(c.get("allowed_formats")))))
                         + '</td><td class="num" data-v="' + str(br if br is not None else "") + '"><span class="risk r' + str(br or 0) + '">'
                         + (str(br) if br is not None else "—") + "</span></td><td>" + (ext_link(c.get("source"), "источник") if c.get("source") else "") + "</td></tr>")
-            parts.append("<h3>Сообщества (%d)</h3>" % len(self.communities) + '<div class="tbl"><table class="data sortable"><thead><tr><th>Площадка</th>'
-                         "<th>Платформа</th><th>Язык</th><th class=\"num\">Аудитория</th><th>Правила самопромо</th><th>Форматы</th><th class=\"num\">Риск бана</th><th>Источник</th>"
+            parts.append("<h3>Сообщества (%d)</h3>" % len(self.communities) + '<div class="tbl"><table class="data sortable comm"><thead><tr><th>Площадка</th>'
+                         "<th>Платформа</th><th>Язык</th><th" + aud_cls + ">Аудитория</th><th class=\"rules\">Правила самопромо</th><th>Форматы</th><th class=\"num\">Риск бана</th><th>Источник</th>"
                          "</tr></thead><tbody>" + trs + "</tbody></table></div>")
         if self.keywords:
             trs = ""
+            comp_cls = ' class="num"' if num_col([k.get("competition") for k in self.keywords]) else ""
             for k in self.keywords:
                 vol = num(k.get("volume"))
                 trs += ("<tr><td>" + esc(text_of(k.get("query"))) + "</td><td>" + esc(text_of(k.get("lang"))) + "</td><td>" + esc(text_of(k.get("cluster")))
                         + "</td><td>" + esc(text_of(k.get("intent"))) + '</td><td class="num" data-v="' + ("%g" % vol if vol is not None else "") + '">'
                         + (fmt_num(vol) if vol is not None else '<span class="muted">нет данных</span>') + "</td><td>" + esc(text_of(k.get("volume_source")))
-                        + '</td><td class="num">' + esc(text_of(k.get("competition")) or "—") + "</td></tr>")
+                        + "</td><td" + comp_cls + ">" + esc(text_of(k.get("competition")) or "—") + "</td></tr>")
             parts.append("<h3>Поисковые запросы (%d)</h3>" % len(self.keywords) + '<div class="toolbar"><input type="search" data-filter-table="kw-table" '
                          'placeholder="Фильтр запросов…" aria-label="Фильтр запросов"></div><div class="tbl tall"><table id="kw-table" class="data sortable"><thead><tr>'
-                         "<th>Запрос</th><th>Язык</th><th>Кластер</th><th>Намерение</th><th class=\"num\">Объём</th><th>Источник объёма</th><th class=\"num\">Конкуренция</th>"
+                         "<th>Запрос</th><th>Язык</th><th>Кластер</th><th>Намерение</th><th class=\"num\">Объём</th><th>Источник объёма</th><th" + comp_cls + ">Конкуренция</th>"
                          "</tr></thead><tbody>" + trs + "</tbody></table></div>")
         if self.events:
             evs = sorted(self.events, key=lambda e: str(e.get("date") or "9999"))
@@ -3455,38 +3804,137 @@ class Builder:
             "lite": bool(self.lite),
         }
 
+    # --- интерактивные графики: проверка целей ссылок и пояснения для страницы
+    REG_FILTERS = ("category", "horizon", "class", "quadrant", "priority")
+
+    def link_target_ok(self, href):
+        """Есть ли на собранной странице цель ссылки из meta графика (схема ссылок — references/data-contract.md;
+        переводит их в действия роутер страницы: см. parseHref/go в JS)."""
+        h = text_of(href)
+        secs = {sid for sid, _, _ in self.nav}
+        m = re.fullmatch(r"#s(\d+)", h)
+        if m:
+            return "s-" + str(int(m.group(1))) in secs
+        m = re.fullmatch(r"#p/(P\d+)", h)
+        if m:
+            return "registry" in secs and m.group(1) in {r["id"] for r in self.rows}
+        m = re.fullmatch(r"#registry(?:\?(.*))?", h)
+        if m:
+            pairs = [x.split("=", 1) for x in m.group(1).split("&")] if m.group(1) else []
+            return "registry" in secs and all(len(p) == 2 and p[0] in self.REG_FILTERS and p[1] for p in pairs)
+        m = re.fullmatch(r"#(gantt|kanban|mockup|flow)/(.+)", h)
+        if m:
+            return m.group(2) in self.anchors[m.group(1)]
+        m = re.fullmatch(r"#competitor/(.+)", h)
+        if m:
+            if "competitors" not in secs:
+                return False
+            c = next((x for x in getattr(self, "comp_js", []) if x["slug"] == m.group(1)), None)
+            return bool(c) and (not c["self"] or bool(getattr(self, "comp_features", [])))
+        m = re.fullmatch(r"#chart/([\w-]+)(?:/(.+))?", h)
+        if m:
+            c = self.charts_by_key.get(m.group(1))
+            if not c or not c.get("svg") or m.group(1) not in self.anchors.get("chart", ()):
+                return False
+            return m.group(2) is None or m.group(2) in (c["meta"].get("elements") or {})
+        return False
+
+    def prepare_chart_meta(self):
+        """Пояснения встроенных графиков в компактном виде {ключ: {title, howto, elements: [{id, title, kind, …}]}} (порядок
+        meta.elements — порядок ←/→). Ссылки без цели на этой странице не попадают в панель: предупреждение, в --strict — ошибка."""
+        out, drops, total = OrderedDict(), {}, 0
+        for c in self.charts:
+            if not c.get("svg") or c["key"] not in self.anchors.get("chart", ()):
+                continue
+            meta = c["meta"]
+            els = []
+            for eid, e in (meta.get("elements") or {}).items():
+                if not isinstance(e, dict):
+                    continue
+                o = OrderedDict([("id", str(eid))])
+                for f in ("title", "kind", "summary", "meaning", "highlight"):
+                    v = text_of(e.get(f)).strip()
+                    if v:
+                        o[f] = v
+                acts = [text_of(x).strip() for x in (e.get("actions") if isinstance(e.get("actions"), list) else []) if text_of(x).strip()]
+                if acts:
+                    o["actions"] = acts
+                mx = [OrderedDict([("label", text_of(x.get("label"))), ("value", text_of(x.get("value"))), ("tag", text_of(x.get("tag")))])
+                      for x in (e.get("metrics") if isinstance(e.get("metrics"), list) else []) if isinstance(x, dict) and text_of(x.get("label"))]
+                if mx:
+                    o["metrics"] = mx
+                links = []
+                for l in e.get("links") if isinstance(e.get("links"), list) else []:
+                    href = text_of(l.get("href")) if isinstance(l, dict) else ""
+                    total += 1
+                    if self.link_target_ok(href):
+                        links.append(OrderedDict([("label", text_of(l.get("label")) or href), ("href", href)]))
+                    else:
+                        drops[href] = drops.get(href, 0) + 1
+                if links:
+                    o["links"] = links
+                els.append(o)
+            out[c["key"]] = OrderedDict([("title", c["title"]), ("elements", els)])
+        self.chart_page_meta = out
+        self.chart_link_total = total
+        self.chart_link_drops = drops
+        if drops:
+            n = sum(drops.values())
+            top = sorted(drops.items(), key=lambda kv: (-kv[1], kv[0]))
+            msg = ("пояснения графиков: %d из %d ссылок без цели на этой странице не показаны в панели: %s%s — нет раздела стратегии "
+                   "(research/strategy.md), блока или элемента; проверьте полноту разделов" % (
+                       n, total, ", ".join("%s ×%d" % kv for kv in top[:10]), " и ещё %d" % (len(top) - 10) if len(top) > 10 else ""))
+            self.warn(msg)
+            self.strict_errors.append(msg)
+        return out
+
+    def chart_layers(self):
+        """Панель пояснений графиков (справа; на экранах < 700 px — нижний лист), подсказка при наведении и живая область."""
+        return ('<aside id="cp" class="cpanel" role="dialog" aria-modal="false" aria-labelledby="cp-title" hidden>'
+                '<div class="cp-head"><div class="cp-hg"><div class="cp-chart small muted" id="cp-chart"></div><h3 id="cp-title"></h3>'
+                '<span class="cp-kind" id="cp-kind"></span></div><button type="button" class="cp-x" data-cp-close aria-label="Закрыть панель (Esc)">✕</button></div>'
+                '<div class="cp-body" id="cp-body"></div><div class="cp-nav"><button type="button" data-cp-step="-1" aria-label="Предыдущий элемент (←)">← Пред.</button>'
+                '<span id="cp-pos" class="small muted"></span><button type="button" data-cp-step="1" aria-label="Следующий элемент (→)">След. →</button></div></aside>'
+                '<div id="cp-tip" class="ps-tip" role="tooltip" hidden></div><div id="cp-live" class="ps-sr" aria-live="polite"></div>')
+
     def assemble(self):
         title = self.page_title()
+        self.prepare_chart_meta()
         who, cp = self.author_line()
         rows = [{k: v for k, v in r.items()} for r in self.rows]
-        data_blocks = [
-            json_script("d-meta", self.meta_js()),
-            json_script("d-registry", rows),
-            json_script("d-metrics", self.metrics_def() if self.rows else []),
-            json_script("d-refs", getattr(self, "refs_js", {})),
-            json_script("d-gantt", getattr(self, "gantt_js", [])),
-            json_script("d-kanban", [dict(c) for c in self.kanban_cards]),
-            json_script("d-flows", getattr(self, "flow_nodes", {})),
-            json_script("d-comp", getattr(self, "comp_js", [])),
-            json_script("d-img", self.img.map),
-            json_script("d-thumb", self.img.thumbs),
-            json_script("d-alias", self.img.alias),
+        pairs = [
+            ("d-meta", self.meta_js()),
+            ("d-registry", rows),
+            ("d-metrics", self.metrics_def() if self.rows else []),
+            ("d-refs", getattr(self, "refs_js", {})),
+            ("d-gantt", getattr(self, "gantt_js", [])),
+            ("d-kanban", [dict(c) for c in self.kanban_cards]),
+            ("d-flows", getattr(self, "flow_nodes", {})),
+            ("d-comp", getattr(self, "comp_js", [])),
+            ("d-img", self.img.map),
+            ("d-thumb", self.img.thumbs),
+            ("d-alias", self.img.alias),
         ]
         if self.pg:                             # режим отслеживания: подписи статусов для скрипта страницы
-            data_blocks.append(json_script("d-progress", {
+            pairs.append(("d-progress", {
                 "labels": STATUS_LABELS, "icons": STATUS_ICONS, "order": {k: i for i, k in enumerate(STATUS_ORDER)},
                 "closed": sorted(STATUS_CLOSED), "glabels": GSTATUS_LABELS, "gicons": GSTATUS_ICONS, "source": SOURCE_LABELS,
                 "match": MATCH_LABELS, "state": ISSUE_STATE_LABELS, "code": CODE_KIND_LABELS,
                 "reason": {"completed": "выполнено", "not_planned": "не планируется", "reopened": "переоткрыт", "duplicate": "дубликат"}, "checked": text_of(self.pg.get("checked"))}))
+        if self.chart_page_meta and not self.site:     # single/lite: пояснения графиков — в странице (SVG уже в разметке разделов)
+            pairs.append(("d-charts", self.chart_page_meta))
         js = JS
         head_js = HEAD_JS
-        h1 = base64.b64encode(hashlib.sha256(js.encode("utf-8")).digest()).decode()
-        h2 = base64.b64encode(hashlib.sha256(head_js.encode("utf-8")).digest()).decode()
-        # --lite: картинки — файлы рядом со страницей (assets/), 'self' — только тот же источник, внешних по-прежнему нет
-        img_src = "img-src data: 'self'" if self.lite else "img-src data:"
-        csp = ("default-src 'none'; " + img_src + "; style-src 'unsafe-inline'; script-src 'sha256-" + h1 + "' 'sha256-" + h2 + "'; "
-               "font-src data:; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; "
-               "base-uri 'none'; form-action 'none'")
+        if self.site:
+            csp = None
+        else:
+            h1 = base64.b64encode(hashlib.sha256(js.encode("utf-8")).digest()).decode()
+            h2 = base64.b64encode(hashlib.sha256(head_js.encode("utf-8")).digest()).decode()
+            # --lite: картинки — файлы рядом со страницей (assets/), 'self' — только тот же источник, внешних по-прежнему нет
+            img_src = "img-src data: 'self'" if self.lite else "img-src data:"
+            csp = ("default-src 'none'; " + img_src + "; style-src 'unsafe-inline'; script-src 'sha256-" + h1 + "' 'sha256-" + h2 + "'; "
+                   "font-src data:; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; "
+                   "base-uri 'none'; form-action 'none'")
         metas = '<meta name="generator" content="product-strategy build_html.py">'
         if who:
             metas += '<meta name="author" content="' + esc(who) + '">'
@@ -3496,7 +3944,8 @@ class Builder:
         if cp or who:
             foot += "<p>" + esc(cp or ("© " + self.date[:4] + " " + who)) + (" · автор: " + esc(who) if who else "") + ". Все права защищены.</p>"
         foot += ("<p class=\"muted\">Страница собрана " + esc(self.date) + " скриптом product-strategy build_html.py; работает офлайн, "
-                 "без внешних запросов" + ("; полноразмерные картинки — в папке assets/ рядом со страницей (пересылайте вместе с ней)" if self.lite else "")
+                 "без внешних запросов" + ("; страница состоит из нескольких файлов — index.html, assets/ и data/: пересылайте папку целиком (или strategy-site.zip)"
+                                           if self.site else "; полноразмерные картинки — в папке assets/ рядом со страницей (пересылайте вместе с ней)" if self.lite else "")
                  + ". Концепты и макеты — не существующие функции; цифры помечены [факт]/[оценка]/[допущение].</p></footer>")
         nav = ('<nav class="side" id="nav" aria-label="Разделы"><div class="here"><small>Вы здесь</small><b class="here-t">Резюме</b></div>'
                + self.nav_html() + '<div class="grp">Вид</div><button type="button" class="theme-btn" data-theme-btn>Тема: авто</button>'
@@ -3519,14 +3968,76 @@ class Builder:
             '<button type="button" data-z="2">2×</button><button type="button" id="lbhs" title="Показать/скрыть элементы (H)">Элементы</button>'
             '<button type="button" data-close data-autofocus title="Закрыть (Esc)">✕ Закрыть</button></div><div id="lbview"><div id="lbwrap"><img id="lbimg" alt=""></div></div>'
             '<aside id="lbside" aria-label="Описание элементов"></aside><div class="lbhint">клик — 1:1 / вписать · Ctrl+колесо — масштаб · перетаскивание · ←/→ · H — элементы · Esc</div></div>')
+        if self.chart_page_meta:
+            layers = layers.replace('<span id="lbcap"></span>', '<span id="lbcap"></span><span id="lbpids" hidden></span>') + self.chart_layers()
+        if self.site:
+            return self.assemble_site(pairs, title, metas, foot, nav, mbar, layers, js, head_js)
+        data_blocks = [json_script(i, o) for i, o in pairs]
         page = ("<!doctype html>\n<html lang=\"ru\"><head><meta charset=\"utf-8\">"
                 '<meta http-equiv="Content-Security-Policy" content="' + csp + '">'
                 '<meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark">'
-                + metas + '<link rel="icon" href="data:,"><title>' + esc(title) + "</title><style>" + theme_css(self.tokens) + CSS + (PROGRESS_CSS if self.pg else "")
+                + metas + '<link rel="icon" href="data:,"><title>' + esc(title) + "</title><style>" + theme_css(self.tokens) + CSS + (CHART_CSS if self.ich else "") + (PROGRESS_CSS if self.pg else "")
                 + (CONCEPT_CSS if self.concept else "") + "</style>"
                 "<script>" + head_js + "</script></head><body>"
                 '<a class="skip" href="#main">К содержанию</a>' + mbar + '<div class="wrap">' + nav + '<main id="main">'
                 + "".join(self.sections) + foot + "</main></div>" + layers + "".join(data_blocks) + "<script>" + js + "</script></body></html>\n")
+        return page
+
+    # --- режим site: оболочка index.html + assets/app.css, app.js, data.js, head.js (+ extra.*, charts.js)
+    def assemble_site(self, pairs, title, metas, foot, nav, mbar, layers, js, head_js):
+        css = theme_css(self.tokens) + CSS + (CHART_CSS if self.ich else "") + (PROGRESS_CSS if self.pg else "") + (CONCEPT_CSS if self.concept else "")
+        body_data = json.dumps({i: clean_json(o) for i, o in pairs}, ensure_ascii=False, separators=(",", ":"))
+        body_data = body_data.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+        body_data = body_data.replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
+        data_js = "/* product-strategy: данные страницы (реестр, оценки, конкуренты, Гант, Kanban…); JS, а не JSON — fetch() по file:// запрещён */\n" \
+                  "window.PS_DATA=" + body_data + ";\n"
+        files = {"assets/app.css": css, "assets/app.js": js, "assets/data.js": data_js, "assets/head.js": head_js + "\n"}
+        # интерактивные графики: assets/charts-<группа>.js — window.PS_CHARTS[ключ] = {svg, meta}; подключаются динамически при показе
+        groups = OrderedDict()
+        for c in self.charts:
+            if c["key"] in self.chart_page_meta:
+                groups.setdefault(self.chart_group(c), []).append(c)
+        for g, cs in groups.items():
+            body = "".join("(window.PS_CHARTS=window.PS_CHARTS||{})[" + json.dumps(c["key"]) + "]=" + js_literal(
+                {"svg": c["svg"], "meta": self.chart_page_meta[c["key"]]}) + ";\n" for c in cs)
+            files["assets/charts-%s.js" % g] = ("/* product-strategy: интерактивные графики группы «%s» — SVG и пояснения к элементам "
+                                                "(подключается страницей при показе графика) */\n" % g) + body
+        for ext in ("css", "js"):                          # необязательные пользовательские правки из <OUT>/build/extra.{css,js}
+            ep = self.out / "build" / ("extra." + ext)
+            if ep.is_file():
+                try:
+                    files["assets/extra." + ext] = ep.read_text(encoding="utf-8")
+                except (OSError, UnicodeDecodeError) as e:
+                    self.warn("build/extra.%s не прочитан (%s) — не подключён" % (ext, str(e)[:80]))
+        self.site_files = {k: v.encode("utf-8") for k, v in files.items()}
+
+        def url(rel):
+            return rel + "?v=" + hashlib.sha1(self.site_files[rel]).hexdigest()[:10]
+        if self.site_csp == "self":
+            # Решение по CSP режима site: целевая политика с 'self' (без хешей). Проверка на file:// (smoke_html.mjs, Playwright 1.64):
+            #   Chromium 156 — assets/*.js|css|img под 'self' грузятся и выполняются, инлайн-скрипт блокируется (как задумано);
+            #   WebKit 27.2 — то же; Firefox — в этой среде не запускается (Playwright firefox-1543: «Could not find profile folder»),
+            #   поведение 'self' на file:// там НЕ проверено. Запасной вариант на случай пустой страницы в Firefox:
+            #   `build_html.py <OUT> --site-csp none` — без CSP-мета, но с referrer no-referrer и проверкой smoke «внешних запросов 0».
+            sec = ('<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src \'self\' data:; '
+                   'style-src \'self\' \'unsafe-inline\'; script-src \'self\'; base-uri \'none\'; form-action \'none\'">')
+        else:
+            sec = ""                                       # запасной вариант (--site-csp none): без CSP-мета; внешних запросов нет, проверяет smoke
+        head = ('<meta name="referrer" content="no-referrer"><meta name="viewport" content="width=device-width, initial-scale=1">'
+                '<meta name="color-scheme" content="light dark">')
+        links = '<link rel="stylesheet" href="' + url("assets/app.css") + '">'
+        if "assets/extra.css" in self.site_files:
+            links += '<link rel="stylesheet" href="' + url("assets/extra.css") + '">'
+        scripts = '<script src="' + url("assets/data.js") + '"></script>'
+        scripts += '<script src="' + url("assets/app.js") + '"></script>'
+        if "assets/extra.js" in self.site_files:
+            scripts += '<script src="' + url("assets/extra.js") + '"></script>'
+        page = ("<!doctype html>\n<html lang=\"ru\"><head><meta charset=\"utf-8\">" + sec + head + metas
+                + '<link rel="icon" href="data:,"><title>' + esc(title) + "</title>" + links
+                + '<script src="' + url("assets/head.js") + '"></script></head><body>'
+                '<a class="skip" href="#main">К содержанию</a>' + mbar + '<div class="wrap">' + nav + '<main id="main">'
+                + re.sub(r"@@(charts-[\w-]+)@@", lambda m: url("assets/%s.js" % m.group(1)), "".join(self.sections))
+                + foot + "</main></div>" + layers + scripts + "</body></html>\n")
         return page
 
 
@@ -3546,7 +4057,9 @@ pre code{background:none;padding:0}
 .skip{position:absolute;left:-9999px;top:0}.skip:focus{left:8px;top:8px;z-index:3000;background:var(--ps-surface);padding:6px 10px;border-radius:6px}
 .muted{color:var(--ps-muted)}.small{font-size:12.5px}
 .wrap{display:grid;grid-template-columns:270px minmax(0,1fr);min-height:100vh}
-main{min-width:0;padding:28px 44px 80px;max-width:1280px;width:100%}
+main{min-width:0;padding:28px 44px 80px;max-width:1280px;width:100%;overflow-wrap:break-word}
+/* перенос длинных «слов» (идентификаторы, URL, camelCase) в любом блоке: overflow-wrap наследуется; в таблицах break-word не
+   меняет минимальную ширину колонки — слова целые, а длинные токены рвутся по <wbr> (wbr_long) */
 nav.side{position:sticky;top:0;height:100vh;overflow-y:auto;overflow-x:hidden;background:var(--ps-surface);border-right:1px solid var(--ps-border);padding:0 10px 28px;font-size:13px}
 nav.side .here{position:sticky;top:0;z-index:2;background:var(--ps-surface);margin:0 -10px 8px;padding:14px 18px 10px;border-bottom:1px solid var(--ps-border)}
 nav.side .here small{display:block;color:var(--ps-muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.08em}
@@ -3587,6 +4100,9 @@ li.task{list-style:none;margin-left:-18px}
 .al-c{text-align:center!important}.al-r{text-align:right!important}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .tbl thead th.num{white-space:normal}
+/* универсально для ячеек: перенос между словами и по <wbr>; число — только в td.num (num_col), текстовая колонка не nowrap */
+.tbl td{overflow-wrap:break-word;word-break:normal}
+table.comm td.rules,table.comm th.rules{min-width:220px}table.comm td.aud,table.comm th.aud{min-width:96px}
 .tbl table.many{font-size:12.5px}.tbl table.many th,.tbl table.many td{padding:6px 7px;hyphens:auto;-webkit-hyphens:auto}
 td.url{word-break:break-all;min-width:180px}
 td.stitle{overflow-wrap:anywhere;min-width:140px}
@@ -3768,9 +4284,7 @@ dl.kv dt{color:var(--ps-muted)}dl.kv dd{margin:0;min-width:0;overflow-wrap:anywh
 .hsn{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;border-radius:50%;background:#ffcc33;color:#111;font-size:11px;font-weight:700;margin-right:6px;padding:0 4px}
 .st{font-size:10.5px;border-radius:999px;padding:0 6px;border:1px solid var(--ps-border);color:var(--ps-muted);margin-left:4px}
 /* контраст ≥ 4,5:1 в обеих темах (было 3,4 в тёмной) */
-.st-new{color:#166534;border-color:#166534}
-:root[data-theme=dark] .st-new{color:#4ade80;border-color:#4ade80}
-@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .st-new{color:#4ade80;border-color:#4ade80}}
+.st-new{color:var(--ps-ok,#166534);border-color:var(--ps-ok,#166534)}
 .cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,460px),1fr));gap:14px;margin-top:12px}
 .ccard{background:var(--ps-surface);border:1px solid var(--ps-border);border-radius:var(--ps-radius);padding:12px 14px;display:grid;grid-template-columns:170px minmax(0,1fr);gap:12px;font-size:13px;min-width:0}
 .ccard.noimg{grid-template-columns:minmax(0,1fr)}
@@ -3791,15 +4305,14 @@ table.cm thead th{position:sticky;top:0;background:var(--ps-surface-2);z-index:2
 table.cm th[scope=row]{position:sticky;left:0;background:var(--ps-surface);text-align:left;z-index:1;max-width:220px;overflow:hidden;text-overflow:ellipsis}
 table.cm thead th:first-child{left:0;z-index:3}
 table.cm tr.self th,table.cm tr.self td{background:var(--ps-accent-soft);font-weight:600}
-table.cm td.y{color:#166534;font-weight:700}table.cm td.n{color:var(--ps-muted)}table.cm td.u{color:var(--ps-muted)}
+table.cm td.y{color:var(--ps-ok,#166534);font-weight:700}table.cm td.n{color:var(--ps-muted)}table.cm td.u{color:var(--ps-muted)}
+table.cm tr.self td.n,table.cm tr.self td.u{color:var(--ps-text)}
 table.cm td.gap{outline:2px solid #b42318;outline-offset:-3px}
 table.cm tfoot th,table.cm tfoot td,table.cm tfoot th[scope=row]{background:var(--ps-surface-2);font-weight:600}
 .st-ok,.st-bad,.st-unk,.ok{display:inline-block;font-size:12px;padding:0 7px;border-radius:999px;white-space:nowrap}
 /* «✓ проверено», «доступны»: #15803d на своей зелёной подложке давал 3,9–4,1 — темнее до ≥ 4,5:1 */
-.st-ok,.ok{background:rgba(21,128,61,.14);color:#166534}.st-bad{background:rgba(180,35,24,.14);color:#9f1f14}.st-unk{background:var(--ps-surface-2);color:var(--ps-muted)}
-:root[data-theme=dark] .st-ok,:root[data-theme=dark] .ok{color:#4ade80}:root[data-theme=dark] .st-bad{color:#f87171}
-@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .st-ok,:root:not([data-theme=light]) .ok{color:#4ade80}:root:not([data-theme=light]) .st-bad{color:#f87171}:root:not([data-theme=light]) table.cm td.y{color:#4ade80}}
-:root[data-theme=dark] table.cm td.y{color:#4ade80}
+.st-ok,.ok{background:rgba(21,128,61,.14);color:var(--ps-ok,#166534)}.st-bad{background:rgba(180,35,24,.14);color:var(--ps-bad,#9f1f14)}.st-unk{background:var(--ps-surface-2);color:var(--ps-muted)}
+/* цвета --ps-ok/--ps-bad считает theme_vars под фон каждой темы (status_colors) — без жёстких #4ade80 на чужом фоне */
 footer.copy{margin-top:56px;padding-top:14px;border-top:1px solid var(--ps-border);font-size:12.5px}
 footer.copy p{margin:4px 0}
 .modal{position:fixed;inset:0;display:none;justify-content:center;align-items:flex-start;overflow:auto;padding:40px 16px;background:rgba(12,14,18,.58)}
@@ -3888,6 +4401,10 @@ button.ghost{background:none}
   a{color:inherit;text-decoration:none}
   h2{border-top:1px solid #999}
 }
+@media (max-width:699px){
+  /* телефон: длинные теги и статус-метки (вердикт, «без названия», статусы) переносятся, а не раздвигают страницу */
+  main .tag,main .st-ok,main .st-bad,main .st-unk,main .ok{white-space:normal;max-width:100%;overflow-wrap:anywhere}
+}
 """
 
 # Стили режима «Отслеживание» — добавляются в страницу, только если есть data/progress.json (иначе страница прежняя).
@@ -3932,9 +4449,7 @@ PROGRESS_CSS = r"""
 .pgc-axis{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--ps-muted);margin-top:4px}
 .pg-list{padding-left:22px}.pg-list li{margin:6px 0;overflow-wrap:anywhere}
 .pg-sub{font-size:12.5px;color:var(--ps-muted);margin-top:2px}
-.pg-ok{color:#166534;font-weight:600}.pg-warn{color:#9f1f14;font-weight:600}
-:root[data-theme=dark] .pg-ok{color:#4ade80}:root[data-theme=dark] .pg-warn{color:#f87171}
-@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .pg-ok{color:#4ade80}:root:not([data-theme=light]) .pg-warn{color:#f87171}}
+.pg-ok{color:var(--ps-ok,#166534);font-weight:600}.pg-warn{color:var(--ps-bad,#9f1f14);font-weight:600}
 .pg-was{text-decoration:line-through;color:var(--ps-muted)}.pg-now{font-weight:600}
 .pg-pp{white-space:nowrap;display:inline-block;margin:1px 6px 1px 0}
 .pg-rev .pg-rt{font-weight:600;color:var(--ps-text)}
@@ -3970,9 +4485,7 @@ a.gh{font-weight:600}
 .kbv-n{font-weight:400;color:var(--ps-muted)}
 .kb-off{flex:1 1 100%;margin:4px 0 0;color:var(--ps-text)}
 #kbv-plan:checked~.kb-off{display:none}
-.pg-sus{border-color:#b42318;color:#9f1f14;font-weight:600}
-:root[data-theme=dark] .pg-sus{color:#f87171}
-@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .pg-sus{color:#f87171}}
+.pg-sus{border-color:#b42318;color:var(--ps-bad,#9f1f14);font-weight:600}
 .kcard.moved{border-left:3px solid var(--ps-accent)}
 .kmoved{font-size:11.5px;margin-top:4px;color:var(--ps-text);overflow-wrap:anywhere}
 .kcard .pst{margin-top:2px}
@@ -3986,6 +4499,64 @@ a.gh{font-weight:600}
 @media print{.kb-facts{display:grid!important}.kbv-r,.kbv-r+label{display:none}.gtoday,.gtd{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
 """
 
+# Интерактивные графики (references/interactive-site.md, п. 2.3): SVG на белой подложке в обеих темах (цвета графиков — из
+# charts.py), поэтому контур выбранного элемента — тёмно-синий 3 px с белым ореолом (контраст с подложкой 10:1, с тёмной
+# заливкой элемента отделяет ореол); толщина в экранных пикселях (vector-effect). Панель — цвета темы.
+CHART_CSS = r"""
+figure.ps-ichart{margin:16px 0;min-width:0}
+.gallery figure.ps-ichart{margin:0}
+.ps-svg{border:1px solid var(--ps-border);border-radius:8px;background:#fff;overflow:hidden;line-height:0}
+.ps-svg svg{display:block;width:100%;height:auto}
+.ps-svg.ps-wait{min-height:180px;display:flex;align-items:center;justify-content:center;line-height:1.4}
+.ps-ph{margin:0;color:#4b5260;font-size:13px}
+.ps-svg .ps-el,.ps-svg [data-ps-ref]{cursor:pointer}
+.ps-svg .ps-el:focus,.ps-svg .ps-el:focus-visible{outline:none}
+svg.ps-hl-on [data-ps-group]:not(.ps-hl){opacity:.18}
+.ps-ovl rect{fill:none;vector-effect:non-scaling-stroke}
+.ps-sel-halo{stroke:#fff;stroke-width:8}
+.ps-sel-line{stroke:#0b3d91;stroke-width:3.5}
+.ps-foc-halo{stroke:#fff;stroke-width:6}
+.ps-foc-line{stroke:#0b3d91;stroke-width:2;stroke-dasharray:6 3}
+.ps-acts{white-space:nowrap}
+.ps-howto{margin:8px 0 0;padding:10px 14px;border:1px solid var(--ps-border);border-radius:8px;background:var(--ps-surface);font-size:13.5px;line-height:1.5}
+.ps-howto[hidden]{display:none}
+.ps-howto p{margin:4px 0}
+.ps-legend{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:2px 12px;margin:8px 0}
+.ps-legend dt{font-weight:600}.ps-legend dd{margin:0}
+.ps-flash{animation:psflash 2.2s}
+@keyframes psflash{0%,60%{box-shadow:0 0 0 4px var(--ps-accent)}100%{box-shadow:0 0 0 0 transparent}}
+.cpanel{position:fixed;top:0;right:0;bottom:0;width:400px;max-width:92vw;z-index:700;background:var(--ps-surface);color:var(--ps-text);
+  border-left:1px solid var(--ps-border);box-shadow:-8px 0 24px rgba(0,0,0,.18);display:flex;flex-direction:column}
+.cpanel[hidden]{display:none}
+.cp-head{display:flex;gap:10px;align-items:flex-start;padding:14px 16px 10px;border-bottom:1px solid var(--ps-border)}
+.cp-hg{flex:1;min-width:0}
+.cp-head h3{margin:2px 0 6px;font-size:16.5px;line-height:1.3;overflow-wrap:anywhere}
+.cp-chart{line-height:1.3;overflow-wrap:anywhere}
+.cp-kind{display:inline-block;font-size:11.5px;font-weight:600;line-height:1.6;padding:0 8px;border-radius:999px;background:var(--ps-surface-2);color:var(--ps-text);border:1px solid var(--ps-border)}
+.cp-kind:empty{display:none}
+.cp-x{flex:none}
+.cp-body{flex:1;min-height:0;overflow:auto;padding:4px 16px 12px;font-size:13.5px;line-height:1.5;overscroll-behavior:contain}
+.cp-body h4{margin:12px 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--ps-muted)}
+.cp-body p{margin:4px 0}
+.cp-body ul{margin:4px 0;padding-left:18px}
+.cp-body li{margin:3px 0}
+.cp-mx{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,auto);gap:3px 12px;margin:4px 0}
+.cp-mx dt{color:var(--ps-muted)}.cp-mx dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
+.cp-links a{overflow-wrap:anywhere}
+.cp-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 16px;border-top:1px solid var(--ps-border)}
+.ps-tip{position:fixed;z-index:720;max-width:300px;padding:5px 9px;border-radius:6px;background:#1d2127;color:#fff;font-size:12.5px;line-height:1.35;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.ps-tip[hidden]{display:none}
+.ps-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}
+@media (min-width:1100px){body.cp-open{padding-right:400px}}
+@media (max-width:699px){
+  .cpanel{top:auto;left:0;width:auto;max-width:none;max-height:62vh;border-left:0;border-top:1px solid var(--ps-border);border-radius:14px 14px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.22)}
+  .ps-svg{overflow-x:auto;overscroll-behavior-x:contain}
+  .ps-svg svg{min-width:560px}
+}
+#lbpids{font-size:12.5px;color:#ccc}#lbpids a{color:#a8c7ff}
+@media print{#cp,.ps-tip,.ps-ovl,.ps-acts{display:none!important}.ps-howto{display:block!important}body.cp-open{padding-right:0}.ps-svg{overflow:visible}.ps-svg svg{min-width:0}}
+"""
+
 # ---------------------------------------------------------------- JS
 HEAD_JS ="try{var t=localStorage.getItem('ps-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}"
 
@@ -3994,7 +4565,7 @@ JS = r"""
 'use strict';
 var $ = function (s, r) { return (r || document).querySelector(s); };
 var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
-function J(id) { var el = document.getElementById(id); if (!el) return null; try { return JSON.parse(el.textContent); } catch (e) { console.error('JSON ' + id + ': ' + e); return null; } }
+function J(id) { var D = window.PS_DATA; if (D && Object.prototype.hasOwnProperty.call(D, id)) return D[id]; var el = document.getElementById(id); if (!el) return null; try { return JSON.parse(el.textContent); } catch (e) { console.error('JSON ' + id + ': ' + e); return null; } }
 function safe(name, fn) { try { fn(); } catch (e) { console.error('[' + name + '] ' + (e && e.stack || e)); } }
 var IMG = J('d-img') || {}, META = J('d-meta') || {}, REG = J('d-registry') || [], METRICS = J('d-metrics') || [];
 var REFS = J('d-refs') || {}, GANTT = J('d-gantt') || [], KAN = J('d-kanban') || [], NODES = J('d-flows') || {}, COMP = J('d-comp') || [];
@@ -4306,6 +4877,8 @@ function lbShow() {
   var f = LB.items[LB.idx]; LB.cur = f; var key = f.getAttribute('data-key'), ref = REFS[f.getAttribute('data-ref')] || null;
   lbimg.removeAttribute('style'); lbimg.src = IMG[key]; lbimg.alt = f.getAttribute('data-cap') || '';
   $('#lbcap').textContent = (f.getAttribute('data-cap') || '').replace(/\s+/g, ' ');
+  var lpp = $('#lbpids'), pids = (f.getAttribute('data-pids') || '').split(/\s+/).filter(function (x) { return BYID[x]; });
+  if (lpp) { lpp.innerHTML = pids.length ? 'Предложения: ' + pids.map(pidLink).join(' ') : ''; lpp.hidden = !pids.length; }
   $('#lbcount').textContent = (LB.idx + 1) + ' / ' + LB.items.length;
   $('#lbprev').disabled = $('#lbnext').disabled = LB.items.length < 2;
   lb.classList.toggle('nopanel', !ref); lb.classList.remove('nohs'); $('#lbhs').hidden = !ref || !(ref.hotspots || []).length;
@@ -4371,7 +4944,7 @@ function renderMatrix(list) {
     return '<td class="' + cls + (gap ? ' gap' : '') + '" title="' + esc(ti) + '">' + t + '</td>'; }
   var FL = META.comp_feature_labels || {};
   box.innerHTML = '<table class="cm"><thead><tr><th>Продукт</th>' + feats.map(function (f) { return '<th title="' + esc(f) + '">' + esc(FL[f] || f) + '</th>'; }).join('') + '</tr></thead><tbody>'
-    + rows.map(function (c) { return '<tr' + (c.self ? ' class="self"' : '') + '><th scope="row" title="' + esc(c.name + (c.verdict_short ? ' — ' + c.verdict_short : '')) + '">' + esc(c.name) + (c.self ? ' <span class="tag">мы</span>' : '') + '</th>' + feats.map(function (f, i) { return cellv(c, f, i); }).join('') + '</tr>'; }).join('')
+    + rows.map(function (c) { return '<tr' + (c.self ? ' class="self"' : '') + ' data-slug="' + esc(c.slug) + '"><th scope="row" title="' + esc(c.name + (c.verdict_short ? ' — ' + c.verdict_short : '')) + '">' + esc(c.name) + (c.self ? ' <span class="tag">мы</span>' : '') + '</th>' + feats.map(function (f, i) { return cellv(c, f, i); }).join('') + '</tr>'; }).join('')
     + '</tbody><tfoot><tr><th scope="row">Есть у конкурентов</th>' + cnt.map(function (n) { return '<td>' + n + '/' + list.length + '</td>'; }).join('') + '</tr></tfoot></table>'
 }
 
@@ -4422,9 +4995,247 @@ function flowImages() {
   });
 }
 
+/* ---------- интерактивные графики: панель пояснений, подсветка, ленивая подгрузка (references/interactive-site.md, 2.3) ---------- */
+/* single/lite: SVG — в разметке, пояснения — блок d-charts {ключ: meta}; site: window.PS_CHARTS[ключ] = {svg, meta} из
+   assets/charts-<группа>.js (динамическое подключение скрипта при первом показе графика группы или по глубокой ссылке) */
+var DCH = J('d-charts') || {}, SVGNS = 'http://www.w3.org/2000/svg';
+var KIND_T = { stage: 'этап', point: 'точка', bar: 'столбец', node: 'узел', cell: 'ячейка', event: 'событие', link: 'связь', legend: 'легенда', axis: 'ось', area: 'область', line: 'линия', row: 'строка', column: 'столбец', shape: 'фигура' };
+var CP = { fig: null, key: null, id: null, el: null, open: false };
+var cpEl = $('#cp'), cpTip = $('#cp-tip');
+function cssq(s) { return window.CSS && CSS.escape ? CSS.escape(String(s)) : String(s).replace(/["\\\]\[]/g, '\\$&'); }
+function chMeta(key) { var P = window.PS_CHARTS; if (P && P[key] && P[key].meta) return P[key].meta; return DCH[key] || null; }
+function chEls(key) { var m = chMeta(key); return (m && m.elements) || []; }
+function chFind(key, id) { var a = chEls(key); for (var i = 0; i < a.length; i++) if (a[i].id === id) return i; return -1; }
+function figOf(n) { return n && n.closest ? n.closest('figure.ps-ichart') : null; }
+function svgOf(fig) { return fig ? fig.querySelector('svg[data-ps-chart]') : null; }
+function elOf(fig, id) { var s = svgOf(fig); return s ? s.querySelector('[data-ps-el="' + cssq(id) + '"]') : null; }
+function chartFig(key) { return $('figure.ps-ichart.ps-primary[data-chart="' + cssq(key) + '"]') || $('figure.ps-ichart[data-chart="' + cssq(key) + '"]'); }
+function initChart(fig) {
+  if (!fig || fig.classList.contains('ps-ready')) return;
+  var svg = svgOf(fig), key = fig.getAttribute('data-chart'); if (!svg || !chMeta(key)) return;
+  try {   /* копия для лайтбокса («увеличить») — до правок ниже */
+    var c = svg.cloneNode(true), vb = (svg.getAttribute('viewBox') || '').split(/[\s,]+/).map(Number); c.setAttribute('xmlns', SVGNS);
+    if (vb.length === 4 && vb[2] > 0 && vb[3] > 0) { c.setAttribute('width', vb[2]); c.setAttribute('height', vb[3]); DIMS['c-' + key] = [vb[2], vb[3]]; }
+    IMG['c-' + key] = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(c));
+  } catch (e) { /* без увеличения */ }
+  $$('.ps-el[data-ps-el]', svg).forEach(function (g, i) {
+    for (var ch = g.firstElementChild; ch; ch = ch.nextElementSibling) { if (ch.localName === 'title') { g.setAttribute('data-tip', ch.textContent); g.removeChild(ch); break; } }
+    g.setAttribute('tabindex', i ? '-1' : '0');   /* одна остановка Tab на график, внутри — ←/→ */
+  });
+  var ovl = document.createElementNS(SVGNS, 'g'); ovl.setAttribute('class', 'ps-ovl'); ovl.setAttribute('aria-hidden', 'true'); ovl.setAttribute('pointer-events', 'none'); svg.appendChild(ovl);
+  fig.classList.add('ps-ready');
+}
+function bboxIn(svg, el) {
+  try {
+    var b = el.getBBox(), m = svg.getScreenCTM().inverse().multiply(el.getScreenCTM()), xs = [], ys = [];
+    [[b.x, b.y], [b.x + b.width, b.y], [b.x, b.y + b.height], [b.x + b.width, b.y + b.height]].forEach(function (p) { var q = svg.createSVGPoint(); q.x = p[0]; q.y = p[1]; q = q.matrixTransform(m); xs.push(q.x); ys.push(q.y); });
+    var x0 = Math.min.apply(null, xs), y0 = Math.min.apply(null, ys);
+    return { x: x0, y: y0, w: Math.max.apply(null, xs) - x0, h: Math.max.apply(null, ys) - y0 };
+  } catch (e) { return null; }
+}
+function ring(svg, el, cls) {
+  var ovl = svg && svg.querySelector('.ps-ovl'); if (!ovl) return;
+  $$('.' + cls, ovl).forEach(function (x) { ovl.removeChild(x); });
+  if (!el) return;
+  var b = bboxIn(svg, el); if (!b) return;
+  var vb = svg.viewBox && svg.viewBox.baseVal, k = vb && vb.width && svg.getBoundingClientRect().width ? vb.width / svg.getBoundingClientRect().width : 1, pad = 5 * k;
+  var w = Math.max(b.w + 2 * pad, 12 * k), h = Math.max(b.h + 2 * pad, 12 * k), x = b.x + b.w / 2 - w / 2, y = b.y + b.h / 2 - h / 2;
+  ['halo', 'line'].forEach(function (part) {
+    var r = document.createElementNS(SVGNS, 'rect');
+    r.setAttribute('class', cls + ' ' + cls + '-' + part); r.setAttribute('x', x); r.setAttribute('y', y); r.setAttribute('width', w); r.setAttribute('height', h); r.setAttribute('rx', 3 * k);
+    ovl.appendChild(r);
+  });
+}
+function hl(svg, grp) {
+  if (!svg) return 0; svg.classList.remove('ps-hl-on'); $$('.ps-hl', svg).forEach(function (x) { x.classList.remove('ps-hl'); });
+  if (!grp) return 0; var n = 0;
+  $$('[data-ps-group]', svg).forEach(function (x) { if ((' ' + x.getAttribute('data-ps-group') + ' ').indexOf(' ' + grp + ' ') >= 0) { x.classList.add('ps-hl'); n++; } });
+  if (n) svg.classList.add('ps-hl-on'); return n;
+}
+function focusEl(el) {
+  var svg = el && el.ownerSVGElement; if (!svg) return;
+  $$('.ps-el[tabindex="0"]', svg).forEach(function (x) { if (x !== el) x.setAttribute('tabindex', '-1'); });
+  el.setAttribute('tabindex', '0'); try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); }
+}
+function cpHtml(e, hlN) {
+  var h = '';
+  if (e.summary) h += '<section><h4>Что это</h4><p>' + esc(e.summary) + '</p></section>';
+  if (e.meaning) h += '<section><h4>Что значит</h4><p>' + esc(e.meaning) + '</p></section>';
+  if ((e.actions || []).length) h += '<section><h4>Что делать</h4><ul>' + e.actions.map(function (a) { return '<li>' + esc(a) + '</li>'; }).join('') + '</ul></section>';
+  if ((e.metrics || []).length) h += '<section><h4>Метрики</h4><dl class="cp-mx">' + e.metrics.map(function (x) { return '<dt>' + esc(x.label) + '</dt><dd>' + esc(x.value === '' || x.value == null ? '—' : x.value) + (x.tag ? ' <span class="tag" title="метка достоверности">' + esc(x.tag) + '</span>' : '') + '</dd>'; }).join('') + '</dl></section>';
+  var ls = (e.links || []).filter(function (l) { return /^#[\w\/?=&.-]+$/.test(String(l.href || '')); });
+  if (ls.length) h += '<section><h4>Ссылки</h4><ul class="cp-links">' + ls.map(function (l) { return '<li><a href="' + esc(l.href) + '">' + esc(l.label || l.href) + '</a></li>'; }).join('') + '</ul></section>';
+  if (hlN) h += '<p class="small muted">На графике подсвечено элементов: ' + hlN + '.</p>';
+  return h || '<p class="muted">Пояснение к элементу не задано.</p>';
+}
+function setChartHash(h) { if (stack.length) return; try { if (h) history.replaceState(null, '', h); else if (/^#chart\//.test(location.hash)) history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* file:// без history */ } }
+function selectEl(fig, id, opt) {
+  opt = opt || {}; if (!fig || !cpEl) return false;
+  var key = fig.getAttribute('data-chart'), els = chEls(key), i = chFind(key, id); if (i < 0) return false;
+  var e = els[i], el = elOf(fig, id), svg = svgOf(fig);
+  if (CP.fig && CP.fig !== fig) { ring(svgOf(CP.fig), null, 'ps-sel'); hl(svgOf(CP.fig), null); }
+  if (CP.el) CP.el.classList.remove('ps-on');
+  CP.fig = fig; CP.key = key; CP.id = id; CP.el = el; CP.open = true;
+  if (el) el.classList.add('ps-on');
+  var n = hl(svg, e.highlight || (el && el.getAttribute('data-ps-highlight')) || '');
+  $('#cp-chart').textContent = (chMeta(key) || {}).title || '';
+  $('#cp-title').textContent = e.title || id;
+  $('#cp-kind').textContent = KIND_T[e.kind] || e.kind || '';
+  $('#cp-pos').textContent = (i + 1) + ' из ' + els.length;
+  var b = $('#cp-body'); b.innerHTML = cpHtml(e, n); b.scrollTop = 0; linkifyEl(b);
+  cpEl.hidden = false; cpEl.classList.add('open'); document.body.classList.add('cp-open');
+  var live = $('#cp-live'); if (live) live.textContent = (e.title || id) + '. Панель пояснений открыта, Esc — закрыть.';
+  ring(svg, el, 'ps-sel'); ring(svg, null, 'ps-foc');
+  if (el && opt.focus !== false) focusEl(el);
+  if (el) ensureVisible(el);
+  setChartHash('#chart/' + key + '/' + id);
+  return true;
+}
+function closePanel(ret) {
+  if (!CP.open) return; var el = CP.el, svg = svgOf(CP.fig);
+  ring(svg, null, 'ps-sel'); hl(svg, null); if (el) el.classList.remove('ps-on');
+  cpEl.classList.remove('open'); cpEl.hidden = true; document.body.classList.remove('cp-open');
+  CP.open = false; CP.fig = null; CP.el = null; CP.id = null; setChartHash('');
+  if (ret && el && document.contains(el)) focusEl(el);
+}
+function stepEl(d) { if (!CP.open) return; var els = chEls(CP.key), n = els.length; if (!n) return; var i = chFind(CP.key, CP.id); selectEl(CP.fig, els[((i < 0 ? 0 : i) + d + n) % n].id, { focus: true }); }
+function moveFocus(fig, el, d) { var els = chEls(fig.getAttribute('data-chart')), n = els.length; if (!n) return; var i = chFind(fig.getAttribute('data-chart'), el.getAttribute('data-ps-el')); var nx = elOf(fig, els[((i < 0 ? 0 : i) + d + n) % n].id); if (nx) focusEl(nx); }
+function ensureVisible(el) {
+  requestAnimationFrame(function () {
+    if (!CP.open || CP.el !== el) return;            /* за кадр успели перейти по ссылке или выбрать другой элемент */
+    try { el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' }); } catch (e) { /* старый движок */ }
+    var r = el.getBoundingClientRect(), pr = cpEl.getBoundingClientRect(), top = innerWidth <= 900 ? 60 : 8;
+    var bottom = pr.width >= innerWidth - 2 && pr.top > 0 ? pr.top : innerHeight;      /* нижний лист закрывает низ экрана */
+    if (r.top < top || r.bottom > bottom - 8) window.scrollBy({ top: r.top - top - Math.max(0, (bottom - top - r.height) / 3), behavior: 'instant' });
+  });
+}
+function focusRing(el) { var svg = el && el.ownerSVGElement; if (svg) ring(svg, CP.open && el === CP.el ? null : el, 'ps-foc'); }   /* у выбранного — сплошной контур выбора */
+/* подгрузка assets/charts-<группа>.js (site) */
+var CHQ = {};
+function mountAll() {
+  var P = window.PS_CHARTS || {};
+  $$('figure.ps-ichart').forEach(function (fig) {
+    if (fig.classList.contains('ps-ready')) return;
+    var box = fig.querySelector('.ps-svg'), key = fig.getAttribute('data-chart');
+    if (box && !svgOf(fig) && P[key] && P[key].svg) { box.innerHTML = P[key].svg; box.classList.remove('ps-wait'); }   /* SVG очищен сборщиком */
+    initChart(fig);
+  });
+}
+function loadSrc(src, cb) {
+  var q = CHQ[src] || (CHQ[src] = { st: 0, cbs: [] });
+  if (q.st === 2) { if (cb) cb(); return; }
+  if (cb) q.cbs.push(cb);
+  if (q.st === 1) return; q.st = 1;
+  var s = document.createElement('script'); s.src = src; s.async = true;
+  s.onload = function () { q.st = 2; safe('charts-mount', mountAll); var cs = q.cbs; q.cbs = []; cs.forEach(function (f) { safe('charts-cb', f); }); };
+  s.onerror = function () { q.st = 0; console.error('[charts] не загрузился ' + src); };
+  document.head.appendChild(s);
+}
+function ensureChart(fig, cb) {
+  if (fig.classList.contains('ps-ready')) { cb(); return; }
+  var box = fig.querySelector('.ps-svg[data-ps-src]');
+  if (box && !svgOf(fig)) loadSrc(box.getAttribute('data-ps-src'), cb); else { initChart(fig); cb(); }
+}
+function loadAllCharts(cb) {
+  var srcs = []; $$('.ps-svg[data-ps-src]').forEach(function (b) { var s = b.getAttribute('data-ps-src'); if (srcs.indexOf(s) < 0) srcs.push(s); });
+  var left = srcs.length; if (!left) { mountAll(); if (cb) cb(); return; }
+  srcs.forEach(function (s) { loadSrc(s, function () { if (--left === 0 && cb) cb(); }); });
+}
+
+/* ---------- единый роутер ссылок страницы ----------
+   #s<N> — раздел стратегии N (на странице id="s-N"); #p/<P-id> — строка реестра раскрыта; #registry?category|horizon|class|quadrant|priority=… —
+   реестр с фильтром; #gantt/<G>, #kanban/<P>, #competitor/<slug>, #mockup/<ключ>, #flow/<ключ> — показать блок; #chart/<ключ>[/<id>] — график и его
+   элемент. Старые #p=<P-id> (окно карточки), #lb=<картинка> (лайтбокс) и #s-N (обычный якорь) работают как раньше. */
+var REGF = { category: 'category', horizon: 'horizon', 'class': 'evidence_class', quadrant: 'quadrant', priority: 'priority' };
+function parseHref(h) {
+  h = String(h || ''); try { h = decodeURIComponent(h); } catch (e) { /* как есть */ }
+  var m;
+  if ((m = h.match(/^#s(-?)(\d+)$/))) return { t: 'sec', n: +m[2], legacy: !!m[1] };
+  if ((m = h.match(/^#p\/(P\d+)$/))) return { t: 'prow', id: m[1] };
+  if ((m = h.match(/^#p=(P\d+)$/))) return { t: 'pcard', id: m[1] };
+  if ((m = h.match(/^#registry(?:\?(.*))?$/))) {     /* без «?» — обычный якорь раздела (навигация не сбрасывает фильтры) */
+    var f = {}, bad = false;
+    (m[1] ? m[1].split('&') : []).forEach(function (kv) { var p = kv.split('='); if (p.length === 2 && REGF[p[0]] && p[1]) f[REGF[p[0]]] = p[1]; else bad = true; });
+    return { t: 'reg', f: f, bad: bad, bare: m[1] == null };
+  }
+  if ((m = h.match(/^#(gantt|kanban|competitor|mockup|flow)\/(.+)$/))) return { t: m[1], id: m[2] };
+  if ((m = h.match(/^#chart\/([\w-]+)(?:\/(.+))?$/))) return { t: 'chart', key: m[1], id: m[2] || '' };
+  if ((m = h.match(/^#lb=(.+)$/))) return { t: 'lb', key: m[1] };
+  return null;
+}
+function compTarget(slug) { return $('#cgrid .ccard[data-slug="' + cssq(slug) + '"]') || $('#cmatrix tr[data-slug="' + cssq(slug) + '"]'); }
+/* цель ссылки без побочных действий (для проверок и для go): элемент или null */
+function resolveTarget(r) {
+  if (typeof r === 'string') r = parseHref(r);
+  if (!r) return null;
+  switch (r.t) {
+    case 'sec': return document.getElementById('s-' + r.n);
+    case 'prow': case 'pcard': return BYID[r.id] ? (r.t === 'prow' ? document.getElementById('registry') : pm) : null;
+    case 'reg': return r.bad ? null : document.getElementById('registry');
+    case 'gantt': return $('#gantt [data-gid="' + cssq(r.id) + '"]');
+    case 'kanban': return $('#kanban [data-kid="' + cssq(r.id) + '"]');
+    case 'competitor': return compTarget(r.id) || (COMP.some(function (c) { return c.slug === r.id && !c.self; }) ? $('#cgrid') : null);
+    case 'mockup': var q = '[data-mock="' + cssq(r.id) + '"]'; return $('#mockups ' + q) || $('#current ' + q) || $('main ' + q);
+    case 'flow': return $('#flows .flow[data-flow="' + cssq(r.id) + '"]') || $('main .flow[data-flow="' + cssq(r.id) + '"]');
+    case 'chart': var f = chartFig(r.key); if (!f || !r.id) return f; return !chMeta(r.key) || chFind(r.key, r.id) >= 0 ? f : null;
+  }
+  return null;
+}
+function flash(el) { if (!el) return; el.classList.remove('ps-flash'); void el.offsetWidth; el.classList.add('ps-flash'); setTimeout(function () { el.classList.remove('ps-flash'); }, 2300); }
+function reveal(el) {
+  if (!el) return false;
+  el.scrollIntoView({ behavior: 'instant', block: 'center' }); flash(el);
+  if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
+  try { el.focus({ preventScroll: true }); } catch (e) { /* не фокусируется */ }
+  return true;
+}
+function goRegFilters(f) {
+  closeAll(); resetFilters();
+  Object.keys(f).forEach(function (k) {
+    var s = $('#registry select[data-f="' + k + '"]'); if (!s) return;
+    if (![].some.call(s.options, function (o) { return o.value === f[k]; })) { var o = document.createElement('option'); o.value = f[k]; o.textContent = (k === 'evidence_class' ? 'Класс ' + f[k] : lab(k, f[k])) + ' (0)'; s.appendChild(o); }
+    s.value = f[k];
+  });
+  renderReg();
+  var sec = document.getElementById('registry'); if (sec) { sec.scrollIntoView({ behavior: 'instant', block: 'start' }); flash($('#reg-count')); }
+}
+function go(h) {
+  var r = parseHref(h); if (!r) return false;
+  if (r.t !== 'chart') closePanel(false);          /* цель вне графика — панель закрывается */
+  switch (r.t) {
+    case 'sec': if (r.legacy) return false; var s = document.getElementById('s-' + r.n); if (!s) return false; closeAll(); s.scrollIntoView({ behavior: 'instant', block: 'start' }); flash(s.querySelector('h2') || s); return true;
+    case 'prow': if (!BYID[r.id]) return false; showInRegistry(r.id); return true;
+    case 'pcard': if (!BYID[r.id]) return false; openProposal(r.id); return true;
+    case 'reg': if (r.bare) return false; goRegFilters(r.f); return true;
+    case 'kanban': closeAll(); var pl = document.getElementById('kbv-plan'); if (pl && !pl.checked) pl.checked = true; return reveal(resolveTarget(r));
+    case 'competitor':
+      closeAll(); var el = compTarget(r.id);
+      if (!el || !el.classList.contains('ccard')) { var cq = $('#cq'), ct = $('#ctype'); if (cq) cq.value = ''; if (ct) ct.value = ''; renderComp(); el = compTarget(r.id) || el; }
+      return reveal(el);
+    case 'gantt': case 'mockup': case 'flow': closeAll(); return reveal(resolveTarget(r));
+    case 'chart':
+      var f = chartFig(r.key); if (!f) return false; closeAll();
+      ensureChart(f, function () {
+        f.scrollIntoView({ behavior: 'instant', block: 'center' });
+        if (r.id && selectEl(f, r.id, { focus: true })) { var el = elOf(f, r.id); if (el) el.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'nearest' }); return; }
+        flash(f);
+      });
+      return true;
+    case 'lb': var ck = /^c-(.+)$/.exec(r.key); if (ck && chartFig(ck[1])) return go('#chart/' + ck[1]); return false;
+  }
+  return false;
+}
+window.PS_ROUTER = { parse: parseHref, resolve: resolveTarget, go: go, select: function (key, id) { var f = chartFig(key); return !!f && f.classList.contains('ps-ready') && selectEl(f, id); },
+  close: function () { closePanel(true); }, loadAll: loadAllCharts, meta: chMeta, state: function () { return { open: CP.open, key: CP.key, id: CP.id }; } };
+
 /* ---------- события ---------- */
 document.addEventListener('click', function (e) {
   var t = e.target; if (!t || !t.closest) return;
+  var pe = t.closest('svg[data-ps-chart] [data-ps-ref], svg[data-ps-chart] .ps-el'), pf = figOf(pe);
+  if (pe && pf && pf.classList.contains('ps-ready')) { e.preventDefault(); selectEl(pf, pe.getAttribute('data-ps-ref') || pe.getAttribute('data-ps-el'), { focus: true }); return; }
+  if (t.closest('[data-cp-close]')) { e.preventDefault(); closePanel(true); return; }
+  var cs = t.closest('[data-cp-step]'); if (cs) { e.preventDefault(); stepEl(+cs.getAttribute('data-cp-step')); return; }
+  var hb = t.closest('.ps-howto-btn'); if (hb) { e.preventDefault(); var hw = document.getElementById(hb.getAttribute('aria-controls')); if (hw) { hw.hidden = !hw.hidden; hb.setAttribute('aria-expanded', String(!hw.hidden)); } return; }
   var sg = t.closest('[data-st-go],[data-qf-go]'); if (sg) { e.preventDefault(); goRegistry(sg.getAttribute('data-st-go'), sg.getAttribute('data-qf-go')); return; }
   var p = t.closest('[data-pid]'); if (p) { e.preventDefault(); openProposal(p.getAttribute('data-pid')); return; }
   var c = t.closest('[data-close]'); if (c) { e.preventDefault(); closeLayer(c.closest('.layer')); return; }
@@ -4439,7 +5250,7 @@ document.addEventListener('click', function (e) {
 });
 document.addEventListener('keydown', function (e) {
   var top = topLayer();
-  if (e.key === 'Escape') { if (top) { e.preventDefault(); closeLayer(top); } else if (document.body.classList.contains('nav-open')) toggleNav(false); return; }
+  if (e.key === 'Escape') { if (top) { e.preventDefault(); closeLayer(top); } else if (CP.open) { e.preventDefault(); closePanel(true); } else if (document.body.classList.contains('nav-open')) toggleNav(false); return; }
   if (top === lb) {
     if (e.key === 'ArrowRight') { e.preventDefault(); lbStep(1); } else if (e.key === 'ArrowLeft') { e.preventDefault(); lbStep(-1); }
     else if (e.key === '+' || e.key === '=') zoomStep(1); else if (e.key === '-' || e.key === '_') zoomStep(-1); else if (e.key === '0') setZoom('fit');
@@ -4447,6 +5258,7 @@ document.addEventListener('keydown', function (e) {
     return;
   }
   if (top) return;
+  if (chartKeys(e)) return;
   if (e.key !== 'Enter' && e.key !== ' ') return;
   var el = document.activeElement; if (!el || !el.matches) return;
   if (el.matches('.lb[data-key]') && el.tagName !== 'BUTTON') { e.preventDefault(); openLB(el); }
@@ -4458,9 +5270,49 @@ document.addEventListener('keydown', function (e) {
 });
 function hashOpen() {
   var h = location.hash || '', m; try { h = decodeURIComponent(h); } catch (e) {}
-  if ((m = h.match(/^#lb=(.+)$/))) { var el = lbFigs().filter(function (f) { return f.getAttribute('data-key') === m[1]; })[0]; if (el) openLB(el); }
+  if ((m = h.match(/^#lb=(.+)$/))) {      /* #lb=c-<ключ> интерактивного графика — к самому графику (прежде это была картинка в лайтбоксе) */
+    var ck = /^c-(.+)$/.exec(m[1]), el = ck && chartFig(ck[1]) ? null : lbFigs().filter(function (f) { return f.getAttribute('data-key') === m[1]; })[0];
+    if (el) openLB(el); else go(h);
+  }
   else if ((m = h.match(/^#p=(P\d{3})$/))) { if (BYID[m[1]]) openProposal(m[1]); }
+  else go(h);
 }
+function chartKeys(e) {
+  var a = document.activeElement; if (!a || !a.matches) return false;
+  var onEl = a.matches('svg[data-ps-chart] .ps-el'), inCp = !!(cpEl && cpEl.contains(a));
+  var d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+  if (d && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+    if (onEl) { e.preventDefault(); var fig = figOf(a); if (CP.open && CP.fig === fig) stepEl(d); else moveFocus(fig, a, d); return true; }
+    if (inCp && CP.open && !/^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)) { e.preventDefault(); stepEl(d); return true; }
+  }
+  if ((e.key === 'Enter' || e.key === ' ') && onEl && figOf(a) && figOf(a).classList.contains('ps-ready')) { e.preventDefault(); selectEl(figOf(a), a.getAttribute('data-ps-el'), { focus: true }); return true; }
+  return false;
+}
+/* ссылки роутера: свой переход (и запись в историю), без прокрутки браузера к несуществующему id */
+document.addEventListener('click', function (e) {
+  if (e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+  var a = e.target && e.target.closest && e.target.closest('a[href^="#"]'); if (!a) return;
+  var h = a.getAttribute('href'), r = parseHref(h); if (!r || r.t === 'pcard' || r.t === 'lb' || (r.t === 'sec' && r.legacy) || r.bare) return;
+  e.preventDefault();
+  try { if (location.hash !== h) history.pushState(null, '', h); } catch (x) { /* file:// без history */ }
+  go(h);
+});
+document.addEventListener('focusin', function (e) { var t = e.target; if (t && t.matches && t.matches('svg[data-ps-chart] .ps-el')) focusRing(t); });
+document.addEventListener('focusout', function (e) { var t = e.target; if (t && t.matches && t.matches('svg[data-ps-chart] .ps-el')) ring(t.ownerSVGElement, null, 'ps-foc'); });
+/* подсказка при наведении — короткое название элемента */
+function tipFor(t) { var g = t && t.closest ? t.closest('svg[data-ps-chart] [data-ps-ref], svg[data-ps-chart] .ps-el') : null, f = figOf(g); if (!g || !f || !f.classList.contains('ps-ready')) return null;
+  var id = g.getAttribute('data-ps-ref') || g.getAttribute('data-ps-el'), i = chFind(f.getAttribute('data-chart'), id); return i >= 0 ? chEls(f.getAttribute('data-chart'))[i].title : g.getAttribute('data-tip'); }
+function tipMove(e) {
+  if (!cpTip) return; var txt = e.pointerType === 'touch' ? null : tipFor(e.target);
+  if (!txt) { if (!cpTip.hidden) cpTip.hidden = true; return; }
+  if (cpTip.textContent !== txt) cpTip.textContent = txt;
+  cpTip.hidden = false; var w = cpTip.offsetWidth, hgt = cpTip.offsetHeight;
+  cpTip.style.left = Math.max(4, Math.min(innerWidth - w - 4, e.clientX + 14)) + 'px'; cpTip.style.top = Math.max(4, e.clientY - hgt - 12 < 4 ? e.clientY + 18 : e.clientY - hgt - 12) + 'px';
+}
+document.addEventListener('pointermove', tipMove, { passive: true });
+document.addEventListener('pointerover', tipMove, { passive: true });
+document.addEventListener('pointerleave', function () { if (cpTip) cpTip.hidden = true; });
+window.addEventListener('scroll', function () { if (cpTip && !cpTip.hidden) cpTip.hidden = true; }, { passive: true });
 
 safe('images', function () { fillImgs(document); });
 safe('flows', flowImages);
@@ -4521,9 +5373,137 @@ safe('theme', function () {
   $$('[data-theme-btn]').forEach(function (b) { b.addEventListener('click', function () { applyTheme(THEMES[(THEMES.indexOf(theme) + 1) % 3]); try { localStorage.setItem('ps-theme', theme); } catch (e) {} }); });
 });
 safe('print', function () { window.addEventListener('beforeprint', function () { $$('details').forEach(function (d) { d.open = true; }); fillImgs(document); $$('img[data-full="0"]').forEach(function (im) { im.src = IMG[im.getAttribute('data-img')]; im.setAttribute('data-full', '1'); }); }); });
+safe('charts', function () {
+  mountAll();                                                     /* single/lite: SVG уже в разметке */
+  var boxes = $$('.ps-svg[data-ps-src]'); if (!boxes.length) return;
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (es) { es.forEach(function (en) { if (en.isIntersecting) { io.unobserve(en.target); loadSrc(en.target.getAttribute('data-ps-src')); } }); }, { rootMargin: '900px 0px' });
+    boxes.forEach(function (b) { io.observe(b); });
+  } else loadAllCharts();
+  window.addEventListener('beforeprint', function () { loadAllCharts(); });
+});
 safe('hash', function () { window.addEventListener('hashchange', hashOpen); hashOpen(); });
 })();
 """
+
+
+# ---------------------------------------------------------------- открытые данные рядом со страницей (режим site)
+def csv_cell(v):
+    """Ячейка CSV: списки — через « | », словари — «ключ=значение; …»; текст, похожий на формулу (= + - @), экранируется апострофом."""
+    if v is None:
+        return ""
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, float):
+        return "" if not math.isfinite(v) else repr(v)
+    if isinstance(v, (int, float)):
+        return str(v)
+    if isinstance(v, (list, tuple)):
+        t = " | ".join(x for x in (csv_cell(i) for i in v) if x != "")
+    elif isinstance(v, dict):
+        t = "; ".join("%s=%s" % (k, csv_cell(x)) for k, x in v.items() if x not in (None, ""))
+    else:
+        t = str(v)
+    if t[:1] in ("=", "+", "@", "\t", "\r") or (t[:1] == "-" and not re.match(r"^-?\d+([.,]\d+)?$", t)):
+        t = "'" + t
+    return t
+
+
+def csv_bytes(rows, cols):
+    import csv
+    buf = io.StringIO(newline="")
+    w = csv.writer(buf, lineterminator="\n")
+    w.writerow([c for c, _ in cols])
+    for r in rows:
+        w.writerow([csv_cell(f(r)) for _, f in cols])
+    return ("\ufeff" + buf.getvalue()).encode("utf-8")        # BOM — чтобы Excel узнал UTF-8
+
+
+def _union_cols(rows, skip=()):
+    keys = []
+    for r in rows:
+        for k in r:
+            if k not in keys and k not in skip:
+                keys.append(k)
+    return [(k, (lambda r, k=k: r.get(k))) for k in keys]
+
+
+def _range(v, i):
+    return v[i] if isinstance(v, (list, tuple)) and len(v) > i else None
+
+
+def open_data(out, warn):
+    """Открытые данные для людей и импорта: {путь относительно папки страницы → байты}. Страница от них не зависит.
+    proposals.json — копия исходного реестра; CSV — плоские таблицы (proposals, scores, competitors, gantt, kanban, sources)."""
+    data = Path(out) / "data"
+    res = {}
+
+    def load(name):
+        f = data / name
+        if not f.is_file():
+            return None
+        try:
+            return json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as e:
+            warn("открытые данные: не прочитать data/%s (%s)" % (name, str(e)[:80]))
+            return None
+    f = data / "proposals.json"
+    props = load("proposals.json")
+    if isinstance(props, list):
+        res["data/proposals.json"] = f.read_bytes()
+        cols = [("id", lambda r: r.get("id")), ("title", lambda r: r.get("title")), ("category", lambda r: r.get("category")),
+                ("segment", lambda r: r.get("segment")), ("description", lambda r: r.get("description")),
+                ("rationale", lambda r: r.get("rationale")), ("evidence_class", lambda r: r.get("evidence_class")),
+                ("horizon", lambda r: r.get("horizon")), ("kano", lambda r: r.get("kano")),
+                ("effort_days_min", lambda r: _range(r.get("effort_days"), 0)), ("effort_days_max", lambda r: _range(r.get("effort_days"), 1)),
+                ("time_to_first_result_days", lambda r: r.get("time_to_first_result_days")), ("cheap_test", lambda r: r.get("cheap_test")),
+                ("current_feature", lambda r: r.get("current_feature")),
+                ("steps", lambda r: [x.get("what") if isinstance(x, dict) else x for x in (r.get("steps") or [])]),
+                ("dependencies", lambda r: r.get("dependencies")),
+                ("effect_kpi", lambda r: [("%s %s %s" % (x.get("kpi"), x.get("range") or "", ("[" + str(x["label"]) + "]") if x.get("label") else "")).strip()
+                                           if isinstance(x, dict) else x for x in (r.get("effect_kpi") or [])]),
+                ("evidence_urls", lambda r: [x.get("url") for x in (r.get("evidence") or []) if isinstance(x, dict) and x.get("url")]),
+                ("tags", lambda r: r.get("tags")), ("mockup", lambda r: r.get("mockup")), ("merged_from", lambda r: r.get("merged_from"))]
+        sc = []
+        for k in ("value", "cost", "risk", "confidence", "reach", "impact"):
+            sc.append(("score_" + k, lambda r, k=k: (r.get("scores") or {}).get(k) if isinstance(r.get("scores"), dict) else None))
+        res["data/proposals.csv"] = csv_bytes([r for r in props if isinstance(r, dict)], cols + sc)
+    f = data / "scores.csv"
+    if f.is_file():
+        res["data/scores.csv"] = f.read_bytes()
+    else:
+        sc = load("scores.json")
+        if isinstance(sc, list) and sc and all(isinstance(r, dict) for r in sc):
+            res["data/scores.csv"] = csv_bytes(sc, _union_cols(sc))
+    comp = load("competitors.json")
+    if isinstance(comp, dict):
+        comp = comp.get("competitors")
+    if isinstance(comp, list) and comp and all(isinstance(r, dict) for r in comp):
+        res["data/competitors.csv"] = csv_bytes(comp, _union_cols(comp, skip=("features_labels",)))
+    for name in ("gantt", "sources"):
+        rows = load(name + ".json")
+        if isinstance(rows, dict):
+            rows = rows.get("tasks") if name == "gantt" else rows.get("sources")
+        if isinstance(rows, list) and rows and all(isinstance(r, dict) for r in rows):
+            res["data/%s.csv" % name] = csv_bytes(rows, _union_cols(rows))
+    kb = load("kanban.json")
+    cards = kb.get("cards") if isinstance(kb, dict) else kb
+    if isinstance(cards, list) and cards and all(isinstance(r, dict) for r in cards):
+        res["data/kanban.csv"] = csv_bytes(cards, _union_cols(cards))
+    return res
+
+
+def make_zip(page_dir, page_name, rels):
+    """strategy-site.zip: страница и перечисленные файлы сайта (без самого архива и служебных манифестов)."""
+    import zipfile
+    zp = Path(page_dir) / ZIP_NAME
+    names = sorted({page_name, *rels} - {ZIP_NAME})
+    with zipfile.ZipFile(zp, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
+        for rel in names:
+            f = Path(page_dir) / rel
+            if f.is_file() and not Path(rel).name.startswith("."):
+                z.write(f, rel)
+    return zp
 
 
 # ---------------------------------------------------------------- точка входа
@@ -4532,47 +5512,124 @@ def human(n):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="Сборка интерактивной офлайн-страницы стратегии (deliverables/index.html).")
+    ap = argparse.ArgumentParser(description="Сборка интерактивной офлайн-страницы стратегии (по умолчанию — сайт deliverables/index.html + assets/ + data/).")
     ap.add_argument("out", help="папка прогона <OUT>")
     ap.add_argument("--out", dest="out_file", help="куда записать страницу (по умолчанию <OUT>/deliverables/index.html)")
     ap.add_argument("--title", help="заголовок страницы (по умолчанию — H1 из research/strategy.md или имя продукта)")
-    ap.add_argument("--lite", action="store_true",
-                    help="крупные картинки — файлами в <папка страницы>/assets/ (WebP при наличии Pillow/ffmpeg), в странице — "
-                         "ссылки и миниатюры ≤ 320 px; цель — страница ≤ 8 МБ")
+    g = ap.add_mutually_exclusive_group()
+    g.add_argument("--site", action="store_true",
+                   help="режим по умолчанию: оболочка index.html + assets/ (app.css, app.js, data.js, img/) + data/ (открытые CSV/JSON); "
+                        "работает по двойному клику (file://)")
+    g.add_argument("--single", action="store_true",
+                   help="прежний автономный файл: CSS, JS, данные и картинки внутри index.html (Artifact ≤ 16 МБ, пересылка одним файлом)")
+    g.add_argument("--lite", action="store_true",
+                   help="single, но крупные картинки — файлами в <папка страницы>/assets/ (WebP при наличии Pillow/ffmpeg), в странице — "
+                        "ссылки и миниатюры ≤ 320 px; цель — страница ≤ 8 МБ")
     ap.add_argument("--lite-encoder", choices=["auto", "pillow", "ffmpeg", "none"], default="auto",
-                    help="кодировщик для --lite: auto (Pillow → ffmpeg → как есть), pillow, ffmpeg, none (без перекодирования)")
+                    help="кодировщик картинок для --lite и site: auto (Pillow → ffmpeg → как есть), pillow, ffmpeg, none (без перекодирования)")
+    ap.add_argument("--site-csp", choices=["self", "none"], default="self",
+                    help="CSP режима site: self (default-src 'none'; script-src 'self'…) или none — запасной вариант без CSP-мета "
+                         "(если браузер не принимает 'self' на file://; внешних запросов всё равно нет)")
+    ap.add_argument("--zip", action="store_true", help="режим site: собрать <папка страницы>/strategy-site.zip (страница + assets/ + data/)")
+    ap.add_argument("--strict", action="store_true",
+                    help="ссылка из пояснений графиков (charts/<ключ>.meta.json) без цели на странице — ошибка (код выхода 1); "
+                         "без флага — предупреждение, ссылка не показывается")
     a = ap.parse_args(argv)
     out = Path(a.out).expanduser()
     if not out.is_dir():
         print("нет папки прогона: %s" % out, file=sys.stderr)
         return 2
+    site = not (a.single or a.lite)
+    mode = "site" if site else "lite" if a.lite else "single"
     out_file = Path(a.out_file).expanduser() if a.out_file else out / "deliverables" / "index.html"
     out_file = out_file.resolve()
-    b = Builder(out, out_file, a.title, lite=a.lite, lite_encoder=a.lite_encoder)
+    b = Builder(out, out_file, a.title, lite=a.lite, lite_encoder=a.lite_encoder, site=site, site_csp=a.site_csp)
     page = b.build_all()
     out_file.parent.mkdir(parents=True, exist_ok=True)
     out_file.write_text(page, encoding="utf-8")
+    pdir = out_file.parent
     dropped = 0
-    if b.lite:
-        b.lite.finish()
+    produced = {}                                  # путь относительно папки страницы → размер (файлы режима site)
+    zip_path = None
+    if site:
+        for rel, blob in b.site_files.items():
+            f = pdir / rel
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_bytes(blob)
+            produced[rel] = len(blob)
+        produced.update(b.lite.written)
+        od = open_data(out, b.warn)
+        for rel, blob in od.items():
+            f = pdir / rel
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_bytes(blob)
+            produced[rel] = len(blob)
+        dropped = drop_stale_assets(pdir)          # хвосты прошлой --lite-сборки
+        dropped += cleanup_previous(pdir, set(produced) | ({ZIP_NAME} if a.zip else set()))
+        if a.zip:
+            zip_path = make_zip(pdir, out_file.name, list(produced))
+            produced[ZIP_NAME] = zip_path.stat().st_size
+        write_site_manifest(pdir, list(produced))
     else:
-        dropped = drop_stale_assets(out_file.parent)
+        if b.lite:
+            b.lite.finish()
+            dropped = cleanup_previous(pdir, {"assets/" + n for n in b.lite.written})
+        else:
+            dropped = drop_stale_assets(pdir) + cleanup_previous(pdir, set())
+        write_site_manifest(pdir, [])
+        if a.zip:
+            print("--zip: архив собирается только в режиме site — пропущено", file=sys.stderr)
     size = out_file.stat().st_size
     img_total = sum(m["bytes"] for m in b.img.meta.values())
     print("Готово: %s" % out_file)
-    if b.lite:
+    if site:
+        n_img = len([m for m in b.img.meta.values() if m.get("asset")])
+        assets_bytes = sum(v for k, v in produced.items() if k.startswith("assets/"))
+        data_bytes = sum(v for k, v in produced.items() if k.startswith("data/"))
+        total = size + assets_bytes + data_bytes
+        core = {k: v for k, v in produced.items() if k in ("assets/app.css", "assets/app.js", "assets/data.js", "assets/head.js",
+                                                           "assets/extra.css", "assets/extra.js") or re.fullmatch(r"assets/charts-[\w-]+\.js", k)}
+        print("Режим site (кодировщик: %s; CSP: %s)" % (b.lite.enc.label(), "'self'" if a.site_csp == "self" else "нет (запасной вариант --site-csp none)"))
+        print("  index.html: %s (оболочка без данных)" % human(size))
+        print("  assets/: %s — %s; картинок-файлов: %d (%s), миниатюр: %d (%s), повторов по содержимому: %d"
+              % (human(assets_bytes), ", ".join("%s %s" % (Path(k).name, human(v)) for k, v in core.items()), n_img,
+                 human(sum(v for k, v in produced.items() if k.startswith("assets/img/") and "/thumbs/" not in k)),
+                 len(b.img.thumbs), human(b.lite.thumb_bytes), len(b.img.alias)))
+        print("  data/: %d файлов (%s): %s" % (len([k for k in produced if k.startswith("data/")]), human(data_bytes),
+                                              ", ".join(sorted(Path(k).name for k in produced if k.startswith("data/")))))
+        print("Размер сайта: %s (index.html %s + assets/ %s + data/ %s); откройте %s двойным кликом, пересылайте папку %s целиком"
+              % (human(total), human(size), human(assets_bytes), human(data_bytes), out_file.name, pdir))
+        if zip_path:
+            print("Архив: %s (%s)" % (zip_path, human(zip_path.stat().st_size)))
+        if dropped:
+            print("Удалены файлы прошлой сборки другого режима: %d" % dropped)
+        if size > 1048576:
+            print("ВНИМАНИЕ: index.html %s — больше 1 МБ без данных: проверьте объём research/strategy.md и встроенных SVG" % human(size))
+        if total > 25 * 1048576:
+            print("СОВЕТ: сайт %s — больше 25 МБ: перекодируйте картинки в WebP (установите Pillow или ffmpeg) и уменьшите скриншоты; "
+                  "для пересылки одним файлом — --single" % human(total))
+    elif b.lite:
         n_assets = len([m for m in b.img.meta.values() if m.get("asset")])
         n_alias = len(b.img.alias)
         a_bytes = sum(b.lite.written.values())
         print("Режим --lite (%s): в assets/ — %d файлов (%s), миниатюр в странице: %d (%s), встроено как есть: %d, повторов по содержимому: %d"
               % (b.lite.enc.label(), n_assets, human(a_bytes), len(b.img.thumbs), human(b.lite.thumb_bytes), len(b.img.map) - n_assets, n_alias))
         print("Размер страницы: %s (+ assets/ %s); пересылайте страницу вместе с папкой %s" % (human(size), human(a_bytes), out_file.parent / "assets"))
+        if dropped:
+            print("Удалены файлы прошлой сборки другого режима: %d" % dropped)
     else:
         print("Размер страницы: %s; встроенных картинок: %d (%s)%s" % (human(size), len(b.img.map), human(img_total),
               ("; повторов по содержимому (встроены один раз): %d" % len(b.img.alias)) if b.img.alias else ""))
         if dropped:
-            print("Удалены файлы прошлой --lite-сборки из %s: %d" % (out_file.parent / "assets", dropped))
+            print("Удалены файлы прошлой сборки другого режима (assets/, data/): %d" % dropped)
+        if (out / "build" / "extra.css").is_file() or (out / "build" / "extra.js").is_file():
+            b.warn("build/extra.css|js не подключены: в режимах --single и --lite они не используются (только в site)")
     print("Разделы (%d): %s" % (len(b.nav), ", ".join(sid for sid, _, _ in b.nav)))
+    ich = b.chart_page_meta
+    if ich or b.charts:
+        n_el = sum(len(m["elements"]) for m in ich.values())
+        print("Графики: интерактивных %d (элементов %d, ссылок в пояснениях %d, без цели — %d), статичных %d"
+              % (len(ich), n_el, b.chart_link_total, sum(b.chart_link_drops.values()), len([c for c in b.charts if c.get("img")])))
     print("Реестр: %d предложений; фигур: %d; ссылок на предложения: %d" % (len(b.rows), b.figs, page.count('class="pid"')))
     heavy = sorted(b.img.meta.items(), key=lambda kv: -(kv[1]["bytes"] + kv[1].get("asset_bytes", 0)))[:10]
     if heavy:
@@ -4582,15 +5639,18 @@ def main(argv=None):
                 print("  %2d. %10s  %s  (%s → %s, миниатюра %s)" % (i, human(m["asset_bytes"]), k, m["src"], m["asset"], human(m["bytes"])))
             else:
                 print("  %2d. %10s  %s  (%s)" % (i, human(m["bytes"]), k, m["src"]))
-    if not b.lite and size > 12 * 1048576:
+    if mode == "single" and size > 12 * 1048576:
         print("ВНИМАНИЕ: страница %s — больше 12 МБ (медленно открывается, близко к лимиту публикации 16 МБ); "
-              "используйте --lite: build_html.py %s --lite" % (human(size), out))
-    elif b.lite and size > 8 * 1048576:
+              "соберите сайт (по умолчанию) или --lite: build_html.py %s" % (human(size), out))
+    elif mode == "lite" and size > 8 * 1048576:
         print("ВНИМАНИЕ: страница --lite всё ещё %s (> 8 МБ): проверьте самые тяжёлые вложения выше и объём data/*.json" % human(size))
     if b.warnings:
         print("Предупреждения (%d):" % len(b.warnings))
         for w in b.warnings:
             print("  - " + w)
+    if a.strict and b.strict_errors:
+        print("ОШИБКА (--strict): " + "; ".join(b.strict_errors), file=sys.stderr)
+        return 1
     return 0
 
 

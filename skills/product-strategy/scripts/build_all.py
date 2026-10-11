@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Конвейер пересборки результатов из данных <OUT> одной командой (фазы 6 и 9).
 
-  build_all.py <OUT> [--only score,charts,html] [--skip pptx,pdf] [--links] [--strict] [--typesafe]
+  build_all.py <OUT> [--only score,charts,html] [--skip pptx,pdf] [--links] [--strict] [--typesafe] [--single | --lite] [--zip]
 
 Шаги по порядку (каждый пропускается, если выключен в run-config.formats/scope или нет входных данных/инструмента):
   dossier    concept_dossier.py       режим идеи (mode: concept): досье, data/idea.json, план поиска, затравки (идемпотентно)
@@ -14,17 +14,23 @@
   gapaudit   gap_audit.py --check     research/gap-audit.md и черновики G7 (фаза 5.5; нет файла — SKIP с напоминанием)
   typesafe   typesafe_eval.py         оценка Jev (только с --typesafe или tools.typesafe=on и ключом)
   model      model.py                 юнит-экономика (scope.unit_economics)
-  charts     charts.py                SVG-графики
+  charts     charts.py                SVG-графики (сам проверяет пояснения графиков — charts --check-meta)
+  flowcheck  node/check_flow.mjs      пересечения блоков и подписей в схемах (есть data/flows.json и playwright) → data/flows-check.json
   mockups    node/shoot_mockups.mjs   PNG макетов (нужен playwright)
   assemble   assemble_strategy.py     части разделов → strategy.md (есть build/parts) либо только проверка маркеров и P-id
   method     build_methodology.py     research/methodology.md из данных (рукописный не затирается)
+  handoff    handoff.py                    deliverables/CLAUDE_CODE_TASKS.md (если handoff.enabled и состав уже выбран)
   refsreadme build_design_refs_readme.py  design-refs/README.md (если есть карточки)
-  html       build_html.py            интерактивная страница (formats.html; --lite — картинки отдельными файлами)
-  smoke      node/smoke_html.mjs      автотест страницы (нужен playwright)
+  html       build_html.py            интерактивная страница (formats.html). По умолчанию — сайт из нескольких файлов (режим site):
+                                      deliverables/index.html + assets/ + data/, открывается двойным кликом (file://); --single — прежний
+                                      автономный файл; --lite — single с картинками в assets/; --zip — ещё deliverables/strategy-site.zip (только site);
+                                      с --strict сборщик падает на ссылках панели графиков без цели на странице (кроме демо-прогона)
+  smoke      node/smoke_html.mjs      автотест страницы или сайта (нужен playwright; печатает «проверено на: …» по движкам)
   xlsx       build_xlsx.py            (formats.xlsx)
   deck       build_deck_json.py       колода для pptx/pdf
   pptx       node/build_pptx.mjs      (formats.pptx, нужен pptxgenjs)
   pdf        node/deck_pdf.mjs        (formats.pdf, нужен playwright)
+  disclosure intake.py disclosure-check  нет ли упоминаний автоматизации в deliverables/ (только при run-config.disclosure ≠ full)
   links      check_links.py           --offline по умолчанию; --links — с сетью
   gitignore  check_gitignore.py       файлы прогона не игнорируются git (если <OUT> внутри репозитория)
   track      strategy_track.py check  сверка с репозиторием и GitHub → data/progress.json (только с --track; нужен gh для issues;
@@ -32,8 +38,10 @@
 
 Node-модули — по check_env.node_dir (PS_NODE_DIR → run-config tools.node_dir → <OUT>/build/node → ~/.cache/product-strategy/node);
 ставит их check_env.py --install-node. Статусы: OK, FAIL, «—» (выключено выбором в опросе или режимом идеи, не проблема),
-SKIP (нет инструмента или данных).
-Итог — таблица шагов (OK / SKIP / FAIL) и код 1, если что-то упало. Только стандартная библиотека.
+SKIP (нет инструмента или данных), «·» — шаг не запускался в этом вызове (--only/--skip).
+Итог — таблица шагов (OK / SKIP / FAIL / — / ·) и код 1, если что-то упало. Полный прогон (без --only) сохраняет итог в
+build/build-all-last.json; частичный запуск (--only) пишет «частичный запуск» и печатает рядом итог последнего полного прогона —
+«всё собрано» после --only не означает, что собрано всё (A-1.12e). Только стандартная библиотека.
 """
 import argparse
 import json
@@ -45,7 +53,9 @@ import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-STEPS = ["dossier", "viability", "registry", "score", "validate", "typesafe", "model", "charts", "mockups", "html", "smoke", "xlsx", "deck", "pptx", "pdf", "links"]
+STEPS = ["dossier", "viability", "registry", "score", "validate", "typesafe", "model", "charts", "flowcheck", "mockups", "handoff", "html", "smoke",
+         "xlsx", "deck", "pptx", "pdf", "disclosure", "links"]
+LAST = "build-all-last.json"
 
 
 def node_dir(out):
@@ -81,11 +91,23 @@ def plan(out, cfg, a):
     has_refs = bool(list((root / "design-refs").glob("*.json"))) if (root / "design-refs").is_dir() else False
     gap_on = (cfg.get("phases") or {}).get("gap_audit", True)
     inside = (cfg.get("output") or {}).get("inside_repo", False)
-    lite = ["--lite"] if a.lite else []
+    if a.single and a.lite:
+        raise SystemExit("--single и --lite взаимоисключающие")
+    mode = ["--single"] if a.single else ["--lite"] if a.lite else []        # без флагов build_html.py собирает сайт (site)
+    if a.zip:
+        if mode:
+            print("--zip: архив собирается только в режиме site (без --single/--lite) — пропущено", file=sys.stderr)
+        else:
+            mode = ["--zip"]
     eng = ["--engines", a.engines] if a.engines else []
     reg = ["--demo"] if cfg.get("assumptions") and any("Демо" in x for x in cfg["assumptions"]) else []
     track = ["--no-write-strategy"] if not a.strict else []
     concept = cfg.get("mode") == "concept"
+    # --strict: ссылки панели графиков без цели — ошибка сборки; демо-прогон (make_demo: разделы стратегии неполные
+    # намеренно) — как check_registry --demo, без строгости
+    strict_html = ["--strict"] if a.strict and not reg else []
+    flows = (data / "flows.json").exists()
+    disclosure = str(cfg.get("disclosure") or "full")
     steps = [   # шаги режима идеи (в обычном режиме их нет в таблице)
         ("dossier", True, "", py + [str(HERE / "concept_dossier.py"), str(out)]),
         ("viability", not (data / "typesafe-concept.json").exists(), "уже оценено (data/typesafe-concept.json)",
@@ -106,13 +128,19 @@ def plan(out, cfg, a):
         ("typesafe", bool(ts), ts_why, py + [str(HERE / "typesafe_eval.py"), str(out)]),
         ("model", sc.get("unit_economics", True), "выключено выбором (scope.unit_economics=false)", py + [str(HERE / "model.py"), str(out)]),
         ("charts", True, "", py + [str(HERE / "charts.py"), str(out)]),
+        ("flowcheck", flows and bool(have_pw), "нет схем data/flows.json" if not flows else "нет playwright (check_env.py --install-node)",
+         ["node", str(HERE / "node" / "check_flow.mjs"), str(out)] + nd),
         ("mockups", bool(have_pw) and (data / "mockups-index.json").exists() or (bool(have_pw) and (Path(out) / "mockups" / "concepts").is_dir()), "нет playwright или макетов (mockups/concepts)",
          ["node", str(HERE / "node" / "shoot_mockups.mjs"), str(out)] + nd),
         ("assemble", has_strategy, "нет research/strategy.md и частей разделов",
          py + [str(HERE / "assemble_strategy.py"), str(out)] + ([] if parts else ["--check"]) + (["--lenient"] if not a.strict else [])),
         ("method", (data / "proposals.json").exists(), "нет реестра", py + [str(HERE / "build_methodology.py"), str(out)]),
+        ("handoff", bool((cfg.get("handoff") or {}).get("enabled")) and not (cfg.get("handoff") or {}).get("ask_at_end") and (data / "proposals.json").exists(),
+         "выключено выбором (handoff.enabled=false)" if not (cfg.get("handoff") or {}).get("enabled")
+         else ("состав выбирается в конце прогона: handoff.py <OUT> --list-sections --json → карточки → handoff.py <OUT> --scope … --save" if (cfg.get("handoff") or {}).get("ask_at_end") else "нет реестра"),
+         py + [str(HERE / "handoff.py"), str(out)]),
         ("refsreadme", has_refs, "нет карточек design-refs/*.json", py + [str(HERE / "build_design_refs_readme.py"), str(out)]),
-        ("html", f.get("html", True), "выключено выбором (formats.html=false)", py + [str(HERE / "build_html.py"), str(out)] + lite),
+        ("html", f.get("html", True), "выключено выбором (formats.html=false)", py + [str(HERE / "build_html.py"), str(out)] + mode + strict_html),
         ("smoke", bool(have_pw) and f.get("html", True), "выключено выбором (html)" if not f.get("html", True) else "нет playwright (check_env.py --install-node)",
          ["node", str(HERE / "node" / "smoke_html.mjs"), str(html)] + nd + eng),
         ("xlsx", f.get("xlsx", True), "выключено выбором (formats.xlsx=false)", py + [str(HERE / "build_xlsx.py"), str(out)]),
@@ -120,6 +148,8 @@ def plan(out, cfg, a):
         ("pptx", bool(have_pptx) and f.get("pptx", True), "выключено выбором (formats.pptx=false)" if not f.get("pptx", True) else "нет pptxgenjs (check_env.py --install-node)",
          ["node", str(HERE / "node" / "build_pptx.mjs"), str(out)] + nd),
         ("pdf", bool(have_pw) and f.get("pdf", True), "выключено выбором (formats.pdf=false)" if not f.get("pdf", True) else "нет playwright (check_env.py --install-node)", ["node", str(HERE / "node" / "deck_pdf.mjs"), str(out)] + nd),
+        ("disclosure", disclosure != "full", "выключено выбором (disclosure=full — раскрытие автоматизации разрешено)",
+         py + [str(HERE / "intake.py"), "disclosure-check", str(out)]),
         ("links", True, "", py + [str(HERE / "check_links.py"), str(out)] + ([] if a.links else ["--offline"])),
         ("gitignore", bool(inside), "выключено выбором (результат вне репозитория)", py + [str(HERE / "check_gitignore.py"), str(out)]),
     ]
@@ -134,7 +164,9 @@ def main(argv=None):
     ap.add_argument("--strict", action="store_true", help="ошибка check_registry/validate останавливает конвейер")
     ap.add_argument("--typesafe", action="store_true", help="запустить typesafe_eval.py принудительно")
     ap.add_argument("--track", action="store_true", help="перед сборкой обновить статусы выполнения (strategy_track.py check)")
-    ap.add_argument("--lite", action="store_true", help="страница без встроенных картинок (assets рядом; цель ≤ 8 МБ)")
+    ap.add_argument("--single", action="store_true", help="страница одним автономным файлом (CSS, JS, данные и картинки внутри; для Artifact ≤ 16 МБ)")
+    ap.add_argument("--lite", action="store_true", help="single без встроенных картинок (assets рядом; цель ≤ 8 МБ)")
+    ap.add_argument("--zip", action="store_true", help="собрать deliverables/strategy-site.zip (только режим site)")
     ap.add_argument("--engines", help="движки smoke-теста: chromium,webkit (по умолчанию все доступные)")
     a = ap.parse_args(argv)
     out = Path(a.out).resolve()
@@ -146,7 +178,7 @@ def main(argv=None):
     results = []
     for name, enabled, why, cmd in plan(out, cfg, a):
         if (only and name not in only) or name in skip:
-            results.append((name, "—", "по --only/--skip", 0))
+            results.append((name, "·", "не запускался в этом вызове (%s)" % ("--only" if only and name not in only else "--skip"), 0))
             continue
         if not enabled:
             results.append((name, "—" if why.startswith(("выключено выбором", "режим идеи", "уже оценено")) else "SKIP", why, 0))
@@ -172,9 +204,36 @@ def main(argv=None):
     failed = [n for n, st, *_ in results if st == "FAIL"]
     skipped = [n for n, st, *_ in results if st == "SKIP"]
     off = [n for n, st, *_ in results if st == "—"]
-    print("\nИтог: %s" % ("всё собрано" if not failed else "упали шаги: " + ", ".join(failed))
+    not_run = [n for n, st, *_ in results if st == "·"]
+    partial = bool(only)
+    head = ("Итог (частичный запуск --only %s): %s" % (",".join(sorted(only)), "запущенные шаги собраны" if not failed else "упали шаги: " + ", ".join(failed))
+            if partial else "Итог: %s" % ("всё собрано" if not failed else "упали шаги: " + ", ".join(failed)))
+    print("\n" + head
           + ("; пропущено из-за недостающего: " + ", ".join(skipped) if skipped else "")
-          + ("; выключено выбором (не ошибка): " + ", ".join(off) if off else ""))
+          + ("; выключено выбором (не ошибка): " + ", ".join(off) if off else "")
+          + ("; не запускались в этом вызове: " + ", ".join(not_run) if not_run else ""))
+    last_p = out / "build" / LAST
+    if partial:
+        last = None
+        try:
+            last = json.loads(last_p.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            pass
+        if last:
+            print("Итог последнего полного прогона (%s): %s" % (last.get("date", "?"), last.get("summary", "?")))
+        else:
+            print("Полного прогона ещё не было (build/%s нет) — для итога по всем шагам запустите build_all.py без --only" % LAST)
+    else:
+        try:
+            last_p.parent.mkdir(parents=True, exist_ok=True)
+            last_p.write_text(json.dumps({
+                "date": time.strftime("%Y-%m-%d %H:%M"), "args": [x for x in (argv if argv is not None else sys.argv[1:]) if x != a.out],
+                "summary": head.split(": ", 1)[1] + ("; skip: " + ", ".join(skipped) if skipped else "") + ("; не запускались (--skip): " + ", ".join(not_run) if not_run else ""),
+                "failed": failed, "skipped": skipped, "off": off, "not_run": not_run,
+                "steps": [{"step": n, "status": st, "note": msg, "sec": round(dt, 1)} for n, st, msg, dt in results],
+            }, ensure_ascii=False, indent=1), encoding="utf-8")
+        except OSError as e:
+            print("не записан build/%s: %s" % (LAST, e), file=sys.stderr)
     inside = (cfg.get("output") or {}).get("inside_repo", False)
     if cfg.get("mode") == "concept":
         print("Папка концепции: %s" % ("ВНУТРИ git-репозитория (ветка %s)" % ((cfg.get("output") or {}).get("git_branch") or "—") if inside

@@ -6,7 +6,7 @@
 Если <OUT> внутри git-репозитория, находит файлы прогона, которые git молча исключит из коммита (например, корневое правило
 `build/` скрывает <OUT>/build с run-config.json, брифами и STATUS.md), и показывает правило (`git check-ignore -v`).
 --fix пишет в <OUT>/.gitignore строки-исключения (`!build/` …): правила вложенного .gitignore сильнее родительских; `build/node/`
-(Node-модули, если они лежат в результате) и временные файлы остаются игнорируемыми.
+и `node_modules/` (Node-модули, если они окажутся в результате) дописываются при --fix всегда, даже если игнорируемых файлов нет.
 Код выхода: 0 — всё попадёт в коммит (или <OUT> вне репозитория), 1 — часть файлов игнорируется, 2 — ошибка.
 Только стандартная библиотека.
 """
@@ -73,13 +73,17 @@ def analyse(out_dir, repo=None):
 
 def fix(out_dir, res):
     out = Path(out_dir).resolve()
+    if not out.is_dir():
+        return []
     gi = out / ".gitignore"
-    lines = gi.read_text(encoding="utf-8").splitlines() if gi.exists() else []
+    lines =gi.read_text(encoding="utf-8").splitlines() if gi.exists() else []
     dirs = sorted({(p[len(str(Path(res["out"]).relative_to(res["repo"]))) + 1:] if p.startswith(str(Path(res["out"]).relative_to(res["repo"])) + "/") else p).split("/")[0]
                    for p in res["ignored"]})
     add = ["!%s/" % d for d in dirs if "!%s/" % d not in lines]
     if "build/node/" not in lines and (out / "build").exists():
         add.append("build/node/")
+    if "node_modules/" not in lines:
+        add.append("node_modules/")
     if add:
         gi.write_text("\n".join(lines + add) + "\n", encoding="utf-8")
     return add
@@ -100,7 +104,7 @@ def main(argv=None):
         msg = "OUT вне git-репозитория — проверка .gitignore не нужна"
         print(json.dumps({**res, "message": msg}, ensure_ascii=False) if a.json else msg)
         return 0
-    added = fix(a.out, res) if a.fix and res["ignored"] else []
+    added = fix(a.out, res) if a.fix else []
     if added:
         res = analyse(a.out, a.repo)
         res["fixed"] = added

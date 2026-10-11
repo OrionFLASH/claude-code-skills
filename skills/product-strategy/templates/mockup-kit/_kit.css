@@ -1,26 +1,53 @@
-/* Набор компонентов для HTML-макетов product-strategy (префикс ps-). Версия набора: 1.1.
+/* Набор компонентов для HTML-макетов product-strategy (префикс ps-). Версия набора: 1.2.
    Подключение в макете (mockups/concepts/Mxx-*.html):
      <link rel="stylesheet" href="../tokens.css"> <link rel="stylesheet" href="_kit.css">
+     (+ _icons.css — иконки ps-i-*, + _mobile.css — экран телефона pm-*, см. README набора)
    Токены — переменные --c-* из ../tokens.css (audit_site.mjs пишет обе темы: :root и [data-theme="dark"]).
-   Значения ниже — запасные (слой ps-defaults): любые переменные из tokens.css их перекрывают.
+   Мост: если в tokens.css нет --c-*, но есть привычные имена (--primary, --bg, --surface/--card, --text, --muted,
+   --border, --on-primary, --success, --warning, --danger/--error), набор берёт их сам — писать --c-* руками не нужно.
+   Значения --k-def-* ниже — запасные (слой ps-defaults): ими набор рисует, только если в tokens.css нет ни --c-*,
+   ни имени из моста. shoot_mockups.mjs сравнивает вычисленные --c-* с --k-def-* и громко сообщает
+   «использован запасной цвет» (FAIL, если в tokens.css есть свои переменные; предупреждение, если tokens.css пуст).
+   Значения моста должны быть цветами целиком (#hex, rgb(), hsl()); «голые» тройки HSL (shadcn) — пишите --c-* сами.
    Тёмная тема: <html data-theme="dark"> или любой контейнер с data-theme="dark" (тема применяется к поддереву).
    Мобильный вид: ширина ≤ 640 px (shoot_mockups берёт viewport из <html data-viewport="390x844">).
    Контраст текста ≥ 4,5:1 для обеих тем проверяет kit-demo.html (console.error на каждое нарушение). */
 
 @layer ps-defaults {
-  :root {
-    --c-bg: #f6f7f9; --c-surface: #ffffff; --c-text: #1d2127; --c-muted: #59606b;
-    --c-border: #d9dde3; --c-accent: #2f5bd3; --c-on-accent: #ffffff;
-    --c-success: #1a7f4b; --c-warning: #a35200; --c-danger: #b42318; --c-on-danger: #ffffff; --c-focus: #2f5bd3;
-    --radius: 8px; --radius-lg: 14px; --font-size: 14px; --shadow: 0 12px 32px -14px rgba(16, 24, 40, .35);
-    --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    --font-heading: var(--font);
+  :root, [data-theme="light"] {
+    --k-def-bg: #f6f7f9; --k-def-surface: #ffffff; --k-def-text: #1d2127; --k-def-muted: #59606b;
+    --k-def-border: #d9dde3; --k-def-accent: #2f5bd3; --k-def-on-accent: #ffffff;
+    --k-def-success: #1a7f4b; --k-def-warning: #a35200; --k-def-danger: #b42318; --k-def-on-danger: #ffffff;
+    --shadow: 0 12px 32px -14px rgba(16, 24, 40, .35);
   }
   [data-theme="dark"] {
-    --c-bg: #111316; --c-surface: #191c20; --c-text: #e7e9ec; --c-muted: #a2a9b3;
-    --c-border: #30353c; --c-accent: #7ea2ff; --c-on-accent: #0b1020;
-    --c-success: #4cc38a; --c-warning: #f0b35a; --c-danger: #f97066; --c-on-danger: #1a0b0a; --c-focus: #7ea2ff;
+    --k-def-bg: #111316; --k-def-surface: #191c20; --k-def-text: #e7e9ec; --k-def-muted: #a2a9b3;
+    --k-def-border: #30353c; --k-def-accent: #7ea2ff; --k-def-on-accent: #0b1020;
+    --k-def-success: #4cc38a; --k-def-warning: #f0b35a; --k-def-danger: #f97066; --k-def-on-danger: #1a0b0a;
     --shadow: 0 12px 32px -14px rgba(0, 0, 0, .7);
+  }
+  /* мост: --c-* из привычных имён токенов продукта, иначе запасные --k-def-*; пересчёт — на корне и в тёмном поддереве
+     (светлое поддерево наследует --c-* корня, в том числе заданные в tokens.css только на :root) */
+  :root, [data-theme="dark"] {
+    --c-bg: var(--bg, var(--background, var(--color-bg, var(--k-def-bg))));
+    --c-surface: var(--surface, var(--card, var(--color-surface, var(--k-def-surface))));
+    --c-text: var(--text, var(--foreground, var(--color-text, var(--k-def-text))));
+    --c-muted: var(--text-muted, var(--muted-foreground, var(--muted, var(--color-muted, var(--k-def-muted)))));
+    --c-border: var(--border, var(--line, var(--color-border, var(--k-def-border))));
+    --c-accent: var(--primary, var(--brand, var(--color-primary, var(--k-def-accent))));
+    --c-on-accent: var(--on-primary, var(--primary-foreground, var(--k-def-on-accent)));
+    --c-success: var(--success, var(--color-success, var(--k-def-success)));
+    --c-warning: var(--warning, var(--color-warning, var(--k-def-warning)));
+    --c-danger: var(--danger, var(--error, var(--color-danger, var(--k-def-danger))));
+    --c-on-danger: var(--on-danger, var(--k-def-on-danger));
+    --c-focus: var(--focus, var(--ring, var(--c-accent)));
+  }
+  :root {
+    --radius: 8px; --radius-lg: 14px; --font-size: 14px;
+    --font: var(--font-sans, var(--font-family, var(--k-def-font)));
+    --font-heading: var(--font-display, var(--font));
+    --font-mono: Menlo, "SF Mono", Consolas, "Liberation Mono", "DejaVu Sans Mono", monospace;
+    --k-def-font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   }
 }
 
@@ -32,11 +59,14 @@
   --k-ok-soft: color-mix(in srgb, var(--c-success) 16%, var(--c-surface));
   --k-ok-ink: color-mix(in srgb, var(--c-success) 82%, var(--c-text));
   --k-warn-soft: color-mix(in srgb, var(--c-warning) 18%, var(--c-surface));
-  --k-warn-ink: color-mix(in srgb, var(--c-warning) 78%, var(--c-text));
+  --k-warn-ink: color-mix(in srgb, var(--c-warning) 68%, var(--c-text));
   --k-danger-soft: color-mix(in srgb, var(--c-danger) 14%, var(--c-surface));
   --k-danger-ink: color-mix(in srgb, var(--c-danger) 82%, var(--c-text));
   --k-border-strong: color-mix(in srgb, var(--c-border) 60%, var(--c-text));
   --k-hatch: color-mix(in srgb, var(--c-border) 70%, var(--c-surface));
+  /* приглушённый текст на цветных и градиентных подложках: ближе к основному, чтобы держать 4,5:1 */
+  --k-muted-strong: color-mix(in srgb, var(--c-muted) 55%, var(--c-text));
+  --k-new: #f2c46b; --k-on-new: #1b1500; --k-changed: #7fd8a8; --k-on-changed: #062414;
   --k-rail: 232px; --k-bottom-nav-h: 64px;
   color: var(--c-text);
 }
@@ -52,6 +82,10 @@ a:hover { text-decoration: underline; }
 :focus-visible { outline: 2px solid var(--c-focus); outline-offset: 2px; }
 .ps-muted { color: var(--c-muted); }
 .ps-small { font-size: 12.5px; }
+/* моноширинный: Menlo/SF Mono/Consolas раньше «monospace» — иначе Chromium на macOS рисует кириллицу шрифтом с засечками */
+code, kbd, pre, samp, .ps-mono { font-family: var(--font-mono); font-size: .92em; }
+pre.ps-code, .ps-code { display: block; margin: 0; padding: 10px 12px; border-radius: var(--radius); background: var(--k-surface-2);
+  color: var(--c-text); border: 1px solid var(--c-border); white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.45; }
 
 /* --- раскладка: боковая навигация + верхняя панель + страница --- */
 .ps-app { display: grid; grid-template-columns: var(--k-rail) minmax(0, 1fr); min-height: 100vh; background: var(--c-bg); }
@@ -83,6 +117,9 @@ a:hover { text-decoration: underline; }
 .ps-card { position: relative; background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--radius-lg); padding: 18px; min-width: 0; }
 .ps-card.is-accent { border-top: 4px solid var(--c-accent); }
 .ps-card.is-flat { background: var(--k-surface-2); border-color: transparent; }
+/* градиентная карточка: приглушённый текст внутри — --k-muted-strong (на градиенте --c-muted не держит 4,5:1) */
+.ps-card.is-gradient { background: linear-gradient(135deg, var(--k-accent-soft), var(--c-surface) 70%); border-color: color-mix(in srgb, var(--c-accent) 30%, var(--c-border)); }
+.is-gradient .ps-muted, .is-gradient .ps-hint, .is-gradient small, .is-gradient .ps-kpi span { color: var(--k-muted-strong); }
 .ps-card-title { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; }
 .ps-kpi { display: flex; flex-direction: column; gap: 2px; }
 .ps-kpi b { font: 700 24px var(--font-heading); color: var(--c-text); }
@@ -160,7 +197,8 @@ a:hover { text-decoration: underline; }
 .ps-badge.is-neutral { background: var(--k-surface-2); color: var(--c-muted); }
 
 /* --- список и таблица --- */
-.ps-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--c-border); border-radius: var(--radius-lg); background: var(--c-surface); overflow: hidden; }
+/* без overflow:hidden — метки «НОВОЕ» у строк не обрезаются */
+.ps-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--c-border); border-radius: var(--radius-lg); background: var(--c-surface); }
 .ps-list-item { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 10px 14px; border-top: 1px solid var(--c-border); }
 .ps-list-item:first-child { border-top: 0; }
 .ps-list-item .ps-grow { flex: 1; min-width: 0; }
@@ -230,6 +268,22 @@ a:hover { text-decoration: underline; }
   text-overflow: ellipsis; box-shadow: 0 6px 18px -6px rgba(0, 0, 0, .5); border: 1px solid rgba(255, 255, 255, .18); pointer-events: none; }
 .ps-concept-badge.is-top { top: 12px; bottom: auto; }
 .ps-concept-badge.is-above-nav { bottom: calc(var(--k-bottom-nav-h) + 10px); }
+/* длинная страница, раскадровка, полностраничный снимок: бейдж в потоке (fixed на полном снимке уезжает вниз) */
+.ps-concept-badge.is-inline { position: relative; right: auto; bottom: auto; top: auto; display: inline-block; vertical-align: middle;
+  max-width: 100%; margin: 0 0 12px; z-index: 1; }
+
+/* --- метки «НОВОЕ» / «ИЗМЕНЕНО»: контур + ярлык в ::after (::before элементов набора не трогается).
+   Ярлык выступает над рамкой на 9 px: у родителя с overflow:hidden используйте .is-inside (ярлык внутри рамки)
+   или оберните элемент: <div class="ps-new"><div class="…overflow:hidden…">…</div></div>.
+   Свой текст ярлыка — data-label="NEW". --- */
+.ps-new, .ps-changed { position: relative; outline: 2px dashed var(--k-new); outline-offset: 3px; border-radius: var(--radius); }
+.ps-changed { outline-color: var(--k-changed); }
+.ps-new::after, .ps-changed::after { content: "НОВОЕ"; position: absolute; top: -10px; left: 10px; z-index: 6; height: 16px; padding: 0 6px;
+  border-radius: 4px; background: var(--k-new); color: var(--k-on-new); font: 700 10px/16px var(--font); letter-spacing: .06em;
+  white-space: nowrap; pointer-events: none; }
+.ps-changed::after { content: "ИЗМЕНЕНО"; background: var(--k-changed); color: var(--k-on-changed); }
+.ps-new[data-label]::after, .ps-changed[data-label]::after { content: attr(data-label); }
+.ps-new.is-inside::after, .ps-changed.is-inside::after { top: 6px; left: auto; right: 8px; }
 
 @media (max-width: 640px) {
   .ps-app { grid-template-columns: minmax(0, 1fr); }
@@ -239,7 +293,7 @@ a:hover { text-decoration: underline; }
   .ps-g2, .ps-g3, .ps-g4 { grid-template-columns: minmax(0, 1fr); }
   .ps-g4.is-keep-2, .ps-g3.is-keep-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ps-bottom-nav { display: flex; }
-  body:has(.ps-bottom-nav) .ps-concept-badge:not(.is-top) { bottom: calc(var(--k-bottom-nav-h) + 10px); }
+  body:has(.ps-bottom-nav) .ps-concept-badge:not(.is-top):not(.is-inline) { bottom: calc(var(--k-bottom-nav-h) + 10px); }
   .ps-concept-badge { font-size: 11px; padding: 6px 12px; }
   .ps-modal { padding: 18px; }
   .ps-steps { flex-wrap: wrap; } .ps-steps li { flex: 1 1 40%; }

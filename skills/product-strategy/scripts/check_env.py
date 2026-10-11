@@ -9,6 +9,9 @@
   check_env.py --print-node-dir [--out <OUT>]   папка модулей (для --node-dir / PS_NODE_DIR)
   check_env.py --plan [--out <OUT>]
       что не хватает и какие команды поставят это (для вопроса пользователю: системные пакеты, pip, плагины)
+  check_env.py --selftest [--out <OUT>] [--json FILE]
+      самопроверка форматов (A-3.6): демо-прогон make_demo.py во временной папке → XLSX, PPTX, PDF; файлы открываются
+      (zip-структура, число листов и слайдов, сигнатура и страницы PDF); код 1 — формат не собрался или битый
 
 Статусы: OK, WARN (есть замена или не обязательно), MISS (нет), FAIL (нет обязательного).
 Уровни: required — без него нельзя; recommended — без него хуже (меньше форматов или уверенности); optional — усилители.
@@ -255,6 +258,80 @@ def plan(rows):
     return {"auto_local": auto, "ask_user": ask, "optional": opt}
 
 
+def _count_pdf_pages(data):
+    return len(re.findall(rb"/Type\s*/Page(?![s\w])", data))
+
+
+def selftest(out=None):
+    """Демо-сборка XLSX, PPTX, PDF во временной папке и проверка, что файлы открываются. → список строк таблицы."""
+    import tempfile
+    import zipfile
+    rows = []
+    nd = node_dir(out)
+    node = shutil.which("node")
+    env = dict(os.environ, PS_NODE_DIR=str(nd))
+    with tempfile.TemporaryDirectory(prefix="ps-selftest-") as tmp:
+        run_dir = Path(tmp) / "run"
+        py = [sys.executable, "-B"]
+
+        def step(cmd, timeout=300):
+            try:
+                r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
+                tail = ((r.stdout or "") + (r.stderr or "")).strip().splitlines()
+                return r.returncode, tail[-1][:160] if tail else ""
+            except (OSError, subprocess.TimeoutExpired) as e:
+                return 127, str(e)[:160]
+        prep = [py + [str(HERE / "make_demo.py"), str(run_dir), "--proposals", "30"], py + [str(HERE / "score.py"), str(run_dir)],
+                py + [str(HERE / "charts.py"), str(run_dir)]]
+        for cmd in prep:
+            code, msg = step(cmd)
+            if code != 0:
+                return [{"format": "демо-прогон", "status": "FAIL", "detail": "%s: код %d — %s" % (Path(cmd[2]).name, code, msg)}]
+        d = run_dir / "deliverables"
+        # XLSX — stdlib
+        code, msg = step(py + [str(HERE / "build_xlsx.py"), str(run_dir)])
+        x = d / "strategy.xlsx"
+        try:
+            with zipfile.ZipFile(x) as z:
+                names = z.namelist()
+                sheets = [n for n in names if re.fullmatch(r"xl/worksheets/sheet\d+\.xml", n)]
+                ok = code == 0 and "xl/workbook.xml" in names and sheets and z.testzip() is None
+                rows.append({"format": "XLSX", "status": "OK" if ok else "FAIL", "detail": "листов %d, %d КБ" % (len(sheets), x.stat().st_size // 1024)})
+        except (OSError, zipfile.BadZipFile) as e:
+            rows.append({"format": "XLSX", "status": "FAIL", "detail": "build_xlsx: код %d — %s; %s" % (code, msg, e)})
+        code, msg = step(py + [str(HERE / "build_deck_json.py"), str(run_dir)])
+        deck_ok = code == 0
+        if not deck_ok:
+            rows.append({"format": "колода (deck.json)", "status": "FAIL", "detail": msg})
+        # PPTX — pptxgenjs
+        if not (node and (nd / "node_modules" / "pptxgenjs" / "package.json").exists()):
+            rows.append({"format": "PPTX", "status": "SKIP", "detail": "нет node или pptxgenjs: check_env.py --install-node"})
+        elif deck_ok:
+            code, msg = step(["node", str(HERE / "node" / "build_pptx.mjs"), str(run_dir), "--node-dir", str(nd)])
+            pp = d / "strategy.pptx"
+            try:
+                with zipfile.ZipFile(pp) as z:
+                    slides = [n for n in z.namelist() if re.fullmatch(r"ppt/slides/slide\d+\.xml", n)]
+                    ok = code == 0 and "ppt/presentation.xml" in z.namelist() and slides and z.testzip() is None
+                    rows.append({"format": "PPTX", "status": "OK" if ok else "FAIL", "detail": "слайдов %d, %d КБ" % (len(slides), pp.stat().st_size // 1024)})
+            except (OSError, zipfile.BadZipFile) as e:
+                rows.append({"format": "PPTX", "status": "FAIL", "detail": "build_pptx: код %d — %s; %s" % (code, msg, e)})
+        # PDF — playwright (Chromium)
+        if not (node and (nd / "node_modules" / "playwright" / "package.json").exists()):
+            rows.append({"format": "PDF", "status": "SKIP", "detail": "нет node или playwright: check_env.py --install-node"})
+        elif deck_ok:
+            code, msg = step(["node", str(HERE / "node" / "deck_pdf.mjs"), str(run_dir), "--node-dir", str(nd)])
+            pf = d / "strategy.pdf"
+            try:
+                data = pf.read_bytes()
+                pages = _count_pdf_pages(data)
+                ok = code == 0 and data[:5] == b"%PDF-" and pages > 0
+                rows.append({"format": "PDF", "status": "OK" if ok else "FAIL", "detail": "страниц %d, %d КБ" % (pages, len(data) // 1024)})
+            except OSError as e:
+                rows.append({"format": "PDF", "status": "FAIL" if code != 3 else "SKIP", "detail": "deck_pdf: код %d — %s; %s" % (code, msg, e)})
+    return rows
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--out", help="папка прогона <OUT> (для проверки локальных Node-модулей)")
@@ -264,8 +341,21 @@ def main(argv=None):
                     "(~/.cache/product-strategy/node; PS_NODE_DIR меняет место); OUT — записать путь в run-config")
     ap.add_argument("--print-node-dir", action="store_true", help="напечатать папку Node-модулей (для --node-dir и PS_NODE_DIR)")
     ap.add_argument("--plan", action="store_true", help="что поставить: автоматически (локально) и с вопросом пользователю")
+    ap.add_argument("--selftest", action="store_true", help="демо-сборка XLSX, PPTX, PDF во временной папке и проверка открытия")
     ap.add_argument("--quiet", action="store_true")
     a = ap.parse_args(argv)
+    if a.selftest:
+        rows = selftest(a.out)
+        if a.json:
+            Path(a.json).parent.mkdir(parents=True, exist_ok=True)
+            Path(a.json).write_text(json.dumps({"selftest": rows}, ensure_ascii=False, indent=2), encoding="utf-8")
+        w = max(len(r["format"]) for r in rows)
+        print("%-*s  %-4s  %s" % (w, "формат", "итог", "подробности"))
+        for r in rows:
+            print("%-*s  %-4s  %s" % (w, r["format"], r["status"], r["detail"]))
+        bad = [r["format"] for r in rows if r["status"] == "FAIL"]
+        print("\nИтог самопроверки: %s" % ("форматы собираются и открываются" if not bad else "не собрались: " + ", ".join(bad)))
+        return 1 if bad else 0
     if a.print_node_dir:
         print(node_dir(a.out))
         return 0

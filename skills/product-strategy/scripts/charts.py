@@ -1,8 +1,16 @@
 #!/usr/bin/env python3
 """Графики стратегии в SVG на стандартной библиотеке (без matplotlib) → <OUT>/charts/<key>.svg + charts-index.json.
 
-  charts.py <OUT> [--only key1,key2] [--top N]
+  charts.py <OUT> [--only key1,key2] [--top N]   строит графики + charts/<ключ>.meta.json и сразу проверяет пояснения
   charts.py <OUT> --list-keys        JSON {"available": [...], "skipped": {"ключ": "причина"}} по данным, без построения
+  charts.py <OUT> --check-meta       только проверка разметки и пояснений (код 1 при проблемах)
+  charts.py <OUT> --list-generic     JSON элементов с обобщённым пояснением — что дописать в data/chart-notes.json
+
+Интерактивность (1.4, references/interactive-site.md, п. 2.1–2.2): каждый значимый элемент графика — <g data-ps-el="<id>"
+tabindex="0" role="button" aria-label="…" class="ps-el ps-<вид>"> с <title>; корень <svg data-ps-chart="<ключ>">;
+подписи к элементам — data-ps-ref, группы для подсветки из легенды — data-ps-group / data-ps-highlight. Пояснения
+(что это, что значит, что делать, метрики, ссылки) — charts/<ключ>.meta.json (chart_meta.py): data/chart-notes.json →
+данные прогона → references/chart-glossary.ru.json; в charts-index.json у записи поле "meta".
 
 Источники: data/scores.json, proposals.json, sensitivity.json, registry-check.json, gantt.json, model.json,
 keywords.json, events.json, competitors.json, critical-path.json, north-star.json (необязательно), build/run-config.json.
@@ -26,9 +34,18 @@ import json
 import math
 import re
 import statistics
+import sys
 from collections import Counter, OrderedDict
+from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import chart_meta  # noqa: E402
+
+REG = chart_meta.Registry()     # интерактивные элементы текущего графика (сбрасывается build_all перед каждым графиком)
+CONCEPT = [False]               # режим идеи (run-config mode: concept) — подписи «продукта ещё нет»
+sid = chart_meta.sid
 
 # ---------------------------------------------------------------- палитра и типографика
 OKABE_ITO = ["#0072B2", "#E69F00", "#009E73", "#D55E00", "#CC79A7", "#56B4E9", "#8C6D31", "#882255", "#117733", "#7F7F7F"]
@@ -215,6 +232,41 @@ class Chart:
     def add(self, s):
         self.el.append(s)
 
+    # интерактивные элементы (references/interactive-site.md, п. 2.1): <g data-ps-el tabindex role aria-label class>
+    def open_el(self, eid, label, kind, info=None, groups=None, highlight=None):
+        """Открыть группу-элемент; возвращает уникальный id. Внешний вид не меняется (<g> без стилей)."""
+        eid = REG.add(eid, label, kind, info, highlight)
+        kind = REG.els[eid]["kind"]
+        a = ' data-ps-el="%s" tabindex="0" role="button" aria-label="%s" class="ps-el ps-%s"' % (esc(eid), esc(label), kind)
+        if groups:
+            a += ' data-ps-group="%s"' % esc(" ".join(sid(g) for g in groups if g))
+        if highlight:
+            REG.els[eid]["highlight"] = highlight = sid(highlight)
+            a += ' data-ps-highlight="%s"' % esc(highlight)
+        self.add("<g%s><title>%s</title>" % (a, esc(label)))
+        return eid
+
+    def close_el(self):
+        self.add("</g>")
+
+    @contextmanager
+    def item(self, eid, label, kind, info=None, groups=None, highlight=None):
+        eid = self.open_el(eid, label, kind, info, groups, highlight)
+        yield eid
+        self.close_el()
+
+    @contextmanager
+    def ref(self, target):
+        """Подпись/строка, относящаяся к элементу target (клик по ней — тот же элемент): data-ps-ref."""
+        self.add('<g class="ps-ref" data-ps-ref="%s">' % esc(target))
+        yield
+        self.add("</g>")
+
+    def hit(self, pts, sw=12):
+        """Невидимая широкая линия для попадания мышью по тонкой линии (stroke-opacity 0 — на вид не влияет)."""
+        self.add('<polyline points="%s" fill="none" stroke="#000000" stroke-opacity="0" stroke-width="%s"/>'
+                 % (" ".join("%.1f,%.1f" % p for p in pts), sw))
+
     def rect(self, x, y, w, h, fill, stroke=None, rx=0, op=None, sw=1):
         a = ' stroke="%s" stroke-width="%s"' % (stroke, sw) if stroke else ""
         o = ' fill-opacity="%.3f"' % op if op is not None else ""
@@ -279,10 +331,19 @@ class Chart:
         fy = self.top + body_h + 10 + SRC_FS
         for k, ln in enumerate(self.sl):
             foot.append('<text x="%d" y="%.1f" font-size="%d" fill="%s">%s</text>' % (PAD, fy + k * SRC_FS * 1.35, SRC_FS, THEME["muted"], esc(ln)))
-        return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}" height="{h}" role="img" '
+        body = "\n".join(head + self.el + foot)
+        used = {g for v in re.findall(r'data-ps-group="([^"]*)"', body) for g in v.split()}
+        for el in REG.els.values():      # подсветка из легенды без единого элемента группы — убрать
+            h = el.get("highlight")
+            if h and h not in used:
+                el["highlight"] = None
+                body = body.replace(' data-ps-highlight="%s"' % esc(h), "")
+        inter = ' role="group" aria-label="{t}" class="ps-chart"' if REG.els else ' role="img"'
+        key = ' data-ps-chart="%s"' % esc(REG.key) if REG.key else ""
+        return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}" height="{h}"' + key + inter + ' '
                 'font-family="{f}">\n<title>{t}</title>\n<desc>{d}</desc>\n<rect x="0" y="0" width="{w}" height="{h}" fill="{bg}"/>\n{body}\n</svg>\n'
                 ).format(w=self.W, h=int(math.ceil(H)), f=esc(FONT), t=esc(self.title), d=esc(self.caption or ""),
-                         bg=THEME["bg"], body="\n".join(head + self.el + foot))
+                         bg=THEME["bg"], body=body)
 
 
 def nice_ticks(lo, hi, n=5, cover=True):
@@ -319,15 +380,17 @@ def overlaps(a, b, pad=2):
     return not (a[0] + a[2] + pad <= b[0] or b[0] + b[2] + pad <= a[0] or a[1] + a[3] + pad <= b[1] or b[1] + b[3] + pad <= a[1])
 
 
-def place_labels(c, pts, labels, box, obstacles, size=11, color=None, bold=True, reserved=None):
+def place_labels(c, pts, labels, box, obstacles, size=11, color=None, bold=True, reserved=None, refs=None):
     """Жадная раскладка подписей точек без наложений: кольца смещений вокруг точки, проверка рамки графика,
-    других подписей и маркеров; при отходе от точки — тонкая выноска. Возвращает число вынужденных наложений."""
+    других подписей и маркеров; при отходе от точки — тонкая выноска. Возвращает число вынужденных наложений.
+    refs — id элементов, к которым относятся подписи (data-ps-ref: клик по подписи = клик по точке)."""
     placed, forced = list(reserved or []), 0
+    refs = list(refs or [])
     x0, y0, x1, y1 = box
     obs = [(ox - orr, oy - orr, 2 * orr, 2 * orr) for ox, oy, orr in obstacles]
     dirs = [(1, -0.2), (1, 0.9), (-1, -0.2), (-1, 0.9), (0, -1.2), (0, 1.6), (1, -1.2), (-1, -1.2), (1, 1.8), (-1, 1.8)]
     h = size * 1.15
-    for (px, py), lab in zip(pts, labels):
+    for k, ((px, py), lab) in enumerate(zip(pts, labels)):
         w = text_w(lab, size, bold)
         best = None
         for r in (7, 12, 18, 26, 36, 48, 62, 80):
@@ -348,29 +411,40 @@ def place_labels(c, pts, labels, box, obstacles, size=11, color=None, bold=True,
             bx = min(max(px + 7, x0), x1 - w)
             best = ((bx, py - h / 2 - 9, w, h), 7)
         bb, r = best
+        if k < len(refs) and refs[k]:
+            c.add('<g class="ps-ref" data-ps-ref="%s">' % esc(refs[k]))
         if r > 7:
             ax = min(max(px, bb[0]), bb[0] + bb[2])
             ay = min(max(py, bb[1]), bb[1] + bb[3])
             c.line(px, py, ax, ay, THEME["axis"], 0.8)
         c.rect(bb[0] - 1, bb[1], bb[2] + 2, bb[3], THEME["bg"], op=0.85)
         c.text(bb[0], bb[1] + h * 0.8, lab, size, color or THEME["ink"], "start", bold)
+        if k < len(refs) and refs[k]:
+            c.add("</g>")
         placed.append(bb)
     return forced
 
 
-def legend_row(c, items, x, y, max_w, size=12):
-    """Горизонтальная легенда с переносом; items: (label, color, shape|None). Возвращает занятую высоту."""
+def legend_row(c, items, x, y, max_w, size=12, els=None):
+    """Горизонтальная легенда с переносом; items: (label, color, shape|None). Возвращает занятую высоту.
+    els — параллельный список {id, info, highlight, label?} | None: пункт легенды становится интерактивным элементом."""
     cx, cy = x, y
     row_h = size * 1.7
-    for lab, col, shape in items:
+    els = list(els or [])
+    for k, (lab, col, shape) in enumerate(items):
         w = 18 + text_w(lab, size) + 18
         if cx + w > x + max_w and cx > x:
             cx, cy = x, cy + row_h
+        e = els[k] if k < len(els) else None
+        if e:
+            c.open_el(e["id"], e.get("label") or "Легенда: " + lab, "legend", e.get("info"), highlight=e.get("highlight"))
         if shape is None:
             c.rect(cx, cy - size * 0.75, 12, 12, col, rx=2)
         else:
             c.marker(shape, cx + 6, cy - size * 0.3, 5.5, col)
         c.text(cx + 18, cy, lab, size, THEME["ink"])
+        if e:
+            c.close_el()
         cx += w
     return cy - y + row_h
 
@@ -394,6 +468,33 @@ def cat_color(cat):
 
 def cat_name(cat):
     return CAT_RU.get(cat, str(cat or "без категории"))
+
+
+# ---------------------------------------------------------------- помощники разметки
+def gl(*path):
+    """Путь в глоссарии references/chart-glossary.ru.json (для info["gloss"])."""
+    return [list(path)]
+
+
+def top_ids(rows, n=3):
+    return [r["id"] for r in sorted(rows, key=lambda r: r.get("rank", 10 ** 6))[:n]]
+
+
+def cat_legend_els(cats, S):
+    """Интерактивные пункты легенды категорий: подсвечивают точки группы g-cat-<категория>."""
+    out = []
+    for k in cats:
+        rows = [r for r in S if r.get("category") == k]
+        out.append({"id": "legend-cat-%s" % sid(k), "label": "Категория «%s»: %d %s" % (cat_name(k), len(rows), plural(len(rows), ("предложение", "предложения", "предложений"))),
+                    "info": {"gloss": gl("categories", k), "cat": k, "related": top_ids(rows),
+                             "meaning": "На графике %d %s этой категории; лучшие по рангу: %s." % (
+                                 len(rows), plural(len(rows), ("предложение", "предложения", "предложений")), ", ".join(top_ids(rows)) or "—")},
+                    "highlight": "g-cat-%s" % sid(k)})
+    return out
+
+
+def pt_label(r, extra=""):
+    return "%s — %s%s" % (r["id"], r.get("title", ""), (": " + extra) if extra else "")
 
 
 # ---------------------------------------------------------------- графики оценок
@@ -422,9 +523,10 @@ def ch_effort_impact(S, top_n):
     ph = max(470, panel_h)
     x0, x1, y0, y1 = PAD + 46, panel_x - 30, c.top + 8, c.top + ph - 62
     for r, tl, yy in plines:
-        c.text(panel_x, yy + 11, "%d." % r["rank"], 12, THEME["muted"])
-        c.text(panel_x + 28, yy + 11, r["id"], 12, PAL[0], bold=True)
-        c.lines(panel_x + 78, yy + 11, tl, 12, THEME["ink"], lh=1.25)
+        with c.ref(r["id"]):
+            c.text(panel_x, yy + 11, "%d." % r["rank"], 12, THEME["muted"])
+            c.text(panel_x + 28, yy + 11, r["id"], 12, PAL[0], bold=True)
+            c.lines(panel_x + 78, yy + 11, tl, 12, THEME["ink"], lh=1.25)
     vx = [r["cost_index"] for r in S]
     vy = [r["value_index"] for r in S]
     lo_x, hi_x = max(1.0, math.floor((min(vx) - 0.15) * 2) / 2), min(5.0, math.ceil((max(vx) + 0.15) * 2) / 2)
@@ -451,21 +553,41 @@ def ch_effort_impact(S, top_n):
     quads = [(x0 + 6, y0 + 4, "start", QUAD_RU["quick_win"], PAL[2]), (x1 - 6, y0 + 4, "end", QUAD_RU["big_bet"], THEME["muted"]),
              (x0 + 6, y1 - 18, "start", QUAD_RU["filler"], THEME["muted"]), (x1 - 6, y1 - 18, "end", QUAD_RU["money_pit"], THEME["muted"])]
     qboxes = [((qx if qa == "start" else qx - text_w(qt, 12, True)) - 3, qy - 1, text_w(qt, 12, True) + 6, 17, 0) for qx, qy, qa, qt, _ in quads]
-    c.text((x0 + x1) / 2, y1 + 34, "Усилие — индекс стоимости (1 — дёшево, 5 — дорого)", 12, THEME["ink"], "middle")
-    c.add('<text x="%.1f" y="%.1f" font-size="12" fill="%s" text-anchor="middle" transform="rotate(-90 %.1f %.1f)">%s</text>'
-          % (PAD + 8, (y0 + y1) / 2, THEME["ink"], PAD + 8, (y0 + y1) / 2, esc("Ценность — индекс от 1 до 5")))
-    top_ids = {r["id"] for r in top}
-    for r in sorted(S, key=lambda r: r["id"] in top_ids):
+    with c.item("axis-x", "Ось усилий: индекс стоимости, медиана реестра %s" % fmt(mc, 1), "axis",
+                {"gloss": gl("charts", "effort-impact", "elements", "axis-x"),
+                 "meaning": "Медиана стоимости по реестру — %s: правее неё предложения дороже половины реестра." % fmt(mc, 1)}):
+        c.text((x0 + x1) / 2, y1 + 34, "Усилие — индекс стоимости (1 — дёшево, 5 — дорого)", 12, THEME["ink"], "middle")
+    with c.item("axis-y", "Ось эффекта: индекс ценности, медиана реестра %s" % fmt(mv, 1), "axis",
+                {"gloss": gl("charts", "effort-impact", "elements", "axis-y"),
+                 "meaning": "Медиана ценности по реестру — %s: выше неё предложения ценнее половины реестра." % fmt(mv, 1)}):
+        c.add('<text x="%.1f" y="%.1f" font-size="12" fill="%s" text-anchor="middle" transform="rotate(-90 %.1f %.1f)">%s</text>'
+              % (PAD + 8, (y0 + y1) / 2, THEME["ink"], PAD + 8, (y0 + y1) / 2, esc("Ценность — индекс от 1 до 5")))
+    tids = {r["id"] for r in top}
+    for r in sorted(S, key=lambda r: r["id"] in tids):
         col, shp = cat_color(r.get("category"))
-        c.marker(shp, sx(r["cost_index"]), sy(r["value_index"]), 6.5 if r["id"] in top_ids else 5, col)
-    for (qx, qy, qa, qt, qc), qb in zip(quads, qboxes):
-        c.rect(qb[0], qb[1], qb[2], qb[3], THEME["bg"], op=0.85, rx=3)
-        c.text(qx, qy + 12, qt, 12, qc, qa, True)
+        q = r.get("quadrant")
+        qn = QUAD_RU.get(q, "вне квадранта")
+        info = {"pid": r["id"], "gloss": gl("quadrants", q) if q in QUAD_RU else None,
+                "meaning": "Квадрант «%s»: ценность %s из 5 при стоимости %s из 5 (медианы реестра — %s и %s)." % (
+                    qn, fmt(r["value_index"], 1), fmt(r["cost_index"], 1), fmt(mv, 1), fmt(mc, 1))}
+        with c.item(r["id"], pt_label(r, "%s, ценность %s, стоимость %s" % (qn.lower(), fmt(r["value_index"], 1), fmt(r["cost_index"], 1))),
+                    "point", info, groups=["g-cat-%s" % r.get("category"), "g-quad-%s" % q]):
+            c.marker(shp, sx(r["cost_index"]), sy(r["value_index"]), 6.5 if r["id"] in tids else 5, col)
+    qkeys = ["quick_win", "big_bet", "filler", "money_pit"]
+    for (qx, qy, qa, qt, qc), qb, qk in zip(quads, qboxes, qkeys):
+        rows = [r for r in S if r.get("quadrant") == qk]
+        with c.item("quad-%s" % qk, "Квадрант «%s»: %d %s" % (qt, len(rows), plural(len(rows), ("предложение", "предложения", "предложений"))), "area",
+                    {"gloss": gl("quadrants", qk), "related": top_ids(rows), "registry": {"quadrant": qk},
+                     "meaning": "В квадранте %d из %d %s; лучшие по рангу: %s." % (
+                         len(rows), n, plural(n, ("предложения", "предложений", "предложений")), ", ".join(top_ids(rows)) or "нет")},
+                    highlight="g-quad-%s" % qk):
+            c.rect(qb[0], qb[1], qb[2], qb[3], THEME["bg"], op=0.85, rx=3)
+            c.text(qx, qy + 12, qt, 12, qc, qa, True)
     obstacles = [(sx(r["cost_index"]), sy(r["value_index"]), 7) for r in S]
     place_labels(c, [(sx(r["cost_index"]), sy(r["value_index"])) for r in top], [r["id"] for r in top],
-                 (x0, y0, x1, y1), obstacles, 11, reserved=[b[:4] for b in qboxes])
+                 (x0, y0, x1, y1), obstacles, 11, reserved=[b[:4] for b in qboxes], refs=[r["id"] for r in top])
     cats = [k for k in CAT_RU if any(r.get("category") == k for r in S)] + sorted({r.get("category") for r in S if r.get("category") not in CAT_RU}, key=str)
-    legend_row(c, [(cat_name(k), cat_color(k)[0], cat_color(k)[1]) for k in cats], x0, y1 + 56, x1 - x0, 11)
+    legend_row(c, [(cat_name(k), cat_color(k)[0], cat_color(k)[1]) for k in cats], x0, y1 + 56, x1 - x0, 11, els=cat_legend_els(cats, S))
     return c.finish(ph + 10), title, cap
 
 
@@ -502,18 +624,41 @@ def ch_bubble(S, top_n):
     def rcol(v):
         return THEME["good"] if v < 2.2 else (THEME["neutral"] if v < 3 else THEME["bad"])
 
+    def rlev(v):
+        return "low" if v < 2.2 else ("mid" if v < 3 else "high")
+
+    rname = {"low": "низкий риск", "mid": "средний риск", "high": "высокий риск"}
     order = sorted(S, key=lambda r: -r["confidence_calc"])
     for r in order:
         rad = 4 + 14 * math.sqrt(max(0.0, min(1.0, r["confidence_calc"])))
-        c.circle(sx(max(0.5, r["effort_days_mid"])), sy(r["value_index"]), rad, rcol(r["risk_index"]), "#FFFFFF", 0.55, 1)
+        lv = rlev(r["risk_index"])
+        info = {"pid": r["id"], "meaning": "Трудозатраты ≈ %s чел.-дн., ценность %s из 5, уверенность %s, %s (индекс %s)." % (
+            fmt(r["effort_days_mid"], 1 if r["effort_days_mid"] < 10 else 0), fmt(r["value_index"], 1), fmt(r["confidence_calc"], 2),
+            rname[lv], fmt(r["risk_index"], 1))}
+        with c.item(r["id"], pt_label(r, "%s чел.-дн., уверенность %s, %s" % (fmt(r["effort_days_mid"], 1), fmt(r["confidence_calc"], 2), rname[lv])),
+                    "point", info, groups=["g-risk-%s" % lv]):
+            c.circle(sx(max(0.5, r["effort_days_mid"])), sy(r["value_index"]), rad, rcol(r["risk_index"]), "#FFFFFF", 0.55, 1)
     obstacles = [(sx(max(0.5, r["effort_days_mid"])), sy(r["value_index"]), 4) for r in S]
     place_labels(c, [(sx(max(0.5, r["effort_days_mid"])), sy(r["value_index"])) for r in top], [r["id"] for r in top],
-                 (x0, y0, x1, y1), obstacles, 11)
-    c.text((x0 + x1) / 2, y1 + 34, "Трудозатраты, чел.-дни (лог. шкала)", 12, THEME["ink"], "middle")
-    c.add('<text x="%.1f" y="%.1f" font-size="12" fill="%s" text-anchor="middle" transform="rotate(-90 %.1f %.1f)">%s</text>'
-          % (PAD + 8, (y0 + y1) / 2, THEME["ink"], PAD + 8, (y0 + y1) / 2, esc("Ценность — индекс от 1 до 5")))
+                 (x0, y0, x1, y1), obstacles, 11, refs=[r["id"] for r in top])
+    with c.item("axis-x", "Ось трудозатрат: человеко-дни, логарифмическая шкала", "axis", {"gloss": gl("charts", "bubble", "elements", "axis-x")}):
+        c.text((x0 + x1) / 2, y1 + 34, "Трудозатраты, чел.-дни (лог. шкала)", 12, THEME["ink"], "middle")
+    with c.item("axis-y", "Ось ценности: индекс от 1 до 5", "axis", {"gloss": gl("charts", "bubble", "elements", "axis-y")}):
+        c.add('<text x="%.1f" y="%.1f" font-size="12" fill="%s" text-anchor="middle" transform="rotate(-90 %.1f %.1f)">%s</text>'
+              % (PAD + 8, (y0 + y1) / 2, THEME["ink"], PAD + 8, (y0 + y1) / 2, esc("Ценность — индекс от 1 до 5")))
+    cnt = Counter(rlev(r["risk_index"]) for r in S)
+
+    def lel(lv, lab):
+        rows = [r for r in S if rlev(r["risk_index"]) == lv]
+        return {"id": "legend-risk-%s" % lv, "label": "Легенда: %s — %d %s" % (lab, cnt.get(lv, 0), plural(cnt.get(lv, 0), ("предложение", "предложения", "предложений"))),
+                "info": {"gloss": gl("charts", "bubble", "elements", "legend-risk-%s" % lv), "related": top_ids(rows),
+                         "meaning": "На графике %d %s с таким риском." % (cnt.get(lv, 0), plural(cnt.get(lv, 0), ("предложение", "предложения", "предложений")))},
+                "highlight": "g-risk-%s" % lv}
     legend_row(c, [("риск < 2,2", THEME["good"], None), ("риск 2,2–3", THEME["neutral"], None), ("риск ≥ 3", THEME["bad"], None),
-                   ("больше круг — выше уверенность; подписаны топ-10", THEME["bg"], None)], x0, y1 + 58, x1 - x0, 11)
+                   ("больше круг — выше уверенность; подписаны топ-10", THEME["bg"], None)], x0, y1 + 58, x1 - x0, 11,
+               els=[lel("low", "низкий риск"), lel("mid", "средний риск"), lel("high", "высокий риск"),
+                    {"id": "legend-size", "label": "Легенда: размер круга — расчётная уверенность",
+                     "info": {"gloss": gl("charts", "bubble", "elements", "legend-size")}}])
     return c.finish(ph), title, cap
 
 
@@ -532,22 +677,43 @@ def ch_heatmap(S, top_n):
     hdr = [wrap(lbl, cell_w - 6, 11, True) for _, lbl, *_ in cols]
     hh = max(len(h) for h in hdr) * 14 + 8
     y = c.top + hh
+
+    def good(r, k, inv, lo, hi):
+        t = (r[k] - lo) / (hi - lo) if hi > lo else 0
+        return max(0.0, min(1.0, 1 - t if inv else t))
     for j, h in enumerate(hdr):
+        k, lbl, inv, lo, hi = cols[j]
+        best = max(top, key=lambda r: good(r, k, inv, lo, hi))
+        worst = min(top, key=lambda r: good(r, k, inv, lo, hi))
         cx = PAD + label_w + j * cell_w + cell_w / 2
-        c.lines(cx, c.top + 12, h, 11, THEME["ink"], "middle", True, 1.2)
+        with c.item("col-%s" % k, "Столбец «%s»: лучшее у %s, худшее у %s" % (lbl, best["id"], worst["id"]), "column",
+                    {"gloss": gl("metrics", k), "plinks": [best["id"], worst["id"]],
+                     "summary": "Столбец метрики «%s» для топ-%d реестра; %s." % (lbl, len(top), "меньше — лучше" if inv else "больше — лучше"),
+                     "meaning": "Лучшее значение среди лидеров — у %s (%s), худшее — у %s (%s)." % (best["id"], fmt(best[k], 2), worst["id"], fmt(worst[k], 2))},
+                    highlight="g-col-%s" % k):
+            c.lines(cx, c.top + 12, h, 11, THEME["ink"], "middle", True, 1.2)
     for r in top:
         tl = wrap("%d. %s %s" % (r["rank"], r["id"], r.get("title", "")), label_w - 10, 11)
         rh = max(24, len(tl) * 13.5 + 8)
-        c.lines(PAD, y + (rh - len(tl) * 13.5) / 2 + 10.5, tl, 11, THEME["ink"], lh=1.23)
-        for j, (k, _, inv, lo, hi) in enumerate(cols):
+        gs = sorted(cols, key=lambda cc: good(r, cc[0], cc[2], cc[3], cc[4]))
+        with c.item(r["id"], "%s, ранг %d: сильнее всего «%s», слабее всего «%s»" % (pt_label(r), r["rank"], gs[-1][1], gs[0][1]), "row",
+                    {"pid": r["id"], "meaning": "Ранг %d. По относительной шкале сильнее всего метрика «%s», слабее всего — «%s»." % (r["rank"], gs[-1][1], gs[0][1])}):
+            c.lines(PAD, y + (rh - len(tl) * 13.5) / 2 + 10.5, tl, 11, THEME["ink"], lh=1.23)
+        for j, (k, lbl, inv, lo, hi) in enumerate(cols):
             v = r[k]
-            t = (v - lo) / (hi - lo) if hi > lo else 0
-            t = max(0.0, min(1.0, 1 - t if inv else t))
+            t = good(r, k, inv, lo, hi)
             fill = mix(THEME["seq_lo"], PAL[0], 0.08 + 0.92 * t)
             x = PAD + label_w + j * cell_w
-            c.rect(x + 1, y + 1, cell_w - 2, rh - 2, fill, rx=2)
-            tc = "#FFFFFF" if contrast(fill, "#FFFFFF") >= 4.5 else THEME["ink"]
-            c.text(x + cell_w / 2, y + rh / 2 + 4, fmt(v, 2), 11, tc, "middle")
+            better = sum(1 for o in top if good(o, k, inv, lo, hi) < t)
+            with c.item("cell-%s-%s" % (r["id"], k), "%s, метрика «%s»: %s" % (r["id"], lbl, fmt(v, 2)), "cell",
+                        {"title": "%s · %s" % (r["id"], lbl), "gloss": gl("metrics", k), "plinks": [r["id"]], "deep": [("effort-impact", r["id"], "%s на матрице усилие–влияние" % r["id"])],
+                         "summary": "Метрика «%s» у %s «%s»: %s." % (lbl, r["id"], r.get("title", ""), fmt(v, 2)),
+                         "meaning": "Лучше, чем у %d из %d лидеров реестра%s." % (better, len(top) - 1, " (для этой метрики меньше — лучше)" if inv else ""),
+                         "metrics": [{"label": lbl, "value": fmt(v, 2), "tag": "расчёт" if k.startswith("n_") or k in ("composite", "confidence_calc") else "оценка"}]},
+                        groups=["g-col-%s" % k]):
+                c.rect(x + 1, y + 1, cell_w - 2, rh - 2, fill, rx=2)
+                tc = "#FFFFFF" if contrast(fill, "#FFFFFF") >= 4.5 else THEME["ink"]
+                c.text(x + cell_w / 2, y + rh / 2 + 4, fmt(v, 2), 11, tc, "middle")
         y += rh
     return c.finish(y - c.top + 4), title, cap
 
@@ -576,7 +742,8 @@ def ch_radar(S, top_n):
             row_h_max = 0
         x = PAD + col * cw
         tl = wrap("#%d %s — %s" % (r["rank"], r["id"], r.get("title", "")), cw - 16, 12, True)
-        c.lines(x + 6, y + 14, tl, 12, THEME["ink"], bold=True, lh=1.25)
+        with c.ref(r["id"]):
+            c.lines(x + 6, y + 14, tl, 12, THEME["ink"], bold=True, lh=1.25)
         cy = y + 14 + len(tl) * 15 + 22 + R
         cx = x + cw / 2
         for lvl in (1, 2, 3, 4, 5):
@@ -591,9 +758,24 @@ def ch_radar(S, top_n):
             pts.append((cx + R * v / 5 * math.sin(a), cy - R * v / 5 * math.cos(a)))
             lx, ly = cx + (R + 12) * math.sin(a), cy - (R + 12) * math.cos(a)
             anc = "middle" if abs(math.sin(a)) < 0.3 else ("start" if math.sin(a) > 0 else "end")
-            c.text(lx, ly + 4, lab, 10, THEME["muted"], anc)
+            if i == 0:   # подписи осей первого радара — элементы с определением оси (у остальных — data-ps-ref)
+                with c.item("axis-%s" % key, "Ось радара «%s»" % lab, "axis",
+                            {"title": "Ось «%s»" % lab, "gloss": gl("radar_axes", key),
+                             "meaning": "Самое слабое место по этой оси среди лидеров — у %s." % min(top, key=lambda q: fn(q))["id"]}):
+                    c.text(lx, ly + 4, lab, 10, THEME["muted"], anc)
+            else:
+                with c.ref("axis-%s" % key):
+                    c.text(lx, ly + 4, lab, 10, THEME["muted"], anc)
         colr = PAL[i % len(PAL)]
-        c.poly(pts, colr, colr, 0.25, 1.8)
+        vals = [(lab, max(1.0, min(5.0, fn(r)))) for _, lab, fn in axes]
+        lo_ax, hi_ax = min(vals, key=lambda t: t[1]), max(vals, key=lambda t: t[1])
+        area = sum(v for _, v in vals) / len(vals)
+        with c.item(r["id"], "%s: радар, слабая ось «%s», сильная «%s»" % (pt_label(r), lo_ax[0], hi_ax[0]), "shape",
+                    {"pid": r["id"],
+                     "meaning": "Ранг %d. Средний уровень по семи осям — %s из 5; сильнее всего «%s» (%s), слабее всего «%s» (%s)." % (
+                         r["rank"], fmt(area, 1), hi_ax[0], fmt(hi_ax[1], 1), lo_ax[0], fmt(lo_ax[1], 1)),
+                     "metrics": [{"label": lab, "value": fmt(v, 1), "tag": "расчёт"} for lab, v in vals]}):
+            c.poly(pts, colr, colr, 0.25, 1.8)
         h = len(tl) * 15 + 22 + 2 * R + 40
         row_h_max = max(row_h_max, h)
     y += row_h_max
@@ -628,24 +810,44 @@ def ch_pareto(S, top_n):
         c.text(x0 - 6, yy + 4, fmt(t, 1), 11, THEME["muted"], "end")
     for i, v in enumerate(vals):
         h = v / top_t * (y1 - y0)
-        c.rect(x0 + i * bw + bw * 0.12, y1 - h, bw * 0.76, h, PAL[0] if i < k80 else mix(PAL[0], "#FFFFFF", 0.55))
+        r = S[i]
+        head = i < k80
+        with c.item(r["id"], "%s: ранг %d, ценность с поправкой на риск %s, накоплено %d %%" % (pt_label(r), r.get("rank", i + 1), fmt(v, 2), round(cum[i] * 100)),
+                    "bar", {"pid": r["id"], "meaning": "Ранг %d; ценность с поправкой на риск %s; вместе с предыдущими даёт %d %% суммарной ценности реестра — %s." % (
+                        r.get("rank", i + 1), fmt(v, 2), round(cum[i] * 100), "входит в группу, дающую 80 % ценности" if head else "это хвост после отметки 80 %")},
+                    groups=["g-head" if head else "g-tail"]):
+            c.rect(x0 + i * bw + bw * 0.12, y1 - h, bw * 0.76, h, PAL[0] if head else mix(PAL[0], "#FFFFFF", 0.55))
     pts = [(x0 + (i + 0.5) * bw, y1 - cv * (y1 - y0)) for i, cv in enumerate(cum)]
-    c.poly(pts, "none", PAL[1], sw=2.2, closed=False)
+    with c.item("line-cum", "Накопленная доля ценности: первые %d дают 50 %%, первые %d — 80 %%" % (k50, k80), "line",
+                {"gloss": gl("charts", "pareto", "elements", "line-cum"),
+                 "meaning": "Первые %d из %d %s дают половину суммарной ценности, первые %d — 80 %%." % (
+                     k50, n, plural(n, ("предложения", "предложений", "предложений")), k80),
+                 "related": [r["id"] for r in S[:3]]}):
+        c.hit(pts)
+        c.poly(pts, "none", PAL[1], sw=2.2, closed=False)
     for p in (0, 0.25, 0.5, 0.75, 1.0):
         c.text(x1 + 6, y1 - p * (y1 - y0) + 4, "%d %%" % (p * 100), 11, THEME["muted"])
     for k, lab in ((k50, "50 %"), (k80, "80 %")):
         px = x0 + (k - 0.5) * bw
         py = y1 - cum[k - 1] * (y1 - y0)
-        c.line(px, py, px, y1, PAL[1], 1, "3 3")
-        c.circle(px, py, 4, PAL[1], "#FFFFFF")
         txt = "%s — первые %d" % (lab, k)
-        anc = "start" if px + text_w(txt, 11) + 8 < x1 else "end"
-        c.rect(px + (6 if anc == "start" else -text_w(txt, 11, True) - 8), py - 22, text_w(txt, 11, True) + 4, 16, THEME["bg"], op=0.9)
-        c.text(px + (8 if anc == "start" else -8), py - 10, txt, 11, THEME["ink"], anc, True)
+        with c.item("mark-%s" % lab.split()[0], "Отметка %s: первые %d %s" % (lab, k, plural(k, ("предложение", "предложения", "предложений"))), "point",
+                    {"title": "Отметка %s" % lab, "gloss": gl("terms", "pareto"), "plinks": [S[k - 1]["id"]],
+                     "summary": "Отметка %s: столько первых предложений по рангу дают %s суммарной ценности с поправкой на риск." % (lab, lab),
+                     "meaning": "Первые %d из %d; граница проходит по %s." % (k, n, S[k - 1]["id"]),
+                     "metrics": [{"label": "Предложений до отметки", "value": str(k), "tag": "расчёт"},
+                                 {"label": "Доля реестра", "value": "%d %%" % round(100 * k / n), "tag": "расчёт"}]},
+                    highlight="g-head" if lab == "80 %" else None):
+            c.line(px, py, px, y1, PAL[1], 1, "3 3")
+            c.circle(px, py, 4, PAL[1], "#FFFFFF")
+            anc = "start" if px + text_w(txt, 11) + 8 < x1 else "end"
+            c.rect(px + (6 if anc == "start" else -text_w(txt, 11, True) - 8), py - 22, text_w(txt, 11, True) + 4, 16, THEME["bg"], op=0.9)
+            c.text(px + (8 if anc == "start" else -8), py - 10, txt, 11, THEME["ink"], anc, True)
     step = max(1, int(math.ceil(n / 15.0)))
     for i in range(0, n, step):
         c.text(x0 + (i + 0.5) * bw, y1 + 15, str(i + 1), 10, THEME["muted"], "middle")
-    c.text((x0 + x1) / 2, y1 + 34, "Ранг по composite", 12, THEME["ink"], "middle")
+    with c.item("axis-x", "Ось: ранг по composite", "axis", {"gloss": gl("charts", "pareto", "elements", "axis-x")}):
+        c.text((x0 + x1) / 2, y1 + 34, "Ранг по composite", 12, THEME["ink"], "middle")
     return c.finish(ph), title, cap
 
 
@@ -674,27 +876,51 @@ def ch_tornado(sens):
     mx = max(max(e["low_rank_shift"], e["high_rank_shift"]) for e in t) or 1
     half = (x1 - x0) / 2 - 30
     y = c.top + 24
-    c.text(mid - 8, c.top + 12, "вес ×0,5", 11, THEME["muted"], "end")
-    c.text(mid + 8, c.top + 12, "вес ×1,5", 11, THEME["muted"], "start")
-    for e, rh in zip(t, rows_h):
+    with c.item("legend-low", "Левые полосы: вес ×0,5", "legend", {"gloss": gl("charts", "tornado", "elements", "legend-low")}, highlight="g-low"):
+        c.text(mid - 8, c.top + 12, "вес ×0,5", 11, THEME["muted"], "end")
+    with c.item("legend-high", "Правые полосы: вес ×1,5", "legend", {"gloss": gl("charts", "tornado", "elements", "legend-high")}, highlight="g-high"):
+        c.text(mid + 8, c.top + 12, "вес ×1,5", 11, THEME["muted"], "start")
+    gdesc = {"composite": "вес формулы в итоговом composite", "value": "вес подшкалы в индексе ценности",
+             "cost": "вес части в индексе стоимости", "risk": "вес вида риска в индексе риска"}
+    for pos, (e, rh) in enumerate(zip(t, rows_h), 1):
         tl = wrap(pname(e["param"]), label_w - 10, 12)
-        c.lines(PAD, y + (rh - len(tl) * 15) / 2 + 12, tl, 12, THEME["ink"])
-        lw = e["low_rank_shift"] / mx * half
-        hw = e["high_rank_shift"] / mx * half
-        c.rect(mid - lw, y + 5, lw, rh - 10, PAL[0], rx=2)
-        c.rect(mid, y + 5, hw, rh - 10, PAL[1], rx=2)
-        c.text(mid - lw - 5, y + rh / 2 + 4, fmt(e["low_rank_shift"], 2), 11, THEME["ink"], "end")
-        c.text(mid + hw + 5, y + rh / 2 + 4, fmt(e["high_rank_shift"], 2), 11, THEME["ink"], "start")
+        g_, _, k_ = e["param"].partition(".")
+        lo_s, hi_s = e["low_rank_shift"], e["high_rank_shift"]
+        ov = [x for x in (e.get("low_top_overlap"), e.get("high_top_overlap")) if isinstance(x, (int, float))]
+        mets = [{"label": "Сдвиг ранга при ×0,5", "value": fmt(lo_s, 2), "tag": "расчёт"},
+                {"label": "Сдвиг ранга при ×1,5", "value": fmt(hi_s, 2), "tag": "расчёт"}]
+        if ov:
+            mets.append({"label": "Остаётся в топ-%d (худший случай)" % topn, "value": "%d из %d" % (min(ov), topn), "tag": "расчёт"})
+        with c.item("param-%s" % e["param"], "%s: сдвиг ранга %s при ×0,5 и %s при ×1,5" % (pname(e["param"]), fmt(lo_s, 2), fmt(hi_s, 2)), "bar",
+                    {"title": "Вес «%s»" % pname(e["param"]), "gloss": gl("terms", "tornado"), "section": 17, "metrics": mets,
+                     "summary": "Параметр «%s» — %s (%s). Место по влиянию: %d из %d." % (
+                         pname(e["param"]), gdesc.get(g_, "вес формулы"), e["param"], pos, len(t)),
+                     "meaning": "Если уменьшить этот вес вдвое, каждое предложение в среднем сдвинется на %s позиции; если увеличить в полтора раза — на %s. %s" % (
+                         fmt(lo_s, 2), fmt(hi_s, 2), "Ранжирование заметно зависит от этого веса." if max(lo_s, hi_s) >= 1 else "Влияние меньше одной позиции — вывод устойчив к этому весу.")}):
+            c.lines(PAD, y + (rh - len(tl) * 15) / 2 + 12, tl, 12, THEME["ink"])
+            lw = lo_s / mx * half
+            hw = hi_s / mx * half
+            c.add('<g data-ps-group="g-low">')
+            c.rect(mid - lw, y + 5, lw, rh - 10, PAL[0], rx=2)
+            c.add('</g><g data-ps-group="g-high">')
+            c.rect(mid, y + 5, hw, rh - 10, PAL[1], rx=2)
+            c.add("</g>")
+            c.text(mid - lw - 5, y + rh / 2 + 4, fmt(lo_s, 2), 11, THEME["ink"], "end")
+            c.text(mid + hw + 5, y + rh / 2 + 4, fmt(hi_s, 2), 11, THEME["ink"], "start")
         y += rh
     c.line(mid, c.top + 18, mid, y, THEME["ink"], 1.2)
-    c.text(mid, y + 22, "Средний сдвиг ранга, позиций", 12, THEME["ink"], "middle")
+    with c.item("axis-x", "Ось: средний сдвиг ранга, позиций", "axis", {"gloss": gl("charts", "tornado", "elements", "axis-x"),
+                                                                       "meaning": "Стабильность топ-%d: %d %% лидеров остаются в топе при любом изменении одного веса." % (topn, round(stab * 100))}):
+        c.text(mid, y + 22, "Средний сдвиг ранга, позиций", 12, THEME["ink"], "middle")
     return c.finish(ph), title, cap
 
 
 def hbar_chart(title, cap, source, items, W=860, color=None, marks=None, value_fmt=None, colors=None, legend=None,
-               right_pad=60, int_ticks=False):
+               right_pad=60, int_ticks=False, els=None, legend_els=None, marks_el=None):
     """Горизонтальные столбцы: items — [(label, value)], marks — {label: требуемый минимум} (риска).
-    right_pad — место справа под подписи значений; int_ticks — целые деления оси (счётные величины)."""
+    right_pad — место справа под подписи значений; int_ticks — целые деления оси (счётные величины).
+    els — параллельно items: {id, label?, info, groups?} — строка (подпись, полоса, значение) становится элементом;
+    legend_els — для пунктов legend; marks_el — {id, label, info} для пояснения рисок минимума."""
     c = Chart(W, title, cap, source)
     label_w = 230
     x0, x1 = PAD + label_w, W - PAD - right_pad
@@ -716,7 +942,12 @@ def hbar_chart(title, cap, source, items, W=860, color=None, marks=None, value_f
         xx = x0 + t / top * (x1 - x0)
         c.line(xx, y, xx, y + total_h, THEME["grid"])
         c.text(xx, y + total_h + 16, fmt(t), 11, THEME["muted"], "middle")
+    els = list(els or [])
     for k, (lab, v, tl, rh) in enumerate(rows):
+        e = els[k] if k < len(els) else None
+        if e:
+            c.open_el(e["id"], e.get("label") or "%s: %s" % (lab, value_fmt(v) if value_fmt else fmt(v)), e.get("kind", "bar"),
+                      e.get("info"), groups=e.get("groups"))
         c.lines(PAD, y + (rh - len(tl) * 15) / 2 + 12, tl, 12, THEME["ink"])
         w = v / top * (x1 - x0)
         col = (colors[k] if colors else None) or color or PAL[0]
@@ -724,15 +955,23 @@ def hbar_chart(title, cap, source, items, W=860, color=None, marks=None, value_f
         c.text(x0 + w + 6, y + rh / 2 + 4, value_fmt(v) if value_fmt else fmt(v), 12, THEME["ink"])
         if marks and lab in marks:
             mx = x0 + marks[lab] / top * (x1 - x0)
+            c.add('<g data-ps-group="g-min">')
             c.line(mx, y + 2, mx, y + rh - 2, THEME["ink"], 2)
+            c.add("</g>")
+        if e:
+            c.close_el()
         y += rh
     extra = 0
     if marks:
+        if marks_el:
+            c.open_el(marks_el["id"], marks_el["label"], "legend", marks_el.get("info"), highlight="g-min")
         c.line(PAD, y + 34, PAD + 14, y + 34, THEME["ink"], 2)
         c.text(PAD + 20, y + 38, "чёрная риска — требуемый минимум категории", 11, THEME["muted"])
+        if marks_el:
+            c.close_el()
         extra = 22
     if legend:
-        extra += legend_row(c, legend, PAD, y + 38 + extra, W - 2 * PAD, 12)
+        extra += legend_row(c, legend, PAD, y + 38 + extra, W - 2 * PAD, 12, els=legend_els)
     return c.finish(total_h + 30 + extra)
 
 
@@ -749,8 +988,27 @@ def ch_dist_category(S, check):
     title = "Реестр по категориям: %d %s, больше всего — «%s»" % (len(S), plural(len(S), ("предложение", "предложения", "предложений")), cat_name(keys[0]))
     cap = ("Ниже минимума: %s." % ", ".join(short)) if short else ("Все категории выше минимумов." if marks else "Минимумы категорий не проверялись (нет data/registry-check.json).")
     items = [(cat_name(k), cnt[k]) for k in keys]
+    els = []
+    for k in keys:
+        rows = [r for r in S if r.get("category") == k]
+        req = marks.get(cat_name(k))
+        mets = [{"label": "Предложений", "value": str(cnt[k]), "tag": "факт"},
+                {"label": "Доля реестра", "value": "%d %%" % round(100 * cnt[k] / len(S)), "tag": "расчёт"}]
+        if req is not None:
+            mets.append({"label": "Требуемый минимум", "value": str(req), "tag": "правило реестра"})
+        qn = Counter(r.get("quadrant") for r in rows)
+        els.append({"id": "cat-%s" % k, "label": "Категория «%s»: %d %s%s" % (cat_name(k), cnt[k], plural(cnt[k], ("предложение", "предложения", "предложений")),
+                                                                         (", минимум %d" % req) if req is not None else ""),
+                    "info": {"gloss": gl("categories", k), "cat": k, "related": top_ids(rows), "metrics": mets,
+                             "meaning": "%d %s (%d %% реестра)%s; быстрых побед среди них — %d, крупных ставок — %d." % (
+                                 cnt[k], plural(cnt[k], ("предложение", "предложения", "предложений")), round(100 * cnt[k] / len(S)),
+                                 ("" if req is None else (", это ниже минимума %d" % req if cnt[k] < req else ", минимум %d выполнен" % req)),
+                                 qn.get("quick_win", 0), qn.get("big_bet", 0))}})
+    mel = {"id": "legend-min", "label": "Чёрная риска — требуемый минимум категории",
+           "info": {"gloss": gl("charts", "dist-category", "elements", "legend-min"),
+                    "meaning": ("Ниже минимума: %s." % ", ".join(short)) if short else "Все проверенные категории не ниже минимума."}}
     return hbar_chart(title, cap, "Источник: data/proposals.json, data/registry-check.json", items, marks=marks or None,
-                      colors=[cat_color(k)[0] for k in keys]), title, cap
+                      colors=[cat_color(k)[0] for k in keys], els=els, marks_el=mel), title, cap
 
 
 def ch_dist_evidence(S):
@@ -761,18 +1019,40 @@ def ch_dist_evidence(S):
     names = {"A": "A — первоисточник / живая функция", "B": "B — несколько независимых упоминаний", "C": "C — одно упоминание", "D": "D — логический вывод"}
     items = [(names[k], cnt.get(k, 0)) for k in "ABCD"]
     cols = [THEME["good"], PAL[5 % len(PAL)], PAL[1], THEME["bad"]]
-    return hbar_chart(title, cap, "Источник: data/proposals.json", items, colors=cols), title, cap
+    els = []
+    for k in "ABCD":
+        rows = [r for r in S if r.get("evidence_class") == k]
+        els.append({"id": "class-%s" % k, "label": "%s: %d %s" % (names[k], len(rows), plural(len(rows), ("предложение", "предложения", "предложений"))),
+                    "info": {"gloss": gl("evidence", k), "related": top_ids(rows), "registry": {"class": k}, "section": 17,
+                             "metrics": [{"label": "Предложений", "value": str(len(rows)), "tag": "факт"},
+                                         {"label": "Доля реестра", "value": "%d %%" % round(100 * len(rows) / len(S)), "tag": "расчёт"}],
+                             "meaning": "%d %s (%d %% реестра); доля A+B — %d %% при пороге 60 %%." % (
+                                 len(rows), plural(len(rows), ("предложение", "предложения", "предложений")), round(100 * len(rows) / len(S)), round(ab * 100))}})
+    return hbar_chart(title, cap, "Источник: data/proposals.json", items, colors=cols, els=els), title, cap
 
 
 def ch_dist_horizon(S):
     cnt = Counter(r.get("horizon") for r in S)
     keys = [k for k in HORIZON_RU] + sorted((k for k in cnt if k not in HORIZON_RU), key=str)
-    items = [(HORIZON_RU.get(k, str(k)), cnt.get(k, 0)) for k in keys if cnt.get(k, 0) or k in HORIZON_RU]
+    shown = [k for k in keys if cnt.get(k, 0) or k in HORIZON_RU]
+    items = [(HORIZON_RU.get(k, str(k)), cnt.get(k, 0)) for k in shown]
     near = cnt.get("now", 0) + cnt.get("next", 0)
     title = "Горизонты: %d из %d %s — на ближайший год" % (near, len(S), plural(len(S), ("предложения", "предложений", "предложений")))
     cap = "Сейчас — 0–3 мес., дальше — 3–12 мес., позже — 1–2 года, видение — 2+ года."
+    els = []
+    for k in shown:
+        rows = [r for r in S if r.get("horizon") == k]
+        eff = sum(r.get("effort_days_mid") or 0 for r in rows)
+        els.append({"id": "horizon-%s" % k, "label": "%s: %d %s" % (HORIZON_RU.get(k, str(k)), len(rows), plural(len(rows), ("предложение", "предложения", "предложений"))),
+                    "info": {"gloss": gl("horizons", k), "related": top_ids(rows), "registry": {"horizon": k},
+                             "summary": "" if k in HORIZON_RU else "Горизонт «%s» вне контракта (now|next|later|vision)." % k,
+                             "metrics": [{"label": "Предложений", "value": str(len(rows)), "tag": "факт"},
+                                         {"label": "Сумма середин трудозатрат", "value": "%s чел.-дн." % fmt(eff), "tag": "оценка"}],
+                             "meaning": "%d %s, суммарно около %s чел.-дн. по серединам оценок." % (
+                                 len(rows), plural(len(rows), ("предложение", "предложения", "предложений")), fmt(eff))},
+                    "groups": None})
     return hbar_chart(title, cap, "Источник: data/proposals.json (horizon)", items,
-                      colors=[mix(PAL[0], "#FFFFFF", 0.18 * i) for i in range(len(items))]), title, cap
+                      colors=[mix(PAL[0], "#FFFFFF", 0.18 * i) for i in range(len(items))], els=els), title, cap
 
 
 # ---------------------------------------------------------------- план
@@ -799,32 +1079,85 @@ def ch_gantt(G):
         rows.append((g, tl, max(26, len(tl) * 15 + 10)))
     body_h = sum(r[2] for r in rows) + len(phases) * 22
     if maxm > 12:
-        c.rect(x0 + 12 * mw, y, (maxm - 12) * mw, body_h, THEME["panel"])
+        nv = sum(1 for g in G if g["end_month"] > 12)
+        with c.item("area-vision", "Годы видения: месяцы 13–%d, %d %s" % (maxm, nv, plural(nv, ("задача", "задачи", "задач"))), "area",
+                    {"gloss": gl("charts", "gantt", "elements", "area-vision"), "section": 15,
+                     "meaning": "После 12-го месяца заканчивается %d %s плана." % (nv, plural(nv, ("задача", "задачи", "задач")))}):
+            c.rect(x0 + 12 * mw, y, (maxm - 12) * mw, body_h, THEME["panel"])
     for m in range(1, maxm + 1):
         if (m - 1) % step == 0:
             c.text(x0 + (m - 0.5) * mw, c.top + 14, str(m), 11, THEME["muted"], "middle")
         c.line(x0 + (m - 1) * mw, y, x0 + (m - 1) * mw, y + body_h, THEME["grid"], 0.8)
     pcol = {p: PAL[i % len(PAL)] for i, p in enumerate(phases)}
-    for ph in phases:
-        c.text(PAD, y + 15, ph or "без фазы", 12, pcol[ph], bold=True)
+    gids = {str(g.get("id")) for g in G if g.get("id")}
+    for pi, ph in enumerate(phases, 1):
+        pg = [g for g in G if g.get("phase", "") == ph]
+        pm = [g for g in pg if g.get("type") == "milestone"]
+        with c.item("phase-%d" % pi, "Фаза «%s»: %d %s, месяцы %d–%d" % (ph or "без фазы", len(pg), plural(len(pg), ("строка", "строки", "строк")),
+                                                                      min(g["start_month"] for g in pg), max(g["end_month"] for g in pg)), "row",
+                    {"title": "Фаза «%s»" % (ph or "без фазы"), "section": 14,
+                     "summary": "Фаза плана «%s»: %d %s и %d %s." % (ph or "без фазы", len(pg) - len(pm), plural(len(pg) - len(pm), ("задача", "задачи", "задач")),
+                                                              len(pm), plural(len(pm), ("контрольная точка", "контрольные точки", "контрольных точек"))),
+                     "meaning": "Сроки фазы — с %d-го по %d-й месяц от старта; задачи: %s." % (
+                         min(g["start_month"] for g in pg), max(g["end_month"] for g in pg), ", ".join(str(g.get("id")) for g in pg[:8])),
+                     "links": [{"label": "%s — %s" % (g.get("id"), g.get("task", "")), "href": "#gantt/%s" % g.get("id")} for g in pg[:4] if g.get("id")]},
+                    highlight="g-phase-%d" % pi):
+            c.text(PAD, y + 15, ph or "без фазы", 12, pcol[ph], bold=True)
         y += 22
         for g, tl, rh in rows:
             if g.get("phase", "") != ph:
                 continue
-            c.lines(PAD + 10, y + (rh - len(tl) * 15) / 2 + 12, tl, 12, THEME["ink"])
             s, e = g["start_month"], g["end_month"]
-            if g.get("type") == "milestone" or s == e and g.get("type") == "milestone":
-                cx, cy = x0 + (e - 0.5) * mw, y + rh / 2
-                c.poly([(cx, cy - 8), (cx + 8, cy), (cx, cy + 8), (cx - 8, cy)], pcol[ph], "#FFFFFF")
-            else:
-                c.rect(x0 + (s - 1) * mw + 1, y + 6, (e - s + 1) * mw - 2, rh - 12, pcol[ph], rx=3)
+            ms_ = g.get("type") == "milestone"
+            gid = str(g.get("id") or "task")
+            deps = [str(d) for d in g.get("dependencies") or [] if str(d) in gids]
+            acts = ["Выполнить: %s" % g.get("task")] if g.get("task") else []
+            if g.get("done_criteria"):
+                acts.append("Критерий готовности: %s" % g["done_criteria"])
+            if g.get("owner"):
+                acts.append("Ответственный: %s" % g["owner"])
+            if deps:
+                acts.append("Сначала завершить: %s" % ", ".join(deps))
+            span = ("месяц %d" % e) if ms_ or s == e else ("месяцы %d–%d" % (s, e))
+            lk = [{"label": "Строка плана %s" % gid, "href": "#gantt/%s" % gid}] + [
+                {"label": "Зависит от %s — %s" % (d, next((x.get("task", "") for x in G if str(x.get("id")) == d), "")), "href": "#gantt/%s" % d} for d in deps]
+            with c.item(gid, "%s %s: %s, %s" % (gid, g.get("task", ""), "контрольная точка" if ms_ else "задача", span), "bar",
+                        {"title": "%s — %s" % (gid, g.get("task", "")),
+                         "summary": "%s «%s» в фазе «%s»." % ("Контрольная точка" if ms_ else "Задача", g.get("task", ""), ph or "без фазы"),
+                         "meaning": "%s от старта%s%s." % (span.capitalize(), "; затрагивает годы видения" if e > 12 else "",
+                                                           ("; связанные предложения: " + ", ".join(g.get("proposal_ids") or [])) if g.get("proposal_ids") else ""),
+                         "actions": acts, "plinks": list(g.get("proposal_ids") or [])[:4], "links": lk, "section": 15 if s > 12 else 14,
+                         "metrics": [{"label": "Начало, месяц", "value": str(s), "tag": "план"}, {"label": "Конец, месяц", "value": str(e), "tag": "план"}]},
+                        groups=["g-phase-%d" % pi]):
+                c.lines(PAD + 10, y + (rh - len(tl) * 15) / 2 + 12, tl, 12, THEME["ink"])
+                if ms_:
+                    cx, cy = x0 + (e - 0.5) * mw, y + rh / 2
+                    c.poly([(cx, cy - 8), (cx + 8, cy), (cx, cy + 8), (cx - 8, cy)], pcol[ph], "#FFFFFF")
+                else:
+                    c.rect(x0 + (s - 1) * mw + 1, y + 6, (e - s + 1) * mw - 2, rh - 12, pcol[ph], rx=3)
             y += rh
-    c.text((x0 + x1) / 2, y + 22, "Месяц от старта", 12, THEME["ink"], "middle")
+    with c.item("axis-x", "Ось: месяц от старта, всего %d мес." % maxm, "axis", {"gloss": gl("charts", "gantt", "elements", "axis-x")}):
+        c.text((x0 + x1) / 2, y + 22, "Месяц от старта", 12, THEME["ink"], "middle")
     return c.finish(body_h + 56), title, cap
 
 
 # ---------------------------------------------------------------- модель
-def ch_funnel(M):
+STAGE_RU = {"acquisition": "Привлечение", "activation": "Активация", "retention": "Удержание", "revenue": "Доход", "referral": "Рекомендации"}
+STAGE_CATS = {"acquisition": ("acquisition", "partnerships", "localization"), "activation": ("conversion",), "retention": ("retention",),
+              "revenue": ("monetization",), "referral": ()}
+
+
+def stage_related(stage, S):
+    """Лучшие по рангу предложения, относящиеся к ступени воронки (по категории; рекомендации — по словам о шаринге)."""
+    if stage == "referral":
+        rx = dict((k, r) for k, _, r in CHANNELS)["viral"]
+        rows = [r for r in S or [] if re.search(rx, str(r.get("title", "")).lower())]
+    else:
+        rows = [r for r in S or [] if r.get("category") in STAGE_CATS.get(stage, ())]
+    return top_ids(rows), (STAGE_CATS.get(stage) or (None,))[0]
+
+
+def ch_funnel(M, S=None):
     sc = M.get("scenarios") or {}
     names = [k for k in SCEN_RU if k in sc and sc[k].get("funnel")]
     if not names:
@@ -851,17 +1184,40 @@ def ch_funnel(M):
     for t in log_ticks(lo, hi):
         if str(t)[0] == "1" or t == lo:
             c.line(sx(t), y, sx(t), y + total, THEME["grid"])
-            c.text(sx(t), y + total + 16, fmt(t, 0 if t >= 1 else 1), 11, THEME["muted"], "middle")
+    with c.item("axis-x", "Логарифмическая шкала значений воронки", "axis", {"gloss": gl("charts", "funnel", "elements", "axis-x")}):
+        for t in log_ticks(lo, hi):
+            if str(t)[0] == "1" or t == lo:
+                c.text(sx(t), y + total + 16, fmt(t, 0 if t >= 1 else 1), 11, THEME["muted"], "middle")
+    bname = "base" if "base" in sc else names[0]
     for si, st in enumerate(stages):
         tl = wrap(st, label_w - 12, 12)
-        c.lines(PAD, y + (gh - len(tl) * 15) / 2 + 12, tl, 12, THEME["ink"], bold=True)
-        for k, nm in enumerate(names):
-            v = sc[nm]["funnel"][si].get("value", 0) if si < len(sc[nm]["funnel"]) else 0
-            yy = y + 8 + k * bh
-            c.rect(x0, yy, sx(max(v, lo)) - x0, bh - 3, scol(nm), rx=2)
-            c.text(sx(max(v, lo)) + 5, yy + bh - 6, fmt(v, 0 if v >= 10 else 1), 11, THEME["ink"])
+        f0 = sc[bname]["funnel"][si] if si < len(sc[bname]["funnel"]) else {}
+        skey = f0.get("stage") or "stage%d" % si
+        vals = {nm: (sc[nm]["funnel"][si].get("value", 0) if si < len(sc[nm]["funnel"]) else 0) for nm in names}
+        bv = vals.get(bname, 0)
+        prev = sc[bname]["funnel"][si - 1] if si else None
+        conv = ("%s %% от ступени «%s»" % (fmt(100.0 * bv / prev["value"], 1), prev.get("label") or prev.get("stage"))) if prev and prev.get("value") else "верх воронки"
+        rel, rcat = stage_related(skey, S)
+        info = {"title": "%s — «%s»" % ((STAGE_RU.get(skey) or st), st) if STAGE_RU.get(skey) and STAGE_RU.get(skey) != st else st,
+                "gloss": gl("stages", skey), "related": rel, "registry": {"category": rcat} if rcat and rel else None,
+                "meaning": "%s сценарий: %s за %s мес. (%s). Диапазон по сценариям: %s–%s. Все значения — допущения модели%s." % (
+                    SCEN_RU.get(bname, bname), fmt(bv, 0 if bv >= 10 else 1), M.get("horizon_months", "—"), conv,
+                    fmt(min(vals.values()), 0 if min(vals.values()) >= 10 else 1), fmt(max(vals.values()), 0 if max(vals.values()) >= 10 else 1),
+                    " (продукта ещё нет)" if CONCEPT[0] else ""),
+                "metrics": [{"label": "%s сценарий" % SCEN_RU[nm], "value": fmt(vals[nm], 0 if vals[nm] >= 10 else 1), "tag": "допущение"} for nm in names]}
+        with c.item("stage-%s" % skey, "Ступень «%s»: %s в базовом сценарии, %s" % (st, fmt(bv, 0 if bv >= 10 else 1), conv), "stage", info):
+            c.lines(PAD, y + (gh - len(tl) * 15) / 2 + 12, tl, 12, THEME["ink"], bold=True)
+            for k, nm in enumerate(names):
+                v = vals[nm]
+                yy = y + 8 + k * bh
+                c.add('<g data-ps-group="g-scen-%s">' % nm)
+                c.rect(x0, yy, sx(max(v, lo)) - x0, bh - 3, scol(nm), rx=2)
+                c.text(sx(max(v, lo)) + 5, yy + bh - 6, fmt(v, 0 if v >= 10 else 1), 11, THEME["ink"])
+                c.add("</g>")
         y += gh
-    h = legend_row(c, [(SCEN_RU[k], scol(k), None) for k in names], x0, y + 40, x1 - x0, 12)
+    lels = [{"id": "legend-scen-%s" % k, "label": "Легенда: %s сценарий" % SCEN_RU[k].lower(),
+             "info": {"gloss": gl("scenarios", k), "section": 8}, "highlight": "g-scen-%s" % k} for k in names]
+    h = legend_row(c, [(SCEN_RU[k], scol(k), None) for k in names], x0, y + 40, x1 - x0, 12, els=lels)
     return c.finish(total + 30 + h), title, cap
 
 
@@ -890,13 +1246,44 @@ def ch_fan(M):
     for i in range(0, n, step):
         c.text(sx(i), y1 + 16, str(i + 1), 11, THEME["muted"], "middle")
     band = [(sx(i), sy(v)) for i, v in enumerate(mo["optimistic"])] + [(sx(i), sy(v)) for i, v in reversed(list(enumerate(mo["pessimistic"])))]
-    c.poly(band, scol("base"), None, 0.16)
-    c.poly([(sx(i), sy(v)) for i, v in enumerate(mo["pessimistic"])], "none", scol("pessimistic"), sw=1.4, closed=False)
-    c.poly([(sx(i), sy(v)) for i, v in enumerate(mo["optimistic"])], "none", scol("optimistic"), sw=1.4, closed=False)
-    c.poly([(sx(i), sy(v)) for i, v in enumerate(mo["base"])], "none", scol("base"), sw=2.6, closed=False)
-    c.text((x0 + x1) / 2, y1 + 34, "Месяц", 12, THEME["ink"], "middle")
+    spread = (mo["optimistic"][-1] / mo["pessimistic"][-1]) if mo["pessimistic"][-1] else None
+    with c.item("band", "Диапазон прогноза через %d мес.: %s–%s" % (n, fmt(mo["pessimistic"][-1]), fmt(mo["optimistic"][-1])), "area",
+                {"gloss": gl("charts", "forecast-fan", "elements", "band"),
+                 "meaning": "Через %d мес. — от %s до %s активных пользователей%s; все входы — допущения." % (
+                     n, fmt(mo["pessimistic"][-1]), fmt(mo["optimistic"][-1]), (", разброс в %s раза" % fmt(spread, 1)) if spread else ""),
+                 "metrics": [{"label": "Пессимистичный, мес. %d" % n, "value": fmt(mo["pessimistic"][-1]), "tag": "допущение"},
+                             {"label": "Оптимистичный, мес. %d" % n, "value": fmt(mo["optimistic"][-1]), "tag": "допущение"}]}):
+        c.poly(band, scol("base"), None, 0.16)
+
+    def scen_line(k, sw):
+        vals = mo[k]
+        pts = [(sx(i), sy(v)) for i, v in enumerate(vals)]
+        a = sc[k].get("assumptions") or {}
+        mets = [{"label": "Активные через %d мес." % n, "value": fmt(vals[-1]), "tag": "допущение"},
+                {"label": "Активные в 1-й мес.", "value": fmt(vals[0]), "tag": "допущение"}]
+        for ak, lab in (("visitors_month", "Посетителей в 1-й мес."), ("traffic_growth", "Рост трафика в месяц"),
+                        ("signup_to_active", "Регистрация → активация"), ("retention_monthly", "Удержание в месяц")):
+            av = (a.get(ak) or {}).get("value") if isinstance(a.get(ak), dict) else None
+            if isinstance(av, (int, float)):
+                mets.append({"label": lab, "value": ("%s %%" % fmt(av * 100, 0 if av * 100 >= 10 else 1)) if av < 1 and ak != "visitors_month" else fmt(av),
+                             "tag": (a.get(ak) or {}).get("label") or "допущение"})
+        with c.item("scen-%s" % k, "%s сценарий: %s активных через %d мес." % (SCEN_RU[k], fmt(vals[-1]), n), "line",
+                    {"gloss": gl("scenarios", k), "section": 8, "metrics": mets,
+                     "meaning": "Активных пользователей: %s в первый месяц, %s через %d мес." % (fmt(vals[0]), fmt(vals[-1]), n)},
+                    groups=["g-scen-%s" % k]):
+            c.hit(pts)
+            c.poly(pts, "none", scol(k), sw=sw, closed=False)
+    scen_line("pessimistic", 1.4)
+    scen_line("optimistic", 1.4)
+    scen_line("base", 2.6)
+    with c.item("axis-x", "Ось: месяц горизонта модели", "axis", {"gloss": gl("charts", "forecast-fan", "elements", "axis-x")}):
+        c.text((x0 + x1) / 2, y1 + 34, "Месяц", 12, THEME["ink"], "middle")
+    lel = lambda k: {"id": "legend-scen-%s" % k, "label": "Легенда: %s сценарий" % SCEN_RU[k].lower(), "info": {"gloss": gl("scenarios", k)},
+                     "highlight": "g-scen-%s" % k}
     legend_row(c, [("оптимистичный", scol("optimistic"), None), ("базовый", scol("base"), None), ("пессимистичный", scol("pessimistic"), None),
-                   ("диапазон", mix(scol("base"), "#FFFFFF", 0.8), None)], x0, y1 + 58, x1 - x0, 12)
+                   ("диапазон", mix(scol("base"), "#FFFFFF", 0.8), None)], x0, y1 + 58, x1 - x0, 12,
+               els=[lel("optimistic"), lel("base"), lel("pessimistic"),
+                    {"id": "legend-band", "label": "Легенда: диапазон между сценариями", "info": {"gloss": gl("charts", "forecast-fan", "elements", "band")}}])
     return c.finish(ph), title, cap
 
 
@@ -929,20 +1316,44 @@ def ch_cac_ltv(M):
         c.text(x0 - 6, sy(t) + 4, fmt(t), 11, THEME["muted"], "end")
     gw = (x1 - x0) / len(names)
     bw = min(70, gw / 3.2)
+    sym = M.get("currency_symbol") or cur
     for i, k in enumerate(names):
         gx = x0 + i * gw + gw / 2
+        lt = sc[k].get("ltv_cac")
+        pb = sc[k].get("payback_months")
         for j, (key, lab, col) in enumerate((("cac", "CAC", PAL[1 % len(PAL)]), ("ltv", "LTV", PAL[0]))):
             v = sc[k].get(key) or 0
             bx = gx - bw - 4 + j * (bw + 8)
-            c.rect(bx, sy(v), bw, y1 - sy(v), col, rx=2)
-            c.text(bx + bw / 2, sy(v) - 6, fmt(v, 0), 12, THEME["ink"], "middle", True)
-        lt = sc[k].get("ltv_cac")
-        sub = "LTV/CAC %s · окупаемость %s мес." % (fmt(lt, 1), fmt(sc[k].get("payback_months"), 1)) if lt else "без платного привлечения"
-        c.text(gx, y1 + 18, SCEN_RU[k], 12, THEME["ink"], "middle", True)
-        for q, ln in enumerate(wrap(sub, gw - 10, 11)):
-            c.text(gx, y1 + 34 + q * 14, ln, 11, THEME["muted"], "middle")
+            raw = sc[k].get(key)
+            meaning = ("%s сценарий: %s = %s." % (SCEN_RU[k], lab, money(raw, M)) if raw is not None else
+                       "%s сценарий: %s не рассчитан — %s." % (SCEN_RU[k], lab, "платного привлечения нет" if key == "cac" else "нет данных модели"))
+            if lt:
+                meaning += " LTV/CAC = %s (ориентир ≥ 3)%s." % (fmt(lt, 1), "" if lt >= 3 else " — ниже ориентира")
+            mets = [{"label": lab, "value": money(raw, M) if raw is not None else "—", "tag": "допущение"}]
+            for ak, al in (("arpu", "ARPU"), ("churn", "Отток в месяц")):
+                av = sc[k].get(ak)
+                if isinstance(av, (int, float)):
+                    mets.append({"label": al, "value": ("%s %%" % fmt(av * 100, 1)) if ak == "churn" else money(av, M, 2), "tag": "допущение"})
+            with c.item("%s-%s" % (key, k), "%s, %s сценарий: %s" % (lab, SCEN_RU[k].lower(), money(raw, M) if raw is not None else "не рассчитан"), "bar",
+                        {"title": "%s — %s сценарий" % (lab, SCEN_RU[k].lower()), "gloss": gl("terms", key), "meaning": meaning, "metrics": mets, "section": 8}, groups=["g-%s" % key, "g-scen-%s" % k]):
+                c.rect(bx, sy(v), bw, y1 - sy(v), col, rx=2)
+                c.text(bx + bw / 2, sy(v) - 6, fmt(v, 0), 12, THEME["ink"], "middle", True)
+        sub = "LTV/CAC %s · окупаемость %s мес." % (fmt(lt, 1), fmt(pb, 1)) if lt else "без платного привлечения"
+        with c.item("scen-%s" % k, "%s сценарий: %s" % (SCEN_RU[k], sub), "column",
+                    {"gloss": gl("scenarios", k), "section": 8,
+                     "meaning": ("LTV/CAC = %s, окупаемость привлечения — %s мес.; ориентир — LTV/CAC ≥ 3 и до 12 мес." % (fmt(lt, 1), fmt(pb, 1))) if lt
+                     else "В этом сценарии нет платного привлечения, поэтому CAC и окупаемость не считаются.",
+                     "metrics": [{"label": "LTV/CAC", "value": fmt(lt, 1), "tag": "допущение"}, {"label": "Окупаемость, мес.", "value": fmt(pb, 1), "tag": "допущение"}]},
+                    highlight="g-scen-%s" % k):
+            c.text(gx, y1 + 18, SCEN_RU[k], 12, THEME["ink"], "middle", True)
+            for q, ln in enumerate(wrap(sub, gw - 10, 11)):
+                c.text(gx, y1 + 34 + q * 14, ln, 11, THEME["muted"], "middle")
     legend_row(c, [("CAC — стоимость привлечения платящего", PAL[1 % len(PAL)], None), ("LTV — валовая ценность клиента", PAL[0], None)],
-               x0, c.top + 14, x1 - x0, 12)
+               x0, c.top + 14, x1 - x0, 12,
+               els=[{"id": "legend-cac", "label": "Легенда: CAC — стоимость привлечения платящего (%s)" % sym,
+                     "info": {"gloss": gl("charts", "cac-ltv", "elements", "legend-cac")}, "highlight": "g-cac"},
+                    {"id": "legend-ltv", "label": "Легенда: LTV — валовая ценность клиента (%s)" % sym,
+                     "info": {"gloss": gl("charts", "cac-ltv", "elements", "legend-ltv")}, "highlight": "g-ltv"}])
     return c.finish(ph), title, cap
 
 
@@ -981,15 +1392,43 @@ def ch_payback(M):
     for j, k in enumerate(names):
         col = scol(k)
         mo = sc[k]["monthly"]
-        c.poly([(sx(i), sy(m["cum_margin"])) for i, m in enumerate(mo)], "none", col, sw=2.4, closed=False)
-        pts = " ".join("%.1f,%.1f" % (sx(i), sy(m["cum_cost"])) for i, m in enumerate(mo))
-        c.add('<polyline points="%s" fill="none" stroke="%s" stroke-width="1.6" stroke-dasharray="6 4"/>' % (pts, col))
+        last = mo[-1]
+        mpts = [(sx(i), sy(m["cum_margin"])) for i, m in enumerate(mo)]
+        with c.item("margin-%s" % k, "%s сценарий: накопленная выручка %s за %d мес." % (SCEN_RU[k], money(last["cum_margin"], M), n), "line",
+                    {"title": "Выручка накопленная — %s сценарий" % SCEN_RU[k].lower(), "gloss": gl("terms", "payback"), "section": 8,
+                     "meaning": "Накопленная валовая выручка к концу горизонта — %s при накопленных затратах %s; %s." % (
+                         money(last["cum_margin"], M), money(last["cum_cost"], M),
+                         ("безубыточность с %d-го месяца" % be[k]) if be[k] else "за горизонт не окупается"),
+                     "metrics": [{"label": "Выручка накопленная", "value": money(last["cum_margin"], M), "tag": "допущение"},
+                                 {"label": "Затраты накопленные", "value": money(last["cum_cost"], M), "tag": "допущение"}]},
+                    groups=["g-scen-%s" % k]):
+            c.hit(mpts)
+            c.poly(mpts, "none", col, sw=2.4, closed=False)
+        cpts = [(sx(i), sy(m["cum_cost"])) for i, m in enumerate(mo)]
+        with c.item("cost-%s" % k, "%s сценарий: накопленные затраты %s за %d мес." % (SCEN_RU[k], money(last["cum_cost"], M), n), "line",
+                    {"title": "Затраты накопленные — %s сценарий" % SCEN_RU[k].lower(), "gloss": gl("terms", "payback"), "section": 8,
+                     "summary": "Накопленные затраты (постоянные + маркетинг) в сценарии «%s»." % SCEN_RU[k].lower(),
+                     "meaning": "К концу горизонта — %s; пересечение с линией выручки — месяц безубыточности." % money(last["cum_cost"], M),
+                     "metrics": [{"label": "Затраты накопленные", "value": money(last["cum_cost"], M), "tag": "допущение"}]},
+                    groups=["g-scen-%s" % k]):
+            c.hit(cpts)
+            c.add('<polyline points="%s" fill="none" stroke="%s" stroke-width="1.6" stroke-dasharray="6 4"/>'
+                  % (" ".join("%.1f,%.1f" % p for p in cpts), col))
         if be[k]:
             i = be[k] - 1
-            c.circle(sx(i), sy(mo[i]["cum_margin"]), 5, col, "#FFFFFF", sw=1.5)
-    c.text((x0 + x1) / 2, y1 + 34, "Месяц", 12, THEME["ink"], "middle")
+            with c.item("be-%s" % k, "%s сценарий: безубыточность с %d-го месяца" % (SCEN_RU[k], be[k]), "point",
+                        {"title": "Безубыточность — %s сценарий" % SCEN_RU[k].lower(), "gloss": gl("terms", "payback"), "section": 8,
+                         "meaning": "В %d-м месяце накопленная выручка (%s) догоняет накопленные затраты (%s)." % (
+                             be[k], money(mo[i]["cum_margin"], M), money(mo[i]["cum_cost"], M)),
+                         "metrics": [{"label": "Месяц безубыточности", "value": str(be[k]), "tag": "допущение"}]},
+                        groups=["g-scen-%s" % k]):
+                c.circle(sx(i), sy(mo[i]["cum_margin"]), 5, col, "#FFFFFF", sw=1.5)
+    with c.item("axis-x", "Ось: месяц горизонта модели", "axis", {"gloss": gl("charts", "payback", "elements", "axis-x")}):
+        c.text((x0 + x1) / 2, y1 + 34, "Месяц", 12, THEME["ink"], "middle")
     legend_row(c, [("%s%s" % (SCEN_RU[k], ": безубыточность с мес. %d" % be[k] if be[k] else ": не окупается"), scol(k), None)
-                   for k in names], x0, y1 + 58, x1 - x0, 12)
+                   for k in names], x0, y1 + 58, x1 - x0, 12,
+               els=[{"id": "legend-scen-%s" % k, "label": "Легенда: %s сценарий, %s" % (SCEN_RU[k].lower(), ("безубыточность с мес. %d" % be[k]) if be[k] else "не окупается"),
+                     "info": {"gloss": gl("scenarios", k)}, "highlight": "g-scen-%s" % k} for k in names])
     return c.finish(ph), title, cap
 
 
@@ -1012,9 +1451,31 @@ def ch_keywords(K):
         len(top), plural(len(top), ("запрос", "запроса", "запросов")), nonull)
     srcs = sorted({str(k.get("volume_source")) for k in top if k.get("volume_source")})
     items = [("%s (%s)" % (k.get("query", ""), k.get("lang", "")) if k.get("lang") else k.get("query", ""), k["volume"]) for k in top]
+    cidx = {cl: i + 1 for i, cl in enumerate(clusters)}
+    els = []
+    for i, k in enumerate(top, 1):
+        cl = k.get("cluster") or "без кластера"
+        comp = k.get("competition")
+        mets = [{"label": "Объём в месяц", "value": fmt(k["volume"]), "tag": "факт: %s" % k["volume_source"] if k.get("volume_source") else "оценка"}]
+        if isinstance(comp, (int, float)) and not isinstance(comp, bool):
+            mets.append({"label": "Конкуренция (1–5)", "value": fmt(comp, 1), "tag": "оценка"})
+        els.append({"id": "kw-%02d" % i, "label": "Запрос «%s»: %s в месяц, кластер «%s»" % (k.get("query", ""), fmt(k["volume"]), cl),
+                    "info": {"title": "Запрос «%s»" % k.get("query", ""), "gloss": gl("terms", "keyword_competition") if isinstance(comp, (int, float)) else None,
+                             "section": [4, 6], "metrics": mets,
+                             "summary": "Поисковый запрос «%s»%s: %s показов в месяц." % (k.get("query", ""), (" (%s)" % k["lang"]) if k.get("lang") else "", fmt(k["volume"])),
+                             "meaning": "%d-й по объёму; кластер «%s» (%s в месяц суммарно)%s%s." % (
+                                 i, cl, fmt(tv[cl]), ("; намерение: %s" % k["intent"]) if k.get("intent") else "",
+                                 ("; конкуренция %s из 5" % fmt(comp, 1)) if isinstance(comp, (int, float)) and not isinstance(comp, bool) else "")},
+                    "groups": ["g-cl-%d" % cidx[cl]]})
+    lels = [{"id": "cluster-%d" % cidx[cl], "label": "Легенда: кластер «%s», %s в месяц" % (cl, fmt(tv[cl])),
+             "info": {"title": "Кластер «%s»" % cl, "section": [4, 6], "summary": "Кластер запросов «%s»: %d %s в топе графика, суммарно %s в месяц по всем запросам с объёмом." % (
+                 cl, sum(1 for k in top if (k.get("cluster") or "без кластера") == cl),
+                 plural(sum(1 for k in top if (k.get("cluster") or "без кластера") == cl), ("запрос", "запроса", "запросов")), fmt(tv[cl])),
+                 "meaning": "Самый крупный кластер прогона." if cl == lead else "Доля кластера в суммарном объёме — %d %%." % round(100 * tv[cl] / max(1, sum(tv.values())))},
+             "highlight": "g-cl-%d" % cidx[cl]} for cl in clusters]
     svg = hbar_chart(title, cap, "Источник: data/keywords.json; объёмы: %s" % (", ".join(srcs) or "не указан"), items, W=960,
                      colors=[ccol[k.get("cluster") or "без кластера"] for k in top],
-                     legend=[(cl, ccol[cl], None) for cl in clusters])
+                     legend=[(cl, ccol[cl], None) for cl in clusters], els=els, legend_els=lels)
     return svg, title, cap
 
 
@@ -1060,19 +1521,44 @@ def ch_events(E):
         idx = (d.year - m0.year) * 12 + d.month - m0.month
         return x0 + (idx + (d.day - 1) / 31.0) * mw
 
-    for e, tl, rh in rows:
-        c.lines(PAD, y + (rh - len(tl) * 15) / 2 + 12, tl, 12, THEME["ink"])
-        col = kcol[e.get("kind") or "событие"]
+    kidx = {k: i + 1 for i, k in enumerate(kinds)}
+    for n_, (e, tl, rh) in enumerate(rows, 1):
+        kind = e.get("kind") or "событие"
+        col = kcol[kind]
         ds, de = parse_date(e["date"]), parse_date(e.get("date_end"))
         cy = y + rh / 2
-        if de and de > ds:
-            c.rect(xpos(ds), cy - 5, max(4, xpos(de) - xpos(ds)), 10, col, rx=3)
-        elif e.get("verified", True):
-            c.circle(xpos(ds), cy, 6, col, "#FFFFFF")
-        else:
-            c.circle(xpos(ds), cy, 6, "#FFFFFF", col, sw=2)
+        when = ds.strftime("%d.%m.%Y") + ((" – " + de.strftime("%d.%m.%Y")) if de and de > ds else "")
+        ver = e.get("verified", True)
+        days = (ds - date.today()).days
+        acts = ["Подготовьте к этой дате запуск, пост или заявку на участие заранее (за 4–6 недель)." if days > 0 else
+                "На дату сборки событие уже прошло: используйте его итоги (записи, обсуждения) как повод для контента."]
+        if not ver:
+            acts.append("Проверьте дату по официальному источнику, прежде чем планировать под неё.")
+        mets = [{"label": "Дата", "value": when, "tag": "факт" if ver else "не подтверждено"}]
+        if e.get("relevance"):
+            mets.append({"label": "Значимость", "value": str(e["relevance"]), "tag": "оценка"})
+        with c.item("ev-%02d" % n_, "Событие «%s», %s, %s%s" % (e.get("title", ""), kind, when, "" if ver else ", дата не подтверждена"), "event",
+                    {"title": "%s — %s" % (e.get("title", ""), when), "section": 4, "actions": acts, "metrics": mets,
+                     "summary": "Внешнее событие «%s» (%s), %s." % (e.get("title", ""), kind, when),
+                     "meaning": "%s%s%s" % ("Дата подтверждена источником." if ver else "Дата не подтверждена официальным источником.",
+                                            (" Значимость для продукта: %s." % e["relevance"]) if e.get("relevance") else "",
+                                            (" Источник: %s." % e["source"]) if e.get("source") else "")},
+                    groups=["g-kind-%d" % kidx[kind]]):
+            c.lines(PAD, y + (rh - len(tl) * 15) / 2 + 12, tl, 12, THEME["ink"])
+            if de and de > ds:
+                c.rect(xpos(ds), cy - 5, max(4, xpos(de) - xpos(ds)), 10, col, rx=3)
+            elif ver:
+                c.circle(xpos(ds), cy, 6, col, "#FFFFFF")
+            else:
+                c.circle(xpos(ds), cy, 6, "#FFFFFF", col, sw=2)
         y += rh
-    h = legend_row(c, [(k, kcol[k], None) for k in kinds], x0, y + 26, x1 - x0, 12)
+    lels = [{"id": "kind-%d" % kidx[k], "label": "Легенда: вид события «%s»" % k,
+             "info": {"title": "Вид события «%s»" % k, "section": 4, "summary": "Вид внешних событий «%s»: %d %s на календаре." % (
+                 k, sum(1 for e in ev if (e.get("kind") or "событие") == k), plural(sum(1 for e in ev if (e.get("kind") or "событие") == k), ("событие", "события", "событий"))),
+                 "meaning": "Ближайшее: %s." % next(("«%s», %s" % (e.get("title", ""), parse_date(e["date"]).strftime("%d.%m.%Y"))
+                                                     for e in ev if (e.get("kind") or "событие") == k), "—")},
+             "highlight": "g-kind-%d" % kidx[k]} for k in kinds]
+    h = legend_row(c, [(k, kcol[k], None) for k in kinds], x0, y + 26, x1 - x0, 12, els=lels)
     return c.finish(body + 30 + h), title, cap
 
 
@@ -1102,30 +1588,91 @@ def ch_competitors(C):
     cap = ("Пробелы нашего продукта, которые есть у большинства конкурентов: %s." % ", ".join(lab[g] for g in gaps)) if gaps else (
         "У нашего продукта нет функций, которые были бы у большинства конкурентов и отсутствовали у нас." if me else "Строка нашего продукта (self) не задана.")
     c = Chart(W, title, cap, "Источник: data/competitors.json; ✓ — функция есть, пусто — нет или не найдено")
+    others = [x for x in rows if not x.get("self")]
+    planned = bool(me and (me.get("planned") or CONCEPT[0]))
+    mine = "в нашей идее" if planned else "у нас"
+    fid = {f: sid(f, "f%d" % i) for i, f in enumerate(feats)}
+
+    def feat_info(f):
+        have = [x for x in others if x["features"].get(f)]
+        ours = bool(me and me["features"].get(f))
+        if me and not ours and share[f] >= 0.5:
+            verdict = "Пробел: функция есть у большинства конкурентов, но не %s." % mine
+            acts = ["Решите, нужна ли функция для базовых ожиданий аудитории; если да — найдите или добавьте предложение в реестр."]
+        elif me and ours and share[f] < 0.5:
+            verdict = "Отличие: функция есть %s и у меньшинства конкурентов — опора для позиционирования." % mine
+            acts = ["Используйте функцию в сообщениях и на посадочной (раздел 5)."]
+        else:
+            verdict = "Функция %s %s; у конкурентов — %d из %d." % ("есть" if ours else "отсутствует", mine, len(have), len(others)) if me else \
+                "Функция есть у %d из %d продуктов." % (len(have), len(others))
+            acts = []
+        return have, ours, verdict, acts
     if vertical:
         hh = max(text_w(lab[f], 11, True) for f in feats) + 14
-        for j, f in enumerate(feats):
-            hx, hy = PAD + label_w + j * cw + cw / 2 + 4, c.top + hh - 6
-            c.add('<text x="%.1f" y="%.1f" font-size="11" font-weight="600" fill="%s" text-anchor="start" '
-                  'transform="rotate(-90 %.1f %.1f)">%s</text>' % (hx, hy, THEME["ink"], hx, hy, esc(lab[f])))
     else:
         hdr = [wrap(lab[f], cw - 6, 11, True) for f in feats]
         hh = max(len(h) for h in hdr) * 14 + 8
-        for j, h in enumerate(hdr):
-            c.lines(PAD + label_w + j * cw + cw / 2, c.top + 12, h, 11, THEME["ink"], "middle", True, 1.2)
+    for j, f in enumerate(feats):
+        have, ours, verdict, acts = feat_info(f)
+        with c.item("feature-%s" % fid[f], "Функция «%s»: у %d из %d конкурентов%s" % (lab[f], len(have), len(others), (", " + mine + (" есть" if ours else " нет")) if me else ""),
+                    "column", {"title": "Функция «%s»" % lab[f], "section": [3, 5], "actions": acts,
+                               "summary": "Функция «%s»: есть у %s." % (lab[f], ", ".join(str(x.get("name") or x.get("slug")) for x in have[:6]) or "ни у кого из конкурентов"),
+                               "meaning": verdict,
+                               "metrics": [{"label": "Доля конкурентов с функцией", "value": "%d %%" % round(100 * share[f]), "tag": "факт"}],
+                               "links": [{"label": "Конкурент: %s" % (x.get("name") or x.get("slug")), "href": "#competitor/%s" % x["slug"]} for x in have[:3] if x.get("slug")]},
+                    highlight="g-feat-%s" % fid[f]):
+            if vertical:
+                hx, hy = PAD + label_w + j * cw + cw / 2 + 4, c.top + hh - 6
+                c.add('<text x="%.1f" y="%.1f" font-size="11" font-weight="600" fill="%s" text-anchor="start" '
+                      'transform="rotate(-90 %.1f %.1f)">%s</text>' % (hx, hy, THEME["ink"], hx, hy, esc(lab[f])))
+            else:
+                c.lines(PAD + label_w + j * cw + cw / 2, c.top + 12, hdr[j], 11, THEME["ink"], "middle", True, 1.2)
     y = c.top + hh
     for x in rows:
         tl = wrap(("★ " if x.get("self") else "") + str(x.get("name") or x.get("slug")), label_w - 10, 12)
         rh = max(26, len(tl) * 15 + 8)
+        name = str(x.get("name") or x.get("slug"))
+        slug = str(x.get("slug") or name)
         if x.get("self"):
             c.rect(PAD - 6, y, W - 2 * PAD + 12, rh, mix(PAL[1], "#FFFFFF", 0.85))
-        c.lines(PAD, y + (rh - len(tl) * 15) / 2 + 12, tl, 12, THEME["ink"], bold=bool(x.get("self")))
+        nf = sum(1 for f in feats if x["features"].get(f))
+        acts = ["Перенять: " + a for a in (x.get("adopt") or [])[:2] if isinstance(a, str)] + \
+               ["Не повторять: " + a for a in (x.get("avoid") or [])[:2] if isinstance(a, str)]
+        mean = []
+        if x.get("better_than_us"):
+            mean.append("Сильнее нас: " + ", ".join(map(str, x["better_than_us"][:4])))
+        if x.get("we_better"):
+            mean.append("Мы сильнее: " + ", ".join(map(str, x["we_better"][:4])))
+        if x.get("complaints"):
+            mean.append("Жалобы пользователей: " + ", ".join(map(str, x["complaints"][:3])))
+        if x.get("why_it_worked_or_failed"):
+            mean.append("Почему сработало или нет: " + str(x["why_it_worked_or_failed"]))
+        mets = [{"label": "Функций из матрицы", "value": "%d из %d" % (nf, len(feats)), "tag": "факт"}]
+        for k_, l_ in (("price", "Цена"), ("type", "Тип"), ("kind", "Вид"), ("audience", "Аудитория")):
+            if x.get(k_) and not (k_ == "kind" and x.get("self")):
+                mets.append({"label": l_, "value": str(x[k_]), "tag": "допущение" if planned and x.get("self") else "факт"})
+        lk = [{"label": "Карточка конкурента: %s" % name, "href": "#competitor/%s" % x["slug"]}] if not x.get("self") and x.get("slug") else []
+        summ = str(x.get("verdict_long") or x.get("verdict") or "")
+        if x.get("self") and planned:
+            summ = (summ + " " if summ else "") + "Продукта ещё нет: отмеченные функции — замысел MVP, а не существующие."
+        with c.item("competitor-%s" % sid(slug), "%s%s: %d из %d функций" % ("★ наш продукт " if x.get("self") else "", name, nf, len(feats)), "row",
+                    {"title": ("★ " if x.get("self") else "") + name, "section": [3] if not x.get("self") else [3, 5], "actions": acts, "metrics": mets, "links": lk,
+                     "summary": summ or ("Наш продукт в матрице функций." if x.get("self") else "Конкурент «%s»." % name),
+                     "meaning": ". ".join(mean)}, highlight="g-co-%s" % sid(slug)):
+            c.lines(PAD, y + (rh - len(tl) * 15) / 2 + 12, tl, 12, THEME["ink"], bold=bool(x.get("self")))
         for j, f in enumerate(feats):
             has = bool(x["features"].get(f))
             cx = PAD + label_w + j * cw
-            c.rect(cx + 2, y + 2, cw - 4, rh - 4, PAL[0] if has else THEME["panel"], rx=3)
-            if has:
-                c.text(cx + cw / 2, y + rh / 2 + 5, "✓", 14, "#FFFFFF", "middle", True)
+            have, ours, verdict, _ = feat_info(f)
+            with c.item("cell-%s-%s" % (sid(slug), fid[f]), "%s — %s: %s" % (name, lab[f], "есть" if has else "нет"), "cell",
+                        {"title": "%s — %s" % (name, lab[f]), "section": 3, "links": lk,
+                         "summary": "«%s»: функция «%s» — %s." % (name, lab[f], ("запланирована" if has else "не запланирована") if x.get("self") and planned
+                                                                  else ("есть" if has else "нет или не найдена")),
+                         "meaning": verdict},
+                        groups=["g-feat-%s" % fid[f], "g-co-%s" % sid(slug)]):
+                c.rect(cx + 2, y + 2, cw - 4, rh - 4, PAL[0] if has else THEME["panel"], rx=3)
+                if has:
+                    c.text(cx + cw / 2, y + rh / 2 + 5, "✓", 14, "#FFFFFF", "middle", True)
         y += rh
     return c.finish(y - c.top + 4), title, cap
 
@@ -1164,17 +1711,22 @@ def feature_labels(C):
     return labels
 
 
-def arrow(c, x1, y1, x2, y2, color, sw=1.4, dash=None):
-    """Кривая Безье слева направо с треугольником-наконечником (без marker/url — правило «без внешних ссылок»)."""
+def arrow(c, x1, y1, x2, y2, color, sw=1.4, dash=None, hit=False):
+    """Кривая Безье слева направо с треугольником-наконечником (без marker/url — правило «без внешних ссылок»).
+    hit=True — невидимая широкая обводка для попадания мышью (элемент-стрелка)."""
     mx = (x1 + x2) / 2
     d = ' stroke-dasharray="%s"' % dash if dash else ""
+    if hit:
+        c.add('<path d="M %.1f %.1f C %.1f %.1f, %.1f %.1f, %.1f %.1f" fill="none" stroke="#000000" stroke-opacity="0" stroke-width="12"/>'
+              % (x1, y1, mx, y1, mx, y2, x2 - 6, y2))
     c.add('<path d="M %.1f %.1f C %.1f %.1f, %.1f %.1f, %.1f %.1f" fill="none" stroke="%s" stroke-width="%s"%s/>'
           % (x1, y1, mx, y1, mx, y2, x2 - 6, y2, color, sw, d))
     c.poly([(x2, y2), (x2 - 8, y2 - 4.5), (x2 - 8, y2 + 4.5)], color)
 
 
 # ---------------------------------------------------------------- зависимости
-def ch_critical_path(CP, S):
+def ch_critical_path(CP, S, P=None):
+    props_ids = {p.get("id") for p in P or [] if isinstance(p, dict)}
     edges = [e for e in (CP or {}).get("edges") or [] if isinstance(e, list) and len(e) == 2]
     if not edges:
         return None
@@ -1226,28 +1778,51 @@ def ch_critical_path(CP, S):
         colh[col] = y - c.top
     body = max(colh.values())
     hot = THEME["bad"]
-    for a, b in edges:
-        if a in boxes and b in boxes and (a, b) not in path_edges:
-            xa, ya, ha, _ = boxes[a]
-            xb, yb, hb, _ = boxes[b]
-            arrow(c, xa + bw, ya + ha / 2, xb, yb + hb / 2, THEME["axis"], 1.2)
-    for a, b in path_edges:
+
+    def edge(a, b, color, sw, crit):
         xa, ya, ha, _ = boxes[a]
         xb, yb, hb, _ = boxes[b]
-        arrow(c, xa + bw, ya + ha / 2, xb, yb + hb / 2, hot, 2.6)
+        lab = "Зависимость: %s нужно сделать до %s%s" % (a, b, " (критический путь)" if crit else "")
+        with c.item("edge-%s-%s" % (a, b), lab, "link",
+                    {"title": "%s → %s" % (a, b), "gloss": gl("terms", "critical_path" if crit else "dependency"), "plinks": [a, b],
+                     "summary": "%s «%s» нужно сделать до %s «%s»." % (a, title_of(a), b, title_of(b)),
+                     "meaning": ("Звено критического пути: задержка %s сдвигает всю цепочку." % a) if crit else
+                     "Обычная зависимость вне критического пути: её можно планировать с запасом."},
+                    groups=["g-path"] if crit else ["g-dep"]):
+            arrow(c, xa + bw, ya + ha / 2, xb, yb + hb / 2, color, sw, hit=True)
+    for a, b in edges:
+        if a in boxes and b in boxes and (a, b) not in path_edges:
+            edge(a, b, THEME["axis"], 1.2, False)
+    for a, b in sorted(path_edges):     # порядок отрисовки детерминирован (set зависит от PYTHONHASHSEED)
+        edge(a, b, hot, 2.6, True)
     for v, (x, y, h, tl) in boxes.items():
         in_top = meta.get(v, {}).get("in_top", True)
         fill = mix(hot, "#FFFFFF", 0.88) if v in on else THEME["bg"]
         stroke = hot if v in on else (PAL[0] if in_top else THEME["axis"])
         dash = "" if in_top else ' stroke-dasharray="5 4"'
-        c.add('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="6" fill="%s" stroke="%s" stroke-width="%s"%s/>'
-              % (x, y, bw, h, fill, stroke, 2 if v in on else 1.2, dash))
         dr = meta.get(v, {}).get("dep_rank") or srow.get(v, {}).get("dep_rank")
-        c.text(x + 8, y + 16, "%s · ранг %s%s" % (v, rank(v) or "—", " · порядок %s" % dr if dr else ""), 11,
-               hot if v in on else THEME["ink"], bold=True)
-        c.lines(x + 8, y + 32, tl, 11, THEME["ink"], lh=1.23)
+        before = [a for a, b in edges if b == v]
+        after = [b for a, b in edges if a == v]
+        role = ("шаг %d из %d критического пути" % (order.index(v) + 1, steps)) if v in on else ("в топ-%d" % top_n if in_top else "предпосылка вне топа")
+        mean = "%s; ранг %s%s." % (role.capitalize(), rank(v) or "—", (", порядок работ (dep_rank) %s" % dr) if dr else "")
+        if before:
+            mean += " Сначала нужно: %s." % ", ".join(before)
+        if after:
+            mean += " Открывает: %s." % ", ".join(after)
+        with c.item(v, "%s — %s: %s" % (v, title_of(v), role), "node",
+                    {"pid": v, "gloss": gl("terms", "critical_path") if v in on else None, "meaning": mean,
+                     "summary": "" if v in props_ids else "Предложение %s «%s» (нет в data/proposals.json)." % (v, title_of(v))},
+                    groups=["g-path"] if v in on else (["g-top"] if in_top else ["g-out"])):
+            c.add('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="6" fill="%s" stroke="%s" stroke-width="%s"%s/>'
+                  % (x, y, bw, h, fill, stroke, 2 if v in on else 1.2, dash))
+            c.text(x + 8, y + 16, "%s · ранг %s%s" % (v, rank(v) or "—", " · порядок %s" % dr if dr else ""), 11,
+                   hot if v in on else THEME["ink"], bold=True)
+            c.lines(x + 8, y + 32, tl, 11, THEME["ink"], lh=1.23)
+    lel = lambda i, k, lab: {"id": "legend-%s" % k, "label": "Легенда: " + lab, "info": {"gloss": gl("charts", "critical-path", "elements", "legend-%s" % k)},
+                             "highlight": "g-%s" % k}
     h = legend_row(c, [("критический путь", hot, None), ("в топ-%d" % top_n, PAL[0], None), ("вне топа (пунктир)", THEME["axis"], None)],
-                   PAD, c.top + body + 22, W - 2 * PAD, 12)
+                   PAD, c.top + body + 22, W - 2 * PAD, 12,
+                   els=[lel(0, "path", "критический путь"), lel(1, "top", "в топ-%d" % top_n), lel(2, "out", "вне топа (пунктир)")])
     return c.finish(body + 22 + h), title, cap
 
 
@@ -1305,23 +1880,42 @@ def ch_channel_mix(P, S):
     x0, x1 = PAD + label_w, W - PAD - 150
     y = c.top + 4
     c_n, c_c = PAL[0], PAL[1 % len(PAL)]
+    rk = {r["id"]: r.get("rank", 10 ** 6) for r in S or []}
     for k in keys:
         tl = wrap(names[k], label_w - 12, 12)
         rh = max(44, len(tl) * 15 + 14)
-        c.lines(PAD, y + (rh - len(tl) * 15) / 2 + 12, tl, 12, THEME["ink"])
         sn = cnt[k] / tot_n
         wn = sn * (x1 - x0)
-        c.rect(x0, y + 6, wn, 13, c_n, rx=2)
-        c.text(x0 + wn + 6, y + 17, "%d %% · %d %s" % (round(sn * 100), cnt[k], plural(cnt[k], ("предложение", "предложения", "предложений"))), 11, THEME["ink"])
+        sc = csum[k] / tot_c if has_c else None
+        best = sorted(ids[k], key=lambda i: (rk.get(i, 10 ** 6), str(i)))[:3]
+        mets = [{"label": "Предложений", "value": str(cnt[k]), "tag": "факт"}, {"label": "Доля по числу", "value": "%d %%" % round(sn * 100), "tag": "расчёт"}]
         if has_c:
-            sc = csum[k] / tot_c
-            wc = sc * (x1 - x0)
-            c.rect(x0, y + 22, wc, 13, c_c, rx=2)
-            c.text(x0 + wc + 6, y + 33, "%d %% composite" % round(sc * 100), 11, THEME["ink"])
+            mets.append({"label": "Доля по composite", "value": "%d %%" % round(sc * 100), "tag": "расчёт"})
+        with c.item("ch-%s" % k, "Канал «%s»: %d %% предложений%s" % (names[k], round(sn * 100), (", %d %% composite" % round(sc * 100)) if has_c else ""), "bar",
+                    {"gloss": gl("channels", k), "related": best, "registry": {"category": "acquisition"}, "metrics": mets, "section": 6,
+                     "meaning": "%d %s привлечения%s%s." % (cnt[k], plural(cnt[k], ("предложение", "предложения", "предложений")),
+                                                       (" дают %d %% суммарного composite" % round(sc * 100)) if has_c else "",
+                                                       ("; это сильнее среднего — предложения канала оценены выше" if has_c and sc > sn + 0.05 else
+                                                        ("; слабее среднего — предложения канала оценены ниже" if has_c and sc < sn - 0.05 else "")))}):
+            c.lines(PAD, y + (rh - len(tl) * 15) / 2 + 12, tl, 12, THEME["ink"])
+            c.add('<g data-ps-group="g-count">')
+            c.rect(x0, y + 6, wn, 13, c_n, rx=2)
+            c.add("</g>")
+            c.text(x0 + wn + 6, y + 17, "%d %% · %d %s" % (round(sn * 100), cnt[k], plural(cnt[k], ("предложение", "предложения", "предложений"))), 11, THEME["ink"])
+            if has_c:
+                wc = sc * (x1 - x0)
+                c.add('<g data-ps-group="g-composite">')
+                c.rect(x0, y + 22, wc, 13, c_c, rx=2)
+                c.add("</g>")
+                c.text(x0 + wc + 6, y + 33, "%d %% composite" % round(sc * 100), 11, THEME["ink"])
         y += rh
     c.line(x0, c.top, x0, y, THEME["axis"])
+    lels = [{"id": "legend-count", "label": "Легенда: доля по числу предложений", "info": {"gloss": gl("charts", "channel-mix", "elements", "legend-count")},
+             "highlight": "g-count"},
+            {"id": "legend-composite", "label": "Легенда: доля по сумме composite", "info": {"gloss": gl("charts", "channel-mix", "elements", "legend-composite")},
+             "highlight": "g-composite"}]
     h = legend_row(c, [("доля по числу предложений", c_n, None)] + ([("доля по сумме composite", c_c, None)] if has_c else []),
-                   x0, y + 24, x1 - x0, 12)
+                   x0, y + 24, x1 - x0, 12, els=lels)
     return c.finish(y - c.top + 24 + h), title, cap
 
 
@@ -1419,21 +2013,51 @@ def ch_kpi_tree(P, S, cfg, ns):
     nh = len(ns_l) * 17 + 34
     ny = c.top + max(0, (body - nh) / 2)
     hot = PAL[0]
+    fam_sec = {"acquisition": 6, "activation": 7, "retention": 9, "engagement": 10, "revenue": 8, "referral": 6, "quality": 11}
+    flab = dict(show)
+    kpis_of = {p["id"]: [str(kp.get("kpi") if isinstance(kp, dict) else kp) for kp in p.get("effect_kpi") or []] for p in props}
     for k, lab_l, lines, by, bh in blocks:
         cy = by + bh / 2
-        arrow(c, col1 + 220, ny + nh / 2, col2, cy, THEME["axis"], 1.3)
+        ids = sorted(members[k], key=lambda i: (rank.get(i, 10 ** 6), i))
+        with c.item("edge-north-star-%s" % k, "Связь: «%s» двигает North Star" % flab[k], "link",
+                    {"title": "«%s» → North Star" % flab[k], "gloss": gl("terms", "north_star"), "section": 12,
+                     "summary": "Входная метрика «%s» — одна из величин, которые двигают North Star «%s»." % (flab[k], ns_name),
+                     "meaning": "На неё влияет %d %s реестра." % (len(ids), plural(len(ids), ("предложение", "предложения", "предложений")))},
+                    groups=["g-fam-%s" % k]):
+            arrow(c, col1 + 220, ny + nh / 2, col2, cy, THEME["axis"], 1.3, hit=True)
         ly = by
         for i, tl in lines:
             h = len(tl) * 13.5 + 8
-            arrow(c, col2 + 270, cy, col3, ly + h / 2, THEME["grid"], 1.1)
-            c.lines(col3 + 6, ly + 14, tl, 11, THEME["ink"], lh=1.23)
+            hits = [x for x in kpis_of.get(i, []) if x]
+            with c.item("leaf-%s-%s" % (k, i), "%s — %s: влияет на «%s»" % (i, title_of.get(i, ""), flab[k]), "node",
+                        {"pid": i, "deep": [("kpi-tree", "kpi-%s" % k, "Метрика «%s» в дереве" % flab[k])],
+                         "meaning": "Ранг %s; влияет на входную метрику «%s»%s." % (
+                             rank.get(i) if rank.get(i, 10 ** 6) < 10 ** 6 else "—", flab[k], (" через effect_kpi: " + "; ".join(hits[:3])) if hits else " (по категории предложения)")},
+                        groups=["g-fam-%s" % k]):
+                arrow(c, col2 + 270, cy, col3, ly + h / 2, THEME["grid"], 1.1)
+                c.lines(col3 + 6, ly + 14, tl, 11, THEME["ink"], lh=1.23)
             ly += h
         lh = len(lab_l) * 15 + 16
-        c.rect(col2, cy - lh / 2, 270, lh, mix(hot, "#FFFFFF", 0.88), hot, rx=6)
-        c.lines(col2 + 8, cy - lh / 2 + 19, lab_l, 12, THEME["ink"], bold=True)
-    c.rect(col1, ny, 220, nh, hot, rx=8)
-    c.text(col1 + 10, ny + 18, "North Star", 11, "#FFFFFF")
-    c.lines(col1 + 10, ny + 36, ns_l, 13, "#FFFFFF", bold=True, lh=1.3)
+        g_ = gl("kpi_families", k) + gl("kpi_families", "custom")
+        with c.item("kpi-%s" % k, "Входная метрика «%s»: %d %s" % (flab[k], len(ids), plural(len(ids), ("предложение", "предложения", "предложений"))), "node",
+                    {"title": flab[k], "gloss": g_, "related": ids[:3], "section": [12, fam_sec.get(k)] if fam_sec.get(k) else 12,
+                     "summary": "" if not custom else "Входная метрика «%s» из data/north-star.json (inputs)." % flab[k],
+                     "meaning": "На метрику влияет %d %s реестра; лучшие по рангу: %s." % (
+                         len(ids), plural(len(ids), ("предложение", "предложения", "предложений")), ", ".join(ids[:3])),
+                     "metrics": [{"label": "Предложений влияет", "value": str(len(ids)), "tag": "расчёт"}]},
+                    highlight="g-fam-%s" % k):
+            c.rect(col2, cy - lh / 2, 270, lh, mix(hot, "#FFFFFF", 0.88), hot, rx=6)
+            c.lines(col2 + 8, cy - lh / 2 + 19, lab_l, 12, THEME["ink"], bold=True)
+    with c.item("kpi-north-star", "North Star: %s" % ns_name, "node",
+                {"title": "North Star: %s" % ns_name, "gloss": gl("terms", "north_star"), "section": 12,
+                 "summary": ("North Star продукта — «%s»: главная метрика ценности для пользователя." % ns_name) if ns_set else "",
+                 "meaning": ("" if ns_set else "North Star не задана: дерево построено вокруг условной «целевой метрики». ") +
+                 "Её двигают %d %s: %s." % (len(show), plural(len(show), ("входная метрика", "входные метрики", "входных метрик")),
+                                             ", ".join("«%s»" % l for _, l in show)),
+                 "actions": [] if ns_set else ["Задайте North Star в data/north-star.json (ключ metric) и перестройте графики."]}):
+        c.rect(col1, ny, 220, nh, hot, rx=8)
+        c.text(col1 + 10, ny + 18, "North Star", 11, "#FFFFFF")
+        c.lines(col1 + 10, ny + 36, ns_l, 13, "#FFFFFF", bold=True, lh=1.3)
     return c.finish(body), title, cap
 
 
@@ -1468,6 +2092,31 @@ def ch_keywords_clusters(K):
 
     items = [(s[0], s[1]) for s in stats]
 
+    def clev(v):
+        return "none" if v is None else ("low" if v < 2.5 else ("mid" if v < 3.5 else "high"))
+    els = []
+    for i, st in enumerate(stats, 1):
+        name, n_q, comp, vol, nv = st
+        qs = [k.get("query", "") for k in cl[name]][:5]
+        mets = [{"label": "Запросов", "value": str(n_q), "tag": "факт"}]
+        if comp is not None:
+            mets.append({"label": "Средняя конкуренция (1–5)", "value": fmt(comp, 1), "tag": "оценка"})
+        if vol:
+            mets.append({"label": "Объём в месяц (известный)", "value": fmt(vol), "tag": "факт"})
+        els.append({"id": "cluster-%d" % i, "label": "Кластер «%s»: %d %s, конкуренция %s" % (
+            name, n_q, plural(n_q, ("запрос", "запроса", "запросов")), (fmt(comp, 1) + " из 5") if comp is not None else "не оценена"),
+                    "info": {"title": "Кластер «%s»" % name, "gloss": gl("terms", "keyword_competition"), "section": [4, 6], "metrics": mets,
+                             "summary": "Кластер поисковых запросов «%s»: %s%s." % (name, ", ".join("«%s»" % q for q in qs), " и др." if n_q > len(qs) else ""),
+                             "meaning": "%d %s, средняя конкуренция %s; объём известен для %d из них.%s" % (
+                                 n_q, plural(n_q, ("запрос", "запроса", "запросов")), (fmt(comp, 1) + " из 5") if comp is not None else "не оценена", nv,
+                                 " Наименьшая конкуренция среди кластеров — хорошая точка входа." if easy and easy[0] == name else "")},
+                    "groups": ["g-comp-%s" % clev(comp)]})
+    lels = [{"id": "legend-comp-%s" % lv, "label": "Легенда: %s" % lab,
+             "info": {"gloss": gl("charts", "keywords-clusters", "elements", "legend-comp-%s" % lv),
+                      "meaning": "Таких кластеров: %d." % sum(1 for st in stats if clev(st[2]) == lv)},
+             "highlight": "g-comp-%s" % lv}
+            for lv, lab in (("low", "конкуренция < 2,5"), ("mid", "конкуренция 2,5–3,5"), ("high", "конкуренция ≥ 3,5"), ("none", "нет оценки конкуренции"))]
+
     def value_fmt_factory():
         it = iter(stats)
 
@@ -1482,7 +2131,7 @@ def ch_keywords_clusters(K):
     svg = hbar_chart(title, cap, "Источник: data/keywords.json (cluster, competition%s)" % (", volume" if nvol else ""), items, W=1040,
                      colors=[ccol(s[2]) for s in stats], value_fmt=value_fmt_factory(), right_pad=270 if nvol else 200, int_ticks=True,
                      legend=[("конкуренция < 2,5", THEME["good"], None), ("2,5–3,5", PAL[1 % len(PAL)], None), ("≥ 3,5", THEME["bad"], None),
-                             ("нет оценки", THEME["neutral"], None)])
+                             ("нет оценки", THEME["neutral"], None)], els=els, legend_els=lels)
     return svg, title, cap
 
 
@@ -1515,15 +2164,21 @@ def ch_cac_ltv_solo(M):
     cap = ("CAC неприменим — платного привлечения нет, цена роста — время разработчика (доля ёмкости на привлечение — допущение). "
            "Справа — валовая выручка на час разработчика против его ставки%s." % ("; " + note if note else ""))
     c = Chart(W, title, cap, "Источник: data/model.json (solo, %s) [допущение]" % M.get("currency", ""))
+    REG.variant = "cac-ltv-solo"
     ph = 320
     pw = (W - 2 * PAD - 60) / 2
     panels = [("hours_per_activated", "Часов на активированного", lambda v: fmt(v, 1) + " ч", None),
               ("revenue_per_hour", "Выручка на час разработчика", lambda v: money(v, M, 0) + "/ч", rate)]
+    short = {"hours_per_activated": "hpa", "revenue_per_hour": "rph"}
     for pi, (key, lab, vf, ref) in enumerate(panels):
         x0 = PAD + 50 + pi * (pw + 60)
         x1 = x0 + pw - 40
         y0, y1 = c.top + 30, c.top + ph - 60
-        c.text(x0, c.top + 14, lab, 13, THEME["ink"], bold=True)
+        bv = base.get(key)
+        with c.item("panel-%s" % short[key], "Панель «%s»: базовый сценарий %s" % (lab, vf(bv) if bv is not None else "—"), "legend",
+                    {"gloss": gl("charts", "cac-ltv-solo", "elements", "panel-%s" % short[key]),
+                     "meaning": "Базовый сценарий: %s." % (vf(bv) if bv is not None else "нет значения")}, highlight="g-%s" % short[key]):
+            c.text(x0, c.top + 14, lab, 13, THEME["ink"], bold=True)
         vals = [max(0.0, sc[k].get(key) or 0.0) for k in names]
         vmax = max(vals + ([ref] if ref else []) + [1e-9])
         ticks, _ = nice_ticks(0, vmax, 4)
@@ -1538,12 +2193,34 @@ def ch_cac_ltv_solo(M):
             gx = x0 + i * gw + gw / 2
             v = sc[k].get(key)
             vv = max(0.0, v or 0.0)
-            c.rect(gx - bw / 2, sy(vv), bw, y1 - sy(vv), scol(k), rx=2)
-            c.text(gx, sy(vv) - 6, vf(v) if v is not None else "—", 11, THEME["ink"], "middle", True)
-            c.text(gx, y1 + 16, SCEN_RU[k], 11, THEME["ink"], "middle")
+            if key == "revenue_per_hour":
+                mean = "%s сценарий: %s выручки на час разработчика%s." % (
+                    SCEN_RU[k], vf(v) if v is not None else "нет значения",
+                    (" — ниже ставки %s/ч" % money(ref, M) if v is not None and v < ref else " — не ниже ставки %s/ч" % money(ref, M)) if ref else "")
+            else:
+                mean = "%s сценарий: %s разработчика на одного активированного пользователя (часов на привлечение %s)." % (
+                    SCEN_RU[k], vf(v) if v is not None else "нет значения", fmt(sc[k].get("growth_hours"), 0))
+            mets = [{"label": lab, "value": vf(v) if v is not None else "—", "tag": "допущение"}]
+            for mk, ml, mf in (("dev_hours", "Часы разработки", lambda x: fmt(x, 0) + " ч"), ("paying_new_total", "Новых платящих", lambda x: fmt(x, 1)),
+                               ("net_revenue_total", "Чистая выручка", lambda x: money(x, M))):
+                if isinstance(sc[k].get(mk), (int, float)):
+                    mets.append({"label": ml, "value": mf(sc[k][mk]), "tag": "допущение"})
+            with c.item("%s-%s" % (short[key], k), "%s, %s сценарий: %s" % (lab, SCEN_RU[k].lower(), vf(v) if v is not None else "нет значения"), "bar",
+                        {"title": "%s — %s сценарий" % (lab, SCEN_RU[k].lower()), "gloss": gl("charts", "cac-ltv-solo", "elements", "panel-%s" % short[key]),
+                         "section": 8, "meaning": mean, "metrics": mets},
+                        groups=["g-%s" % short[key], "g-scen-%s" % k]):
+                c.rect(gx - bw / 2, sy(vv), bw, y1 - sy(vv), scol(k), rx=2)
+                c.text(gx, sy(vv) - 6, vf(v) if v is not None else "—", 11, THEME["ink"], "middle", True)
+                c.text(gx, y1 + 16, SCEN_RU[k], 11, THEME["ink"], "middle")
         if ref:
-            c.line(x0, sy(ref), x1, sy(ref), THEME["bad"], 1.4, "6 4")
-            c.text(x1, sy(ref) - 6, "ставка %s/ч" % money(ref, M), 11, THEME["bad"], "end", True)
+            with c.item("rate", "Ставка часа разработчика: %s/ч" % money(ref, M), "line",
+                        {"gloss": gl("charts", "cac-ltv-solo", "elements", "rate"), "section": 8,
+                         "meaning": "Ставка часа — %s (%s); выручка на час выше неё означает, что время окупается лучше альтернативы." % (
+                             money(ref, M), ((solo.get("params") or {}).get("hourly_rate") or {}).get("label") or "допущение"),
+                         "metrics": [{"label": "Ставка часа", "value": money(ref, M), "tag": ((solo.get("params") or {}).get("hourly_rate") or {}).get("label") or "допущение"}]}):
+                c.hit([(x0, sy(ref)), (x1, sy(ref))])
+                c.line(x0, sy(ref), x1, sy(ref), THEME["bad"], 1.4, "6 4")
+                c.text(x1, sy(ref) - 6, "ставка %s/ч" % money(ref, M), 11, THEME["bad"], "end", True)
     return c.finish(ph), title, cap
 
 
@@ -1565,6 +2242,7 @@ def ch_payback_solo(M):
     cap = ("Сплошная — накопленная валовая выручка, пунктир — стоимость времени разработчика (ёмкость × ставка %s/ч) плюс "
            "постоянные затраты. Денежная «безубыточность» при нулевом бюджете вводит в заблуждение — сравнивается время." % money(rate or 0, M))
     c = Chart(960, title, cap, "Источник: data/model.json (solo.scenarios.*.monthly, %s) [допущение]" % M.get("currency", ""))
+    REG.variant = "payback-solo"
     W = 960
     ph = 380
     x0, x1, y0, y1 = PAD + 80, W - PAD - 150, c.top + 8, c.top + ph - 70
@@ -1588,27 +2266,56 @@ def ch_payback_solo(M):
         if any(max(abs(a - b) for a, b in zip(tc, d)) <= 0.01 * (max(tc) or 1) for d in drawn):
             continue
         drawn.append(tc)
-        pts = " ".join("%.1f,%.1f" % (sx(i), sy(v)) for i, v in enumerate(tc))
-        c.add('<polyline points="%s" fill="none" stroke="%s" stroke-width="1.8" stroke-dasharray="6 4"/>'
-              % (pts, THEME["muted"] if len(drawn) == 1 else scol(k)))
-        ends.append((sy(tc[-1]), "время: %s" % money(tc[-1], M), THEME["muted"]))
+        tid = "timecost-%d" % len(drawn)
+        tpts = [(sx(i), sy(v)) for i, v in enumerate(tc)]
+        with c.item(tid, "Стоимость времени разработчика: %s за %d мес." % (money(tc[-1], M), n), "line",
+                    {"title": "Стоимость времени разработчика", "gloss": gl("terms", "time_cost"), "section": 8,
+                     "meaning": "К концу горизонта накопленная стоимость часов разработчика и постоянных затрат — %s (%s сценарий%s)." % (
+                         money(tc[-1], M), SCEN_RU[k].lower(), "; в остальных сценариях почти так же" if len(drawn) == 1 else ""),
+                     "metrics": [{"label": "Стоимость времени накопленная", "value": money(tc[-1], M), "tag": "допущение"}]},
+                    groups=["g-time"]):
+            c.hit(tpts)
+            c.add('<polyline points="%s" fill="none" stroke="%s" stroke-width="1.8" stroke-dasharray="6 4"/>'
+                  % (" ".join("%.1f,%.1f" % p for p in tpts), THEME["muted"] if len(drawn) == 1 else scol(k)))
+        ends.append((sy(tc[-1]), "время: %s" % money(tc[-1], M), THEME["muted"], tid))
     for k in names:
         mo = sc[k]["monthly"]
         col = scol(k)
-        c.poly([(sx(i), sy(m["cum_margin"])) for i, m in enumerate(mo)], "none", col, sw=2.4, closed=False)
         tb = sc[k].get("time_breakeven_month")
+        mpts = [(sx(i), sy(m["cum_margin"])) for i, m in enumerate(mo)]
+        with c.item("margin-%s" % k, "%s сценарий: накопленная выручка %s за %d мес." % (SCEN_RU[k], money(mo[-1]["cum_margin"], M), n), "line",
+                    {"title": "Выручка накопленная — %s сценарий" % SCEN_RU[k].lower(), "gloss": gl("terms", "time_cost"), "section": 8,
+                     "summary": "Накопленная валовая выручка в сценарии «%s»." % SCEN_RU[k].lower(),
+                     "meaning": "К концу горизонта — %s против стоимости времени %s; %s." % (
+                         money(mo[-1]["cum_margin"], M), money(mo[-1]["cum_time_cost"], M),
+                         ("безубыточность по времени с %d-го месяца" % tb) if tb else "по времени за горизонт не окупается"),
+                     "metrics": [{"label": "Выручка накопленная", "value": money(mo[-1]["cum_margin"], M), "tag": "допущение"}]},
+                    groups=["g-scen-%s" % k]):
+            c.hit(mpts)
+            c.poly(mpts, "none", col, sw=2.4, closed=False)
         if tb:
-            c.circle(sx(tb - 1), sy(mo[tb - 1]["cum_margin"]), 5, col, "#FFFFFF", sw=1.5)
-        ends.append((sy(mo[-1]["cum_margin"]), "%s: %s" % (SCEN_RU[k].lower(), money(mo[-1]["cum_margin"], M)), col))
+            with c.item("be-%s" % k, "%s сценарий: безубыточность по времени с %d-го месяца" % (SCEN_RU[k], tb), "point",
+                        {"title": "Безубыточность по времени — %s сценарий" % SCEN_RU[k].lower(), "gloss": gl("terms", "time_cost"), "section": 8,
+                         "meaning": "В %d-м месяце накопленная выручка догоняет стоимость времени разработчика." % tb,
+                         "metrics": [{"label": "Месяц безубыточности по времени", "value": str(tb), "tag": "допущение"}]},
+                        groups=["g-scen-%s" % k]):
+                c.circle(sx(tb - 1), sy(mo[tb - 1]["cum_margin"]), 5, col, "#FFFFFF", sw=1.5)
+        ends.append((sy(mo[-1]["cum_margin"]), "%s: %s" % (SCEN_RU[k].lower(), money(mo[-1]["cum_margin"], M)), col, "margin-%s" % k))
     ends.sort()
     last = -1e9
-    for yy, lab, col in ends:
+    for yy, lab, col, ref in ends:
         yy = max(yy, last + 15)
-        c.text(x1 + 8, yy + 4, lab, 11, col, bold=True)
+        with c.ref(ref):
+            c.text(x1 + 8, yy + 4, lab, 11, col, bold=True)
         last = yy
-    c.text((x0 + x1) / 2, y1 + 34, "Месяц", 12, THEME["ink"], "middle")
+    with c.item("axis-x", "Ось: месяц горизонта модели", "axis", {"gloss": gl("charts", "payback-solo", "elements", "axis-x")}):
+        c.text((x0 + x1) / 2, y1 + 34, "Месяц", 12, THEME["ink"], "middle")
     h = legend_row(c, [("стоимость времени (пунктир)", THEME["muted"], None)] +
-                   [("выручка: " + SCEN_RU[k].lower(), scol(k), None) for k in names], x0, y1 + 58, W - PAD - x0, 12)
+                   [("выручка: " + SCEN_RU[k].lower(), scol(k), None) for k in names], x0, y1 + 58, W - PAD - x0, 12,
+                   els=[{"id": "legend-time", "label": "Легенда: стоимость времени разработчика (пунктир)",
+                         "info": {"gloss": gl("charts", "payback-solo", "elements", "legend-time")}, "highlight": "g-time"}] +
+                       [{"id": "legend-scen-%s" % k, "label": "Легенда: выручка, %s сценарий" % SCEN_RU[k].lower(),
+                         "info": {"gloss": gl("scenarios", k)}, "highlight": "g-scen-%s" % k} for k in names])
     return c.finish(ph + max(0, h - 12)), title, cap
 
 
@@ -1665,14 +2372,14 @@ def plan_jobs(D, top_n=15):
         ("dist-horizon", why(S, no_s), lambda: ch_dist_horizon(S)),
         ("gantt", why(valid_g, "нет data/gantt.json (фаза 7; график строится сразу после её записи)"), lambda: ch_gantt(valid_g)),
         ("critical-path", why(CP, "нет data/critical-path.json (score.py)") or why(CP.get("edges"), "нет зависимостей среди топа и их предпосылок"),
-         lambda: ch_critical_path(CP, S)),
+         lambda: ch_critical_path(CP, S, props)),
         ("channel-mix", why(props, "нет data/proposals.json") or why(any(p.get("category") == "acquisition" for p in props),
                                                                       "в реестре нет предложений категории acquisition"),
          lambda: ch_channel_mix(props, S)),
         ("kpi-tree", why(props, "нет data/proposals.json") or why(any(isinstance(p.get("effect_kpi"), list) and p["effect_kpi"] for p in props),
                                                                    "в реестре нет effect_kpi"),
          lambda: ch_kpi_tree(props, S, D["cfg"], D["NS"])),
-        ("funnel", why(sc, no_m) or why(any(sc[k].get("funnel") for k in SCEN_RU if k in sc), "в model.json нет воронки"), lambda: ch_funnel(M)),
+        ("funnel", why(sc, no_m) or why(any(sc[k].get("funnel") for k in SCEN_RU if k in sc), "в model.json нет воронки"), lambda: ch_funnel(M, S)),
         ("forecast-fan", why(sc, no_m) or why(all(k in sc and sc[k].get("monthly") for k in SCEN_RU), "нужны все три сценария с monthly"),
          lambda: ch_fan(M)),
         ("cac-ltv", why(sc, no_m) or why(solo or any(sc[k].get("ltv") is not None for k in sc), "в model.json нет LTV"), lambda: ch_cac_ltv(M)),
@@ -1697,31 +2404,70 @@ def list_keys(out_dir):
     return {"available": avail, "skipped": skipped}
 
 
-def build_all(out_dir, only=None, top_n=15):
-    """Строит все доступные графики; возвращает (index, skipped {ключ: причина}, палитра)."""
+def build_all(out_dir, only=None, top_n=15, warnings=None):
+    """Строит все доступные графики и их метаданные пояснений (charts/<ключ>.meta.json);
+    возвращает (index, skipped {ключ: причина}, палитра). warnings — список, куда дописываются предупреждения пояснений."""
     pal_note = load_palette(out_dir)
     D = load_inputs(out_dir)
+    cfg = D.get("cfg") if isinstance(D.get("cfg"), dict) else {}
+    CONCEPT[0] = cfg.get("mode") == "concept"
     cdir = out_dir / "charts"
     cdir.mkdir(parents=True, exist_ok=True)
     old = load(out_dir, "charts/charts-index.json") or []
-    index, skipped = [], {}
+    index, skipped, snaps = [], {}, {}
     for key, reason, fn in plan_jobs(D, top_n):
         section = SECTIONS[key]
+        meta_path = cdir / ("%s.meta.json" % key)
         if only and key not in only:
             prev = next((e for e in old if isinstance(e, dict) and e.get("key") == key), None)
             if prev and (cdir / ("%s.svg" % key)).exists():
                 index.append(prev)
             continue
         path = cdir / ("%s.svg" % key)
+        REG.reset(key)
         res = None if reason else fn()
         if not res:
             skipped[key] = reason or "недостаточно данных для графика"
-            if path.exists():
-                path.unlink()
+            for p_ in (path, meta_path):
+                if p_.exists():
+                    p_.unlink()
             continue
         svg, title, cap = res
         path.write_text(svg, encoding="utf-8")
-        index.append({"key": key, "svg": "charts/%s.svg" % key, "title": title, "caption": cap, "section": section})
+        snaps[key] = ({"els": REG.els, "variant": REG.variant}, title, cap, section)
+        index.append({"key": key, "svg": "charts/%s.svg" % key, "title": title, "caption": cap, "section": section,
+                      "meta": "charts/%s.meta.json" % key})
+    REG.reset(None)
+    # пояснения: заметки → данные → глоссарий; глубокие ссылки — по элементам всех графиков сборки
+    notes = load(out_dir, chart_meta.NOTES)
+    ctx = chart_meta.Context(out_dir, D, notes=notes if isinstance(notes, dict) else None)
+    if notes is not None and not isinstance(notes, dict):
+        ctx.warnings.append("data/chart-notes.json: ожидается объект {ключ: {id: {…}}} — заметки не применены")
+    own = {}
+    for e in index:
+        if e["key"] in snaps:
+            own[e["key"]] = set(snaps[e["key"]][0]["els"])
+        else:
+            pm = load(out_dir, e.get("meta") or "charts/%s.meta.json" % e["key"]) or {}
+            own[e["key"]] = set((pm.get("elements") or {}).keys())
+    ctx.available = own
+    for nk, nv in (ctx.notes or {}).items():     # заметки к несуществующим графикам/элементам — предупредить
+        if nk not in own:
+            ctx.warnings.append("chart-notes: нет графика «%s» в этой сборке — заметки не применены" % nk)
+        elif not isinstance(nv, dict):
+            ctx.warnings.append("chart-notes: «%s» — ожидается объект {id: {…}}" % nk)
+        else:
+            for nid in nv:
+                if nid != "_chart" and nid not in own[nk]:
+                    ctx.warnings.append("chart-notes: нет элемента %s/%s — заметка не применена" % (nk, nid))
+    for key, (snap, title, cap, section) in snaps.items():
+        meta = chart_meta.build_meta(key, snap, ctx, own, title, cap, section)
+        (cdir / ("%s.meta.json" % key)).write_text(json.dumps(meta, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    for e in index:      # старые записи без meta (до 1.4) — дописать путь, если файл есть
+        if "meta" not in e and (cdir / ("%s.meta.json" % e["key"])).exists():
+            e["meta"] = "charts/%s.meta.json" % e["key"]
+    if warnings is not None:
+        warnings.extend(ctx.warnings)
     (cdir / "charts-index.json").write_text(json.dumps(index, ensure_ascii=False, indent=2), encoding="utf-8")
     return index, skipped, pal_note
 
@@ -1732,22 +2478,51 @@ def main(argv=None):
     ap.add_argument("--only", help="ключи через запятую (остальные графики не трогаются)")
     ap.add_argument("--top", type=int, default=15, help="сколько лидеров подписывать на матрице усилие–влияние (15)")
     ap.add_argument("--list-keys", action="store_true", help="напечатать JSON допустимых ключей и пропущенных с причиной")
+    ap.add_argument("--check-meta", action="store_true",
+                    help="только проверить разметку и пояснения построенных графиков (код 1 при проблемах)")
+    ap.add_argument("--list-generic", action="store_true",
+                    help="напечатать JSON элементов с обобщённым пояснением (только глоссарий) — для брифа chart-notes")
     a = ap.parse_args(argv)
     out_dir = Path(a.out).resolve()
     if a.list_keys:
         print(json.dumps(list_keys(out_dir), ensure_ascii=False, indent=2))
         return 0
+    if a.check_meta:
+        return report_check(out_dir)
+    if a.list_generic:
+        rows = chart_meta.list_generic(out_dir)
+        print(json.dumps([{"chart": k, "id": i, "title": t, "reason": r} for k, i, t, r in rows], ensure_ascii=False, indent=1))
+        return 0
     only = set(a.only.split(",")) if a.only else None
     unknown = sorted((only or set()) - set(KNOWN_KEYS))
     if unknown:
         print("неизвестные ключи: %s (допустимые: %s)" % (", ".join(unknown), ", ".join(KNOWN_KEYS)))
-    index, skipped, pal = build_all(out_dir, only, a.top)
+    warns = []
+    index, skipped, pal = build_all(out_dir, only, a.top, warns)
     print("Палитра: %s" % pal)
     for e in index:
         print("  %-20s %s" % (e["key"], e["title"]))
     if skipped:
         print("Пропущены: %s" % "; ".join("%s (%s)" % kv for kv in skipped.items()))
     print("Графиков: %d → %s" % (len(index), out_dir / "charts"))
+    for w in warns:
+        print("  предупреждение: %s" % w)
+    return report_check(out_dir)
+
+
+def report_check(out_dir):
+    """Проверка разметки и пояснений (chart_meta.check_meta): печать итога, код 0/1."""
+    probs = chart_meta.check_meta(out_dir)
+    n_el = 0
+    for e in load(out_dir, "charts/charts-index.json") or []:
+        m = load(out_dir, (e or {}).get("meta") or "charts/%s.meta.json" % (e or {}).get("key")) if isinstance(e, dict) else None
+        n_el += len((m or {}).get("elements") or {})
+    if probs:
+        print("Проверка пояснений графиков: %d %s" % (len(probs), plural(len(probs), ("проблема", "проблемы", "проблем"))))
+        for p in probs[:60]:
+            print("  ✗ %s" % p)
+        return 1
+    print("Проверка пояснений графиков: ок (%d %s)" % (n_el, plural(n_el, ("элемент", "элемента", "элементов"))))
     return 0
 
 

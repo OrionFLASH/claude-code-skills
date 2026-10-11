@@ -1,18 +1,24 @@
 #!/usr/bin/env node
 // Замер кликабельных зон карточки референса дизайна (product-strategy).
 //
-//   node measure_hotspots.mjs <OUT> <design-ref.json> --spec <spec.json> [--min 24] [--draw out.png] [--node-dir <dir>]
+//   node measure_hotspots.mjs <OUT> <design-ref.json> --spec <spec.json> [--min 24] [--full-page] [--draw out.png] [--node-dir <dir>]
 //   node measure_hotspots.mjs <OUT> <design-ref.json> --draw out.png      (только нарисовать уже записанные hotspots)
 //
 // <design-ref.json> — карточка design-refs/NN-slug.json (путь от текущей папки или от <OUT>); из неё берутся
-// file (HTML внутри <OUT>), width×height (по умолчанию 1440×900), scale (deviceScaleFactor, по умолчанию 1), png.
-// <spec.json> — список [{n, selector, title, text, proposal, state}] (или {"hotspots": [...]}).
+// file (HTML внутри <OUT>), width×height (по умолчанию 1440×900), scale (deviceScaleFactor, по умолчанию 1), png;
+// viewport ("WxH") — размер окна, если height карточки — высота полной страницы (пишется при --full-page).
+// <spec.json> — список [{n, selector, title, text, proposal, state, screen?}] (или {"hotspots": [...]}).
+// Раскадровки (несколько экранов в одном PNG): у зоны поле screen — номер кадра (1…). Берётся из spec, иначе из
+// data-screen="N" ближайшего предка, иначе — порядковый номер предка .pm-frame (раскадровка мобильного набора).
+// Координаты — всегда от левого верхнего угла всего PNG (не кадра).
+// --full-page (или "full_page": true в карточке): длинная страница — снимок всей страницы, координаты от её начала,
+// height карточки = высота страницы, исходное окно — в поле viewport.
 // Синтаксис selector: "a || b" — объединение рамок; "sel@2" — третье совпадение; "sel@all" — все совпадения;
 // без @ селектор должен находить ровно один элемент (иначе предупреждение и берётся первый).
 // Необязательно: "clipBottom": "<selector>" — обрезать рамку по верхнему краю этого элемента.
 // Рамки — CSS-пиксели исходного размера (getBoundingClientRect), обрезаются по экрану, минимум --min×--min.
 // Записывает hotspots в карточку (на месте) и PNG карточки (<OUT>/<png>). Внешние запросы блокируются.
-// --draw out.png — поверх PNG карточки рисует рамки зон (пунктир) и номера для проверки глазами; цвет по state:
+// --draw out.png — поверх PNG карточки рисует рамки зон (пунктир) и номера (у раскадровки — «n·кN») для проверки глазами; цвет по state:
 // new — #FFD60A, changed — #30D158, shared — #BF5AF2 (как в аннотациях). Путь — от текущей папки; без --spec
 // берутся hotspots из карточки (PNG карточки должен существовать).
 // Код выхода: 0 — все селекторы найдены, 1 — есть ненайденные (найденные всё равно записаны),
@@ -25,7 +31,7 @@ import { createRequire } from 'node:module';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SKILL_DIR = path.resolve(HERE, '..', '..');
-const USAGE = 'node measure_hotspots.mjs <OUT> <design-ref.json> (--spec <spec.json> [--min 24] | --draw out.png) [--draw out.png] [--node-dir <dir>]';
+const USAGE = 'node measure_hotspots.mjs <OUT> <design-ref.json> (--spec <spec.json> [--min 24] [--full-page] | --draw out.png) [--draw out.png] [--node-dir <dir>]';
 
 function parseArgs(argv, flags) {
   const pos = []; const opt = {};
@@ -53,7 +59,7 @@ function loadPlaywright(opt, out) {
   process.exit(3);
 }
 
-const { pos, opt } = parseArgs(process.argv.slice(2), new Set());
+const { pos, opt } = parseArgs(process.argv.slice(2), new Set(['full-page']));
 if (opt.help || pos.length < 2 || (!opt.spec && !opt.draw)) { console.log(USAGE); process.exit(opt.help ? 0 : 2); }
 const OUT = path.resolve(pos[0]);
 const OUT_REAL = fs.realpathSync(OUT);
@@ -78,7 +84,11 @@ function inside(p) {
 }
 const htmlAbs = path.resolve(OUT, card.file);
 if (!fs.existsSync(htmlAbs) || !inside(htmlAbs)) { console.error('ошибка: HTML карточки не найден внутри <OUT>: ' + card.file); process.exit(2); }
-const W = parseInt(card.width || 1440, 10); const H = parseInt(card.height || 900, 10);
+const VP = /^(\d{2,5})x(\d{2,5})$/.exec(String(card.viewport || ''));
+const W = VP ? +VP[1] : parseInt(card.width || 1440, 10);
+const H = VP ? +VP[2] : parseInt(card.height || 900, 10);          // окно браузера
+const FULL = !!(opt['full-page'] || card.full_page);
+let PH = parseInt(card.height || H, 10);                           // высота PNG (= H, при --full-page — вся страница)
 const SCALE = Number(card.scale || 1);
 const base = path.basename(cardPath).replace(/\.json$/i, '');
 const pngRel = card.png || `design-refs/${base}.png`;
@@ -89,14 +99,16 @@ if (!spec && !fs.existsSync(pngAbs)) { console.error('ошибка: нет PNG �
 if (DRAW && !/\.png$/i.test(DRAW)) { console.error('ошибка: --draw ожидает путь к .png'); process.exit(2); }
 
 const COLORS = { new: '#FFD60A', changed: '#30D158', shared: '#BF5AF2' };
-async function drawOverlay(browser, hotspots) {
+async function drawOverlay(browser, hotspots, PW = parseInt(card.width || W, 10), PHh = PH) {
+  const W = PW, H = PHh;
   const img = 'data:image/png;base64,' + fs.readFileSync(pngAbs).toString('base64');
   const boxes = hotspots.map((h) => {
     const c = COLORS[h.state] || COLORS.new;
-    const lx = h.x + 4 > W - 30 ? Math.max(0, W - 30) : h.x;
+    const label = Number(h.n) + (h.screen ? '·к' + Number(h.screen) : '');
+    const lx = h.x + 4 > W - 30 - label.length * 6 ? Math.max(0, W - 30 - label.length * 6) : h.x;
     const ly = h.y >= 26 ? h.y - 26 : h.y + 2;
     return `<div class="b" style="left:${h.x}px;top:${h.y}px;width:${h.w}px;height:${h.h}px;border-color:${c};background:${c}1f"></div>` +
-      `<div class="n" style="left:${lx}px;top:${ly}px;background:${c}">${Number(h.n)}</div>`;
+      `<div class="n" style="left:${lx}px;top:${ly}px;background:${c}">${label}</div>`;
   }).join('');
   const html = `<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;width:${W}px;height:${H}px;overflow:hidden}` +
     `img{position:absolute;left:0;top:0;width:${W}px;height:${H}px}.b{position:absolute;box-sizing:border-box;border:2px dashed;` +
@@ -142,6 +154,8 @@ page.on('pageerror', (e) => pageErrors.push(String(e).slice(0, 200)));
 await page.goto(pathToFileURL(htmlAbs).href, { waitUntil: 'load', timeout: 30000 });
 await page.evaluate(() => document.fonts && document.fonts.ready).catch(() => {});
 await page.waitForTimeout(300);
+if (FULL) PH = await page.evaluate(() => Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0));
+else PH = H;
 
 async function measure(sel) {
   return page.evaluate((spec) => {
@@ -165,14 +179,19 @@ async function measure(sel) {
     };
     const els = spec.split('||').flatMap((p) => pick(p));
     if (!els.length) return { error: 'элементы не найдены', warn };
+    let screen = null;
+    const fr = els[0].closest('[data-screen]');
+    if (fr && /^\d+$/.test(fr.getAttribute('data-screen'))) screen = +fr.getAttribute('data-screen');
+    else { const pf = els[0].closest('.pm-frame'); if (pf) screen = [...document.querySelectorAll('.pm-frame')].indexOf(pf) + 1; }
     let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
     for (const el of els) {
       const r = el.getBoundingClientRect();
       if (!r.width && !r.height) { warn.push('нулевой размер: ' + (el.className || el.tagName)); continue; }
-      x1 = Math.min(x1, r.left); y1 = Math.min(y1, r.top); x2 = Math.max(x2, r.right); y2 = Math.max(y2, r.bottom);
+      const sx = window.scrollX, sy = window.scrollY;               // координаты от начала страницы
+      x1 = Math.min(x1, r.left + sx); y1 = Math.min(y1, r.top + sy); x2 = Math.max(x2, r.right + sx); y2 = Math.max(y2, r.bottom + sy);
     }
     if (x1 === Infinity) return { error: 'все элементы нулевого размера', warn };
-    return { raw: [x1, y1, x2 - x1, y2 - y1], n: els.length, warn };
+    return { raw: [x1, y1, x2 - x1, y2 - y1], n: els.length, warn, screen };
   }, sel);
 }
 
@@ -181,7 +200,7 @@ function fit(raw) {
   if (w < MIN) { x -= (MIN - w) / 2; w = MIN; }
   if (h < MIN) { y -= (MIN - h) / 2; h = MIN; }
   const x1 = Math.max(0, Math.round(x)), y1 = Math.max(0, Math.round(y));
-  const x2 = Math.min(W, Math.round(x + w)), y2 = Math.min(H, Math.round(y + h));
+  const x2 = Math.min(W, Math.round(x + w)), y2 = Math.min(PH, Math.round(y + h));
   return { x: x1, y: y1, w: Math.max(0, x2 - x1), h: Math.max(0, y2 - y1) };
 }
 
@@ -191,23 +210,27 @@ for (const [i, s] of spec.entries()) {
   if (!s.selector) { report.push({ n, error: 'нет selector' }); missing++; continue; }
   const m = await measure(s.selector);
   if (m.raw && s.clipBottom) {
-    const top = await page.evaluate((q) => document.querySelector(q)?.getBoundingClientRect().top ?? null, s.clipBottom).catch(() => null);
+    const top = await page.evaluate((q) => { const r = document.querySelector(q)?.getBoundingClientRect(); return r ? r.top + window.scrollY : null; }, s.clipBottom).catch(() => null);
     if (top !== null) m.raw[3] = Math.max(0, Math.min(m.raw[3], top - m.raw[1]));
   }
   if (!m.raw) { missing++; report.push({ n, selector: s.selector, error: m.error, warn: m.warn }); console.log(`ERR  ${String(n).padStart(2)} ${s.selector} — ${m.error}`); continue; }
   const box = fit(m.raw);
   if (!box.w || !box.h) { missing++; report.push({ n, selector: s.selector, error: 'рамка вне экрана', warn: m.warn }); console.log(`ERR  ${String(n).padStart(2)} ${s.selector} — вне экрана`); continue; }
-  hotspots.push({ n, ...box, title: s.title || '', text: s.text || '', proposal: s.proposal ?? null, state: s.state || 'new' });
+  const hs = { n, ...box, title: s.title || '', text: s.text || '', proposal: s.proposal ?? null, state: s.state || 'new' };
+  const scr = s.screen ?? m.screen;
+  if (scr !== null && scr !== undefined && Number.isInteger(+scr) && +scr > 0) hs.screen = +scr;
+  hotspots.push(hs);
   report.push({ n, selector: s.selector, matched: m.n, warn: m.warn });
-  console.log(`OK   ${String(n).padStart(2)} ${box.x},${box.y},${box.w}×${box.h} [${m.n}] ${s.selector}${m.warn.length ? ' | ' + m.warn.join('; ') : ''}`);
+  console.log(`OK   ${String(n).padStart(2)}${hs.screen ? ' к' + hs.screen : ''} ${box.x},${box.y},${box.w}×${box.h} [${m.n}] ${s.selector}${m.warn.length ? ' | ' + m.warn.join('; ') : ''}`);
 }
 fs.mkdirSync(path.dirname(pngAbs), { recursive: true });
-await page.screenshot({ path: pngAbs, fullPage: false });
-if (DRAW) await drawOverlay(browser, hotspots);
+await page.screenshot({ path: pngAbs, fullPage: FULL });
+if (DRAW) await drawOverlay(browser, hotspots, W, PH);
 await browser.close();
 
 card.hotspots = hotspots.sort((a, b) => a.n - b.n);
-card.png = pngRel; card.width = W; card.height = H; card.scale = SCALE;
+card.png = pngRel; card.width = W; card.height = PH; card.scale = SCALE;
+if (FULL) { card.full_page = true; card.viewport = `${W}x${H}`; } else { delete card.full_page; delete card.viewport; }
 fs.writeFileSync(cardPath, JSON.stringify(card, null, 2) + '\n');
 console.log(`зон: ${hotspots.length}/${spec.length}${missing ? `, не найдено ${missing}` : ''}${external.length ? `, заблокировано внешних запросов ${external.length}` : ''}${pageErrors.length ? `, ошибок страницы ${pageErrors.length}` : ''}`);
 console.log(`→ ${path.relative(OUT, cardPath) || cardPath}, ${pngRel}`);

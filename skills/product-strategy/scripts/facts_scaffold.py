@@ -167,8 +167,71 @@ def sec_bets(scores, props):
     return L
 
 
+def load_decisions(out):
+    """data/decisions.json (единый источник решений) и измеримость критериев отказа, если файл есть."""
+    d = load_json(out / "data" / "decisions.json", None)
+    if not isinstance(d, dict):
+        return None, []
+    crit = []
+    try:
+        sys.path.insert(0, str(HERE))
+        import sample_size
+        crit = sample_size.evaluate_criteria(out, d)
+    except Exception as e:                       # измеримость — подсказка, каркас без неё всё равно нужен
+        print("предупреждение: измеримость критериев не посчитана: %s" % e, file=sys.stderr)
+    return d, crit
+
+
+def sec_bets_from_decisions(d, crit):
+    import decisions as dm
+    L = ["## Три главные ставки (из data/decisions.json)", "",
+         "Источник правды — `data/decisions.json`; в тексте разделов — только плейсхолдеры `{bet:N.name}`, `{bet:N.kill}`, "
+         "`{bet:N.pids}`… (список — `assemble_strategy.py <OUT> --list-placeholders`). Буквальный порог, отличный от файла, сборка отметит.", ""]
+    cmap = {str(c.get("bet")): c for c in crit}
+    for b in dm.bets(d):
+        i = str(b["id"])
+        share = b.get("attention_share")
+        L.append("**Ставка %s. «%s».** Что: %s. Почему: %s. Ожидаемый эффект: %s. P-id: %s. Доля внимания команды: %s. [решение: decisions.json]"
+                 % (i, b.get("name") or FILL, b.get("what") or FILL, b.get("why") or FILL, b.get("effect") or FILL,
+                    ", ".join(b.get("proposals") or []) or FILL, dm.fmt_pct(share) if dm.is_num(share) else FILL))
+        L.append("")
+        k = b.get("kill")
+        if isinstance(k, dict):
+            c = cmap.get(i) or {}
+            meas = ("; измеримость: %s — n %s, %s нед. (%s)" % (c.get("status_text"), dm.fmt_num(c["n"]) if c.get("n") is not None else "—",
+                                                             c.get("weeks", "—"), c.get("reason", ""))) if c else ""
+            L.append("- Критерий отказа `{bet:%s.kill}`: %s%s" % (i, dm.kill_text(k), meas))
+        pm = [dm.item_text(x) for x in b.get("premortem") or []]
+        L.append("- Pre-mortem `{bet:%s.premortem}`: %s" % (i, "; ".join(pm) if pm else FILL))
+        L.append("")
+    if len(dm.bets(d)) < 3:
+        L += ["Ставок в decisions.json %d — по методике три: %s" % (len(dm.bets(d)), FILL), ""]
+    return L
+
+
+def sec_northstar_from_decisions(d):
+    import decisions as dm
+    ns = d.get("north_star") if isinstance(d.get("north_star"), dict) else {}
+    L = ["## North Star, анти-цели, развилки, ёмкость (из data/decisions.json)", "",
+         "**North Star Metric** `{north_star}`: %s. Определение: %s. Цель `{north_star.target}`: %s. Входные метрики: %s." % (
+             ns.get("metric") or FILL, ns.get("definition") or FILL, ns.get("target") or FILL, "; ".join(ns.get("inputs") or []) or FILL), ""]
+    ag = [dm.item_text(x) for x in d.get("anti_goals") or []]
+    L += ["**Анти-цели** `{anti_goals}`:", ""] + (["%d. %s" % (k, t) for k, t in enumerate(ag, 1)] if ag else ["- " + FILL]) + [""]
+    forks = [f for f in d.get("forks") or [] if isinstance(f, dict)]
+    if forks:
+        L += ["**Развилки владельца** (`{fork:F1}`, `{fork:F1.default}`):", "",
+              table(["id", "вопрос", "по умолчанию", "цена альтернативы", "решение"],
+                    [[f.get("id"), f.get("question"), f.get("default"), f.get("cost"), f.get("decision") or "открыто"] for f in forks]), ""]
+    cap = d.get("capacity")
+    if isinstance(cap, dict) and cap:
+        L += ["**Ёмкость** `{capacity}`: %s" % "; ".join("%s: %s" % (k, v) for k, v in cap.items()), ""]
+    return L
+
+
 def sec_bets_template():
-    L = ["## Три главные ставки (заготовка)", ""]
+    L = ["## Три главные ставки (заготовка)", "",
+         "Решения записать в `data/decisions.json` (`decisions.py <OUT> --init`, схема — references/decisions.md), а в тексте — "
+         "плейсхолдеры `{bet:N.…}`; после записи перезапустите facts_scaffold.py — блок заполнится из файла.", ""]
     for i in (1, 2, 3):
         L += ["**Ставка %d. «%s».** Что: %s. Почему: %s. Ожидаемый эффект (диапазон, метка): %s. P-id: %s. Доля внимания команды: %s."
               % (i, FILL, FILL, FILL, FILL, FILL, FILL), ""]
@@ -213,6 +276,10 @@ def sec_exists(out, cfg=None):
         return ["## Что уже есть (не предлагать как новое)", "",
                 "Продукта ещё нет (режим идеи): все предложения — новые, `current_feature` — «нет (продукта ещё нет)». "
                 "Опора — `research/idea-dossier.md` и `data/idea.json`; аналоги и их решения — `data/competitors.json`.", ""]
+    if ((cfg or {}).get("product") or {}).get("mode") == "external":     # внешний продукт без кода: инвентарь — APK и магазины
+        import app_scan                                                  # noqa: E402 — тот же каталог scripts/
+        return ["## Что уже есть (не предлагать как новое)", ""] + app_scan.inventory_lines(out) + [
+            "Дополнить по `research/product-understanding.md` и `research/ui-inventory.md`: %s" % FILL, ""]
     rs = load_json(out / "data" / "repo-scan.json", None)
     L = ["## Что уже есть (не предлагать как новое)", ""]
     feats = [f.get("name") for f in (rs or {}).get("features") or [] if isinstance(f, dict) and f.get("name")] if isinstance(rs, dict) else []
@@ -326,7 +393,10 @@ def sec_keys(out):
         L.append(table(["ключ", "название", "предложения"], rows))
     else:
         L.append(NO_DATA + " (design-refs/ пуст).")
-    L += ["", "**Плейсхолдеры:** `{rank:P032}` — актуальный ранг, `{deprank:P032}` — ранг с учётом зависимостей (подставляет `assemble_strategy.py`); числа рангов вручную не писать.", ""]
+    L += ["", "**Плейсхолдеры:** `{rank:P032}` — актуальный ранг, `{deprank:P032}` — ранг с учётом зависимостей (подставляет `assemble_strategy.py`); числа рангов вручную не писать.",
+          "Решения — `{bet:1.name}`, `{bet:1.kill}`, `{north_star}`, `{anti_goals}`, `{fork:F1}` (data/decisions.json); числа модели — "
+          "`{model:base.ltv|money}`, `{model:pess.cac}`, `{model:base.users_last|0}` (data/model.json); выборки и сроки — `{exp:E01.n}`, "
+          "`{exp:E01.weeks}` (data/experiments.json, sample_size.py). Полный список ключей со значениями — `assemble_strategy.py <OUT> --list-placeholders`.", ""]
     return L
 
 
@@ -365,10 +435,13 @@ def build(out, n):
          if cfg.get("mode") == "concept" else
          "Топ-20 и подробности по P-id — вместе с `data/scores.json`; существование функций сверять с `research/product-understanding.md`%s." %
          ("" if (out / "research" / "product-understanding.md").exists() else " (файла пока нет)"), ""]
+    dec, crit = load_decisions(out)
+    bets_part = sec_bets_from_decisions(dec, crit) if dec else sec_bets_template()
+    ns_part = sec_northstar_from_decisions(dec) if dec else sec_northstar()
     for part in (sec_product(cfg), sec_goal(cfg), sec_concept(out) if cfg.get("mode") == "concept" else [],
                  sec_top(scores, props, n, "rank", "Топ-%d по рангу" % n),
                  sec_top(scores, props, n, "dep_rank", "Топ-%d по рангу с учётом зависимостей (dep_rank)" % n),
-                 sec_bets(scores, props), sec_bets_template(), sec_northstar(), sec_exists(out, cfg), sec_factcheck(out, cfg), sec_counts(props),
+                 sec_bets(scores, props), bets_part, ns_part, sec_exists(out, cfg), sec_factcheck(out, cfg), sec_counts(props),
                  sec_model(out), sec_keys(out), sec_questions(out), sec_bans(cfg)):
         L += part
     return "\n".join(L).rstrip() + "\n"

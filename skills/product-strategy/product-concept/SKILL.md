@@ -39,6 +39,7 @@ description: >
 ### C0. Опрос, инструменты, папка
 1. `intake.py concept-setup --json` → **одна карточка `AskUserQuestion` из 4 вопросов** (число вопросов об идее: 15 / **25** / 40 / своё ≥ 15; глубина; форматы; папка). Текст вопросов — только из скрипта, без правок.
 2. `intake.py concept-questions --count N --json` → пачки по ≤ 4 вопросов, **каждая пачка — отдельный `AskUserQuestion`**, по порядку; ответы собирать в один JSON (ключ — header или id вопроса).
+2a. **Передача в разработку** — ещё одна карточка `intake.py questions --round 6` (3 вопроса: нужен ли MD-файл эпиков и задач для Claude Code, детальность, срок); ответы добавить в тот же JSON.
 3. `intake.py concept-apply --repo <текущая папка> --idea "<идея дословно>" --from-askuser '<все ответы>' --request "<исходный запрос>"` → сводка и `OUT=…`; затем `init_run.py <OUT>`.
 4. `check_env.py --out <OUT> --json <OUT>/build/env.json --session-skills "<скиллы сессии>"`, `--plan`; Node-модули и Chromium — `check_env.py --install-node <OUT>`; остальное — по политике из опроса (`references/tools.md`).
 5. Показать сводку (`intake.py show`) со строкой «Папка», спросить «Начинаю?». Ветка до первой записи в репозиторий (если папка в git); `check_gitignore.py <OUT> --fix`.
@@ -55,7 +56,7 @@ description: >
 | C6 | Оценка, зависимости, модель, графики | `score.py`, `validate_scores.py`, `typesafe_eval.py`, `model.py`, `charts.py` |
 | C7 | Канвасы и SWOT, текст концепции, спеки топ-N, эксперименты, Гант, Kanban | `concept-canvas.md`, `strategy-section.md` по `concept-outline.md`, `specs.md`, `experiments.md` |
 | C8 | Язык дизайна, макеты, референсы | `concept-design.md`, `templates/mockup-kit/`, `shoot_mockups.mjs`, `design-refs.md` |
-| C9 | Сборка, проверки, `REPORT.md` | `build_all.py <OUT> --strict --links`, `references/report-template.md` |
+| C9 | Сборка, проверки, `REPORT.md`; **файл задач для Claude Code** (если `handoff.enabled`; при `ask_at_end` — выбор разделов карточками из `handoff.py <OUT> --list-sections --json`) | `build_all.py <OUT> --strict --links`, `handoff.py`, `references/report-template.md`, `references/handoff.md` |
 
 Модель субагентам задавать явно: если есть `typesafe-triage` — `typesafe_triage.py --batch`, иначе сбор данных — sonnet, синтез, оценка, дизайн — opus (`references/orchestration.md`). Брифы — из `templates/briefs/`, заполнять плейсхолдеры, сохранять в `<OUT>/build/briefs/`.
 
