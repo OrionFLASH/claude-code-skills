@@ -1,0 +1,5094 @@
+{
+  "skill": "product-strategy+product-concept",
+  "date": "2026-10-11",
+  "capabilities": [
+    {
+      "id": "P1",
+      "name": "Анализ репозитория",
+      "desc": "Код, зависимости, git-история, issues/PR текущего репозитория как основа стратегии (product-strategy)"
+    },
+    {
+      "id": "P2",
+      "name": "Опрос владельца",
+      "desc": "Раунды вопросов карточками + открытые вопросы; в concept — 15–40 вопросов об идее (обе)"
+    },
+    {
+      "id": "P3",
+      "name": "Исследование рынка",
+      "desc": "Конкуренты, аналоги, сообщества, поисковый спрос, события, право — с источниками (обе)"
+    },
+    {
+      "id": "P4",
+      "name": "Реестр 50–200 предложений",
+      "desc": "Реестр предложений с доказательствами классов A–D, шагами, проверкой повторов (обе)"
+    },
+    {
+      "id": "P5",
+      "name": "Оценка и приоритизация",
+      "desc": "RICE/ICE/WSJF/Кано, зависимости, критический путь, чувствительность, TypeSafe Jev (обе)"
+    },
+    {
+      "id": "P6",
+      "name": "Текст стратегии",
+      "desc": "Связный текст стратегии из 17 разделов (в concept — концепции) с метками факт/оценка/допущение (обе)"
+    },
+    {
+      "id": "P7",
+      "name": "Дорожная карта, Гант, Kanban, OKR",
+      "desc": "План 30/60/90 дней, 6/12 мес., видение на 3 года; Гант, Kanban, OKR (product-strategy)"
+    },
+    {
+      "id": "P8",
+      "name": "Макеты и язык дизайна",
+      "desc": "Направления языка дизайна, tokens.css, макеты экранов, референсы с зонами (обе)"
+    },
+    {
+      "id": "P9",
+      "name": "Выходные форматы",
+      "desc": "Офлайн интерактивная веб-страница (реестр с фильтрами, кликабельные графики), XLSX с формулами, PPTX, PDF (обе)"
+    },
+    {
+      "id": "P10",
+      "name": "Отслеживание выполнения",
+      "desc": "Сверка плана с кодом, коммитами, issues и PR; статусы, следующие шаги, корректировки, черновики issues (product-strategy)"
+    },
+    {
+      "id": "P11",
+      "name": "Идея → концепция",
+      "desc": "15+ вопросов, SWOT, предпроверка жизнеспособности (светофор Jev), аналоги, JTBD, канвасы, дизайн-концепты (product-concept)"
+    },
+    {
+      "id": "P12",
+      "name": "Файл эпиков и задач для Claude Code",
+      "desc": "MD-файл эпиков и задач по разделам со ссылками на макеты/спеки для передачи в разработку (product-strategy; опция и в concept)"
+    },
+    {
+      "id": "P13",
+      "name": "Юнит-экономика и модель",
+      "desc": "Модель дохода/устойчивости, сценарии, чувствительность (обе)"
+    },
+    {
+      "id": "P14",
+      "name": "Эксперименты и калькулятор выборок",
+      "desc": "Гипотезы, дизайн экспериментов, расчёт размера выборки (обе)"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "phuryn-pm-skills",
+      "name": "PM Skills Marketplace (phuryn/pm-skills)",
+      "url": "https://github.com/phuryn/pm-skills",
+      "kind": "collection",
+      "collection": "phuryn/pm-skills",
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 26880,
+      "forks": 2844,
+      "last_commit": "2026-10-10",
+      "created": "2026-03-01",
+      "contributors": 3,
+      "price": "free (MIT); нужен тариф Claude",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Состав",
+          "value": "69 скиллов и 42 команды в 9 плагинах",
+          "url": "https://github.com/phuryn/pm-skills/blob/main/README.md"
+        },
+        {
+          "label": "Установки skills.sh",
+          "value": "223.3K суммарно; create-prd 10.5K, prioritization-frameworks 9.7K",
+          "url": "https://skills.sh/phuryn/pm-skills"
+        },
+        {
+          "label": "Тесты",
+          "value": "CI tests.yml; tests/test_consistency.py, test_validator.py (валидация структуры, не поведения)",
+          "url": "https://github.com/phuryn/pm-skills/tree/main/tests"
+        },
+        {
+          "label": "Открытые issues",
+          "value": "43 (GitHub API, 2026-10-11)",
+          "url": "https://github.com/phuryn/pm-skills"
+        }
+      ],
+      "coverage": {
+        "P1": {
+          "score": 1,
+          "note": "pm-ai-shipping: /document-app восстанавливает системную документацию из кода, intended-vs-implemented сверяет намерение и код; для стратегии репозиторий не анализирует (нет git/issues/зависимостей как входа стратегии)",
+          "evidence": [
+            "https://github.com/phuryn/pm-skills/blob/main/README.md"
+          ]
+        },
+        "P2": {
+          "score": 1,
+          "note": "/discover и /strategy задают уточняющие вопросы и делают чекпоинты; нет многораундового опроса с банком 15–40 вопросов",
+          "evidence": [
+            "https://github.com/phuryn/pm-skills/blob/main/pm-product-discovery/commands/discover.md",
+            "https://github.com/phuryn/pm-skills/blob/main/pm-product-strategy/commands/strategy.md"
+          ]
+        },
+        "P3": {
+          "score": 1,
+          "note": "competitor-analysis (веб-поиск, 5 прямых конкурентов), market-sizing, market-segments, sentiment-analysis, PESTLE, Porter; нет сообществ, поискового спроса, событий, источников с датами",
+          "evidence": [
+            "https://github.com/phuryn/pm-skills/blob/main/pm-market-research/skills/competitor-analysis/SKILL.md",
+            "https://github.com/phuryn/pm-skills/blob/main/README.md"
+          ]
+        },
+        "P4": {
+          "score": 1,
+          "note": "brainstorm-ideas даёт топ-10 идей; реестра 50–200 с классами доказательств нет",
+          "evidence": [
+            "https://github.com/phuryn/pm-skills/blob/main/pm-product-discovery/commands/discover.md"
+          ]
+        },
+        "P5": {
+          "score": 1,
+          "note": "prioritization-frameworks: справочник 9 методов (RICE, ICE, Kano, MoSCoW, Opportunity Score); prioritize-features; нет WSJF-расчёта, критического пути, чувствительности, внешней модели",
+          "evidence": [
+            "https://github.com/phuryn/pm-skills/blob/main/pm-execution/skills/prioritization-frameworks/SKILL.md"
+          ]
+        },
+        "P6": {
+          "score": 1,
+          "note": "/strategy: 9-разделный Product Strategy Canvas в markdown; шаблон без опоры на собственное исследование и меток достоверности",
+          "evidence": [
+            "https://github.com/phuryn/pm-skills/blob/main/pm-product-strategy/skills/product-strategy/SKILL.md",
+            "https://github.com/phuryn/pm-skills/blob/main/pm-product-strategy/commands/strategy.md"
+          ]
+        },
+        "P7": {
+          "score": 1,
+          "note": "outcome-roadmap, brainstorm-okrs, sprint-plan, /transform-roadmap; нет Ганта и Kanban",
+          "evidence": [
+            "https://github.com/phuryn/pm-skills/blob/main/README.md"
+          ]
+        },
+        "P8": {
+          "score": 0,
+          "note": "дизайна и макетов нет (есть product-name, positioning)",
+          "evidence": [
+            "https://github.com/phuryn/pm-skills/blob/main/README.md"
+          ]
+        },
+        "P9": {
+          "score": 0,
+          "note": "результат — markdown («Save as markdown»); нет HTML/XLSX/PPTX/PDF",
+          "evidence": [
+            "https://github.com/phuryn/pm-skills/blob/main/pm-product-strategy/commands/strategy.md"
+          ]
+        },
+        "P10": {
+          "score": 1,
+          "note": "intended-vs-implemented и /document-app check сверяют документацию с кодом; сверки стратегии/реестра с коммитами и issues нет",
+          "evidence": [
+            "https://github.com/phuryn/pm-skills/blob/main/README.md"
+          ]
+        },
+        "P11": {
+          "score": 2,
+          "note": "/discover для нового продукта: идеи → допущения (value/usability/feasibility/viability/GTM) → приоритизация → эксперименты; lean-canvas, startup-canvas, swot, value-proposition, pre-mortem, strategy-red-team; нет дизайн-концептов и светофора Jev",
+          "evidence": [
+            "https://github.com/phuryn/pm-skills/blob/main/pm-product-discovery/commands/discover.md",
+            "https://github.com/phuryn/pm-skills/blob/main/README.md"
+          ]
+        },
+        "P12": {
+          "score": 1,
+          "note": "create-prd, user-stories, job-stories, sprint-plan; файла эпиков для Claude Code по разделам нет",
+          "evidence": [
+            "https://github.com/phuryn/pm-skills/blob/main/README.md"
+          ]
+        },
+        "P13": {
+          "score": 1,
+          "note": "business-model, monetization-strategy, pricing-strategy — качественно; сценарной модели с расчётом нет",
+          "evidence": [
+            "https://github.com/phuryn/pm-skills/blob/main/README.md"
+          ]
+        },
+        "P14": {
+          "score": 2,
+          "note": "brainstorm-experiments-new/existing, ab-test-analysis (значимость, проверка размера выборки, SRM); пример в README про выборку при MDE 2%",
+          "evidence": [
+            "https://github.com/phuryn/pm-skills/blob/main/pm-data-analytics/skills/ab-test-analysis/SKILL.md",
+            "https://github.com/phuryn/pm-skills/blob/main/README.md"
+          ]
+        }
+      },
+      "strengths": [
+        "Самый широкий открытый набор PM-фреймворков (Torres, Cagan, Savoia)",
+        "Команды-цепочки /discover, /strategy, /write-prd, /plan-launch",
+        "Высокая популярность, MIT, работает в Claude Code, Cowork и Codex"
+      ],
+      "weaknesses": [
+        "Только markdown-документы",
+        "Нет анализа репозитория как основы стратегии и нет отслеживания",
+        "Нет визуализаций, Ганта, макетов, моделей с расчётом"
+      ],
+      "risks": [
+        "3 контрибьютора — bus factor",
+        "Методики англоязычные, русского нет"
+      ],
+      "verdict": "partial",
+      "summary": "Лучший открытый источник методик. PS: закрывает P3/P5/P6/P7/P14 на уровне шаблонов (1–2), не закрывает P1/P8/P9/P10. PC: ближе всего к замене (/discover + канвасы + эксперименты), но без дизайн-концептов, светофора и единого прогона."
+    },
+    {
+      "id": "anthropic-kwp-product-management",
+      "name": "product-management + marketing (anthropics/knowledge-work-plugins)",
+      "url": "https://github.com/anthropics/knowledge-work-plugins",
+      "kind": "plugin",
+      "collection": "anthropics/knowledge-work-plugins",
+      "license": "Apache-2.0",
+      "osi_license": true,
+      "stars": 29008,
+      "forks": 3290,
+      "last_commit": "2026-10-11",
+      "created": "2026-01-23",
+      "contributors": 33,
+      "price": "free (Apache-2.0); нужен тариф Claude; коннекторы (Linear, Jira, Amplitude…) — по их тарифам",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Издатель",
+          "value": "Anthropic (официальный репозиторий)",
+          "url": "https://github.com/anthropics/knowledge-work-plugins"
+        },
+        {
+          "label": "Установки skills.sh",
+          "value": "product-brainstorming 5.4K, write-spec 3.4K, competitive-brief 3.2K, roadmap-update 3.0K",
+          "url": "https://skills.sh/anthropics/knowledge-work-plugins"
+        },
+        {
+          "label": "Коннекторы",
+          "value": "Linear, Asana, monday, ClickUp, Atlassian, Amplitude, Pendo, Similarweb, Figma, Notion",
+          "url": "https://github.com/anthropics/knowledge-work-plugins/blob/main/product-management/CONNECTORS.md"
+        }
+      ],
+      "coverage": {
+        "P1": {
+          "score": 1,
+          "note": "код не анализирует; через ~~project tracker видит задачи и статусы",
+          "evidence": [
+            "https://github.com/anthropics/knowledge-work-plugins/blob/main/product-management/CONNECTORS.md"
+          ]
+        },
+        "P2": {
+          "score": 1,
+          "note": "команды задают уточняющие вопросы (write-spec, brainstorm)",
+          "evidence": [
+            "https://github.com/anthropics/knowledge-work-plugins/blob/main/product-management/README.md"
+          ]
+        },
+        "P3": {
+          "score": 1,
+          "note": "competitive-brief: сравнение функций и позиционирования; marketing: seo-audit, competitive-brief; Similarweb-коннектор требует авторизации",
+          "evidence": [
+            "https://github.com/anthropics/knowledge-work-plugins/blob/main/product-management/skills/competitive-brief/SKILL.md",
+            "https://github.com/anthropics/knowledge-work-plugins/tree/main/marketing/skills",
+            "https://github.com/anthropics/knowledge-work-plugins/blob/main/product-management/CONNECTORS.md"
+          ]
+        },
+        "P4": {
+          "score": 1,
+          "note": "product-brainstorming генерирует ~5 подходов; реестра нет",
+          "evidence": [
+            "https://github.com/anthropics/knowledge-work-plugins/blob/main/product-management/README.md"
+          ]
+        },
+        "P5": {
+          "score": 1,
+          "note": "roadmap-update: RICE, ICE, MoSCoW, value-vs-effort, карта зависимостей (текстом); нет Кано/WSJF/критического пути",
+          "evidence": [
+            "https://github.com/anthropics/knowledge-work-plugins/blob/main/product-management/skills/roadmap-update/SKILL.md"
+          ]
+        },
+        "P6": {
+          "score": 1,
+          "note": "отдельного документа стратегии нет; режим strategy в brainstorming, PRD в write-spec",
+          "evidence": [
+            "https://github.com/anthropics/knowledge-work-plugins/blob/main/product-management/README.md"
+          ]
+        },
+        "P7": {
+          "score": 2,
+          "note": "Now/Next/Later, квартальные темы, OKR-формат, Timeline/Gantt-вид, зависимости, sprint-planning; визуально рисуется только через трекер",
+          "evidence": [
+            "https://github.com/anthropics/knowledge-work-plugins/blob/main/product-management/skills/roadmap-update/SKILL.md",
+            "https://github.com/anthropics/knowledge-work-plugins/blob/main/product-management/README.md"
+          ]
+        },
+        "P8": {
+          "score": 0,
+          "note": "в PM/marketing нет; в репозитории есть отдельный плагин design — не оценивался",
+          "evidence": [
+            "https://github.com/anthropics/knowledge-work-plugins"
+          ]
+        },
+        "P9": {
+          "score": 0,
+          "note": "ответ в чате/markdown; форматы — через отдельные плагины",
+          "evidence": [
+            "https://github.com/anthropics/knowledge-work-plugins/blob/main/product-management/README.md"
+          ]
+        },
+        "P10": {
+          "score": 1,
+          "note": "stakeholder-update и metrics-review берут статусы из трекера и аналитики; сверки стратегии с коммитами нет",
+          "evidence": [
+            "https://github.com/anthropics/knowledge-work-plugins/blob/main/product-management/README.md"
+          ]
+        },
+        "P11": {
+          "score": 1,
+          "note": "product-brainstorming: JTBD, HMW, OST, проверка допущений; нет конвейера «идея → концепция»",
+          "evidence": [
+            "https://github.com/anthropics/knowledge-work-plugins/blob/main/product-management/README.md"
+          ]
+        },
+        "P12": {
+          "score": 1,
+          "note": "write-spec (user stories, критерии), sprint-planning; задачи в Linear/Jira через коннектор",
+          "evidence": [
+            "https://github.com/anthropics/knowledge-work-plugins/blob/main/product-management/README.md",
+            "https://github.com/anthropics/knowledge-work-plugins/blob/main/product-management/CONNECTORS.md"
+          ]
+        },
+        "P13": {
+          "score": 0,
+          "note": "в PM-плагине нет (есть отдельный finance — не оценивался)",
+          "evidence": [
+            "https://github.com/anthropics/knowledge-work-plugins/blob/main/product-management/README.md"
+          ]
+        },
+        "P14": {
+          "score": 1,
+          "note": "brainstorm предлагает самый дешёвый эксперимент; калькулятора выборок нет (в плагине data есть statistical-analysis — не оценивался)",
+          "evidence": [
+            "https://github.com/anthropics/knowledge-work-plugins/blob/main/product-management/README.md"
+          ]
+        }
+      },
+      "strengths": [
+        "Официальный, бесплатный, поддерживается Anthropic",
+        "Интеграция с трекерами и аналитикой через MCP",
+        "Хорошо сочетается с плагинами data/design/finance"
+      ],
+      "weaknesses": [
+        "Лёгкие шаблоны, не глубокий прогон",
+        "Рассчитан на Cowork и коннекторы",
+        "Нет форматов, визуализаций, анализа кода"
+      ],
+      "risks": [
+        "Коннекторы требуют OAuth и платных SaaS",
+        "Данные уходят в подключённые сервисы"
+      ],
+      "verdict": "partial",
+      "summary": "Официальная база для PM-рутины. PS: хорош для P7 (форматы дорожных карт) и связи с трекером, остальное — 0–1. PC: только мозговой штурм."
+    },
+    {
+      "id": "gstack-product-modes",
+      "name": "gstack: office-hours, plan-ceo-review, design-consultation/shotgun/html, retro, make-pdf",
+      "url": "https://github.com/garrytan/gstack",
+      "kind": "collection",
+      "collection": "gstack",
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 135904,
+      "forks": 20179,
+      "last_commit": "2026-10-11",
+      "created": "2026-03-11",
+      "contributors": 13,
+      "price": "free (MIT); опциональные внешние сервисы платные",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Популярность",
+          "value": "135 904 звезды, 20 179 форков (GitHub API, 2026-10-11)",
+          "url": "https://github.com/garrytan/gstack"
+        },
+        {
+          "label": "Открытые issues",
+          "value": "189; открыт #3102 «send code to Codex without asking» (2026-10-09)",
+          "url": "https://github.com/garrytan/gstack/issues/3102"
+        },
+        {
+          "label": "Телеметрия",
+          "value": "office-hours пишет телеметрию в analytics/ каждого запуска",
+          "url": "https://github.com/garrytan/gstack/blob/main/office-hours/SKILL.md"
+        }
+      ],
+      "coverage": {
+        "P1": {
+          "score": 1,
+          "note": "plan-ceo-review: PRE-REVIEW SYSTEM AUDIT по репозиторию перед ревью плана; retro читает коммиты; стратегию из кода не строит",
+          "evidence": [
+            "https://github.com/garrytan/gstack/blob/main/plan-ceo-review/SKILL.md",
+            "https://github.com/garrytan/gstack/blob/main/retro/SKILL.md"
+          ]
+        },
+        "P2": {
+          "score": 2,
+          "note": "office-hours: шесть «принуждающих» вопросов YC (спрос, статус-кво, узкий клин…), строгий формат AskUserQuestion с рекомендацией",
+          "evidence": [
+            "https://github.com/garrytan/gstack/blob/main/office-hours/SKILL.md"
+          ]
+        },
+        "P3": {
+          "score": 1,
+          "note": "Phase 2.75 Landscape Awareness — поиск «общепринятой мудрости», прямо «NOT competitive research»; конкурентов смотрит design-consultation",
+          "evidence": [
+            "https://github.com/garrytan/gstack/blob/main/office-hours/SKILL.md",
+            "https://github.com/garrytan/gstack/blob/main/design-consultation/SKILL.md"
+          ]
+        },
+        "P4": {
+          "score": 1,
+          "note": "plan-ceo-review: расширения объёма, Accepted/Deferred scope в TODOS.md — в зародыше",
+          "evidence": [
+            "https://github.com/garrytan/gstack/blob/main/plan-ceo-review/SKILL.md"
+          ]
+        },
+        "P5": {
+          "score": 0,
+          "note": "числовых фреймворков приоритизации нет",
+          "evidence": [
+            "https://github.com/garrytan/gstack/blob/main/plan-ceo-review/SKILL.md"
+          ]
+        },
+        "P6": {
+          "score": 1,
+          "note": "design doc (office-hours) и CEO Plan: Vision, Scope Decisions, Reviewer Concerns",
+          "evidence": [
+            "https://github.com/garrytan/gstack/blob/main/office-hours/SKILL.md",
+            "https://github.com/garrytan/gstack/blob/main/plan-ceo-review/SKILL.md"
+          ]
+        },
+        "P7": {
+          "score": 0,
+          "note": "дорожной карты/Ганта/Kanban/OKR нет",
+          "evidence": [
+            "https://github.com/garrytan/gstack/blob/main/plan-ceo-review/SKILL.md"
+          ]
+        },
+        "P8": {
+          "score": 3,
+          "note": "design-consultation — полная дизайн-система с превью шрифтов/цветов; design-shotgun — варианты, доска сравнения, итерации; design-html — продакшн HTML/CSS. Шире итерациями; не запускалось",
+          "evidence": [
+            "https://github.com/garrytan/gstack/blob/main/design-consultation/SKILL.md",
+            "https://github.com/garrytan/gstack/blob/main/design-shotgun/SKILL.md",
+            "https://github.com/garrytan/gstack/blob/main/design-html/SKILL.md"
+          ]
+        },
+        "P9": {
+          "score": 1,
+          "note": "make-pdf (markdown → PDF), diagram (excalidraw/SVG); нет XLSX, PPTX, интерактивной страницы стратегии",
+          "evidence": [
+            "https://github.com/garrytan/gstack/blob/main/make-pdf/SKILL.md"
+          ]
+        },
+        "P10": {
+          "score": 1,
+          "note": "retro — еженедельная инженерная ретроспектива по коммитам; со стратегией не сверяет",
+          "evidence": [
+            "https://github.com/garrytan/gstack/blob/main/retro/SKILL.md"
+          ]
+        },
+        "P11": {
+          "score": 2,
+          "note": "office-hours Startup mode: диагностика спроса, клин, Premise Challenge, поиск ландшафта, design doc; нет SWOT, аналогов-реестра, светофора, модели",
+          "evidence": [
+            "https://github.com/garrytan/gstack/blob/main/office-hours/SKILL.md"
+          ]
+        },
+        "P12": {
+          "score": 1,
+          "note": "autoplan/plan-eng-review и TODOS.md; отдельного файла эпиков для Claude Code нет",
+          "evidence": [
+            "https://github.com/garrytan/gstack/blob/main/autoplan/SKILL.md",
+            "https://github.com/garrytan/gstack/blob/main/plan-ceo-review/SKILL.md"
+          ]
+        },
+        "P13": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/garrytan/gstack/blob/main/plan-ceo-review/SKILL.md"
+          ]
+        },
+        "P14": {
+          "score": 0,
+          "note": "нет калькулятора и дизайна экспериментов",
+          "evidence": [
+            "https://github.com/garrytan/gstack/blob/main/office-hours/SKILL.md"
+          ]
+        }
+      },
+      "strengths": [
+        "Сильнейшие интервью основателя (office-hours) и дизайн-конвейер",
+        "Огромное сообщество",
+        "Решения и обучение между сессиями (decision-log, learnings)"
+      ],
+      "weaknesses": [
+        "Тяжёлый вход: 70+ скиллов, длинные преамбулы",
+        "Нет количественной оценки, форматов, модели",
+        "Рынок намеренно не исследует"
+      ],
+      "risks": [
+        "Открытая жалоба на отправку кода в Codex без запроса (#3102)",
+        "Локальная телеметрия и синхронизация артефактов",
+        "Широкие права Bash у скиллов"
+      ],
+      "verdict": "partial",
+      "summary": "PS: даёт ревью плана «глазами CEO» и ретро, но не стратегию. PC: office-hours + design-* — лучшая замена для P2/P8/P11-интервью; рынка, реестра, оценки и форматов нет."
+    },
+    {
+      "id": "ecc-business-content",
+      "name": "ECC: модуль business-content (market-research, competitive-platform-analysis, investor-materials) + product-lens, plan-prd, deep-research, frontend-slides",
+      "url": "https://github.com/affaan-m/ECC",
+      "kind": "collection",
+      "collection": "ECC",
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 276823,
+      "forks": 41274,
+      "last_commit": "2026-10-11",
+      "created": "2026-01-18",
+      "contributors": 100,
+      "price": "free (MIT); deep-research требует firecrawl/exa MCP (свои ключи)",
+      "claude_code_native": true,
+      "languages": [
+        "en",
+        "zh"
+      ],
+      "quality_signals": [
+        {
+          "label": "Популярность",
+          "value": "276 823 звезды (GitHub API, 2026-10-11)",
+          "url": "https://github.com/affaan-m/ECC"
+        },
+        {
+          "label": "Модуль",
+          "value": "business-content: 14 скиллов, cost heavy, stability stable, defaultInstall false",
+          "url": "https://github.com/affaan-m/ECC/blob/main/manifests/install-modules.json"
+        },
+        {
+          "label": "Свежесть путей",
+          "value": "последний коммит в product-lens/market-research/plan-prd/investor-materials — 2026-10-10 (локальный клон)",
+          "url": "https://github.com/affaan-m/ECC"
+        }
+      ],
+      "coverage": {
+        "P1": {
+          "score": 1,
+          "note": "product-lens Founder Review: читает README, CLAUDE.md, package.json, недавние коммиты, оценивает PMF 0–10; issues и зависимостей как входа нет",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/skills/product-lens/SKILL.md"
+          ]
+        },
+        "P2": {
+          "score": 1,
+          "note": "product-lens — 7 вопросов; /plan-prd — фазы с вопросами и «TBD — needs validation»",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/skills/product-lens/SKILL.md",
+            "https://github.com/affaan-m/ECC/blob/main/commands/plan-prd.md"
+          ]
+        },
+        "P3": {
+          "score": 2,
+          "note": "market-research (конкуренты, размер рынка, атрибуция источников, недоверие к источникам), competitive-platform-analysis (отбор и тиры конкурентов), deep-research (цитаты, уровни уверенности); нет сообществ/событий/права как отдельных потоков",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/skills/market-research/SKILL.md",
+            "https://github.com/affaan-m/ECC/blob/main/skills/competitive-platform-analysis/SKILL.md",
+            "https://github.com/affaan-m/ECC/blob/main/skills/deep-research/SKILL.md"
+          ]
+        },
+        "P4": {
+          "score": 0,
+          "note": "реестра предложений нет",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/skills/product-lens/SKILL.md"
+          ]
+        },
+        "P5": {
+          "score": 1,
+          "note": "product-lens Mode 4: ICE с учётом зависимостей и ресурсов",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/skills/product-lens/SKILL.md"
+          ]
+        },
+        "P6": {
+          "score": 1,
+          "note": "PRODUCT-BRIEF.md и PRD; нет многоразделной стратегии",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/skills/product-lens/SKILL.md",
+            "https://github.com/affaan-m/ECC/blob/main/commands/plan-prd.md"
+          ]
+        },
+        "P7": {
+          "score": 1,
+          "note": "product-lens выдаёт «prioritized roadmap with rationale»; Ганта/Kanban/OKR нет",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/skills/product-lens/SKILL.md"
+          ]
+        },
+        "P8": {
+          "score": 0,
+          "note": "в модуле нет дизайна/макетов",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/manifests/install-modules.json"
+          ]
+        },
+        "P9": {
+          "score": 1,
+          "note": "frontend-slides — анимированные HTML-презентации и конвертация PPTX; investor-materials — колоды; XLSX/интерактивной страницы стратегии нет",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/skills/frontend-slides/SKILL.md",
+            "https://github.com/affaan-m/ECC/blob/main/skills/investor-materials/SKILL.md"
+          ]
+        },
+        "P10": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/skills/product-lens/SKILL.md"
+          ]
+        },
+        "P11": {
+          "score": 1,
+          "note": "product-lens Product Diagnostic: 7 вопросов, риски, go/no-go; без SWOT, аналогов, дизайна",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/skills/product-lens/SKILL.md"
+          ]
+        },
+        "P12": {
+          "score": 1,
+          "note": "/plan-prd → /plan, product-capability (PRD → план возможностей)",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/commands/plan-prd.md",
+            "https://github.com/affaan-m/ECC/blob/main/skills/product-capability/SKILL.md"
+          ]
+        },
+        "P13": {
+          "score": 2,
+          "note": "investor-materials: финмодель с явными допущениями, сценарии bear/base/bull, чувствительность",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/skills/investor-materials/SKILL.md"
+          ]
+        },
+        "P14": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/skills/product-lens/SKILL.md"
+          ]
+        }
+      },
+      "strengths": [
+        "Исследование с атрибуцией источников",
+        "Финмодель со сценариями",
+        "Огромное сообщество, частые релизы"
+      ],
+      "weaknesses": [
+        "Разрозненные скиллы, нет единого прогона",
+        "deep-research зависит от сторонних MCP с ключами"
+      ],
+      "risks": [
+        "Полная установка ECC раздувает список скиллов (по отчёту владельца ~403 записи)",
+        "Данные запросов уходят в firecrawl/exa"
+      ],
+      "verdict": "inspire",
+      "summary": "PS: сильные кирпичи P3 и P13, остальное слабо. PC: product-lens go/no-go — упрощённый аналог предпроверки. Брать идеи (атрибуция источников, сценарии модели), не заменять."
+    },
+    {
+      "id": "superpowers-brainstorming-plans",
+      "name": "superpowers: brainstorming + writing-plans",
+      "url": "https://github.com/obra/superpowers",
+      "kind": "plugin",
+      "collection": "obra/superpowers",
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 297393,
+      "forks": 26545,
+      "last_commit": "2026-10-10",
+      "created": "2025-10-09",
+      "contributors": 37,
+      "price": "free (MIT)",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Популярность",
+          "value": "297 393 звезды (GitHub API, 2026-10-11)",
+          "url": "https://github.com/obra/superpowers"
+        },
+        {
+          "label": "Установлен у владельца",
+          "value": "superpowers уже в сессии владельца",
+          "url": "https://github.com/obra/superpowers"
+        }
+      ],
+      "coverage": {
+        "P1": {
+          "score": 1,
+          "note": "writing-plans опирается на структуру файлов кодовой базы для плана реализации; не для стратегии",
+          "evidence": [
+            "https://github.com/obra/superpowers/blob/main/skills/writing-plans/SKILL.md"
+          ]
+        },
+        "P2": {
+          "score": 2,
+          "note": "brainstorming: по одному вопросу за сообщение, «Play It Back», оценка масштаба",
+          "evidence": [
+            "https://github.com/obra/superpowers/blob/main/skills/brainstorming/SKILL.md"
+          ]
+        },
+        "P3": {
+          "score": 0,
+          "note": "исследования рынка нет",
+          "evidence": [
+            "https://github.com/obra/superpowers/blob/main/skills/brainstorming/SKILL.md"
+          ]
+        },
+        "P4": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/obra/superpowers/blob/main/skills/brainstorming/SKILL.md"
+          ]
+        },
+        "P5": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/obra/superpowers/blob/main/skills/brainstorming/SKILL.md"
+          ]
+        },
+        "P6": {
+          "score": 1,
+          "note": "written design doc в docs/superpowers/specs/",
+          "evidence": [
+            "https://github.com/obra/superpowers/blob/main/skills/brainstorming/SKILL.md"
+          ]
+        },
+        "P7": {
+          "score": 0,
+          "note": "план реализации, не дорожная карта",
+          "evidence": [
+            "https://github.com/obra/superpowers/blob/main/skills/writing-plans/SKILL.md"
+          ]
+        },
+        "P8": {
+          "score": 1,
+          "note": "Visual Companion — показ вариантов в браузере при визуальных вопросах",
+          "evidence": [
+            "https://github.com/obra/superpowers/blob/main/skills/brainstorming/SKILL.md"
+          ]
+        },
+        "P9": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/obra/superpowers/blob/main/skills/brainstorming/SKILL.md"
+          ]
+        },
+        "P10": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/obra/superpowers/blob/main/skills/writing-plans/SKILL.md"
+          ]
+        },
+        "P11": {
+          "score": 1,
+          "note": "brainstorming применим и к «a business», итог — design doc; нет рынка/SWOT/светофора",
+          "evidence": [
+            "https://github.com/obra/superpowers/blob/main/skills/brainstorming/SKILL.md"
+          ]
+        },
+        "P12": {
+          "score": 2,
+          "note": "writing-plans: мелкие задачи с файлами, сигнатурами и тестами для исполнителя без контекста — для одной фичи даже детальнее",
+          "evidence": [
+            "https://github.com/obra/superpowers/blob/main/skills/writing-plans/SKILL.md"
+          ]
+        },
+        "P13": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/obra/superpowers/blob/main/skills/brainstorming/SKILL.md"
+          ]
+        },
+        "P14": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/obra/superpowers/blob/main/skills/brainstorming/SKILL.md"
+          ]
+        }
+      },
+      "strengths": [
+        "Отличная дисциплина вопросов и плана реализации",
+        "Очень популярен, уже установлен"
+      ],
+      "weaknesses": [
+        "Не про продукт/рынок"
+      ],
+      "risks": [
+        "Низкие"
+      ],
+      "verdict": "inspire",
+      "summary": "PS/PC: замена только для P2 (стиль интервью) и P12 (план задач на фичу). Хороший потребитель файла задач, который выдаёт скилл владельца."
+    },
+    {
+      "id": "alirezarezvani-product-team",
+      "name": "claude-skills: product-team (code-to-prd, competitive-teardown, experiment-designer, product-strategist, product-manager-toolkit)",
+      "url": "https://github.com/alirezarezvani/claude-skills",
+      "kind": "collection",
+      "collection": "alirezarezvani/claude-skills",
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 27993,
+      "forks": 3926,
+      "last_commit": "2026-08-30",
+      "created": "2025-10-19",
+      "contributors": 46,
+      "price": "free (MIT)",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Скрипты",
+          "value": "rice_prioritizer.py, sample_size_calculator.py, okr_cascade_generator.py",
+          "url": "https://github.com/alirezarezvani/claude-skills/tree/main/product-team"
+        },
+        {
+          "label": "Свежесть",
+          "value": "последний push 2026-08-30 (≈6 недель)",
+          "url": "https://github.com/alirezarezvani/claude-skills"
+        }
+      ],
+      "coverage": {
+        "P1": {
+          "score": 2,
+          "note": "code-to-prd: обратная разработка кодовой базы (роуты, компоненты, API, модели) в PRD; git и issues не берёт",
+          "evidence": [
+            "https://github.com/alirezarezvani/claude-skills/blob/main/product-team/code-to-prd/skills/code-to-prd/SKILL.md"
+          ]
+        },
+        "P2": {
+          "score": null,
+          "note": "не проверено: SKILL.md опросных частей не читались",
+          "evidence": []
+        },
+        "P3": {
+          "score": 2,
+          "note": "competitive-teardown: цены, отзывы в сторах, вакансии, SEO-сигналы, соцсети; матрица по 12 измерениям, SWOT, карта позиционирования",
+          "evidence": [
+            "https://github.com/alirezarezvani/claude-skills/blob/main/product-team/skills/competitive-teardown/SKILL.md"
+          ]
+        },
+        "P4": {
+          "score": null,
+          "note": "не проверено: отдельного реестра предложений не найдено, содержимое product-discovery не читалось",
+          "evidence": []
+        },
+        "P5": {
+          "score": 1,
+          "note": "rice_prioritizer.py: RICE с портфельным анализом и ёмкостью команды; нет Кано/WSJF/критического пути",
+          "evidence": [
+            "https://github.com/alirezarezvani/claude-skills/tree/main/product-team/skills/product-manager-toolkit"
+          ]
+        },
+        "P6": {
+          "score": 1,
+          "note": "product-strategist: документы видения продукта, квартальное планирование",
+          "evidence": [
+            "https://github.com/alirezarezvani/claude-skills/blob/main/product-team/skills/product-strategist/SKILL.md"
+          ]
+        },
+        "P7": {
+          "score": 1,
+          "note": "product-strategist: каскад OKR (скрипт), дорожные карты; Ганта/Kanban нет",
+          "evidence": [
+            "https://github.com/alirezarezvani/claude-skills/blob/main/product-team/skills/product-strategist/SKILL.md"
+          ]
+        },
+        "P8": {
+          "score": null,
+          "note": "не проверено: ui-design-system и ux-researcher-designer есть в каталоге, содержимое не читалось",
+          "evidence": []
+        },
+        "P9": {
+          "score": 1,
+          "note": "competitive-teardown: шаблоны презентаций для стейкхолдеров; landing-page-generator — HTML; интерактивной страницы стратегии нет",
+          "evidence": [
+            "https://github.com/alirezarezvani/claude-skills/blob/main/product-team/skills/competitive-teardown/SKILL.md",
+            "https://github.com/alirezarezvani/claude-skills/tree/main/product-team"
+          ]
+        },
+        "P10": {
+          "score": null,
+          "note": "не проверено: не найдено и не проверялось",
+          "evidence": []
+        },
+        "P11": {
+          "score": null,
+          "note": "не проверено: не проверялось",
+          "evidence": []
+        },
+        "P12": {
+          "score": null,
+          "note": "не проверено: agile-product-owner / spec-to-repo не читались",
+          "evidence": []
+        },
+        "P13": {
+          "score": null,
+          "note": "не проверено: каталог finance есть, не проверялся",
+          "evidence": []
+        },
+        "P14": {
+          "score": 2,
+          "note": "experiment-designer: гипотезы, оценка размера выборки (sample_size_calculator.py), приоритизация тестов, интерпретация A/B",
+          "evidence": [
+            "https://github.com/alirezarezvani/claude-skills/blob/main/product-team/skills/experiment-designer/SKILL.md"
+          ]
+        }
+      },
+      "strengths": [
+        "Есть детерминированные Python-скрипты (RICE, выборка, OKR)",
+        "code-to-prd — редкая возможность «код → продукт»"
+      ],
+      "weaknesses": [
+        "Огромный разнородный каталог, качество неровное",
+        "Нет единого конвейера"
+      ],
+      "risks": [
+        "Один основной автор при 46 контрибьюторах; push 6 недель назад"
+      ],
+      "verdict": "inspire",
+      "summary": "PS: code-to-prd (P1) и competitive-teardown (P3), experiment-designer (P14) — сильные кирпичи. PC: не проверено. Брать скрипты/подходы как ориентир."
+    },
+    {
+      "id": "deanpeters-pm-skills",
+      "name": "Product-Manager-Skills (deanpeters)",
+      "url": "https://github.com/deanpeters/Product-Manager-Skills",
+      "kind": "collection",
+      "collection": "deanpeters/Product-Manager-Skills",
+      "license": "CC BY-NC-SA 4.0",
+      "osi_license": false,
+      "stars": 7239,
+      "forks": 856,
+      "last_commit": "2026-09-01",
+      "created": "2026-02-05",
+      "contributors": 5,
+      "price": "free (некоммерческая лицензия)",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Лицензия",
+          "value": "Attribution-NonCommercial-ShareAlike 4.0 — как и у владельца, не для коммерции",
+          "url": "https://github.com/deanpeters/Product-Manager-Skills/blob/main/LICENSE"
+        },
+        {
+          "label": "Состав",
+          "value": "≈90 скиллов: strategy-session, market-landscape-scan, tam-sam-som-calculator, roadmap-planning, saas-economics…",
+          "url": "https://github.com/deanpeters/Product-Manager-Skills/tree/main/skills"
+        }
+      ],
+      "coverage": {
+        "P1": {
+          "score": 0,
+          "note": "анализа репозитория в каталоге не найдено",
+          "evidence": [
+            "https://github.com/deanpeters/Product-Manager-Skills/tree/main/skills"
+          ]
+        },
+        "P2": {
+          "score": null,
+          "note": "не проверено: воркшоп-скиллы (workshop-facilitation) не читались",
+          "evidence": []
+        },
+        "P3": {
+          "score": 2,
+          "note": "market-landscape-scan (сегменты, игроки, заменители, white space с цитированием), competitive-research-snapshot, competitive-intel-watch, pestel-analysis, voice-of-customer-miner",
+          "evidence": [
+            "https://github.com/deanpeters/Product-Manager-Skills/blob/main/skills/market-landscape-scan/SKILL.md",
+            "https://github.com/deanpeters/Product-Manager-Skills/tree/main/skills"
+          ]
+        },
+        "P4": {
+          "score": 0,
+          "note": "реестра нет",
+          "evidence": [
+            "https://github.com/deanpeters/Product-Manager-Skills/tree/main/skills"
+          ]
+        },
+        "P5": {
+          "score": 1,
+          "note": "prioritization-advisor: выбор RICE/ICE/value-effort под контекст; расчёта и зависимостей нет",
+          "evidence": [
+            "https://github.com/deanpeters/Product-Manager-Skills/blob/main/skills/prioritization-advisor/SKILL.md"
+          ]
+        },
+        "P6": {
+          "score": 1,
+          "note": "product-strategy-session: позиционирование, discovery, дорожная карта сквозной сессией",
+          "evidence": [
+            "https://github.com/deanpeters/Product-Manager-Skills/blob/main/skills/product-strategy-session/SKILL.md"
+          ]
+        },
+        "P7": {
+          "score": 1,
+          "note": "roadmap-planning: приоритизация, эпики, последовательность; визуализаций нет",
+          "evidence": [
+            "https://github.com/deanpeters/Product-Manager-Skills/blob/main/skills/roadmap-planning/SKILL.md"
+          ]
+        },
+        "P8": {
+          "score": 0,
+          "note": "нет (storyboard — нарратив)",
+          "evidence": [
+            "https://github.com/deanpeters/Product-Manager-Skills/tree/main/skills"
+          ]
+        },
+        "P9": {
+          "score": null,
+          "note": "не проверено: app/ — Streamlit-интерфейс (main.py), форматы выдачи не проверялись",
+          "evidence": []
+        },
+        "P10": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/deanpeters/Product-Manager-Skills/tree/main/skills"
+          ]
+        },
+        "P11": {
+          "score": 1,
+          "note": "problem-framing-canvas, lean-ux-canvas, jobs-to-be-done, proto-persona, pol-probe — отдельные шаги без конвейера",
+          "evidence": [
+            "https://github.com/deanpeters/Product-Manager-Skills/tree/main/skills"
+          ]
+        },
+        "P12": {
+          "score": 1,
+          "note": "epic-breakdown-advisor, user-story-splitting, user-story-mapping",
+          "evidence": [
+            "https://github.com/deanpeters/Product-Manager-Skills/tree/main/skills"
+          ]
+        },
+        "P13": {
+          "score": 1,
+          "note": "saas-economics-efficiency-metrics, tam-sam-som-calculator (явные допущения), finance-based-pricing-advisor",
+          "evidence": [
+            "https://github.com/deanpeters/Product-Manager-Skills/blob/main/skills/saas-economics-efficiency-metrics/SKILL.md",
+            "https://github.com/deanpeters/Product-Manager-Skills/blob/main/skills/tam-sam-som-calculator/SKILL.md"
+          ]
+        },
+        "P14": {
+          "score": 1,
+          "note": "pol-probe, derisk-measurement-advisor — проверка гипотез; калькулятор выборки не найден",
+          "evidence": [
+            "https://github.com/deanpeters/Product-Manager-Skills/tree/main/skills"
+          ]
+        }
+      },
+      "strengths": [
+        "Глубокие PM-методики с цитированием",
+        "TAM/SAM/SOM со скриптами"
+      ],
+      "weaknesses": [
+        "Некоммерческая лицензия (не OSI)",
+        "Нет единого прогона и форматов"
+      ],
+      "risks": [
+        "Лицензия NC-SA ограничивает встраивание",
+        "5 контрибьюторов"
+      ],
+      "verdict": "inspire",
+      "summary": "PS/PC: набор методик для P3/P5/P13, не замена. Лицензия NC-SA мешает заимствовать текст в скилл владельца."
+    },
+    {
+      "id": "idea-os",
+      "name": "idea-os (Slashworks-biz; в каталоге agentic-awesome-skills)",
+      "url": "https://github.com/Slashworks-biz/idea-os",
+      "kind": "skill",
+      "collection": "agentic-awesome-skills",
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 3,
+      "forks": 0,
+      "last_commit": "2026-04-18",
+      "created": "2026-04-17",
+      "contributors": null,
+      "price": "free (MIT)",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Активность",
+          "value": "3 звезды, последний push 2026-04-18 (полгода)",
+          "url": "https://github.com/Slashworks-biz/idea-os"
+        },
+        {
+          "label": "Каталог",
+          "value": "переупакован в sickn33/agentic-awesome-skills",
+          "url": "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-os/SKILL.md"
+        }
+      ],
+      "coverage": {
+        "P1": {
+          "score": 0,
+          "note": "работает с идеей, не с репозиторием",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-os/SKILL.md"
+          ]
+        },
+        "P2": {
+          "score": 1,
+          "note": "questions.md: 4–18 вопросов (по сложности), ждёт ответов; меньше нижней планки владельца (15)",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-os/SKILL.md"
+          ]
+        },
+        "P3": {
+          "score": 2,
+          "note": "research.md: минимум 5 WebSearch и 2 WebFetch, источник на каждую цифру TAM, дата у каждого источника, [assumption]; JTBD, TAM/SAM/SOM, конкуренты + карта позиционирования, SWOT, каналы первых 100 пользователей",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-os/SKILL.md",
+            "https://github.com/Slashworks-biz/idea-os"
+          ]
+        },
+        "P4": {
+          "score": 0,
+          "note": "реестра нет",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-os/SKILL.md"
+          ]
+        },
+        "P5": {
+          "score": 0,
+          "note": "нет количественной оценки",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-os/SKILL.md"
+          ]
+        },
+        "P6": {
+          "score": 1,
+          "note": "PRD с non-goals и метриками",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-os/SKILL.md"
+          ]
+        },
+        "P7": {
+          "score": 1,
+          "note": "plan.md: фазы, user journey (mermaid), стек; Ганта/OKR нет",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-os/SKILL.md"
+          ]
+        },
+        "P8": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-os/SKILL.md"
+          ]
+        },
+        "P9": {
+          "score": 0,
+          "note": "4 markdown-файла",
+          "evidence": [
+            "https://github.com/Slashworks-biz/idea-os"
+          ]
+        },
+        "P10": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-os/SKILL.md"
+          ]
+        },
+        "P11": {
+          "score": 2,
+          "note": "конвейер triage → clarify → research → PRD → plan с kill criteria; SWOT, JTBD, конкуренты; нет светофора-модели, дизайна, оценки предложений",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-os/SKILL.md"
+          ]
+        },
+        "P12": {
+          "score": 1,
+          "note": "фазовый план исполнения; эпиков для Claude Code нет",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-os/SKILL.md"
+          ]
+        },
+        "P13": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-os/SKILL.md"
+          ]
+        },
+        "P14": {
+          "score": 1,
+          "note": "kill criteria связаны с инсайтами исследования; экспериментов с выборкой нет",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-os/SKILL.md"
+          ]
+        }
+      },
+      "strengths": [
+        "Компактный и честный конвейер идеи с правилами источников",
+        "Близок по духу product-concept"
+      ],
+      "weaknesses": [
+        "Заброшен (апрель 2026), 3 звезды",
+        "Только markdown"
+      ],
+      "risks": [
+        "Нет поддержки"
+      ],
+      "verdict": "inspire",
+      "summary": "PC: самый близкий по логике открытый аналог product-concept (P2/P3/P11), но без дизайна, оценки, форматов и с минимальной поддержкой. PS: неприменим."
+    },
+    {
+      "id": "idea-to-blueprint",
+      "name": "idea-to-blueprint (iniesohidham; в каталоге agentic-awesome-skills)",
+      "url": "https://github.com/iniesohidham/idea-to-blueprint",
+      "kind": "skill",
+      "collection": "agentic-awesome-skills",
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 0,
+      "forks": 0,
+      "last_commit": "2026-09-30",
+      "created": "2026-09-18",
+      "contributors": null,
+      "price": "free (MIT)",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Активность",
+          "value": "0 звёзд, создан 2026-09-18, push 2026-09-30",
+          "url": "https://github.com/iniesohidham/idea-to-blueprint"
+        }
+      ],
+      "coverage": {
+        "P1": {
+          "score": 0,
+          "note": "идея, не репозиторий",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-to-blueprint/SKILL.md"
+          ]
+        },
+        "P2": {
+          "score": 1,
+          "note": "одна пачка intake-вопросов с умолчаниями + чекпоинт decision brief",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-to-blueprint/SKILL.md"
+          ]
+        },
+        "P3": {
+          "score": 2,
+          "note": "deep research, бенчмарк конкурентов, UX-бенчмарки, метки [VERIFIED — source, date]/[ASSUMED]/[UNKNOWN → OQ]",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-to-blueprint/SKILL.md"
+          ]
+        },
+        "P4": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-to-blueprint/SKILL.md"
+          ]
+        },
+        "P5": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-to-blueprint/SKILL.md"
+          ]
+        },
+        "P6": {
+          "score": 1,
+          "note": "blueprint с персонами, потоками, позиционированием — но это техзадание, не стратегия",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-to-blueprint/SKILL.md"
+          ]
+        },
+        "P7": {
+          "score": 1,
+          "note": "эпики по порядку сборки; Ганта/OKR нет",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-to-blueprint/SKILL.md"
+          ]
+        },
+        "P8": {
+          "score": 1,
+          "note": "UX-копирайт, потоки, экраны текстом; макетов нет",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-to-blueprint/SKILL.md"
+          ]
+        },
+        "P9": {
+          "score": 0,
+          "note": "один markdown",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-to-blueprint/SKILL.md"
+          ]
+        },
+        "P10": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-to-blueprint/SKILL.md"
+          ]
+        },
+        "P11": {
+          "score": 1,
+          "note": "идея → чертёж продукта с исследованием; без SWOT/светофора/модели",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-to-blueprint/SKILL.md"
+          ]
+        },
+        "P12": {
+          "score": 3,
+          "note": "эпики → истории с Given/When/Then, тесты, Definition of Done, протокол «один эпик за сессию» для Claude Code/Codex — глубже файла задач владельца",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-to-blueprint/SKILL.md"
+          ]
+        },
+        "P13": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-to-blueprint/SKILL.md"
+          ]
+        },
+        "P14": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-to-blueprint/SKILL.md"
+          ]
+        }
+      },
+      "strengths": [
+        "Лучший найденный формат передачи в разработку (P12)",
+        "Строгие метки доказательности"
+      ],
+      "weaknesses": [
+        "Новый, без пользователей",
+        "Только техзадание"
+      ],
+      "risks": [
+        "Не проверен сообществом"
+      ],
+      "verdict": "inspire",
+      "summary": "PC/PS: ориентир для P12 (формат эпиков с Given/When/Then и протоколом сессий). Остальное не покрывает."
+    },
+    {
+      "id": "aas-startup-product-set",
+      "name": "agentic-awesome-skills: startup/product набор (startup-financial-modeling, startup-business-analyst-*, idea-evaluator, okr-system, product-manager-toolkit, to-prd)",
+      "url": "https://github.com/sickn33/agentic-awesome-skills",
+      "kind": "collection",
+      "collection": "agentic-awesome-skills",
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 47451,
+      "forks": 6918,
+      "last_commit": "2026-10-10",
+      "created": "2026-01-14",
+      "contributors": 100,
+      "price": "free (MIT; у отдельных скиллов — лицензии авторов)",
+      "claude_code_native": true,
+      "languages": [
+        "en",
+        "zh"
+      ],
+      "quality_signals": [
+        {
+          "label": "Размер",
+          "value": "≈38.8K файлов в дереве; сотни скиллов-агрегатов из сторонних репозиториев",
+          "url": "https://github.com/sickn33/agentic-awesome-skills/tree/main/plugins/agentic-awesome-skills-claude/skills"
+        }
+      ],
+      "coverage": {
+        "P1": {
+          "score": 0,
+          "note": "среди продуктовых скиллов анализа репозитория для стратегии не найдено (есть codebase-cleanup-* — про техдолг)",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/tree/main/plugins/agentic-awesome-skills-claude/skills"
+          ]
+        },
+        "P2": {
+          "score": 1,
+          "note": "idea-evaluator — дебаты Pro/Con агентов вместо опроса владельца",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-evaluator/SKILL.md"
+          ]
+        },
+        "P3": {
+          "score": 1,
+          "note": "startup-business-analyst-market-opportunity (TAM/SAM/SOM), competitor-* и apify-market-research (нужен Apify)",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/startup-business-analyst-market-opportunity/SKILL.md",
+            "https://github.com/sickn33/agentic-awesome-skills/tree/main/plugins/agentic-awesome-skills-claude/skills"
+          ]
+        },
+        "P4": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/tree/main/plugins/agentic-awesome-skills-claude/skills"
+          ]
+        },
+        "P5": {
+          "score": 1,
+          "note": "product-manager-toolkit: rice_prioritizer.py",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/tree/main/plugins/agentic-awesome-skills-claude/skills"
+          ]
+        },
+        "P6": {
+          "score": 0,
+          "note": "нет целостной стратегии",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/tree/main/plugins/agentic-awesome-skills-claude/skills"
+          ]
+        },
+        "P7": {
+          "score": 1,
+          "note": "okr-system — реестр OKR с прогрессом",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/okr-system/SKILL.md"
+          ]
+        },
+        "P8": {
+          "score": 0,
+          "note": "среди продуктовых — нет",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/tree/main/plugins/agentic-awesome-skills-claude/skills"
+          ]
+        },
+        "P9": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/tree/main/plugins/agentic-awesome-skills-claude/skills"
+          ]
+        },
+        "P10": {
+          "score": 1,
+          "note": "okr-system — прогресс по ключевым результатам вручную; со кодом не связан",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/okr-system/SKILL.md"
+          ]
+        },
+        "P11": {
+          "score": 1,
+          "note": "idea-evaluator (вердикт по дебатам), idea-os/idea-to-blueprint (оценены отдельно)",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-evaluator/SKILL.md"
+          ]
+        },
+        "P12": {
+          "score": 1,
+          "note": "to-prd публикует PRD в трекер проекта",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/to-prd/SKILL.md"
+          ]
+        },
+        "P13": {
+          "score": 2,
+          "note": "startup-financial-modeling: 3–5-летняя модель, выручка, затраты, денежный поток, сценарии",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/startup-financial-modeling/SKILL.md"
+          ]
+        },
+        "P14": {
+          "score": 1,
+          "note": "ab-test-setup, ab-testing в каталоге; содержимое не читалось подробно",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/tree/main/plugins/agentic-awesome-skills-claude/skills"
+          ]
+        }
+      },
+      "strengths": [
+        "Широта: есть почти любой кирпич",
+        "Финмодель со сценариями"
+      ],
+      "weaknesses": [
+        "Агрегатор с неровным качеством, дубли",
+        "Нет связки между скиллами"
+      ],
+      "risks": [
+        "Сторонний код без единого ревью",
+        "Перегрузка списка скиллов"
+      ],
+      "verdict": "inspire",
+      "summary": "PS/PC: полезен как «склад кирпичей» (P13 финмодель), но не замена."
+    },
+    {
+      "id": "appie-codebase-audit-roadmap",
+      "name": "codebase-audit-and-roadmap (S3YED/appie-kit)",
+      "url": "https://claudskills.com/skills/codebase-audit-and-roadmap/",
+      "kind": "skill",
+      "collection": "S3YED/appie-kit",
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 11,
+      "forks": 2,
+      "last_commit": "2026-08-26",
+      "created": "2026-03-26",
+      "contributors": 1,
+      "price": "free вручную; ClaudSkills Pro $9/мес, $79/год или $149 разово — только одноклик-установка",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Безопасность",
+          "value": "Grade A статический скан 2026-09-28 (claudskills.com)",
+          "url": "https://claudskills.com/skills/codebase-audit-and-roadmap/"
+        },
+        {
+          "label": "Статус",
+          "value": "в HEAD репозитория папки нет (404); последняя версия — коммит 45c4d3b от 2026-06-28, удалена при синке 2026-07-13",
+          "url": "https://github.com/S3YED/appie-kit/blob/45c4d3b5c79f7bbb99605de7e489d411aca122de/skills/software-development/codebase-audit-and-roadmap/SKILL.md"
+        }
+      ],
+      "coverage": {
+        "P1": {
+          "score": 2,
+          "note": "фазы: поиск проекта, систематический анализ кода, git log, аудит деплоя SaaS, инвентарь функций со статусами (в т.ч. «Broken»)",
+          "evidence": [
+            "https://github.com/S3YED/appie-kit/blob/45c4d3b5c79f7bbb99605de7e489d411aca122de/skills/software-development/codebase-audit-and-roadmap/SKILL.md"
+          ]
+        },
+        "P2": {
+          "score": 0,
+          "note": "опроса нет",
+          "evidence": [
+            "https://github.com/S3YED/appie-kit/blob/45c4d3b5c79f7bbb99605de7e489d411aca122de/skills/software-development/codebase-audit-and-roadmap/SKILL.md"
+          ]
+        },
+        "P3": {
+          "score": 0,
+          "note": "рынка нет",
+          "evidence": [
+            "https://github.com/S3YED/appie-kit/blob/45c4d3b5c79f7bbb99605de7e489d411aca122de/skills/software-development/codebase-audit-and-roadmap/SKILL.md"
+          ]
+        },
+        "P4": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/S3YED/appie-kit/blob/45c4d3b5c79f7bbb99605de7e489d411aca122de/skills/software-development/codebase-audit-and-roadmap/SKILL.md"
+          ]
+        },
+        "P5": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/S3YED/appie-kit/blob/45c4d3b5c79f7bbb99605de7e489d411aca122de/skills/software-development/codebase-audit-and-roadmap/SKILL.md"
+          ]
+        },
+        "P6": {
+          "score": 1,
+          "note": "Current State Assessment + Build Plan",
+          "evidence": [
+            "https://github.com/S3YED/appie-kit/blob/45c4d3b5c79f7bbb99605de7e489d411aca122de/skills/software-development/codebase-audit-and-roadmap/SKILL.md"
+          ]
+        },
+        "P7": {
+          "score": 1,
+          "note": "Build Order по фазам",
+          "evidence": [
+            "https://github.com/S3YED/appie-kit/blob/45c4d3b5c79f7bbb99605de7e489d411aca122de/skills/software-development/codebase-audit-and-roadmap/SKILL.md"
+          ]
+        },
+        "P8": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/S3YED/appie-kit/blob/45c4d3b5c79f7bbb99605de7e489d411aca122de/skills/software-development/codebase-audit-and-roadmap/SKILL.md"
+          ]
+        },
+        "P9": {
+          "score": 0,
+          "note": "markdown",
+          "evidence": [
+            "https://github.com/S3YED/appie-kit/blob/45c4d3b5c79f7bbb99605de7e489d411aca122de/skills/software-development/codebase-audit-and-roadmap/SKILL.md"
+          ]
+        },
+        "P10": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/S3YED/appie-kit/blob/45c4d3b5c79f7bbb99605de7e489d411aca122de/skills/software-development/codebase-audit-and-roadmap/SKILL.md"
+          ]
+        },
+        "P11": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/S3YED/appie-kit/blob/45c4d3b5c79f7bbb99605de7e489d411aca122de/skills/software-development/codebase-audit-and-roadmap/SKILL.md"
+          ]
+        },
+        "P12": {
+          "score": 1,
+          "note": "PRD/план сборки с «What already exists / What to build»",
+          "evidence": [
+            "https://github.com/S3YED/appie-kit/blob/45c4d3b5c79f7bbb99605de7e489d411aca122de/skills/software-development/codebase-audit-and-roadmap/SKILL.md"
+          ]
+        },
+        "P13": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/S3YED/appie-kit/blob/45c4d3b5c79f7bbb99605de7e489d411aca122de/skills/software-development/codebase-audit-and-roadmap/SKILL.md"
+          ]
+        },
+        "P14": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/S3YED/appie-kit/blob/45c4d3b5c79f7bbb99605de7e489d411aca122de/skills/software-development/codebase-audit-and-roadmap/SKILL.md"
+          ]
+        }
+      },
+      "strengths": [
+        "Короткий аудит «что есть / чего нет» по коду"
+      ],
+      "weaknesses": [
+        "Удалён из актуального репозитория",
+        "Только аудит + план сборки"
+      ],
+      "risks": [
+        "Заброшен/удалён, 1 автор",
+        "Каталог продаёт платную установку бесплатного файла"
+      ],
+      "verdict": "ignore",
+      "summary": "PS: лёгкий аналог только P1 и удалён из HEAD репозитория — как замена не годится. PC: неприменим."
+    },
+    {
+      "id": "ccpm",
+      "name": "CCPM — Claude Code PM (automazeio)",
+      "url": "https://github.com/automazeio/ccpm",
+      "kind": "plugin",
+      "collection": null,
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 8407,
+      "forks": 842,
+      "last_commit": "2026-03-18",
+      "created": "2025-08-18",
+      "contributors": 9,
+      "price": "free (MIT)",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Свежесть",
+          "value": "последний push 2026-03-18 (≈7 месяцев)",
+          "url": "https://github.com/automazeio/ccpm"
+        }
+      ],
+      "coverage": {
+        "P1": {
+          "score": 1,
+          "note": "читает проектные файлы и GitHub Issues как источник состояния",
+          "evidence": [
+            "https://github.com/automazeio/ccpm"
+          ]
+        },
+        "P2": {
+          "score": 1,
+          "note": "guided brainstorming при создании PRD",
+          "evidence": [
+            "https://github.com/automazeio/ccpm"
+          ]
+        },
+        "P3": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/automazeio/ccpm"
+          ]
+        },
+        "P4": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/automazeio/ccpm"
+          ]
+        },
+        "P5": {
+          "score": 0,
+          "note": "нет (зависимости задач — да)",
+          "evidence": [
+            "https://github.com/automazeio/ccpm"
+          ]
+        },
+        "P6": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/automazeio/ccpm"
+          ]
+        },
+        "P7": {
+          "score": 1,
+          "note": "эпики и задачи с зависимостями; дорожной карты/Ганта нет",
+          "evidence": [
+            "https://github.com/automazeio/ccpm"
+          ]
+        },
+        "P8": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/automazeio/ccpm"
+          ]
+        },
+        "P9": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/automazeio/ccpm"
+          ]
+        },
+        "P10": {
+          "score": 2,
+          "note": "трассировка PRD → Epic → Task → Issue → Code → Commit; standup/blocked/next скриптами без LLM; прогресс в комментариях issues — для эпиков, не для стратегии",
+          "evidence": [
+            "https://github.com/automazeio/ccpm"
+          ]
+        },
+        "P11": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/automazeio/ccpm"
+          ]
+        },
+        "P12": {
+          "score": 3,
+          "note": "эпики → задачи с зависимостями → синхронизация в GitHub (epic + sub-issues + worktree) и параллельные агенты — шире файла задач",
+          "evidence": [
+            "https://github.com/automazeio/ccpm"
+          ]
+        },
+        "P13": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/automazeio/ccpm"
+          ]
+        },
+        "P14": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/automazeio/ccpm"
+          ]
+        }
+      },
+      "strengths": [
+        "GitHub Issues как единый источник правды",
+        "Детерминированные скрипты статуса"
+      ],
+      "weaknesses": [
+        "Только исполнение, не стратегия",
+        "7 месяцев без коммитов"
+      ],
+      "risks": [
+        "Пишет в GitHub (создаёт issues) — у владельца правило «только чтение»"
+      ],
+      "verdict": "partial",
+      "summary": "PS: может заменить «хвост» — P12 и часть P10 на уровне эпиков после того, как стратегия написана. PC: неприменим."
+    },
+    {
+      "id": "claude-task-master",
+      "name": "Task Master (eyaltoledano/claude-task-master)",
+      "url": "https://github.com/eyaltoledano/claude-task-master",
+      "kind": "mcp",
+      "collection": null,
+      "license": "MIT + Commons Clause",
+      "osi_license": false,
+      "stars": 28197,
+      "forks": 2616,
+      "last_commit": "2026-04-28",
+      "created": "2025-03-04",
+      "contributors": 56,
+      "price": "free; модели по своим API-ключам (Perplexity для research и др.) или OAuth Claude Code",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Лицензия",
+          "value": "MIT с Commons Clause — запрет продажи, не OSI",
+          "url": "https://github.com/eyaltoledano/claude-task-master/blob/main/LICENSE"
+        },
+        {
+          "label": "Открытые issues",
+          "value": "213",
+          "url": "https://github.com/eyaltoledano/claude-task-master"
+        }
+      ],
+      "coverage": {
+        "P1": {
+          "score": 1,
+          "note": "задачи в контексте проекта; анализа репозитория для стратегии нет",
+          "evidence": [
+            "https://github.com/eyaltoledano/claude-task-master"
+          ]
+        },
+        "P2": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/eyaltoledano/claude-task-master"
+          ]
+        },
+        "P3": {
+          "score": 1,
+          "note": "research-команда через research-модель (Perplexity и др.)",
+          "evidence": [
+            "https://github.com/eyaltoledano/claude-task-master"
+          ]
+        },
+        "P4": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/eyaltoledano/claude-task-master"
+          ]
+        },
+        "P5": {
+          "score": 1,
+          "note": "зависимости задач и анализ сложности; продуктовой приоритизации нет",
+          "evidence": [
+            "https://github.com/eyaltoledano/claude-task-master"
+          ]
+        },
+        "P6": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/eyaltoledano/claude-task-master"
+          ]
+        },
+        "P7": {
+          "score": 1,
+          "note": "задачи с зависимостями и «next task»; дорожной карты нет",
+          "evidence": [
+            "https://github.com/eyaltoledano/claude-task-master"
+          ]
+        },
+        "P8": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/eyaltoledano/claude-task-master"
+          ]
+        },
+        "P9": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/eyaltoledano/claude-task-master"
+          ]
+        },
+        "P10": {
+          "score": 1,
+          "note": "статусы задач в tasks.json; с коммитами/issues не сверяет",
+          "evidence": [
+            "https://github.com/eyaltoledano/claude-task-master"
+          ]
+        },
+        "P11": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/eyaltoledano/claude-task-master"
+          ]
+        },
+        "P12": {
+          "score": 3,
+          "note": "parse-prd → дерево задач с зависимостями, MCP-сервер для Claude Code/Cursor",
+          "evidence": [
+            "https://github.com/eyaltoledano/claude-task-master"
+          ]
+        },
+        "P13": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/eyaltoledano/claude-task-master"
+          ]
+        },
+        "P14": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/eyaltoledano/claude-task-master"
+          ]
+        }
+      },
+      "strengths": [
+        "Зрелый инструмент PRD → задачи",
+        "MCP-сервер"
+      ],
+      "weaknesses": [
+        "Не про стратегию",
+        "Полгода без push"
+      ],
+      "risks": [
+        "Commons Clause",
+        "Нужны внешние API-ключи"
+      ],
+      "verdict": "partial",
+      "summary": "PS: потребитель P12 (стратегия → PRD → задачи), не замена стратегии. PC: неприменим."
+    },
+    {
+      "id": "github-spec-kit",
+      "name": "Spec Kit (github/spec-kit)",
+      "url": "https://github.com/github/spec-kit",
+      "kind": "oss-tool",
+      "collection": null,
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 140786,
+      "forks": 12609,
+      "last_commit": "2026-10-10",
+      "created": "2025-08-21",
+      "contributors": 100,
+      "price": "free (MIT)",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Издатель",
+          "value": "GitHub",
+          "url": "https://github.com/github/spec-kit"
+        }
+      ],
+      "coverage": {
+        "P1": {
+          "score": 1,
+          "note": "/speckit-plan учитывает существующий стек; анализа репозитория для стратегии нет",
+          "evidence": [
+            "https://github.com/github/spec-kit"
+          ]
+        },
+        "P2": {
+          "score": 1,
+          "note": "/speckit-specify и расширение assess (intake → research → define → shape → decide)",
+          "evidence": [
+            "https://github.com/github/spec-kit"
+          ]
+        },
+        "P3": {
+          "score": 1,
+          "note": "расширение assess: research-шаг перед решением go",
+          "evidence": [
+            "https://github.com/github/spec-kit"
+          ]
+        },
+        "P4": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/github/spec-kit"
+          ]
+        },
+        "P5": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/github/spec-kit"
+          ]
+        },
+        "P6": {
+          "score": 1,
+          "note": "constitution + spec — принципы и спецификация, не стратегия",
+          "evidence": [
+            "https://github.com/github/spec-kit"
+          ]
+        },
+        "P7": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/github/spec-kit"
+          ]
+        },
+        "P8": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/github/spec-kit"
+          ]
+        },
+        "P9": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/github/spec-kit"
+          ]
+        },
+        "P10": {
+          "score": 1,
+          "note": "/speckit-converge сверяет реализацию со спецификацией; не со стратегией",
+          "evidence": [
+            "https://github.com/github/spec-kit"
+          ]
+        },
+        "P11": {
+          "score": 1,
+          "note": "assess-decide даёт go/no-go фичи; не концепция продукта",
+          "evidence": [
+            "https://github.com/github/spec-kit"
+          ]
+        },
+        "P12": {
+          "score": 2,
+          "note": "specify → plan → tasks → implement для каждой фичи",
+          "evidence": [
+            "https://github.com/github/spec-kit"
+          ]
+        },
+        "P13": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/github/spec-kit"
+          ]
+        },
+        "P14": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://github.com/github/spec-kit"
+          ]
+        }
+      },
+      "strengths": [
+        "Стандарт spec-driven разработки, активно поддерживается"
+      ],
+      "weaknesses": [
+        "Уровень фичи, не продукта"
+      ],
+      "risks": [
+        "Низкие"
+      ],
+      "verdict": "inspire",
+      "summary": "PS/PC: принимающая сторона для P12, не замена."
+    },
+    {
+      "id": "anthropic-document-skills",
+      "name": "Anthropic document skills: pptx, xlsx, pdf, docx (anthropics/skills)",
+      "url": "https://github.com/anthropics/skills",
+      "kind": "skill",
+      "collection": "anthropics/skills",
+      "license": "проприетарная (по соглашению с Anthropic)",
+      "osi_license": false,
+      "stars": 180423,
+      "forks": 21350,
+      "last_commit": "2026-10-09",
+      "created": "2025-09-22",
+      "contributors": 15,
+      "price": "входит в тариф Claude",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Лицензия",
+          "value": "«governed by your agreement with Anthropic» — не открытая",
+          "url": "https://github.com/anthropics/skills/blob/main/skills/pptx/LICENSE.txt"
+        },
+        {
+          "label": "Установлены у владельца",
+          "value": "anthropic-skills:pptx/xlsx/pdf/docx доступны в сессии",
+          "url": "https://github.com/anthropics/skills"
+        }
+      ],
+      "coverage": {
+        "P1": {
+          "score": 0,
+          "note": "вне назначения продукта (генерация офисных файлов); на странице нет",
+          "evidence": [
+            "https://github.com/anthropics/skills"
+          ]
+        },
+        "P2": {
+          "score": 0,
+          "note": "вне назначения продукта (генерация офисных файлов); на странице нет",
+          "evidence": [
+            "https://github.com/anthropics/skills"
+          ]
+        },
+        "P3": {
+          "score": 0,
+          "note": "вне назначения продукта (генерация офисных файлов); на странице нет",
+          "evidence": [
+            "https://github.com/anthropics/skills"
+          ]
+        },
+        "P4": {
+          "score": 0,
+          "note": "вне назначения продукта (генерация офисных файлов); на странице нет",
+          "evidence": [
+            "https://github.com/anthropics/skills"
+          ]
+        },
+        "P5": {
+          "score": 0,
+          "note": "вне назначения продукта (генерация офисных файлов); на странице нет",
+          "evidence": [
+            "https://github.com/anthropics/skills"
+          ]
+        },
+        "P6": {
+          "score": 0,
+          "note": "вне назначения продукта (генерация офисных файлов); на странице нет",
+          "evidence": [
+            "https://github.com/anthropics/skills"
+          ]
+        },
+        "P7": {
+          "score": 1,
+          "note": "Гант/таблицы можно собрать в XLSX вручную; специальной логики нет",
+          "evidence": [
+            "https://github.com/anthropics/skills"
+          ]
+        },
+        "P8": {
+          "score": 0,
+          "note": "вне назначения продукта (генерация офисных файлов); на странице нет",
+          "evidence": [
+            "https://github.com/anthropics/skills"
+          ]
+        },
+        "P9": {
+          "score": 2,
+          "note": "pptx/xlsx/pdf/docx — создание и правка файлов, формулы в XLSX; интерактивную веб-страницу стратегии и связку с единым набором данных не даёт",
+          "evidence": [
+            "https://github.com/anthropics/skills"
+          ]
+        },
+        "P10": {
+          "score": 0,
+          "note": "вне назначения продукта (генерация офисных файлов); на странице нет",
+          "evidence": [
+            "https://github.com/anthropics/skills"
+          ]
+        },
+        "P11": {
+          "score": 0,
+          "note": "вне назначения продукта (генерация офисных файлов); на странице нет",
+          "evidence": [
+            "https://github.com/anthropics/skills"
+          ]
+        },
+        "P12": {
+          "score": 0,
+          "note": "вне назначения продукта (генерация офисных файлов); на странице нет",
+          "evidence": [
+            "https://github.com/anthropics/skills"
+          ]
+        },
+        "P13": {
+          "score": 0,
+          "note": "вне назначения продукта (генерация офисных файлов); на странице нет",
+          "evidence": [
+            "https://github.com/anthropics/skills"
+          ]
+        },
+        "P14": {
+          "score": 0,
+          "note": "вне назначения продукта (генерация офисных файлов); на странице нет",
+          "evidence": [
+            "https://github.com/anthropics/skills"
+          ]
+        }
+      },
+      "strengths": [
+        "Качественные офисные форматы от Anthropic"
+      ],
+      "weaknesses": [
+        "Только форматы, без содержания стратегии"
+      ],
+      "risks": [
+        "Закрытая лицензия"
+      ],
+      "verdict": "partial",
+      "summary": "PS/PC: может заменить собственные сборщики XLSX/PPTX/PDF (часть P9), если отказаться от единого конвейера build_all.py."
+    },
+    {
+      "id": "chatprd",
+      "name": "ChatPRD",
+      "url": "https://www.chatprd.ai/",
+      "kind": "saas",
+      "price": "Free (3 чата); Pro $15/мес ($179/год); Teams $29/место/мес; Enterprise — по запросу",
+      "license": null,
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "MCP",
+          "value": "подключение документов к AI-инструментам кодинга через MCP",
+          "url": "https://www.chatprd.ai/"
+        },
+        {
+          "label": "Интеграции",
+          "value": "Notion export, Google Drive, Slack (Pro), Linear (Teams)",
+          "url": "https://www.chatprd.ai/pricing"
+        }
+      ],
+      "coverage": {
+        "P1": {
+          "score": null,
+          "note": "не проверено: работа с кодовой базой на открытых страницах не описана",
+          "evidence": []
+        },
+        "P2": {
+          "score": 1,
+          "note": "диалог в чате при написании PRD",
+          "evidence": [
+            "https://www.chatprd.ai/"
+          ]
+        },
+        "P3": {
+          "score": null,
+          "note": "не проверено: исследование рынка на открытых страницах не описано",
+          "evidence": []
+        },
+        "P4": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-помощник PM для PRD); на странице нет",
+          "evidence": [
+            "https://www.chatprd.ai/"
+          ]
+        },
+        "P5": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-помощник PM для PRD); на странице нет",
+          "evidence": [
+            "https://www.chatprd.ai/"
+          ]
+        },
+        "P6": {
+          "score": 1,
+          "note": "«review product strategy» — ревью, не генерация глубокой стратегии",
+          "evidence": [
+            "https://www.chatprd.ai/"
+          ]
+        },
+        "P7": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-помощник PM для PRD); на странице нет",
+          "evidence": [
+            "https://www.chatprd.ai/"
+          ]
+        },
+        "P8": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-помощник PM для PRD); на странице нет",
+          "evidence": [
+            "https://www.chatprd.ai/"
+          ]
+        },
+        "P9": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-помощник PM для PRD); на странице нет",
+          "evidence": [
+            "https://www.chatprd.ai/"
+          ]
+        },
+        "P10": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-помощник PM для PRD); на странице нет",
+          "evidence": [
+            "https://www.chatprd.ai/"
+          ]
+        },
+        "P11": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-помощник PM для PRD); на странице нет",
+          "evidence": [
+            "https://www.chatprd.ai/"
+          ]
+        },
+        "P12": {
+          "score": 2,
+          "note": "PRD + Linear-интеграция (Teams) и MCP для агентов кодинга",
+          "evidence": [
+            "https://www.chatprd.ai/pricing",
+            "https://www.chatprd.ai/"
+          ]
+        },
+        "P13": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-помощник PM для PRD); на странице нет",
+          "evidence": [
+            "https://www.chatprd.ai/"
+          ]
+        },
+        "P14": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-помощник PM для PRD); на странице нет",
+          "evidence": [
+            "https://www.chatprd.ai/"
+          ]
+        }
+      },
+      "strengths": [
+        "Удобный SaaS для PRD, MCP к агентам"
+      ],
+      "weaknesses": [
+        "Узкий фокус на PRD"
+      ],
+      "risks": [
+        "Данные продукта в чужом облаке",
+        "Подписка"
+      ],
+      "verdict": "ignore",
+      "summary": "PS/PC: закрывает только P12/PRD; для стратегии и концепции не годится.",
+      "collection": null
+    },
+    {
+      "id": "productboard-spark",
+      "name": "Productboard + Spark",
+      "url": "https://www.productboard.com/spark/",
+      "kind": "saas",
+      "price": "Business/Enterprise — цены не опубликованы («Request demo»); кредиты Spark $5/50",
+      "license": null,
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "MCP",
+          "value": "«Pull specs into Claude Code, Codex, or Cursor via MCP»",
+          "url": "https://www.productboard.com/spark/"
+        },
+        {
+          "label": "Кредиты",
+          "value": "500 кредитов Spark на мейкера в мес. (Business)",
+          "url": "https://www.productboard.com/pricing/"
+        }
+      ],
+      "coverage": {
+        "P1": {
+          "score": 1,
+          "note": "codebase analysis через GitHub-интеграцию для спеков",
+          "evidence": [
+            "https://www.productboard.com/spark/"
+          ]
+        },
+        "P2": {
+          "score": 0,
+          "note": "опроса владельца нет — работает по данным обратной связи",
+          "evidence": [
+            "https://www.productboard.com/spark/"
+          ]
+        },
+        "P3": {
+          "score": 1,
+          "note": "competitive intel, публичные страницы цен конкурентов; голос клиента",
+          "evidence": [
+            "https://www.productboard.com/spark/"
+          ]
+        },
+        "P4": {
+          "score": 1,
+          "note": "возможности, ранжированные по доказательствам (из обратной связи клиентов)",
+          "evidence": [
+            "https://www.productboard.com/spark/"
+          ]
+        },
+        "P5": {
+          "score": 2,
+          "note": "пользовательские формулы приоритизации, зависимости, иерархия целей (Enterprise)",
+          "evidence": [
+            "https://www.productboard.com/pricing/"
+          ]
+        },
+        "P6": {
+          "score": 1,
+          "note": "брифы, PRD, discovery-планы; отдельной стратегии не описано",
+          "evidence": [
+            "https://www.productboard.com/spark/"
+          ]
+        },
+        "P7": {
+          "score": 2,
+          "note": "timeline и column-роадмапы, релизное планирование, зависимости",
+          "evidence": [
+            "https://www.productboard.com/pricing/"
+          ]
+        },
+        "P8": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://www.productboard.com/pricing/"
+          ]
+        },
+        "P9": {
+          "score": 1,
+          "note": "веб-интерфейс SaaS; офлайн-страницы/XLSX/PPTX не описаны",
+          "evidence": [
+            "https://www.productboard.com/pricing/"
+          ]
+        },
+        "P10": {
+          "score": 2,
+          "note": "progress и health tracking, Jira/ADO-интеграции; пост-запусковые результаты против метрик спека",
+          "evidence": [
+            "https://www.productboard.com/pricing/",
+            "https://www.productboard.com/spark/"
+          ]
+        },
+        "P11": {
+          "score": 0,
+          "note": "для существующих продуктов с клиентами",
+          "evidence": [
+            "https://www.productboard.com/spark/"
+          ]
+        },
+        "P12": {
+          "score": 2,
+          "note": "delivery-ready спецификации + MCP для агентов кодинга",
+          "evidence": [
+            "https://www.productboard.com/spark/"
+          ]
+        },
+        "P13": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://www.productboard.com/pricing/"
+          ]
+        },
+        "P14": {
+          "score": 0,
+          "note": "не описано",
+          "evidence": [
+            "https://www.productboard.com/pricing/"
+          ]
+        }
+      },
+      "strengths": [
+        "Сильная связка обратной связи, приоритизации, роадмапа и прогресса",
+        "MCP для Claude Code"
+      ],
+      "weaknesses": [
+        "Нужны данные клиентов и команда",
+        "Нет исследования рынка и концепции"
+      ],
+      "risks": [
+        "Закрытый SaaS, цена по запросу",
+        "Данные в чужом облаке"
+      ],
+      "verdict": "partial",
+      "summary": "PS: для команды с клиентской обратной связью частично заменяет P5/P7/P10/P12, но не P1-анализ кода целиком, P3, P8, P13. PC: неприменим. Для одиночного разработчика с нулевым бюджетом невыгоден.",
+      "collection": null
+    },
+    {
+      "id": "aha",
+      "name": "Aha! Roadmaps / Discovery / Whiteboards / Builder",
+      "url": "https://www.aha.io/pricing",
+      "kind": "saas",
+      "price": "Roadmaps от $59/польз./мес; Discovery/Ideas от $39; Whiteboards $9; Builder $59",
+      "license": null,
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "AI",
+          "value": "ассистент Elle во всех продуктах",
+          "url": "https://www.aha.io/pricing"
+        }
+      ],
+      "coverage": {
+        "P1": {
+          "score": 0,
+          "note": "анализа кода нет",
+          "evidence": [
+            "https://www.aha.io/pricing"
+          ]
+        },
+        "P2": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://www.aha.io/pricing"
+          ]
+        },
+        "P3": {
+          "score": 0,
+          "note": "исследования рынка не описано",
+          "evidence": [
+            "https://www.aha.io/pricing"
+          ]
+        },
+        "P4": {
+          "score": 1,
+          "note": "Ideas: сбор и оценка идей клиентов",
+          "evidence": [
+            "https://www.aha.io/pricing"
+          ]
+        },
+        "P5": {
+          "score": 2,
+          "note": "scorecard для фич и идей, зависимости релизов",
+          "evidence": [
+            "https://www.aha.io/pricing"
+          ]
+        },
+        "P6": {
+          "score": 1,
+          "note": "«Link strategy to all product work»; Builder — vision, goals, personas",
+          "evidence": [
+            "https://www.aha.io/pricing"
+          ]
+        },
+        "P7": {
+          "score": 2,
+          "note": "роадмапы, релизные планы, зависимости",
+          "evidence": [
+            "https://www.aha.io/pricing"
+          ]
+        },
+        "P8": {
+          "score": 1,
+          "note": "Whiteboards — wireframes, Builder — прототипы",
+          "evidence": [
+            "https://www.aha.io/pricing"
+          ]
+        },
+        "P9": {
+          "score": 1,
+          "note": "веб-роадмапы для шаринга; XLSX/PPTX не описаны",
+          "evidence": [
+            "https://www.aha.io/pricing"
+          ]
+        },
+        "P10": {
+          "score": 2,
+          "note": "синхронизация статусов с Jira, GitHub (Develop), 40+ инструментов",
+          "evidence": [
+            "https://www.aha.io/pricing"
+          ]
+        },
+        "P11": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://www.aha.io/pricing"
+          ]
+        },
+        "P12": {
+          "score": 1,
+          "note": "user stories через Elle (Develop)",
+          "evidence": [
+            "https://www.aha.io/pricing"
+          ]
+        },
+        "P13": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://www.aha.io/pricing"
+          ]
+        },
+        "P14": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://www.aha.io/pricing"
+          ]
+        }
+      },
+      "strengths": [
+        "Зрелая система управления продуктом со стратегией и роадмапами"
+      ],
+      "weaknesses": [
+        "Не генерирует стратегию, а хранит её",
+        "Дорого"
+      ],
+      "risks": [
+        "Закрытый SaaS, от $59/польз./мес"
+      ],
+      "verdict": "ignore",
+      "summary": "PS: система учёта для P5/P7/P10, не генератор стратегии; для одиночки избыточен. PC: неприменим.",
+      "collection": null
+    },
+    {
+      "id": "jira-product-discovery",
+      "name": "Jira Product Discovery",
+      "url": "https://www.atlassian.com/software/jira/product-discovery/pricing",
+      "kind": "saas",
+      "price": "Free до 3 создателей; Standard $10; Premium $25 за создателя/мес; Enterprise — по запросу",
+      "license": null,
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "coverage": {
+        "P1": {
+          "score": 0,
+          "note": "вне назначения продукта (учёт идей и связь с Jira); на странице нет",
+          "evidence": [
+            "https://www.atlassian.com/software/jira/product-discovery/pricing"
+          ]
+        },
+        "P2": {
+          "score": 0,
+          "note": "вне назначения продукта (учёт идей и связь с Jira); на странице нет",
+          "evidence": [
+            "https://www.atlassian.com/software/jira/product-discovery/pricing"
+          ]
+        },
+        "P3": {
+          "score": 0,
+          "note": "вне назначения продукта (учёт идей и связь с Jira); на странице нет",
+          "evidence": [
+            "https://www.atlassian.com/software/jira/product-discovery/pricing"
+          ]
+        },
+        "P4": {
+          "score": 1,
+          "note": "идеи и инсайты в одном месте",
+          "evidence": [
+            "https://www.atlassian.com/software/jira/product-discovery/pricing"
+          ]
+        },
+        "P5": {
+          "score": null,
+          "note": "не проверено: поля приоритизации на странице цен не описаны",
+          "evidence": []
+        },
+        "P6": {
+          "score": 0,
+          "note": "вне назначения продукта (учёт идей и связь с Jira); на странице нет",
+          "evidence": [
+            "https://www.atlassian.com/software/jira/product-discovery/pricing"
+          ]
+        },
+        "P7": {
+          "score": 1,
+          "note": "роадмапы встраиваются в Confluence; детали таймлайна на странице нет",
+          "evidence": [
+            "https://www.atlassian.com/software/jira/product-discovery/pricing"
+          ]
+        },
+        "P8": {
+          "score": 0,
+          "note": "вне назначения продукта (учёт идей и связь с Jira); на странице нет",
+          "evidence": [
+            "https://www.atlassian.com/software/jira/product-discovery/pricing"
+          ]
+        },
+        "P9": {
+          "score": 0,
+          "note": "вне назначения продукта (учёт идей и связь с Jira); на странице нет",
+          "evidence": [
+            "https://www.atlassian.com/software/jira/product-discovery/pricing"
+          ]
+        },
+        "P10": {
+          "score": 2,
+          "note": "идеи связываются с эпиками/issues Jira для отслеживания поставки, связь с Goals",
+          "evidence": [
+            "https://www.atlassian.com/software/jira/product-discovery/pricing"
+          ]
+        },
+        "P11": {
+          "score": 0,
+          "note": "вне назначения продукта (учёт идей и связь с Jira); на странице нет",
+          "evidence": [
+            "https://www.atlassian.com/software/jira/product-discovery/pricing"
+          ]
+        },
+        "P12": {
+          "score": 0,
+          "note": "вне назначения продукта (учёт идей и связь с Jira); на странице нет",
+          "evidence": [
+            "https://www.atlassian.com/software/jira/product-discovery/pricing"
+          ]
+        },
+        "P13": {
+          "score": 0,
+          "note": "вне назначения продукта (учёт идей и связь с Jira); на странице нет",
+          "evidence": [
+            "https://www.atlassian.com/software/jira/product-discovery/pricing"
+          ]
+        },
+        "P14": {
+          "score": 0,
+          "note": "вне назначения продукта (учёт идей и связь с Jira); на странице нет",
+          "evidence": [
+            "https://www.atlassian.com/software/jira/product-discovery/pricing"
+          ]
+        }
+      },
+      "strengths": [
+        "Бесплатный тариф, нативная связь с Jira"
+      ],
+      "weaknesses": [
+        "Только учёт, без генерации"
+      ],
+      "risks": [
+        "Экосистема Atlassian"
+      ],
+      "verdict": "ignore",
+      "summary": "PS: может хранить реестр и отслеживать поставку (P10) для команд на Jira; генерации нет. PC: неприменим.",
+      "collection": null,
+      "quality_signals": []
+    },
+    {
+      "id": "linear-insights",
+      "name": "Linear (Initiatives, Projects, Insights, Agent)",
+      "url": "https://linear.app/pricing",
+      "kind": "saas",
+      "price": "Free; Basic $10; Business $16 за польз./мес (Insights — с Business); Enterprise — по запросу",
+      "license": null,
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "MCP",
+          "value": "MCP-доступ и Agent platform на всех тарифах",
+          "url": "https://linear.app/pricing"
+        },
+        {
+          "label": "Insights",
+          "value": "cycle/lead/triage time, burn-up, экспорт CSV",
+          "url": "https://linear.app/docs/insights"
+        }
+      ],
+      "coverage": {
+        "P1": {
+          "score": 0,
+          "note": "вне назначения продукта (трекер задач); на странице нет",
+          "evidence": [
+            "https://linear.app/pricing"
+          ]
+        },
+        "P2": {
+          "score": 0,
+          "note": "вне назначения продукта (трекер задач); на странице нет",
+          "evidence": [
+            "https://linear.app/pricing"
+          ]
+        },
+        "P3": {
+          "score": 0,
+          "note": "вне назначения продукта (трекер задач); на странице нет",
+          "evidence": [
+            "https://linear.app/pricing"
+          ]
+        },
+        "P4": {
+          "score": 0,
+          "note": "вне назначения продукта (трекер задач); на странице нет",
+          "evidence": [
+            "https://linear.app/pricing"
+          ]
+        },
+        "P5": {
+          "score": 0,
+          "note": "вне назначения продукта (трекер задач); на странице нет",
+          "evidence": [
+            "https://linear.app/pricing"
+          ]
+        },
+        "P6": {
+          "score": 0,
+          "note": "вне назначения продукта (трекер задач); на странице нет",
+          "evidence": [
+            "https://linear.app/pricing"
+          ]
+        },
+        "P7": {
+          "score": 1,
+          "note": "initiatives, projects, cycles; специальной дорожной карты на странице цен нет",
+          "evidence": [
+            "https://linear.app/pricing"
+          ]
+        },
+        "P8": {
+          "score": 0,
+          "note": "вне назначения продукта (трекер задач); на странице нет",
+          "evidence": [
+            "https://linear.app/pricing"
+          ]
+        },
+        "P9": {
+          "score": 0,
+          "note": "вне назначения продукта (трекер задач); на странице нет",
+          "evidence": [
+            "https://linear.app/pricing"
+          ]
+        },
+        "P10": {
+          "score": 2,
+          "note": "Insights: количество задач, effort, cycle/lead time, burn-up; Progress reports — прогресс исполнения, но не сверка стратегии с кодом",
+          "evidence": [
+            "https://linear.app/docs/insights",
+            "https://linear.app/pricing"
+          ]
+        },
+        "P11": {
+          "score": 0,
+          "note": "вне назначения продукта (трекер задач); на странице нет",
+          "evidence": [
+            "https://linear.app/pricing"
+          ]
+        },
+        "P12": {
+          "score": 2,
+          "note": "приёмник эпиков/задач; Linear Agent и MCP",
+          "evidence": [
+            "https://linear.app/pricing"
+          ]
+        },
+        "P13": {
+          "score": 0,
+          "note": "вне назначения продукта (трекер задач); на странице нет",
+          "evidence": [
+            "https://linear.app/pricing"
+          ]
+        },
+        "P14": {
+          "score": 0,
+          "note": "вне назначения продукта (трекер задач); на странице нет",
+          "evidence": [
+            "https://linear.app/pricing"
+          ]
+        }
+      },
+      "strengths": [
+        "Отличная аналитика исполнения",
+        "MCP для Claude Code"
+      ],
+      "weaknesses": [
+        "Не создаёт стратегию"
+      ],
+      "risks": [
+        "Insights только на платном Business"
+      ],
+      "verdict": "partial",
+      "summary": "PS: может заменить визуализацию прогресса в P10, если задачи стратегии живут в Linear; сверку «предложение ↔ коммит/PR» не делает. PC: неприменим.",
+      "collection": null
+    },
+    {
+      "id": "github-projects-automation",
+      "name": "GitHub Projects: встроенные автоматизации",
+      "url": "https://docs.github.com/en/issues/planning-and-tracking-with-projects/automating-your-project/using-the-built-in-automations",
+      "kind": "saas",
+      "price": "не указано на странице; входит в GitHub",
+      "license": null,
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "claude_code_native": false,
+      "languages": [
+        "en",
+        "ru"
+      ],
+      "coverage": {
+        "P1": {
+          "score": 0,
+          "note": "вне назначения продукта (доска задач); на странице нет",
+          "evidence": [
+            "https://docs.github.com/en/issues/planning-and-tracking-with-projects/automating-your-project/using-the-built-in-automations"
+          ]
+        },
+        "P2": {
+          "score": 0,
+          "note": "вне назначения продукта (доска задач); на странице нет",
+          "evidence": [
+            "https://docs.github.com/en/issues/planning-and-tracking-with-projects/automating-your-project/using-the-built-in-automations"
+          ]
+        },
+        "P3": {
+          "score": 0,
+          "note": "вне назначения продукта (доска задач); на странице нет",
+          "evidence": [
+            "https://docs.github.com/en/issues/planning-and-tracking-with-projects/automating-your-project/using-the-built-in-automations"
+          ]
+        },
+        "P4": {
+          "score": 0,
+          "note": "вне назначения продукта (доска задач); на странице нет",
+          "evidence": [
+            "https://docs.github.com/en/issues/planning-and-tracking-with-projects/automating-your-project/using-the-built-in-automations"
+          ]
+        },
+        "P5": {
+          "score": 0,
+          "note": "вне назначения продукта (доска задач); на странице нет",
+          "evidence": [
+            "https://docs.github.com/en/issues/planning-and-tracking-with-projects/automating-your-project/using-the-built-in-automations"
+          ]
+        },
+        "P6": {
+          "score": 0,
+          "note": "вне назначения продукта (доска задач); на странице нет",
+          "evidence": [
+            "https://docs.github.com/en/issues/planning-and-tracking-with-projects/automating-your-project/using-the-built-in-automations"
+          ]
+        },
+        "P7": {
+          "score": 1,
+          "note": "доска/таблица проекта — Kanban; Ганта и OKR на странице нет",
+          "evidence": [
+            "https://docs.github.com/en/issues/planning-and-tracking-with-projects/automating-your-project/using-the-built-in-automations"
+          ]
+        },
+        "P8": {
+          "score": 0,
+          "note": "вне назначения продукта (доска задач); на странице нет",
+          "evidence": [
+            "https://docs.github.com/en/issues/planning-and-tracking-with-projects/automating-your-project/using-the-built-in-automations"
+          ]
+        },
+        "P9": {
+          "score": 0,
+          "note": "вне назначения продукта (доска задач); на странице нет",
+          "evidence": [
+            "https://docs.github.com/en/issues/planning-and-tracking-with-projects/automating-your-project/using-the-built-in-automations"
+          ]
+        },
+        "P10": {
+          "score": 1,
+          "note": "Done при закрытии issue/слиянии PR, auto-add по фильтру, архивирование — механика статусов, без сверки со стратегией",
+          "evidence": [
+            "https://docs.github.com/en/issues/planning-and-tracking-with-projects/automating-your-project/using-the-built-in-automations"
+          ]
+        },
+        "P11": {
+          "score": 0,
+          "note": "вне назначения продукта (доска задач); на странице нет",
+          "evidence": [
+            "https://docs.github.com/en/issues/planning-and-tracking-with-projects/automating-your-project/using-the-built-in-automations"
+          ]
+        },
+        "P12": {
+          "score": 1,
+          "note": "принимает issues, созданные из файла задач",
+          "evidence": [
+            "https://docs.github.com/en/issues/planning-and-tracking-with-projects/automating-your-project/using-the-built-in-automations"
+          ]
+        },
+        "P13": {
+          "score": 0,
+          "note": "вне назначения продукта (доска задач); на странице нет",
+          "evidence": [
+            "https://docs.github.com/en/issues/planning-and-tracking-with-projects/automating-your-project/using-the-built-in-automations"
+          ]
+        },
+        "P14": {
+          "score": 0,
+          "note": "вне назначения продукта (доска задач); на странице нет",
+          "evidence": [
+            "https://docs.github.com/en/issues/planning-and-tracking-with-projects/automating-your-project/using-the-built-in-automations"
+          ]
+        }
+      },
+      "strengths": [
+        "Бесплатно и рядом с кодом"
+      ],
+      "weaknesses": [
+        "Только статусы"
+      ],
+      "risks": [
+        "Нет"
+      ],
+      "verdict": "partial",
+      "summary": "PS: дешёвая замена Kanban-части P7/P10, если предложения заведены как issues; анализа «отстаёт/следующие шаги/корректировки» нет. PC: неприменим.",
+      "collection": null,
+      "quality_signals": []
+    },
+    {
+      "id": "notion-ai",
+      "name": "Notion AI / Notion Agent",
+      "url": "https://www.notion.com/pricing",
+      "kind": "saas",
+      "price": "Free/Plus — пробный AI; Business $20/польз./мес (полный Agent); Enterprise — по запросу",
+      "license": null,
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "claude_code_native": false,
+      "languages": [
+        "en",
+        "ru"
+      ],
+      "coverage": {
+        "P1": {
+          "score": 1,
+          "note": "Enterprise Search по подключённым приложениям, включая GitHub (Business)",
+          "evidence": [
+            "https://www.notion.com/pricing"
+          ]
+        },
+        "P2": {
+          "score": 0,
+          "note": "вне назначения продукта (рабочее пространство с AI-агентом); на странице нет",
+          "evidence": [
+            "https://www.notion.com/pricing"
+          ]
+        },
+        "P3": {
+          "score": 1,
+          "note": "Research mode (Beta) — общий поиск; детали на странице цен нет",
+          "evidence": [
+            "https://www.notion.com/pricing"
+          ]
+        },
+        "P4": {
+          "score": 0,
+          "note": "вне назначения продукта (рабочее пространство с AI-агентом); на странице нет",
+          "evidence": [
+            "https://www.notion.com/pricing"
+          ]
+        },
+        "P5": {
+          "score": 0,
+          "note": "вне назначения продукта (рабочее пространство с AI-агентом); на странице нет",
+          "evidence": [
+            "https://www.notion.com/pricing"
+          ]
+        },
+        "P6": {
+          "score": 1,
+          "note": "агент пишет документы общего вида",
+          "evidence": [
+            "https://www.notion.com/pricing"
+          ]
+        },
+        "P7": {
+          "score": null,
+          "note": "не проверено: шаблоны роадмапов на странице цен не описаны",
+          "evidence": []
+        },
+        "P8": {
+          "score": 0,
+          "note": "вне назначения продукта (рабочее пространство с AI-агентом); на странице нет",
+          "evidence": [
+            "https://www.notion.com/pricing"
+          ]
+        },
+        "P9": {
+          "score": 0,
+          "note": "вне назначения продукта (рабочее пространство с AI-агентом); на странице нет",
+          "evidence": [
+            "https://www.notion.com/pricing"
+          ]
+        },
+        "P10": {
+          "score": 0,
+          "note": "вне назначения продукта (рабочее пространство с AI-агентом); на странице нет",
+          "evidence": [
+            "https://www.notion.com/pricing"
+          ]
+        },
+        "P11": {
+          "score": 0,
+          "note": "вне назначения продукта (рабочее пространство с AI-агентом); на странице нет",
+          "evidence": [
+            "https://www.notion.com/pricing"
+          ]
+        },
+        "P12": {
+          "score": 0,
+          "note": "вне назначения продукта (рабочее пространство с AI-агентом); на странице нет",
+          "evidence": [
+            "https://www.notion.com/pricing"
+          ]
+        },
+        "P13": {
+          "score": 0,
+          "note": "вне назначения продукта (рабочее пространство с AI-агентом); на странице нет",
+          "evidence": [
+            "https://www.notion.com/pricing"
+          ]
+        },
+        "P14": {
+          "score": 0,
+          "note": "вне назначения продукта (рабочее пространство с AI-агентом); на странице нет",
+          "evidence": [
+            "https://www.notion.com/pricing"
+          ]
+        }
+      },
+      "strengths": [
+        "Популярное место хранения стратегии",
+        "Есть MCP у Notion"
+      ],
+      "weaknesses": [
+        "Генерик-агент, без методики"
+      ],
+      "risks": [
+        "Подписка, данные в облаке"
+      ],
+      "verdict": "ignore",
+      "summary": "PS/PC: место хранения и редактирования, не замена.",
+      "collection": null,
+      "quality_signals": []
+    },
+    {
+      "id": "miro-ai",
+      "name": "Miro AI",
+      "url": "https://miro.com/pricing/",
+      "kind": "saas",
+      "price": "Free; Starter $8; Business $20 за участника/мес (год.); Enterprise — по запросу",
+      "license": null,
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "claude_code_native": false,
+      "languages": [
+        "en",
+        "ru"
+      ],
+      "quality_signals": [
+        {
+          "label": "MCP",
+          "value": "от 100 MCP-вызовов/день (Free) до 10 000 (Enterprise)",
+          "url": "https://miro.com/pricing/"
+        }
+      ],
+      "coverage": {
+        "P1": {
+          "score": 0,
+          "note": "вне назначения продукта (доска с AI); на странице нет",
+          "evidence": [
+            "https://miro.com/pricing/"
+          ]
+        },
+        "P2": {
+          "score": 0,
+          "note": "вне назначения продукта (доска с AI); на странице нет",
+          "evidence": [
+            "https://miro.com/pricing/"
+          ]
+        },
+        "P3": {
+          "score": 0,
+          "note": "вне назначения продукта (доска с AI); на странице нет",
+          "evidence": [
+            "https://miro.com/pricing/"
+          ]
+        },
+        "P4": {
+          "score": 0,
+          "note": "вне назначения продукта (доска с AI); на странице нет",
+          "evidence": [
+            "https://miro.com/pricing/"
+          ]
+        },
+        "P5": {
+          "score": 0,
+          "note": "вне назначения продукта (доска с AI); на странице нет",
+          "evidence": [
+            "https://miro.com/pricing/"
+          ]
+        },
+        "P6": {
+          "score": 0,
+          "note": "вне назначения продукта (доска с AI); на странице нет",
+          "evidence": [
+            "https://miro.com/pricing/"
+          ]
+        },
+        "P7": {
+          "score": 1,
+          "note": "таблицы данных для роадмапов, планировщик и зависимости (Business)",
+          "evidence": [
+            "https://miro.com/pricing/"
+          ]
+        },
+        "P8": {
+          "score": 2,
+          "note": "интерактивные прототипы из скриншотов, HTML, кода, промптов (Business)",
+          "evidence": [
+            "https://miro.com/pricing/"
+          ]
+        },
+        "P9": {
+          "score": 0,
+          "note": "вне назначения продукта (доска с AI); на странице нет",
+          "evidence": [
+            "https://miro.com/pricing/"
+          ]
+        },
+        "P10": {
+          "score": 1,
+          "note": "двусторонняя синхронизация с Jira, Asana, Linear (Business)",
+          "evidence": [
+            "https://miro.com/pricing/"
+          ]
+        },
+        "P11": {
+          "score": 0,
+          "note": "вне назначения продукта (доска с AI); на странице нет",
+          "evidence": [
+            "https://miro.com/pricing/"
+          ]
+        },
+        "P12": {
+          "score": 0,
+          "note": "вне назначения продукта (доска с AI); на странице нет",
+          "evidence": [
+            "https://miro.com/pricing/"
+          ]
+        },
+        "P13": {
+          "score": 0,
+          "note": "вне назначения продукта (доска с AI); на странице нет",
+          "evidence": [
+            "https://miro.com/pricing/"
+          ]
+        },
+        "P14": {
+          "score": 0,
+          "note": "вне назначения продукта (доска с AI); на странице нет",
+          "evidence": [
+            "https://miro.com/pricing/"
+          ]
+        }
+      },
+      "strengths": [
+        "Прототипы и визуальные доски",
+        "MCP"
+      ],
+      "weaknesses": [
+        "Не создаёт стратегию"
+      ],
+      "risks": [
+        "Кредиты AI ограничены, не переносятся"
+      ],
+      "verdict": "ignore",
+      "summary": "PS/PC: альтернатива только для P8 (прототипы) и визуализации P7.",
+      "collection": null
+    },
+    {
+      "id": "leanstack-leanspark",
+      "name": "LEANSTACK / LEANSpark",
+      "url": "https://leanspark.ai/learn/what-is-leanspark/",
+      "kind": "saas",
+      "price": "не опубликовано на открытой странице (есть «Try Free»)",
+      "license": null,
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "coverage": {
+        "P1": {
+          "score": 0,
+          "note": "вне назначения продукта (Running Lean: Lean Canvas, интервью, 90-дневные циклы); на странице нет",
+          "evidence": [
+            "https://leanspark.ai/learn/what-is-leanspark/"
+          ]
+        },
+        "P2": {
+          "score": 1,
+          "note": "подготовка и синтез интервью с клиентами (Customer Forces)",
+          "evidence": [
+            "https://leanspark.ai/learn/what-is-leanspark/"
+          ]
+        },
+        "P3": {
+          "score": 0,
+          "note": "вне назначения продукта (Running Lean: Lean Canvas, интервью, 90-дневные циклы); на странице нет",
+          "evidence": [
+            "https://leanspark.ai/learn/what-is-leanspark/"
+          ]
+        },
+        "P4": {
+          "score": 0,
+          "note": "вне назначения продукта (Running Lean: Lean Canvas, интервью, 90-дневные циклы); на странице нет",
+          "evidence": [
+            "https://leanspark.ai/learn/what-is-leanspark/"
+          ]
+        },
+        "P5": {
+          "score": 0,
+          "note": "вне назначения продукта (Running Lean: Lean Canvas, интервью, 90-дневные циклы); на странице нет",
+          "evidence": [
+            "https://leanspark.ai/learn/what-is-leanspark/"
+          ]
+        },
+        "P6": {
+          "score": 0,
+          "note": "вне назначения продукта (Running Lean: Lean Canvas, интервью, 90-дневные циклы); на странице нет",
+          "evidence": [
+            "https://leanspark.ai/learn/what-is-leanspark/"
+          ]
+        },
+        "P7": {
+          "score": 0,
+          "note": "вне назначения продукта (Running Lean: Lean Canvas, интервью, 90-дневные циклы); на странице нет",
+          "evidence": [
+            "https://leanspark.ai/learn/what-is-leanspark/"
+          ]
+        },
+        "P8": {
+          "score": 0,
+          "note": "вне назначения продукта (Running Lean: Lean Canvas, интервью, 90-дневные циклы); на странице нет",
+          "evidence": [
+            "https://leanspark.ai/learn/what-is-leanspark/"
+          ]
+        },
+        "P9": {
+          "score": 0,
+          "note": "вне назначения продукта (Running Lean: Lean Canvas, интервью, 90-дневные циклы); на странице нет",
+          "evidence": [
+            "https://leanspark.ai/learn/what-is-leanspark/"
+          ]
+        },
+        "P10": {
+          "score": 0,
+          "note": "вне назначения продукта (Running Lean: Lean Canvas, интервью, 90-дневные циклы); на странице нет",
+          "evidence": [
+            "https://leanspark.ai/learn/what-is-leanspark/"
+          ]
+        },
+        "P11": {
+          "score": 2,
+          "note": "Lean Canvas из одной фразы, стресс-тест модели по 7 измерениям (clarity, desirability, viability…) — аналог предпроверки",
+          "evidence": [
+            "https://leanspark.ai/learn/what-is-leanspark/"
+          ]
+        },
+        "P12": {
+          "score": 0,
+          "note": "вне назначения продукта (Running Lean: Lean Canvas, интервью, 90-дневные циклы); на странице нет",
+          "evidence": [
+            "https://leanspark.ai/learn/what-is-leanspark/"
+          ]
+        },
+        "P13": {
+          "score": 0,
+          "note": "вне назначения продукта (Running Lean: Lean Canvas, интервью, 90-дневные циклы); на странице нет",
+          "evidence": [
+            "https://leanspark.ai/learn/what-is-leanspark/"
+          ]
+        },
+        "P14": {
+          "score": 1,
+          "note": "цели, спринты и эксперименты 90-дневного цикла; калькулятора выборки не описано",
+          "evidence": [
+            "https://leanspark.ai/learn/what-is-leanspark/"
+          ]
+        }
+      },
+      "strengths": [
+        "Методика автора Lean Canvas",
+        "Оценка модели по 7 измерениям"
+      ],
+      "weaknesses": [
+        "Только бизнес-модель и проверка"
+      ],
+      "risks": [
+        "Цена не опубликована"
+      ],
+      "verdict": "partial",
+      "summary": "PC: частичная замена предпроверки (P11) и циклов экспериментов (P14). PS: неприменим.",
+      "collection": null,
+      "quality_signals": []
+    },
+    {
+      "id": "strategyzer",
+      "name": "Strategyzer",
+      "url": "https://www.strategyzer.com/pricing",
+      "kind": "saas",
+      "price": "Individual $25/мес или $299/год; Team/Enterprise — по запросу",
+      "license": null,
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "coverage": {
+        "P1": {
+          "score": 0,
+          "note": "вне назначения продукта (канвасы и плейбуки); на странице нет",
+          "evidence": [
+            "https://www.strategyzer.com/pricing"
+          ]
+        },
+        "P2": {
+          "score": 0,
+          "note": "вне назначения продукта (канвасы и плейбуки); на странице нет",
+          "evidence": [
+            "https://www.strategyzer.com/pricing"
+          ]
+        },
+        "P3": {
+          "score": 0,
+          "note": "вне назначения продукта (канвасы и плейбуки); на странице нет",
+          "evidence": [
+            "https://www.strategyzer.com/pricing"
+          ]
+        },
+        "P4": {
+          "score": 0,
+          "note": "вне назначения продукта (канвасы и плейбуки); на странице нет",
+          "evidence": [
+            "https://www.strategyzer.com/pricing"
+          ]
+        },
+        "P5": {
+          "score": 0,
+          "note": "вне назначения продукта (канвасы и плейбуки); на странице нет",
+          "evidence": [
+            "https://www.strategyzer.com/pricing"
+          ]
+        },
+        "P6": {
+          "score": 0,
+          "note": "вне назначения продукта (канвасы и плейбуки); на странице нет",
+          "evidence": [
+            "https://www.strategyzer.com/pricing"
+          ]
+        },
+        "P7": {
+          "score": 0,
+          "note": "вне назначения продукта (канвасы и плейбуки); на странице нет",
+          "evidence": [
+            "https://www.strategyzer.com/pricing"
+          ]
+        },
+        "P8": {
+          "score": 0,
+          "note": "вне назначения продукта (канвасы и плейбуки); на странице нет",
+          "evidence": [
+            "https://www.strategyzer.com/pricing"
+          ]
+        },
+        "P9": {
+          "score": 0,
+          "note": "вне назначения продукта (канвасы и плейбуки); на странице нет",
+          "evidence": [
+            "https://www.strategyzer.com/pricing"
+          ]
+        },
+        "P10": {
+          "score": 0,
+          "note": "вне назначения продукта (канвасы и плейбуки); на странице нет",
+          "evidence": [
+            "https://www.strategyzer.com/pricing"
+          ]
+        },
+        "P11": {
+          "score": 1,
+          "note": "Business Model Canvas, Value Proposition Canvas, плейбуки; AI — только в обучении",
+          "evidence": [
+            "https://www.strategyzer.com/pricing"
+          ]
+        },
+        "P12": {
+          "score": 0,
+          "note": "вне назначения продукта (канвасы и плейбуки); на странице нет",
+          "evidence": [
+            "https://www.strategyzer.com/pricing"
+          ]
+        },
+        "P13": {
+          "score": 0,
+          "note": "вне назначения продукта (канвасы и плейбуки); на странице нет",
+          "evidence": [
+            "https://www.strategyzer.com/pricing"
+          ]
+        },
+        "P14": {
+          "score": 1,
+          "note": "обучение тестированию бизнес-идей; библиотеки экспериментов на странице нет",
+          "evidence": [
+            "https://www.strategyzer.com/pricing"
+          ]
+        }
+      },
+      "strengths": [
+        "Канонические канвасы"
+      ],
+      "weaknesses": [
+        "Инструменты ручные, AI не в продукте"
+      ],
+      "risks": [
+        "Подписка"
+      ],
+      "verdict": "ignore",
+      "summary": "PC: методический ориентир для канвасов; PS: неприменим.",
+      "collection": null,
+      "quality_signals": []
+    },
+    {
+      "id": "validatorai",
+      "name": "ValidatorAI",
+      "url": "https://www.validatorai.com/",
+      "kind": "saas",
+      "price": "free (по странице «all free»)",
+      "license": null,
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "coverage": {
+        "P1": {
+          "score": 0,
+          "note": "вне назначения продукта (проверка идеи); на странице нет",
+          "evidence": [
+            "https://www.validatorai.com/"
+          ]
+        },
+        "P2": {
+          "score": 0,
+          "note": "вне назначения продукта (проверка идеи); на странице нет",
+          "evidence": [
+            "https://www.validatorai.com/"
+          ]
+        },
+        "P3": {
+          "score": 1,
+          "note": "анализ конкуренции и стресс-тест спроса/размера рынка",
+          "evidence": [
+            "https://www.validatorai.com/"
+          ]
+        },
+        "P4": {
+          "score": 0,
+          "note": "вне назначения продукта (проверка идеи); на странице нет",
+          "evidence": [
+            "https://www.validatorai.com/"
+          ]
+        },
+        "P5": {
+          "score": 0,
+          "note": "вне назначения продукта (проверка идеи); на странице нет",
+          "evidence": [
+            "https://www.validatorai.com/"
+          ]
+        },
+        "P6": {
+          "score": 0,
+          "note": "вне назначения продукта (проверка идеи); на странице нет",
+          "evidence": [
+            "https://www.validatorai.com/"
+          ]
+        },
+        "P7": {
+          "score": 0,
+          "note": "вне назначения продукта (проверка идеи); на странице нет",
+          "evidence": [
+            "https://www.validatorai.com/"
+          ]
+        },
+        "P8": {
+          "score": 0,
+          "note": "вне назначения продукта (проверка идеи); на странице нет",
+          "evidence": [
+            "https://www.validatorai.com/"
+          ]
+        },
+        "P9": {
+          "score": 0,
+          "note": "вне назначения продукта (проверка идеи); на странице нет",
+          "evidence": [
+            "https://www.validatorai.com/"
+          ]
+        },
+        "P10": {
+          "score": 0,
+          "note": "вне назначения продукта (проверка идеи); на странице нет",
+          "evidence": [
+            "https://www.validatorai.com/"
+          ]
+        },
+        "P11": {
+          "score": 1,
+          "note": "оценивает и грейдит идею, анализ конкуренции, Market Viability; SWOT/план/дизайн не описаны",
+          "evidence": [
+            "https://www.validatorai.com/"
+          ]
+        },
+        "P12": {
+          "score": 0,
+          "note": "вне назначения продукта (проверка идеи); на странице нет",
+          "evidence": [
+            "https://www.validatorai.com/"
+          ]
+        },
+        "P13": {
+          "score": 0,
+          "note": "вне назначения продукта (проверка идеи); на странице нет",
+          "evidence": [
+            "https://www.validatorai.com/"
+          ]
+        },
+        "P14": {
+          "score": 0,
+          "note": "вне назначения продукта (проверка идеи); на странице нет",
+          "evidence": [
+            "https://www.validatorai.com/"
+          ]
+        }
+      },
+      "strengths": [
+        "Бесплатно и быстро"
+      ],
+      "weaknesses": [
+        "Поверхностно, результат не показан без входа"
+      ],
+      "risks": [
+        "Идея уходит стороннему сервису"
+      ],
+      "verdict": "ignore",
+      "summary": "PC: экспресс-оценка идеи, не концепция. PS: неприменим.",
+      "collection": null,
+      "quality_signals": []
+    },
+    {
+      "id": "dimeadozen",
+      "name": "DimeADozen.ai",
+      "url": "https://www.dimeadozen.ai/",
+      "kind": "saas",
+      "price": "Free Idea Score; Starter $9; Entrepreneur $129 (разово, без подписки)",
+      "license": null,
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Объём отчёта",
+          "value": "«typically 100+ pages with 500+ URL citations» (Entrepreneur)",
+          "url": "https://www.dimeadozen.ai/"
+        }
+      ],
+      "coverage": {
+        "P1": {
+          "score": 0,
+          "note": "вне назначения продукта (отчёт проверки идеи); на странице нет",
+          "evidence": [
+            "https://www.dimeadozen.ai/"
+          ]
+        },
+        "P2": {
+          "score": 0,
+          "note": "вне назначения продукта (отчёт проверки идеи); на странице нет",
+          "evidence": [
+            "https://www.dimeadozen.ai/"
+          ]
+        },
+        "P3": {
+          "score": 2,
+          "note": "market sizing, competitive landscape, named comp-set с бенчмарками удержания, 500+ ссылок",
+          "evidence": [
+            "https://www.dimeadozen.ai/"
+          ]
+        },
+        "P4": {
+          "score": 0,
+          "note": "вне назначения продукта (отчёт проверки идеи); на странице нет",
+          "evidence": [
+            "https://www.dimeadozen.ai/"
+          ]
+        },
+        "P5": {
+          "score": 0,
+          "note": "вне назначения продукта (отчёт проверки идеи); на странице нет",
+          "evidence": [
+            "https://www.dimeadozen.ai/"
+          ]
+        },
+        "P6": {
+          "score": 0,
+          "note": "вне назначения продукта (отчёт проверки идеи); на странице нет",
+          "evidence": [
+            "https://www.dimeadozen.ai/"
+          ]
+        },
+        "P7": {
+          "score": 0,
+          "note": "вне назначения продукта (отчёт проверки идеи); на странице нет",
+          "evidence": [
+            "https://www.dimeadozen.ai/"
+          ]
+        },
+        "P8": {
+          "score": 0,
+          "note": "вне назначения продукта (отчёт проверки идеи); на странице нет",
+          "evidence": [
+            "https://www.dimeadozen.ai/"
+          ]
+        },
+        "P9": {
+          "score": 1,
+          "note": "отчёт-документ; интерактивной страницы/XLSX/PPTX не заявлено",
+          "evidence": [
+            "https://www.dimeadozen.ai/"
+          ]
+        },
+        "P10": {
+          "score": 0,
+          "note": "вне назначения продукта (отчёт проверки идеи); на странице нет",
+          "evidence": [
+            "https://www.dimeadozen.ai/"
+          ]
+        },
+        "P11": {
+          "score": 2,
+          "note": "Business overview, Market research, Launch and scale, Validation, risk flags; не бизнес-план и не финмодель; дизайна нет",
+          "evidence": [
+            "https://www.dimeadozen.ai/"
+          ]
+        },
+        "P12": {
+          "score": 0,
+          "note": "вне назначения продукта (отчёт проверки идеи); на странице нет",
+          "evidence": [
+            "https://www.dimeadozen.ai/"
+          ]
+        },
+        "P13": {
+          "score": 0,
+          "note": "страница прямо: не финансовая проекция",
+          "evidence": [
+            "https://www.dimeadozen.ai/"
+          ]
+        },
+        "P14": {
+          "score": 0,
+          "note": "вне назначения продукта (отчёт проверки идеи); на странице нет",
+          "evidence": [
+            "https://www.dimeadozen.ai/"
+          ]
+        }
+      },
+      "strengths": [
+        "Очень объёмный отчёт с цитатами за $129"
+      ],
+      "weaknesses": [
+        "Разовый отчёт, без опроса, дизайна, реестра, оценок"
+      ],
+      "risks": [
+        "Идея уходит сервису",
+        "Качество ссылок не проверено"
+      ],
+      "verdict": "partial",
+      "summary": "PC: дешёвая частичная замена рыночной части концепции (P3/P11). PS: неприменим.",
+      "collection": null
+    },
+    {
+      "id": "founderpal",
+      "name": "FounderPal",
+      "url": "https://founderpal.ai/",
+      "kind": "saas",
+      "price": "не опубликовано на открытой странице; третьи стороны дают противоречивые цены",
+      "license": null,
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "coverage": {
+        "P1": {
+          "score": null,
+          "note": "не проверено: главная страница не отдала содержимое (только заголовок «AI Marketing Tools to Grow Your Business»); сторонние обзоры противоречат друг другу",
+          "evidence": []
+        },
+        "P2": {
+          "score": null,
+          "note": "не проверено: главная страница не отдала содержимое (только заголовок «AI Marketing Tools to Grow Your Business»); сторонние обзоры противоречат друг другу",
+          "evidence": []
+        },
+        "P3": {
+          "score": null,
+          "note": "не проверено: главная страница не отдала содержимое (только заголовок «AI Marketing Tools to Grow Your Business»); сторонние обзоры противоречат друг другу",
+          "evidence": []
+        },
+        "P4": {
+          "score": null,
+          "note": "не проверено: главная страница не отдала содержимое (только заголовок «AI Marketing Tools to Grow Your Business»); сторонние обзоры противоречат друг другу",
+          "evidence": []
+        },
+        "P5": {
+          "score": null,
+          "note": "не проверено: главная страница не отдала содержимое (только заголовок «AI Marketing Tools to Grow Your Business»); сторонние обзоры противоречат друг другу",
+          "evidence": []
+        },
+        "P6": {
+          "score": null,
+          "note": "не проверено: главная страница не отдала содержимое (только заголовок «AI Marketing Tools to Grow Your Business»); сторонние обзоры противоречат друг другу",
+          "evidence": []
+        },
+        "P7": {
+          "score": null,
+          "note": "не проверено: главная страница не отдала содержимое (только заголовок «AI Marketing Tools to Grow Your Business»); сторонние обзоры противоречат друг другу",
+          "evidence": []
+        },
+        "P8": {
+          "score": null,
+          "note": "не проверено: главная страница не отдала содержимое (только заголовок «AI Marketing Tools to Grow Your Business»); сторонние обзоры противоречат друг другу",
+          "evidence": []
+        },
+        "P9": {
+          "score": null,
+          "note": "не проверено: главная страница не отдала содержимое (только заголовок «AI Marketing Tools to Grow Your Business»); сторонние обзоры противоречат друг другу",
+          "evidence": []
+        },
+        "P10": {
+          "score": null,
+          "note": "не проверено: главная страница не отдала содержимое (только заголовок «AI Marketing Tools to Grow Your Business»); сторонние обзоры противоречат друг другу",
+          "evidence": []
+        },
+        "P11": {
+          "score": null,
+          "note": "не проверено: главная страница не отдала содержимое (только заголовок «AI Marketing Tools to Grow Your Business»); сторонние обзоры противоречат друг другу",
+          "evidence": []
+        },
+        "P12": {
+          "score": null,
+          "note": "не проверено: главная страница не отдала содержимое (только заголовок «AI Marketing Tools to Grow Your Business»); сторонние обзоры противоречат друг другу",
+          "evidence": []
+        },
+        "P13": {
+          "score": null,
+          "note": "не проверено: главная страница не отдала содержимое (только заголовок «AI Marketing Tools to Grow Your Business»); сторонние обзоры противоречат друг другу",
+          "evidence": []
+        },
+        "P14": {
+          "score": null,
+          "note": "не проверено: главная страница не отдала содержимое (только заголовок «AI Marketing Tools to Grow Your Business»); сторонние обзоры противоречат друг другу",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Позиционируется как маркетинговые AI-инструменты для основателей"
+      ],
+      "weaknesses": [
+        "Возможности не удалось подтвердить первоисточником"
+      ],
+      "risks": [
+        "Непрозрачные цены и состав"
+      ],
+      "verdict": "ignore",
+      "summary": "Не удалось проверить. По заголовку — маркетинговые инструменты, а не стратегия/концепция.",
+      "collection": null,
+      "quality_signals": []
+    },
+    {
+      "id": "perplexity-deep-research",
+      "name": "Perplexity Research (Deep Research)",
+      "url": "https://www.finout.io/blog/perplexity-pricing-in-2026",
+      "kind": "saas",
+      "price": "Pro $20/мес (20 Research/день); Max $200/мес; Enterprise Pro $40/место (по finout.io, апрель 2026)",
+      "license": null,
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "claude_code_native": false,
+      "languages": [
+        "en",
+        "ru"
+      ],
+      "coverage": {
+        "P1": {
+          "score": 0,
+          "note": "вне назначения продукта (поисковые исследования); на странице нет",
+          "evidence": [
+            "https://www.finout.io/blog/perplexity-pricing-in-2026"
+          ]
+        },
+        "P2": {
+          "score": 0,
+          "note": "вне назначения продукта (поисковые исследования); на странице нет",
+          "evidence": [
+            "https://www.finout.io/blog/perplexity-pricing-in-2026"
+          ]
+        },
+        "P3": {
+          "score": 2,
+          "note": "глубокие отчёты с источниками по рынку/конкурентам; без структуры владельца (сообщества, события, право, ключевые слова) и без проверки ссылок",
+          "evidence": [
+            "https://www.finout.io/blog/perplexity-pricing-in-2026"
+          ]
+        },
+        "P4": {
+          "score": 0,
+          "note": "вне назначения продукта (поисковые исследования); на странице нет",
+          "evidence": [
+            "https://www.finout.io/blog/perplexity-pricing-in-2026"
+          ]
+        },
+        "P5": {
+          "score": 0,
+          "note": "вне назначения продукта (поисковые исследования); на странице нет",
+          "evidence": [
+            "https://www.finout.io/blog/perplexity-pricing-in-2026"
+          ]
+        },
+        "P6": {
+          "score": 0,
+          "note": "вне назначения продукта (поисковые исследования); на странице нет",
+          "evidence": [
+            "https://www.finout.io/blog/perplexity-pricing-in-2026"
+          ]
+        },
+        "P7": {
+          "score": 0,
+          "note": "вне назначения продукта (поисковые исследования); на странице нет",
+          "evidence": [
+            "https://www.finout.io/blog/perplexity-pricing-in-2026"
+          ]
+        },
+        "P8": {
+          "score": 0,
+          "note": "вне назначения продукта (поисковые исследования); на странице нет",
+          "evidence": [
+            "https://www.finout.io/blog/perplexity-pricing-in-2026"
+          ]
+        },
+        "P9": {
+          "score": 0,
+          "note": "вне назначения продукта (поисковые исследования); на странице нет",
+          "evidence": [
+            "https://www.finout.io/blog/perplexity-pricing-in-2026"
+          ]
+        },
+        "P10": {
+          "score": 0,
+          "note": "вне назначения продукта (поисковые исследования); на странице нет",
+          "evidence": [
+            "https://www.finout.io/blog/perplexity-pricing-in-2026"
+          ]
+        },
+        "P11": {
+          "score": 0,
+          "note": "вне назначения продукта (поисковые исследования); на странице нет",
+          "evidence": [
+            "https://www.finout.io/blog/perplexity-pricing-in-2026"
+          ]
+        },
+        "P12": {
+          "score": 0,
+          "note": "вне назначения продукта (поисковые исследования); на странице нет",
+          "evidence": [
+            "https://www.finout.io/blog/perplexity-pricing-in-2026"
+          ]
+        },
+        "P13": {
+          "score": 0,
+          "note": "вне назначения продукта (поисковые исследования); на странице нет",
+          "evidence": [
+            "https://www.finout.io/blog/perplexity-pricing-in-2026"
+          ]
+        },
+        "P14": {
+          "score": 0,
+          "note": "вне назначения продукта (поисковые исследования); на странице нет",
+          "evidence": [
+            "https://www.finout.io/blog/perplexity-pricing-in-2026"
+          ]
+        }
+      },
+      "strengths": [
+        "Быстрое исследование с цитатами"
+      ],
+      "weaknesses": [
+        "Только исследование"
+      ],
+      "risks": [
+        "Цены и лимиты менялись в 2026"
+      ],
+      "verdict": "partial",
+      "summary": "PS/PC: может заменить сбор фактов для P3, но не их структурирование в реестр и оценки.",
+      "collection": null,
+      "quality_signals": []
+    },
+    {
+      "id": "gamma",
+      "name": "Gamma",
+      "url": "https://hackceleration.com/labs/gamma-pricing",
+      "kind": "saas",
+      "price": "Free; Plus $8/мес (год.) или $10; Pro $15 (год.) или $20 (по hackceleration.com, июнь 2026; официальная страница отдала 403)",
+      "license": null,
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "claude_code_native": false,
+      "languages": [
+        "en",
+        "ru"
+      ],
+      "coverage": {
+        "P1": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-презентации, документы, сайты); на странице нет",
+          "evidence": [
+            "https://hackceleration.com/labs/gamma-pricing"
+          ]
+        },
+        "P2": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-презентации, документы, сайты); на странице нет",
+          "evidence": [
+            "https://hackceleration.com/labs/gamma-pricing"
+          ]
+        },
+        "P3": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-презентации, документы, сайты); на странице нет",
+          "evidence": [
+            "https://hackceleration.com/labs/gamma-pricing"
+          ]
+        },
+        "P4": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-презентации, документы, сайты); на странице нет",
+          "evidence": [
+            "https://hackceleration.com/labs/gamma-pricing"
+          ]
+        },
+        "P5": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-презентации, документы, сайты); на странице нет",
+          "evidence": [
+            "https://hackceleration.com/labs/gamma-pricing"
+          ]
+        },
+        "P6": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-презентации, документы, сайты); на странице нет",
+          "evidence": [
+            "https://hackceleration.com/labs/gamma-pricing"
+          ]
+        },
+        "P7": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-презентации, документы, сайты); на странице нет",
+          "evidence": [
+            "https://hackceleration.com/labs/gamma-pricing"
+          ]
+        },
+        "P8": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-презентации, документы, сайты); на странице нет",
+          "evidence": [
+            "https://hackceleration.com/labs/gamma-pricing"
+          ]
+        },
+        "P9": {
+          "score": 2,
+          "note": "презентации/документы/сайты из текста, экспорт PowerPoint и PDF с Plus; XLSX и офлайн-страницы с реестром нет",
+          "evidence": [
+            "https://hackceleration.com/labs/gamma-pricing"
+          ]
+        },
+        "P10": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-презентации, документы, сайты); на странице нет",
+          "evidence": [
+            "https://hackceleration.com/labs/gamma-pricing"
+          ]
+        },
+        "P11": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-презентации, документы, сайты); на странице нет",
+          "evidence": [
+            "https://hackceleration.com/labs/gamma-pricing"
+          ]
+        },
+        "P12": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-презентации, документы, сайты); на странице нет",
+          "evidence": [
+            "https://hackceleration.com/labs/gamma-pricing"
+          ]
+        },
+        "P13": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-презентации, документы, сайты); на странице нет",
+          "evidence": [
+            "https://hackceleration.com/labs/gamma-pricing"
+          ]
+        },
+        "P14": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-презентации, документы, сайты); на странице нет",
+          "evidence": [
+            "https://hackceleration.com/labs/gamma-pricing"
+          ]
+        }
+      },
+      "strengths": [
+        "Красивые колоды за минуты"
+      ],
+      "weaknesses": [
+        "Только оформление"
+      ],
+      "risks": [
+        "Официальная цена не проверена (403)",
+        "Контент в облаке"
+      ],
+      "verdict": "partial",
+      "summary": "PS/PC: может заменить PPTX-часть P9 (из текста стратегии), но не XLSX и интерактивную страницу.",
+      "collection": null,
+      "quality_signals": []
+    },
+    {
+      "id": "beautiful-ai",
+      "name": "Beautiful.ai",
+      "url": "https://www.beautiful.ai/pricing",
+      "kind": "saas",
+      "price": "Pro $14.50/мес (год.) или $45 помесячно; Team $40–50/польз./мес; Enterprise — по запросу",
+      "license": null,
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "coverage": {
+        "P1": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-презентации); на странице нет",
+          "evidence": [
+            "https://www.beautiful.ai/pricing"
+          ]
+        },
+        "P2": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-презентации); на странице нет",
+          "evidence": [
+            "https://www.beautiful.ai/pricing"
+          ]
+        },
+        "P3": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-презентации); на странице нет",
+          "evidence": [
+            "https://www.beautiful.ai/pricing"
+          ]
+        },
+        "P4": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-презентации); на странице нет",
+          "evidence": [
+            "https://www.beautiful.ai/pricing"
+          ]
+        },
+        "P5": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-презентации); на странице нет",
+          "evidence": [
+            "https://www.beautiful.ai/pricing"
+          ]
+        },
+        "P6": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-презентации); на странице нет",
+          "evidence": [
+            "https://www.beautiful.ai/pricing"
+          ]
+        },
+        "P7": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-презентации); на странице нет",
+          "evidence": [
+            "https://www.beautiful.ai/pricing"
+          ]
+        },
+        "P8": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-презентации); на странице нет",
+          "evidence": [
+            "https://www.beautiful.ai/pricing"
+          ]
+        },
+        "P9": {
+          "score": 2,
+          "note": "генерация презентаций, импорт/экспорт PowerPoint на всех местах, PDF-экспорт (тарифы не уточнены)",
+          "evidence": [
+            "https://www.beautiful.ai/pricing"
+          ]
+        },
+        "P10": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-презентации); на странице нет",
+          "evidence": [
+            "https://www.beautiful.ai/pricing"
+          ]
+        },
+        "P11": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-презентации); на странице нет",
+          "evidence": [
+            "https://www.beautiful.ai/pricing"
+          ]
+        },
+        "P12": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-презентации); на странице нет",
+          "evidence": [
+            "https://www.beautiful.ai/pricing"
+          ]
+        },
+        "P13": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-презентации); на странице нет",
+          "evidence": [
+            "https://www.beautiful.ai/pricing"
+          ]
+        },
+        "P14": {
+          "score": 0,
+          "note": "вне назначения продукта (AI-презентации); на странице нет",
+          "evidence": [
+            "https://www.beautiful.ai/pricing"
+          ]
+        }
+      },
+      "strengths": [
+        "Импорт/экспорт PPTX"
+      ],
+      "weaknesses": [
+        "Только презентации"
+      ],
+      "risks": [
+        "Триал списывает оплату"
+      ],
+      "verdict": "ignore",
+      "summary": "PS/PC: альтернатива только PPTX-части P9.",
+      "collection": null,
+      "quality_signals": []
+    },
+    {
+      "id": "claude-code-builtin-plan",
+      "name": "Claude Code: встроенный plan mode, субагенты, расписание",
+      "url": "https://code.claude.com/docs/en/common-workflows",
+      "kind": "builtin",
+      "price": "входит в Claude Code",
+      "license": null,
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "claude_code_native": true,
+      "languages": [
+        "en",
+        "ru"
+      ],
+      "coverage": {
+        "P1": {
+          "score": 1,
+          "note": "«give me an overview of this codebase», субагенты для исследования; без методики стратегии",
+          "evidence": [
+            "https://code.claude.com/docs/en/common-workflows"
+          ]
+        },
+        "P2": {
+          "score": 1,
+          "note": "plan mode предлагает план и ждёт одобрения; структурного опроса нет",
+          "evidence": [
+            "https://code.claude.com/docs/en/common-workflows"
+          ]
+        },
+        "P3": {
+          "score": 1,
+          "note": "WebSearch/WebFetch доступны, методики нет",
+          "evidence": [
+            "https://code.claude.com/docs/en/common-workflows"
+          ]
+        },
+        "P4": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://code.claude.com/docs/en/common-workflows"
+          ]
+        },
+        "P5": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://code.claude.com/docs/en/common-workflows"
+          ]
+        },
+        "P6": {
+          "score": 1,
+          "note": "свободный текст по запросу",
+          "evidence": [
+            "https://code.claude.com/docs/en/common-workflows"
+          ]
+        },
+        "P7": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://code.claude.com/docs/en/common-workflows"
+          ]
+        },
+        "P8": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://code.claude.com/docs/en/common-workflows"
+          ]
+        },
+        "P9": {
+          "score": 0,
+          "note": "нет (форматы — через скиллы)",
+          "evidence": [
+            "https://code.claude.com/docs/en/common-workflows"
+          ]
+        },
+        "P10": {
+          "score": 1,
+          "note": "Routines/Desktop scheduled tasks/GitHub Actions/loop позволяют регулярно запускать сверку — но логику сверки надо писать самому",
+          "evidence": [
+            "https://code.claude.com/docs/en/common-workflows"
+          ]
+        },
+        "P11": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://code.claude.com/docs/en/common-workflows"
+          ]
+        },
+        "P12": {
+          "score": 1,
+          "note": "plan mode — план изменений перед правкой",
+          "evidence": [
+            "https://code.claude.com/docs/en/common-workflows"
+          ]
+        },
+        "P13": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://code.claude.com/docs/en/common-workflows"
+          ]
+        },
+        "P14": {
+          "score": 0,
+          "note": "нет",
+          "evidence": [
+            "https://code.claude.com/docs/en/common-workflows"
+          ]
+        }
+      },
+      "strengths": [
+        "Бесплатно, всегда под рукой",
+        "Расписание для регулярного трекинга"
+      ],
+      "weaknesses": [
+        "Нет продуктовой методики"
+      ],
+      "risks": [
+        "Нет"
+      ],
+      "verdict": "inspire",
+      "summary": "PS/PC: база, на которой работают все скиллы; сам по себе не заменяет. Routines — способ запускать P10 по расписанию.",
+      "collection": null,
+      "quality_signals": []
+    }
+  ],
+  "verdict": {
+    "can_replace": "partial",
+    "headline": "Целиком не заменяется: методики и отдельные кирпичи есть бесплатно, но отслеживания выполнения стратегии по коду (P10), реестра 50–200 с доказательствами и оценками (P4–P5) и единой интерактивной выдачи (P9) нет ни у кого.",
+    "explanation": "Проверено 32 кандидата. Ни один не набирает больше 1–2 по большинству пунктов: лучшие открытые наборы (phuryn/pm-skills, anthropics/knowledge-work-plugins, gstack, ECC) дают шаблоны и отдельные шаги, результат — markdown. PRODUCT-STRATEGY (P1, P3–P10, P12–P14): P1 частично у code-to-prd (alirezarezvani) и product-lens (ECC); P3 — ECC market-research/deep-research, competitive-teardown, Perplexity, DimeADozen (до 2); P5 — Productboard/Aha! (формулы и скоринг в SaaS) и справочники RICE/ICE/Кано в pm-skills, но нет связки «WSJF + Кано + зависимости + критический путь + чувствительность + Jev»; P7 — kwp roadmap-update, Productboard, Aha! (2); P8 — gstack design-* (3); P9 — anthropic document skills, Gamma, Beautiful.ai закрывают PPTX/XLSX/PDF по отдельности, интерактивной офлайн-страницы с реестром нет ни у кого; P10 — ни один инструмент не сверяет реестр стратегии с коммитами/issues/PR: CCPM трассирует PRD→issue→commit для эпиков, Productboard/Aha!/Linear/GitHub Projects показывают статусы задач, но не «предложение стратегии ↔ код» и не корректировки; P12 — CCPM, Task Master, idea-to-blueprint (3) лучше как приёмники и форматы; P13 — ECC investor-materials, aas startup-financial-modeling (2); P14 — pm-skills ab-test-analysis, experiment-designer (2). PRODUCT-CONCEPT (P2, P3, P4, P5, P6, P8, P9, P11, P13, P14): заменим заметно больше — pm-skills /discover + канвасы, idea-os (5 фаз с источниками, SWOT, kill criteria), gstack office-hours (интервью) + design-consultation/shotgun (дизайн), DimeADozen ($129, 100+ страниц) вместе закрывают P2/P3/P8/P11/P14 на уровне 2. Не закрыты: светофор жизнеспособности на внешней модели (Jev), реестр ≥ 60 с оценками, единая интерактивная страница, русский язык и правила честности/безопасности в одном прогоне. Итог: для product-concept замена набором из 2–3 бесплатных плагинов реальна с потерей интеграции; для product-strategy — нет, уникальное ядро (P4, P5-связка, P9-сайт, P10) остаётся только у владельца.",
+    "replace_with": [
+      "phuryn-pm-skills",
+      "gstack-product-modes",
+      "anthropic-kwp-product-management"
+    ],
+    "keep_own": [
+      "P1",
+      "P4",
+      "P5",
+      "P9",
+      "P10",
+      "P12"
+    ],
+    "lost_if_replaced": [
+      "P10: отслеживание выполнения стратегии по коду, коммитам, issues и PR со статусами, следующими шагами и корректировками — аналогов нет",
+      "P4: реестр 50–200 предложений с классами доказательств A–D и проверкой повторов",
+      "P5: связка RICE/ICE/WSJF/Кано + зависимости + критический путь + чувствительность + TypeSafe Jev с независимым пересчётом",
+      "P9: офлайн многофайловая интерактивная страница (реестр с фильтрами, кликабельные графики, Гант, Kanban) + XLSX с формулами + PPTX + PDF из единых данных",
+      "P11: светофор жизнеспособности на внешней модели Jev",
+      "Русский язык интерфейса и текстов, правила «внешний мир только чтение», метки факт/оценка/допущение, проверка ссылок",
+      "Единый прогон с чекпоинтами вместо ручной склейки 3–5 плагинов"
+    ],
+    "migration_effort_days": 3,
+    "keep_developing": "partial",
+    "keep_developing_what": "Развивать уникальное ядро product-strategy: P10 (трекинг — главное отличие; добавить запуск по расписанию через Routines/GitHub Actions), P4–P5 (реестр и оценка), P9 (сайт) и P12 (файл задач — взять формат Given/When/Then и протокол сессий из idea-to-blueprint, совместимость с CCPM/spec-kit/Task Master). Не тратить ресурсы на переписывание общих PM-методик и шаблонов разделов (P3-шаблоны, P6-канвасы, P13/P14-справочники): ссылаться на pm-skills (MIT) как источник методик и совместимые скиллы. Для product-concept — заморозить объём: интервью и дизайн-часть можно делегировать gstack office-hours/design-* или frontend-design, оставив свои светофор Jev, реестр и сборку.",
+    "risks": [
+      "Сборка из нескольких плагинов: конфликты имён команд, раздутый список скиллов, разный стиль вывода",
+      "gstack: открытая жалоба на отправку кода в Codex без запроса (#3102), телеметрия",
+      "SaaS-замены (Productboard, Aha!, ChatPRD, DimeADozen) отправляют данные продукта наружу и платные; цены Productboard не опубликованы",
+      "Все сторонние наборы англоязычны",
+      "Малые аналоги (idea-os, appie codebase-audit-and-roadmap) заброшены или удалены"
+    ],
+    "cost_notes": "Рекомендуемая открытая связка (pm-skills MIT + gstack MIT + knowledge-work-plugins Apache-2.0) — $0 сверх подписки Claude. SaaS для сравнения: Productboard — цена по запросу; Aha! Roadmaps от $59/польз./мес; Linear Business $16 (Insights); ChatPRD Pro $15/мес; DimeADozen $129 разово; Gamma Plus $8–10/мес; Perplexity Pro $20/мес. Внедрение связки ≈ 3 дня (установка, сценарий «какой командой что делать», ручная склейка форматов).",
+    "split": {
+      "product_strategy": {
+        "can_replace": "no",
+        "best_partial": [
+          "phuryn-pm-skills",
+          "anthropic-kwp-product-management",
+          "ccpm",
+          "productboard-spark",
+          "anthropic-document-skills"
+        ],
+        "note": "Уникальны P1-как-основа-стратегии, P4, P5-связка, P9-сайт, P10; сторонние закрывают P3/P7/P8/P12–P14 по отдельности."
+      },
+      "product_concept": {
+        "can_replace": "partial",
+        "best_partial": [
+          "phuryn-pm-skills",
+          "idea-os",
+          "gstack-product-modes",
+          "dimeadozen",
+          "leanstack-leanspark"
+        ],
+        "note": "Интервью, рынок, канвасы, эксперименты и дизайн есть бесплатно; теряются светофор Jev, реестр с оценками, единая страница и русский язык."
+      }
+    }
+  },
+  "sources": [
+    {
+      "url": "https://github.com/phuryn/pm-skills",
+      "title": "phuryn/pm-skills (GitHub API: звёзды, форки, push, лицензия, контрибьюторы)",
+      "date_checked": "2026-10-11",
+      "used_for": "сигналы качества"
+    },
+    {
+      "url": "https://github.com/phuryn/pm-skills/blob/main/README.md",
+      "title": "pm-skills README",
+      "date_checked": "2026-10-11",
+      "used_for": "состав, команды, покрытие P1–P14"
+    },
+    {
+      "url": "https://github.com/phuryn/pm-skills/blob/main/pm-product-strategy/skills/product-strategy/SKILL.md",
+      "title": "pm-skills product-strategy SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "P6"
+    },
+    {
+      "url": "https://github.com/phuryn/pm-skills/blob/main/pm-product-strategy/commands/strategy.md",
+      "title": "pm-skills /strategy command",
+      "date_checked": "2026-10-11",
+      "used_for": "P2, P6, P9"
+    },
+    {
+      "url": "https://github.com/phuryn/pm-skills/blob/main/pm-execution/skills/prioritization-frameworks/SKILL.md",
+      "title": "pm-skills prioritization-frameworks",
+      "date_checked": "2026-10-11",
+      "used_for": "P5"
+    },
+    {
+      "url": "https://github.com/phuryn/pm-skills/blob/main/pm-data-analytics/skills/ab-test-analysis/SKILL.md",
+      "title": "pm-skills ab-test-analysis",
+      "date_checked": "2026-10-11",
+      "used_for": "P14"
+    },
+    {
+      "url": "https://github.com/phuryn/pm-skills/blob/main/pm-market-research/skills/competitor-analysis/SKILL.md",
+      "title": "pm-skills competitor-analysis",
+      "date_checked": "2026-10-11",
+      "used_for": "P3"
+    },
+    {
+      "url": "https://github.com/phuryn/pm-skills/blob/main/pm-product-discovery/commands/discover.md",
+      "title": "pm-skills /discover",
+      "date_checked": "2026-10-11",
+      "used_for": "P2, P4, P11"
+    },
+    {
+      "url": "https://skills.sh/phuryn/pm-skills",
+      "title": "skills.sh: phuryn/pm-skills",
+      "date_checked": "2026-10-11",
+      "used_for": "установки"
+    },
+    {
+      "url": "https://github.com/anthropics/knowledge-work-plugins",
+      "title": "anthropics/knowledge-work-plugins (GitHub API)",
+      "date_checked": "2026-10-11",
+      "used_for": "сигналы качества"
+    },
+    {
+      "url": "https://github.com/anthropics/knowledge-work-plugins/blob/main/product-management/README.md",
+      "title": "knowledge-work-plugins product-management README",
+      "date_checked": "2026-10-11",
+      "used_for": "покрытие"
+    },
+    {
+      "url": "https://github.com/anthropics/knowledge-work-plugins/blob/main/product-management/CONNECTORS.md",
+      "title": "knowledge-work-plugins CONNECTORS.md",
+      "date_checked": "2026-10-11",
+      "used_for": "коннекторы"
+    },
+    {
+      "url": "https://github.com/anthropics/knowledge-work-plugins/blob/main/product-management/skills/roadmap-update/SKILL.md",
+      "title": "roadmap-update SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "P5, P7"
+    },
+    {
+      "url": "https://github.com/anthropics/knowledge-work-plugins/blob/main/product-management/skills/competitive-brief/SKILL.md",
+      "title": "competitive-brief SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "P3"
+    },
+    {
+      "url": "https://skills.sh/anthropics/knowledge-work-plugins",
+      "title": "skills.sh: anthropics/knowledge-work-plugins",
+      "date_checked": "2026-10-11",
+      "used_for": "установки"
+    },
+    {
+      "url": "https://github.com/garrytan/gstack",
+      "title": "garrytan/gstack (GitHub API, список скиллов)",
+      "date_checked": "2026-10-11",
+      "used_for": "сигналы качества"
+    },
+    {
+      "url": "https://github.com/garrytan/gstack/blob/main/office-hours/SKILL.md",
+      "title": "gstack office-hours SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "P2, P3, P11, телеметрия"
+    },
+    {
+      "url": "https://github.com/garrytan/gstack/blob/main/plan-ceo-review/SKILL.md",
+      "title": "gstack plan-ceo-review SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "P1, P4, P6"
+    },
+    {
+      "url": "https://github.com/garrytan/gstack/blob/main/design-consultation/SKILL.md",
+      "title": "gstack design-consultation SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "P8"
+    },
+    {
+      "url": "https://github.com/garrytan/gstack/blob/main/design-shotgun/SKILL.md",
+      "title": "gstack design-shotgun SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "P8"
+    },
+    {
+      "url": "https://github.com/garrytan/gstack/blob/main/design-html/SKILL.md",
+      "title": "gstack design-html SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "P8"
+    },
+    {
+      "url": "https://github.com/garrytan/gstack/blob/main/retro/SKILL.md",
+      "title": "gstack retro SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "P10"
+    },
+    {
+      "url": "https://github.com/garrytan/gstack/blob/main/make-pdf/SKILL.md",
+      "title": "gstack make-pdf SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "P9"
+    },
+    {
+      "url": "https://github.com/garrytan/gstack/issues/3102",
+      "title": "gstack issue #3102",
+      "date_checked": "2026-10-11",
+      "used_for": "риски"
+    },
+    {
+      "url": "https://github.com/affaan-m/ECC",
+      "title": "affaan-m/ECC (GitHub API + локальный клон)",
+      "date_checked": "2026-10-11",
+      "used_for": "сигналы качества"
+    },
+    {
+      "url": "https://github.com/affaan-m/ECC/blob/main/manifests/install-modules.json",
+      "title": "ECC manifests/install-modules.json (business-content)",
+      "date_checked": "2026-10-11",
+      "used_for": "состав модуля"
+    },
+    {
+      "url": "https://github.com/affaan-m/ECC/blob/main/skills/product-lens/SKILL.md",
+      "title": "ECC product-lens SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "P1, P2, P5, P7, P11"
+    },
+    {
+      "url": "https://github.com/affaan-m/ECC/blob/main/skills/market-research/SKILL.md",
+      "title": "ECC market-research SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "P3"
+    },
+    {
+      "url": "https://github.com/affaan-m/ECC/blob/main/skills/competitive-platform-analysis/SKILL.md",
+      "title": "ECC competitive-platform-analysis SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "P3"
+    },
+    {
+      "url": "https://github.com/affaan-m/ECC/blob/main/skills/deep-research/SKILL.md",
+      "title": "ECC deep-research SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "P3"
+    },
+    {
+      "url": "https://github.com/affaan-m/ECC/blob/main/skills/investor-materials/SKILL.md",
+      "title": "ECC investor-materials SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "P9, P13"
+    },
+    {
+      "url": "https://github.com/affaan-m/ECC/blob/main/skills/frontend-slides/SKILL.md",
+      "title": "ECC frontend-slides SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "P9"
+    },
+    {
+      "url": "https://github.com/affaan-m/ECC/blob/main/commands/plan-prd.md",
+      "title": "ECC commands/plan-prd.md",
+      "date_checked": "2026-10-11",
+      "used_for": "P2, P12"
+    },
+    {
+      "url": "<локальный отчёт по ECC>",
+      "title": "Локальный отчёт владельца по ECC",
+      "date_checked": "2026-10-11",
+      "used_for": "контекст (модуль business-content, перегрузка списка скиллов)"
+    },
+    {
+      "url": "https://github.com/obra/superpowers/blob/main/skills/brainstorming/SKILL.md",
+      "title": "superpowers brainstorming SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "P2, P6, P8, P11"
+    },
+    {
+      "url": "https://github.com/obra/superpowers/blob/main/skills/writing-plans/SKILL.md",
+      "title": "superpowers writing-plans SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "P12"
+    },
+    {
+      "url": "https://github.com/alirezarezvani/claude-skills",
+      "title": "alirezarezvani/claude-skills (GitHub API)",
+      "date_checked": "2026-10-11",
+      "used_for": "сигналы качества"
+    },
+    {
+      "url": "https://github.com/alirezarezvani/claude-skills/blob/main/product-team/code-to-prd/skills/code-to-prd/SKILL.md",
+      "title": "code-to-prd SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "P1"
+    },
+    {
+      "url": "https://github.com/alirezarezvani/claude-skills/blob/main/product-team/skills/competitive-teardown/SKILL.md",
+      "title": "competitive-teardown SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "P3, P9"
+    },
+    {
+      "url": "https://github.com/alirezarezvani/claude-skills/blob/main/product-team/skills/experiment-designer/SKILL.md",
+      "title": "experiment-designer SKILL.md + scripts",
+      "date_checked": "2026-10-11",
+      "used_for": "P14"
+    },
+    {
+      "url": "https://github.com/alirezarezvani/claude-skills/blob/main/product-team/skills/product-strategist/SKILL.md",
+      "title": "product-strategist SKILL.md + scripts",
+      "date_checked": "2026-10-11",
+      "used_for": "P6, P7"
+    },
+    {
+      "url": "https://github.com/deanpeters/Product-Manager-Skills",
+      "title": "deanpeters/Product-Manager-Skills (GitHub API, список скиллов)",
+      "date_checked": "2026-10-11",
+      "used_for": "сигналы качества"
+    },
+    {
+      "url": "https://github.com/deanpeters/Product-Manager-Skills/blob/main/LICENSE",
+      "title": "deanpeters LICENSE (CC BY-NC-SA 4.0)",
+      "date_checked": "2026-10-11",
+      "used_for": "лицензия"
+    },
+    {
+      "url": "https://github.com/deanpeters/Product-Manager-Skills/blob/main/skills/market-landscape-scan/SKILL.md",
+      "title": "market-landscape-scan SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "P3"
+    },
+    {
+      "url": "https://github.com/deanpeters/Product-Manager-Skills/blob/main/skills/product-strategy-session/SKILL.md",
+      "title": "product-strategy-session SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "P6"
+    },
+    {
+      "url": "https://github.com/sickn33/agentic-awesome-skills",
+      "title": "sickn33/agentic-awesome-skills (GitHub API, дерево)",
+      "date_checked": "2026-10-11",
+      "used_for": "поиск продуктовых скиллов"
+    },
+    {
+      "url": "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-os/SKILL.md",
+      "title": "agentic-awesome-skills idea-os SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "P2, P3, P11"
+    },
+    {
+      "url": "https://github.com/Slashworks-biz/idea-os",
+      "title": "Slashworks-biz/idea-os (GitHub)",
+      "date_checked": "2026-10-11",
+      "used_for": "сигналы, выходные файлы"
+    },
+    {
+      "url": "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-to-blueprint/SKILL.md",
+      "title": "agentic-awesome-skills idea-to-blueprint SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "P3, P12"
+    },
+    {
+      "url": "https://github.com/iniesohidham/idea-to-blueprint",
+      "title": "iniesohidham/idea-to-blueprint (GitHub API)",
+      "date_checked": "2026-10-11",
+      "used_for": "сигналы"
+    },
+    {
+      "url": "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/startup-financial-modeling/SKILL.md",
+      "title": "startup-financial-modeling SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "P13"
+    },
+    {
+      "url": "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/idea-evaluator/SKILL.md",
+      "title": "idea-evaluator SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "P2, P11"
+    },
+    {
+      "url": "https://claudskills.com/skills/codebase-audit-and-roadmap/",
+      "title": "claudskills.com: codebase-audit-and-roadmap",
+      "date_checked": "2026-10-11",
+      "used_for": "цена, безопасность"
+    },
+    {
+      "url": "https://github.com/S3YED/appie-kit/blob/45c4d3b5c79f7bbb99605de7e489d411aca122de/skills/software-development/codebase-audit-and-roadmap/SKILL.md",
+      "title": "appie-kit codebase-audit-and-roadmap SKILL.md (коммит 45c4d3b)",
+      "date_checked": "2026-10-11",
+      "used_for": "P1, P6, P7, P12; удалён из HEAD"
+    },
+    {
+      "url": "https://github.com/automazeio/ccpm",
+      "title": "automazeio/ccpm README (GitHub API)",
+      "date_checked": "2026-10-11",
+      "used_for": "P10, P12"
+    },
+    {
+      "url": "https://github.com/eyaltoledano/claude-task-master",
+      "title": "eyaltoledano/claude-task-master README",
+      "date_checked": "2026-10-11",
+      "used_for": "P12"
+    },
+    {
+      "url": "https://github.com/eyaltoledano/claude-task-master/blob/main/LICENSE",
+      "title": "Task Master LICENSE (Commons Clause)",
+      "date_checked": "2026-10-11",
+      "used_for": "лицензия"
+    },
+    {
+      "url": "https://github.com/github/spec-kit",
+      "title": "github/spec-kit README",
+      "date_checked": "2026-10-11",
+      "used_for": "P12"
+    },
+    {
+      "url": "https://github.com/anthropics/skills",
+      "title": "anthropics/skills (GitHub API)",
+      "date_checked": "2026-10-11",
+      "used_for": "P9"
+    },
+    {
+      "url": "https://github.com/anthropics/skills/blob/main/skills/pptx/LICENSE.txt",
+      "title": "anthropics/skills pptx LICENSE.txt",
+      "date_checked": "2026-10-11",
+      "used_for": "лицензия"
+    },
+    {
+      "url": "https://www.chatprd.ai/pricing",
+      "title": "ChatPRD pricing",
+      "date_checked": "2026-10-11",
+      "used_for": "цена, интеграции"
+    },
+    {
+      "url": "https://www.chatprd.ai/",
+      "title": "ChatPRD home",
+      "date_checked": "2026-10-11",
+      "used_for": "возможности, MCP"
+    },
+    {
+      "url": "https://www.productboard.com/pricing/",
+      "title": "Productboard pricing",
+      "date_checked": "2026-10-11",
+      "used_for": "цена, P5, P7, P10"
+    },
+    {
+      "url": "https://www.productboard.com/spark/",
+      "title": "Productboard Spark",
+      "date_checked": "2026-10-11",
+      "used_for": "P1, P3, P12, MCP"
+    },
+    {
+      "url": "https://www.aha.io/pricing",
+      "title": "Aha! pricing",
+      "date_checked": "2026-10-11",
+      "used_for": "цена, возможности"
+    },
+    {
+      "url": "https://www.atlassian.com/software/jira/product-discovery/pricing",
+      "title": "Jira Product Discovery pricing",
+      "date_checked": "2026-10-11",
+      "used_for": "цена, P10"
+    },
+    {
+      "url": "https://linear.app/pricing",
+      "title": "Linear pricing",
+      "date_checked": "2026-10-11",
+      "used_for": "цена, Insights, MCP"
+    },
+    {
+      "url": "https://linear.app/docs/insights",
+      "title": "Linear Insights docs",
+      "date_checked": "2026-10-11",
+      "used_for": "P10"
+    },
+    {
+      "url": "https://docs.github.com/en/issues/planning-and-tracking-with-projects/automating-your-project/using-the-built-in-automations",
+      "title": "GitHub Projects built-in automations",
+      "date_checked": "2026-10-11",
+      "used_for": "P10"
+    },
+    {
+      "url": "https://www.notion.com/pricing",
+      "title": "Notion pricing",
+      "date_checked": "2026-10-11",
+      "used_for": "цена, AI"
+    },
+    {
+      "url": "https://miro.com/pricing/",
+      "title": "Miro pricing",
+      "date_checked": "2026-10-11",
+      "used_for": "цена, AI, прототипы"
+    },
+    {
+      "url": "https://leanspark.ai/learn/what-is-leanspark/",
+      "title": "LEANSpark: what is",
+      "date_checked": "2026-10-11",
+      "used_for": "P11, P14"
+    },
+    {
+      "url": "https://www.strategyzer.com/pricing",
+      "title": "Strategyzer pricing",
+      "date_checked": "2026-10-11",
+      "used_for": "цена, канвасы"
+    },
+    {
+      "url": "https://www.validatorai.com/",
+      "title": "ValidatorAI",
+      "date_checked": "2026-10-11",
+      "used_for": "P3, P11"
+    },
+    {
+      "url": "https://www.dimeadozen.ai/",
+      "title": "DimeADozen.ai",
+      "date_checked": "2026-10-11",
+      "used_for": "цена, P3, P11"
+    },
+    {
+      "url": "https://founderpal.ai/",
+      "title": "FounderPal",
+      "date_checked": "2026-10-11",
+      "used_for": "попытка проверки (не удалось)"
+    },
+    {
+      "url": "https://www.finout.io/blog/perplexity-pricing-in-2026",
+      "title": "finout.io: Perplexity pricing 2026",
+      "date_checked": "2026-10-11",
+      "used_for": "цена, лимиты Research"
+    },
+    {
+      "url": "https://hackceleration.com/labs/gamma-pricing",
+      "title": "hackceleration.com: Gamma pricing (June 2026)",
+      "date_checked": "2026-10-11",
+      "used_for": "цена, экспорт PPTX/PDF"
+    },
+    {
+      "url": "https://www.beautiful.ai/pricing",
+      "title": "Beautiful.ai pricing",
+      "date_checked": "2026-10-11",
+      "used_for": "цена, экспорт"
+    },
+    {
+      "url": "https://code.claude.com/docs/en/common-workflows",
+      "title": "Claude Code docs: Common workflows (plan mode, schedule)",
+      "date_checked": "2026-10-11",
+      "used_for": "встроенные возможности"
+    },
+    {
+      "url": "<репозиторий>/skills/product-strategy/README.md",
+      "title": "README product-strategy (владелец)",
+      "date_checked": "2026-10-11",
+      "used_for": "матрица возможностей P1–P14"
+    },
+    {
+      "url": "<репозиторий>/skills/product-strategy/product-concept/SKILL.md",
+      "title": "SKILL.md product-concept (владелец)",
+      "date_checked": "2026-10-11",
+      "used_for": "матрица P2, P11"
+    },
+    {
+      "url": "<репозиторий>/strategy/2026-10-10/data/competitors.json",
+      "title": "Прежнее исследование конкурентов владельца",
+      "date_checked": "2026-10-11",
+      "used_for": "отправная точка"
+    }
+  ],
+  "research_stats": {
+    "web_searches": 5,
+    "web_fetches": 26,
+    "gh_api_calls_approx": 60,
+    "local_reads": "ECC clone, owner skill files, prior competitors.json/md"
+  }
+}

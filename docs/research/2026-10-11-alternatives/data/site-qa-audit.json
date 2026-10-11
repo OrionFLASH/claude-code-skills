@@ -1,0 +1,5036 @@
+{
+  "skill": "site-qa-audit",
+  "date": "2026-10-11",
+  "capabilities": [
+    {
+      "id": "S1",
+      "name": "Функциональное QA по URL",
+      "desc": "Обход сайта, клики, формы без отправки, ошибки JS, ответы 4xx/5xx"
+    },
+    {
+      "id": "S2",
+      "name": "Локальные приложения file://",
+      "desc": "Проверка веб-приложения с диска без сервера, с ограничением навигации"
+    },
+    {
+      "id": "S3",
+      "name": "Доступность WCAG 2.2",
+      "desc": "axe-core, клавиатура, фокус, ARIA, контраст"
+    },
+    {
+      "id": "S4",
+      "name": "Производительность",
+      "desc": "Lighthouse mobile/desktop, Core Web Vitals, вес, кэш"
+    },
+    {
+      "id": "S5",
+      "name": "SEO и контент",
+      "desc": "title/description/OG/canonical/robots/sitemap/hreflang, опечатки, i18n"
+    },
+    {
+      "id": "S6",
+      "name": "Адаптив и кросс-браузер",
+      "desc": "Chromium, Firefox, WebKit; 360–1920 px; эмуляция касаний"
+    },
+    {
+      "id": "S7",
+      "name": "Пассивная безопасность",
+      "desc": "HTTPS, HSTS, CSP и другие заголовки, cookies, mixed content, утечки"
+    },
+    {
+      "id": "S8",
+      "name": "Визуальный UI/UX-разбор",
+      "desc": "Эвристики Нильсена, законы UX, сетка, типографика, состояния"
+    },
+    {
+      "id": "S9",
+      "name": "Доказательная база находок",
+      "desc": "Серьёзность, шаги воспроизведения, аннотированные скриншоты, короткие ролики"
+    },
+    {
+      "id": "S10",
+      "name": "GitHub issues",
+      "desc": "Черновики по формам репозитория, дедупликация с существующими, перепроверка исправлений"
+    },
+    {
+      "id": "S11",
+      "name": "Строгие запреты безопасности",
+      "desc": "Никаких покупок, OAuth, удаления, отправки форм; guard fail-closed"
+    },
+    {
+      "id": "S12",
+      "name": "Параллельность и глубина",
+      "desc": "Параллельные исполнители (до 4) и режимы smoke/standard/deep"
+    },
+    {
+      "id": "S13",
+      "name": "Структурированный отчёт и экспорт",
+      "desc": "findings.json, report.md, summary.md, выгрузка в папку/артефакт"
+    },
+    {
+      "id": "S14",
+      "name": "Генерация e2e-тестов Playwright",
+      "desc": "Заготовка регрессионного теста по находке, запуск Playwright Test"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "gstack-qa",
+      "name": "gstack /qa, /qa-only, /benchmark, /design-review (Garry Tan)",
+      "url": "https://github.com/garrytan/gstack",
+      "kind": "collection",
+      "collection": "gstack",
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 135904,
+      "forks": 20179,
+      "last_commit": "2026-10-11",
+      "created": "2026-03-11",
+      "contributors": 15,
+      "price": "free (MIT, «No premium tier»); браузер Aside — опционально",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды / форки (GitHub API, 2026-10-11)",
+          "value": "135904 / 20179",
+          "url": "https://github.com/garrytan/gstack"
+        },
+        {
+          "label": "Последний push",
+          "value": "2026-10-11",
+          "url": "https://github.com/garrytan/gstack"
+        },
+        {
+          "label": "Контрибьюторы (GitHub API)",
+          "value": "15",
+          "url": "https://github.com/garrytan/gstack"
+        },
+        {
+          "label": "Открытый issue: отправка кода в Codex без запроса",
+          "value": "#3102, open, 2026-10-09",
+          "url": "https://github.com/garrytan/gstack/issues/3102"
+        },
+        {
+          "label": "Открытые issues+PR",
+          "value": "189",
+          "url": "https://github.com/garrytan/gstack"
+        },
+        {
+          "label": "Нужен Bun ≥1.3.3 и сборка своего Chromium (./setup)",
+          "value": "да",
+          "url": "https://github.com/garrytan/gstack/blob/main/README.md"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 3,
+          "note": "Исследует браузер, API, CLI, вебхуки; проверяет консоль после каждого действия, битые ссылки; режимы Diff-aware/Full/Quick/Regression",
+          "evidence": [
+            "https://github.com/garrytan/gstack/blob/main/qa/SKILL.md",
+            "https://github.com/garrytan/gstack/blob/main/qa/sections/qa-patterns.md"
+          ]
+        },
+        "S2": {
+          "score": null,
+          "note": "не проверено: в qa-patterns есть автопоиск localhost-портов, про file:// упоминаний не найдено",
+          "evidence": []
+        },
+        "S3": {
+          "score": 1,
+          "note": "Категория Accessibility (15 % веса) в Health Score; axe-core и WCAG 2.2 явно не названы",
+          "evidence": [
+            "https://github.com/garrytan/gstack/blob/main/qa/sections/qa-patterns.md"
+          ]
+        },
+        "S4": {
+          "score": 2,
+          "note": "/benchmark: базовая линия времени загрузки, Core Web Vitals и веса ресурсов, сравнение до/после",
+          "evidence": [
+            "https://github.com/garrytan/gstack/blob/main/README.md"
+          ]
+        },
+        "S5": {
+          "score": 1,
+          "note": "Категория Content (тексты); SEO-проверок в /qa нет",
+          "evidence": [
+            "https://github.com/garrytan/gstack/blob/main/qa/sections/qa-patterns.md"
+          ]
+        },
+        "S6": {
+          "score": 1,
+          "note": "Мобильный — эмуляция 375×812 в Chromium; Firefox/WebKit не заявлены",
+          "evidence": [
+            "https://github.com/garrytan/gstack/blob/main/qa/sections/qa-patterns.md"
+          ]
+        },
+        "S7": {
+          "score": 1,
+          "note": "/cso — аудит безопасности кода (OWASP/STRIDE), не пассивная проверка заголовков сайта",
+          "evidence": [
+            "https://github.com/garrytan/gstack/blob/main/README.md"
+          ]
+        },
+        "S8": {
+          "score": 2,
+          "note": "/design-review + движок impeccable (61 правило), категории Visual/UX",
+          "evidence": [
+            "https://github.com/garrytan/gstack/blob/main/README.md"
+          ]
+        },
+        "S9": {
+          "score": 2,
+          "note": "Серьёзность Critical–Low, шаги, скриншоты до/после, аннотированный скриншот; роликов в /qa не найдено",
+          "evidence": [
+            "https://github.com/garrytan/gstack/blob/main/qa/sections/qa-patterns.md",
+            "https://github.com/garrytan/gstack/blob/main/qa/SKILL.md"
+          ]
+        },
+        "S10": {
+          "score": 1,
+          "note": "Режим Regression (fixed/new по baseline) и перепроверка после исправления; GitHub issues не создаёт — вместо этого чинит код и коммитит",
+          "evidence": [
+            "https://github.com/garrytan/gstack/blob/main/qa/sections/qa-patterns.md",
+            "https://github.com/garrytan/gstack/blob/main/qa/SKILL.md"
+          ]
+        },
+        "S11": {
+          "score": 1,
+          "note": "Ссылки logout/delete/remove исключаются, деструктивные варианты не выбираются автоматически; но /qa меняет код и коммитит, guard-а на покупки/OAuth/формы нет",
+          "evidence": [
+            "https://github.com/garrytan/gstack/blob/main/qa/sections/qa-patterns.md",
+            "https://github.com/garrytan/gstack/blob/main/qa/SKILL.md"
+          ]
+        },
+        "S12": {
+          "score": 1,
+          "note": "Уровни Quick/Standard/Exhaustive (по серьёзности исправлений); параллельных исполнителей внутри прогона не заявлено",
+          "evidence": [
+            "https://github.com/garrytan/gstack/blob/main/qa/SKILL.md"
+          ]
+        },
+        "S13": {
+          "score": 2,
+          "note": "Отчёт в .gstack/qa-reports, baseline.json с healthScore и categoryScores",
+          "evidence": [
+            "https://github.com/garrytan/gstack/blob/main/qa/sections/qa-patterns.md"
+          ]
+        },
+        "S14": {
+          "score": 2,
+          "note": "Пишет регрессионный тест перед исправлением (нативный фреймворк проекта, не обязательно Playwright)",
+          "evidence": [
+            "https://github.com/garrytan/gstack/blob/main/qa/SKILL.md"
+          ]
+        }
+      },
+      "strengths": [
+        "Огромная аудитория и активная разработка",
+        "Цикл найти→исправить→регресс-тест→коммит",
+        "Health Score с весами и дельтой",
+        "/qa-only — режим только отчёта"
+      ],
+      "weaknesses": [
+        "Нет GitHub issues и дедупликации",
+        "Нет Firefox/WebKit, нет file://",
+        "Нет пассивной проверки заголовков и SEO",
+        "Тяжёлая установка (Bun, сборка браузера), 40+ команд"
+      ],
+      "risks": [
+        "Отправка кода во внешние модели без запроса (#3102)",
+        "bus factor: 15 контрибьюторов при 135 тыс. звёзд, доминирует автор",
+        "Хуки и широкие права в ~/.claude"
+      ],
+      "verdict": "partial",
+      "summary": "Самая сильная по вниманию альтернатива: /qa закрывает функциональное QA и регресс-тесты лучше, но ориентирован на разработчика с исходниками и не делает issues, кросс-браузер, a11y по axe, SEO и строгий guard."
+    },
+    {
+      "id": "agent-browser-dogfood",
+      "name": "Vercel agent-browser + скилл dogfood",
+      "url": "https://github.com/vercel-labs/agent-browser",
+      "kind": "oss-tool",
+      "collection": null,
+      "license": "Apache-2.0",
+      "osi_license": true,
+      "stars": 43801,
+      "forks": 2969,
+      "last_commit": "2026-10-11",
+      "created": "2026-01-11",
+      "contributors": 115,
+      "price": "free",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды / форки (GitHub API, 2026-10-11)",
+          "value": "43801 / 2969",
+          "url": "https://github.com/vercel-labs/agent-browser"
+        },
+        {
+          "label": "Последний push",
+          "value": "2026-10-11",
+          "url": "https://github.com/vercel-labs/agent-browser"
+        },
+        {
+          "label": "Контрибьюторы (GitHub API)",
+          "value": "115",
+          "url": "https://github.com/vercel-labs/agent-browser"
+        },
+        {
+          "label": "Последний релиз",
+          "value": "v0.39.0, 2026-10-09",
+          "url": "https://github.com/vercel-labs/agent-browser"
+        },
+        {
+          "label": "Открытые issues+PR",
+          "value": "856",
+          "url": "https://github.com/vercel-labs/agent-browser"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 2,
+          "note": "dogfood: систематический обход, клики, формы, консоль (errors), сеть/HAR",
+          "evidence": [
+            "https://github.com/vercel-labs/agent-browser/blob/main/skill-data/dogfood/SKILL.md",
+            "https://github.com/vercel-labs/agent-browser/blob/main/README.md"
+          ]
+        },
+        "S2": {
+          "score": null,
+          "note": "не проверено: в README не найдено явного описания file://",
+          "evidence": []
+        },
+        "S3": {
+          "score": 2,
+          "note": "Встроенный axe-core аудит страницы и фреймов (офлайн, при строгом CSP)",
+          "evidence": [
+            "https://github.com/vercel-labs/agent-browser/blob/main/README.md"
+          ]
+        },
+        "S4": {
+          "score": 1,
+          "note": "Трассировка и профилирование; Lighthouse не заявлен",
+          "evidence": [
+            "https://github.com/vercel-labs/agent-browser/blob/main/README.md"
+          ]
+        },
+        "S5": {
+          "score": 1,
+          "note": "Категория Content в таксономии dogfood; SEO-метаданные не проверяются",
+          "evidence": [
+            "https://github.com/vercel-labs/agent-browser/blob/main/skill-data/dogfood/references/issue-taxonomy.md"
+          ]
+        },
+        "S6": {
+          "score": 2,
+          "note": "Эмуляция устройств/viewport, касания и свайпы; Chrome и сессии Safari/iOS WebDriver; Firefox нет",
+          "evidence": [
+            "https://github.com/vercel-labs/agent-browser/blob/main/README.md"
+          ]
+        },
+        "S7": {
+          "score": 0,
+          "note": "Не заявлено",
+          "evidence": []
+        },
+        "S8": {
+          "score": 1,
+          "note": "Категории Visual/UI и UX в таксономии",
+          "evidence": [
+            "https://github.com/vercel-labs/agent-browser/blob/main/skill-data/dogfood/references/issue-taxonomy.md"
+          ]
+        },
+        "S9": {
+          "score": 3,
+          "note": "Для каждой находки: шаги, скриншоты каждого шага, аннотированные скриншоты, видео воспроизведения; diff скриншотов",
+          "evidence": [
+            "https://github.com/vercel-labs/agent-browser/blob/main/skill-data/dogfood/SKILL.md",
+            "https://github.com/vercel-labs/agent-browser/blob/main/README.md"
+          ]
+        },
+        "S10": {
+          "score": 0,
+          "note": "Не заявлено",
+          "evidence": []
+        },
+        "S11": {
+          "score": 1,
+          "note": "Инструменты есть (--allowed-domains, --action-policy, --confirm-actions), но dogfood прямо предлагает проверять create/edit/delete",
+          "evidence": [
+            "https://github.com/vercel-labs/agent-browser/blob/main/README.md",
+            "https://github.com/vercel-labs/agent-browser/blob/main/skill-data/dogfood/SKILL.md"
+          ]
+        },
+        "S12": {
+          "score": 1,
+          "note": "Именованные параллельные сессии; режимов глубины нет",
+          "evidence": [
+            "https://github.com/vercel-labs/agent-browser/blob/main/skill-data/dogfood/SKILL.md"
+          ]
+        },
+        "S13": {
+          "score": 2,
+          "note": "report.md по шаблону с итогами по серьёзности",
+          "evidence": [
+            "https://github.com/vercel-labs/agent-browser/blob/main/skill-data/dogfood/SKILL.md"
+          ]
+        },
+        "S14": {
+          "score": 0,
+          "note": "Генерация Playwright-тестов не заявлена",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Лучшая доказательная база находок (видео + пошаговые скриншоты)",
+        "Быстрый Rust-клиент, экономия токенов",
+        "Встроенный axe-core, Safari/iOS",
+        "Allowlist доменов и политика действий"
+      ],
+      "weaknesses": [
+        "Нет GitHub issues, SEO, заголовков безопасности",
+        "Нет Firefox",
+        "Нет режимов глубины"
+      ],
+      "risks": [
+        "Пре-1.0 (v0.39), частые изменения CLI",
+        "856 открытых issues/PR"
+      ],
+      "verdict": "partial",
+      "summary": "Лучшая готовая основа для исследовательского QA с видео- и скриншот-доказательствами; закрывает S9 лучше своего скила, но без issues, guard по умолчанию и SEO/безопасности."
+    },
+    {
+      "id": "neonwatty-qa-skills",
+      "name": "neonwatty/qa-skills (плагин Claude QA Skills)",
+      "url": "https://github.com/neonwatty/qa-skills",
+      "kind": "plugin",
+      "collection": null,
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 33,
+      "forks": 3,
+      "last_commit": "2026-05-03",
+      "created": "2026-01-07",
+      "contributors": 2,
+      "price": "free",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды / форки (GitHub API, 2026-10-11)",
+          "value": "33 / 3",
+          "url": "https://github.com/neonwatty/qa-skills"
+        },
+        {
+          "label": "Последний push",
+          "value": "2026-05-03",
+          "url": "https://github.com/neonwatty/qa-skills"
+        },
+        {
+          "label": "Контрибьюторы (GitHub API)",
+          "value": "2",
+          "url": "https://github.com/neonwatty/qa-skills"
+        },
+        {
+          "label": "Последний релиз",
+          "value": "v1.13.3, 2026-04-08",
+          "url": "https://github.com/neonwatty/qa-skills"
+        },
+        {
+          "label": "Установлен у владельца и указан в plugins-map",
+          "value": "да (qa-skills:*)",
+          "url": "https://github.com/neonwatty/qa-skills"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 2,
+          "note": "smoke-tester, adversarial-breaker, resilience-audit (тупики, гонки, прерывания)",
+          "evidence": [
+            "https://github.com/neonwatty/qa-skills"
+          ]
+        },
+        "S2": {
+          "score": 0,
+          "note": "Ориентирован на запущенное приложение и роуты Next.js",
+          "evidence": []
+        },
+        "S3": {
+          "score": 1,
+          "note": "ux-auditor ловит «accessibility gaps»; axe/WCAG явно не заявлены",
+          "evidence": [
+            "https://github.com/neonwatty/qa-skills"
+          ]
+        },
+        "S4": {
+          "score": 2,
+          "note": "performance-profiler: LCP, CLS, INP, FCP, TTFB, TBT, DOM, ресурсы",
+          "evidence": [
+            "https://github.com/neonwatty/qa-skills"
+          ]
+        },
+        "S5": {
+          "score": 1,
+          "note": "keyword-wedge — SEO-возможности по Search Console/PostHog, не аудит страниц",
+          "evidence": [
+            "https://github.com/neonwatty/qa-skills"
+          ]
+        },
+        "S6": {
+          "score": 1,
+          "note": "mobile-ux-auditor 393×852; мобильные тесты Chromium+WebKit; Firefox нет",
+          "evidence": [
+            "https://github.com/neonwatty/qa-skills"
+          ]
+        },
+        "S7": {
+          "score": 2,
+          "note": "security-auditor: 83 проверки OWASP, конфигурация заголовков, сессии (часть — сканирование кода)",
+          "evidence": [
+            "https://github.com/neonwatty/qa-skills"
+          ]
+        },
+        "S8": {
+          "score": 2,
+          "note": "ux-auditor и mobile-ux-auditor с рубриками и бинарной оценкой",
+          "evidence": [
+            "https://github.com/neonwatty/qa-skills"
+          ]
+        },
+        "S9": {
+          "score": 1,
+          "note": "Структурированные отчёты агентов; видео/аннотации не заявлены",
+          "evidence": [
+            "https://github.com/neonwatty/qa-skills"
+          ]
+        },
+        "S10": {
+          "score": 1,
+          "note": "submit-learnings создаёт issues только в репозитории плагина (о самом плагине), не по находкам сайта",
+          "evidence": [
+            "https://github.com/neonwatty/qa-skills"
+          ]
+        },
+        "S11": {
+          "score": 1,
+          "note": "adversarial-breaker намеренно пытается ломать (double-submit, abuse) — противоположно запретам",
+          "evidence": [
+            "https://github.com/neonwatty/qa-skills"
+          ]
+        },
+        "S12": {
+          "score": 2,
+          "note": "/run-qa [smoke|ux|adversarial|all] — диспетчер нескольких агентов",
+          "evidence": [
+            "https://github.com/neonwatty/qa-skills"
+          ]
+        },
+        "S13": {
+          "score": 1,
+          "note": "Отчёты агентов и learnings ledger",
+          "evidence": [
+            "https://github.com/neonwatty/qa-skills"
+          ]
+        },
+        "S14": {
+          "score": 3,
+          "note": "Генераторы workflow → конвертеры в Playwright (desktop/mobile/multi-user) + CI GitHub Actions + auth setup",
+          "evidence": [
+            "https://github.com/neonwatty/qa-skills"
+          ]
+        }
+      },
+      "strengths": [
+        "Лучший конвейер «сценарий → Playwright → CI»",
+        "Мультиюзерные сценарии и профили входа",
+        "Набор агентов-ролей"
+      ],
+      "weaknesses": [
+        "Заточен под Next.js и исходники",
+        "Мало звёзд, 2 контрибьютора, последний push 2026-05-03",
+        "adversarial-режим опасен для боевых сайтов"
+      ],
+      "risks": [
+        "Заброшенность (5 месяцев без коммитов)",
+        "bus factor 1–2"
+      ],
+      "verdict": "partial",
+      "summary": "Хорош как источник генерации Playwright-тестов (S14) и ролей-агентов; как замена аудита чужого сайта без исходников не подходит."
+    },
+    {
+      "id": "ecc-browser-qa",
+      "name": "ECC: browser-qa + e2e-testing + e2e-runner + accessibility + seo",
+      "url": "https://github.com/affaan-m/ECC",
+      "kind": "collection",
+      "collection": "ECC",
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 276823,
+      "forks": 41274,
+      "last_commit": "2026-10-11",
+      "created": "2026-01-18",
+      "contributors": 446,
+      "price": "free",
+      "claude_code_native": true,
+      "languages": [
+        "en",
+        "zh"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды / форки (GitHub API, 2026-10-11)",
+          "value": "276823 / 41274",
+          "url": "https://github.com/affaan-m/ECC"
+        },
+        {
+          "label": "Последний push",
+          "value": "2026-10-11",
+          "url": "https://github.com/affaan-m/ECC"
+        },
+        {
+          "label": "Контрибьюторы (GitHub API)",
+          "value": "446",
+          "url": "https://github.com/affaan-m/ECC"
+        },
+        {
+          "label": "Открытые issues+PR",
+          "value": "157",
+          "url": "https://github.com/affaan-m/ECC"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 2,
+          "note": "Smoke: консоль, 4xx/5xx, клики по навигации, формы, auth-поток",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/skills/browser-qa/SKILL.md"
+          ]
+        },
+        "S2": {
+          "score": 0,
+          "note": "Не заявлено",
+          "evidence": []
+        },
+        "S3": {
+          "score": 2,
+          "note": "axe-core, WCAG 2.2 AA, клавиатура, landmarks; честная оговорка про 30–40 % покрытия",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/skills/browser-qa/SKILL.md",
+            "https://github.com/affaan-m/ECC/blob/main/skills/accessibility/SKILL.md"
+          ]
+        },
+        "S4": {
+          "score": 1,
+          "note": "Пороги LCP/CLS/INP в smoke-фазе, без Lighthouse-отчёта",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/skills/browser-qa/SKILL.md"
+          ]
+        },
+        "S5": {
+          "score": 1,
+          "note": "Отдельный скилл seo (руководство); в browser-qa нет",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/skills/seo/SKILL.md"
+          ]
+        },
+        "S6": {
+          "score": 1,
+          "note": "Скриншоты на 375/768/1440, тёмная тема; браузеры — те, что даёт MCP",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/skills/browser-qa/SKILL.md"
+          ]
+        },
+        "S7": {
+          "score": 0,
+          "note": "В browser-qa не заявлено",
+          "evidence": []
+        },
+        "S8": {
+          "score": 1,
+          "note": "Визуальная регрессия против baseline, без эвристик UX",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/skills/browser-qa/SKILL.md"
+          ]
+        },
+        "S9": {
+          "score": 1,
+          "note": "Отчёт со списком ✓/✗ и вердиктом SHIP/DO NOT SHIP; без шагов/аннотаций",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/skills/browser-qa/SKILL.md"
+          ]
+        },
+        "S10": {
+          "score": 0,
+          "note": "Не заявлено",
+          "evidence": []
+        },
+        "S11": {
+          "score": 1,
+          "note": "Read-only по умолчанию, мутации только на staging с явным согласием, тестовые учётки, редактирование PII на скриншотах (правило, не guard)",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/skills/browser-qa/SKILL.md"
+          ]
+        },
+        "S12": {
+          "score": 0,
+          "note": "Не заявлено",
+          "evidence": []
+        },
+        "S13": {
+          "score": 1,
+          "note": "Markdown-отчёт по шаблону",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/skills/browser-qa/SKILL.md"
+          ]
+        },
+        "S14": {
+          "score": 2,
+          "note": "e2e-testing: POM, конфиг, артефакты, flaky; агент e2e-runner пишет и поддерживает тесты",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/skills/e2e-testing/SKILL.md",
+            "https://github.com/affaan-m/ECC/blob/main/agents/e2e-runner.md"
+          ]
+        }
+      },
+      "strengths": [
+        "Короткий понятный чек-лист пост-деплоя",
+        "Честные оговорки по axe",
+        "e2e-паттерны и агент-раннер"
+      ],
+      "weaknesses": [
+        "Это промпт-руководство, без скриптов и детекторов",
+        "Нет issues, file://, кросс-браузера, отчёта с доказательствами"
+      ],
+      "risks": [
+        "Огромная коллекция (сотни скиллов) — шум в контексте",
+        "Скилл ссылается на устаревшее имя инструмента claude-in-chrome"
+      ],
+      "verdict": "inspire",
+      "summary": "Лёгкий чек-лист browser-qa и e2e-паттерны; годится как вдохновение и для S14, но не заменяет глубокий аудит."
+    },
+    {
+      "id": "playwright-mcp-cli",
+      "name": "Playwright MCP + Playwright CLI (Microsoft)",
+      "url": "https://github.com/microsoft/playwright-mcp",
+      "kind": "mcp",
+      "collection": "claude-plugins-official",
+      "license": "Apache-2.0",
+      "osi_license": true,
+      "stars": 38012,
+      "forks": 3234,
+      "last_commit": "2026-10-08",
+      "created": "2025-03-21",
+      "contributors": 71,
+      "price": "free",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды / форки (GitHub API, 2026-10-11)",
+          "value": "38012 / 3234",
+          "url": "https://github.com/microsoft/playwright-mcp"
+        },
+        {
+          "label": "Последний push",
+          "value": "2026-10-08",
+          "url": "https://github.com/microsoft/playwright-mcp"
+        },
+        {
+          "label": "Контрибьюторы (GitHub API)",
+          "value": "71",
+          "url": "https://github.com/microsoft/playwright-mcp"
+        },
+        {
+          "label": "Последний релиз",
+          "value": "v0.0.83, 2026-09-28",
+          "url": "https://github.com/microsoft/playwright-mcp"
+        },
+        {
+          "label": "Официальный плагин Claude Code (external_plugins/playwright)",
+          "value": "да",
+          "url": "https://github.com/anthropics/claude-plugins-official"
+        },
+        {
+          "label": "playwright-cli: звёзды",
+          "value": "13917",
+          "url": "https://github.com/microsoft/playwright-cli"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 1,
+          "note": "Примитивы (навигация, клики, формы, консоль, сеть); процесса QA нет",
+          "evidence": [
+            "https://github.com/microsoft/playwright-mcp"
+          ]
+        },
+        "S2": {
+          "score": 1,
+          "note": "file:// заблокирован по умолчанию; --allow-unrestricted-file-access открывает без ограничений",
+          "evidence": [
+            "https://github.com/microsoft/playwright-mcp"
+          ]
+        },
+        "S3": {
+          "score": 1,
+          "note": "Снимок дерева доступности, но без axe/WCAG-аудита",
+          "evidence": [
+            "https://github.com/microsoft/playwright-mcp"
+          ]
+        },
+        "S4": {
+          "score": 0,
+          "note": "Не заявлено",
+          "evidence": []
+        },
+        "S5": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S6": {
+          "score": 2,
+          "note": "--browser chrome/firefox/webkit/msedge, --device, --viewport-size, --mobile",
+          "evidence": [
+            "https://github.com/microsoft/playwright-mcp"
+          ]
+        },
+        "S7": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S8": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S9": {
+          "score": 1,
+          "note": "Скриншоты и запись видео (browser_start_video/stop_video); аннотаций нет",
+          "evidence": [
+            "https://github.com/microsoft/playwright-mcp"
+          ]
+        },
+        "S10": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S11": {
+          "score": 1,
+          "note": "--allowed-origins/--blocked-origins — по словам README не граница безопасности",
+          "evidence": [
+            "https://github.com/microsoft/playwright-mcp"
+          ]
+        },
+        "S12": {
+          "score": 1,
+          "note": "Параллель — через --isolated или playwright-cli сессии",
+          "evidence": [
+            "https://github.com/microsoft/playwright-mcp"
+          ]
+        },
+        "S13": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S14": {
+          "score": 1,
+          "note": "--codegen typescript/python/java/csharp — генерация кода действий",
+          "evidence": [
+            "https://github.com/microsoft/playwright-mcp"
+          ]
+        }
+      },
+      "strengths": [
+        "Стандарт де-факто, официальный плагин",
+        "Три движка браузеров",
+        "Владелец уже на нём строит"
+      ],
+      "weaknesses": [
+        "Только примитивы, без методики, отчёта и issues"
+      ],
+      "risks": [
+        "Низкий риск; пре-1.0 версии MCP"
+      ],
+      "verdict": "ignore",
+      "summary": "Инфраструктура, а не замена: свой скил уже использует Playwright MCP/CLI как основу."
+    },
+    {
+      "id": "playwright-test-agents",
+      "name": "Playwright Test Agents (planner, generator, healer)",
+      "url": "https://playwright.dev/docs/test-agents",
+      "kind": "oss-tool",
+      "collection": null,
+      "license": "Apache-2.0",
+      "osi_license": true,
+      "stars": 97463,
+      "forks": 6582,
+      "last_commit": "2026-10-10",
+      "created": "2019-11-15",
+      "contributors": 821,
+      "price": "free",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды / форки (GitHub API, 2026-10-11)",
+          "value": "97463 / 6582",
+          "url": "https://github.com/microsoft/playwright"
+        },
+        {
+          "label": "Последний push",
+          "value": "2026-10-10",
+          "url": "https://github.com/microsoft/playwright"
+        },
+        {
+          "label": "Контрибьюторы (GitHub API)",
+          "value": "821",
+          "url": "https://github.com/microsoft/playwright"
+        },
+        {
+          "label": "Установка для Claude Code",
+          "value": "npx playwright init-agents --loop=claude",
+          "url": "https://playwright.dev/docs/test-agents"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 1,
+          "note": "Planner исследует приложение и пишет Markdown-план; находки дефектов — побочный эффект (healer может пропустить тест, считая функцию сломанной)",
+          "evidence": [
+            "https://playwright.dev/docs/test-agents"
+          ]
+        },
+        "S2": {
+          "score": null,
+          "note": "не проверено: на странице не описано",
+          "evidence": []
+        },
+        "S3": {
+          "score": 0,
+          "note": "Страница не упоминает доступность",
+          "evidence": []
+        },
+        "S4": {
+          "score": 0,
+          "note": "Страница не упоминает производительность",
+          "evidence": []
+        },
+        "S5": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S6": {
+          "score": 1,
+          "note": "Наследует проекты браузеров Playwright Test; на странице не описано",
+          "evidence": [
+            "https://playwright.dev/docs/test-agents"
+          ]
+        },
+        "S7": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S8": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S9": {
+          "score": 1,
+          "note": "Трассы/скриншоты Playwright Test при падении; серьёзности нет",
+          "evidence": [
+            "https://playwright.dev/docs/test-agents"
+          ]
+        },
+        "S10": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S11": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S12": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S13": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S14": {
+          "score": 3,
+          "note": "Специализированно: план → тесты → самолечение; шире заготовки e2e_stub своего скила",
+          "evidence": [
+            "https://playwright.dev/docs/test-agents"
+          ]
+        }
+      },
+      "strengths": [
+        "Лучший инструмент для S14",
+        "Официальный, огромное сообщество"
+      ],
+      "weaknesses": [
+        "Только тесты, без аудита по направлениям"
+      ],
+      "risks": [
+        "Агентов нужно перегенерировать при обновлении Playwright"
+      ],
+      "verdict": "partial",
+      "summary": "Стоит отдать ему генерацию e2e (S14) вместо своей заготовки; остальное не покрывает."
+    },
+    {
+      "id": "chrome-devtools-mcp",
+      "name": "Chrome DevTools MCP (Google)",
+      "url": "https://github.com/ChromeDevTools/chrome-devtools-mcp",
+      "kind": "mcp",
+      "collection": null,
+      "license": "Apache-2.0",
+      "osi_license": true,
+      "stars": 53263,
+      "forks": 6202,
+      "last_commit": "2026-10-11",
+      "created": "2025-09-11",
+      "contributors": 138,
+      "price": "free",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды / форки (GitHub API, 2026-10-11)",
+          "value": "53263 / 6202",
+          "url": "https://github.com/ChromeDevTools/chrome-devtools-mcp"
+        },
+        {
+          "label": "Последний push",
+          "value": "2026-10-11",
+          "url": "https://github.com/ChromeDevTools/chrome-devtools-mcp"
+        },
+        {
+          "label": "Контрибьюторы (GitHub API)",
+          "value": "138",
+          "url": "https://github.com/ChromeDevTools/chrome-devtools-mcp"
+        },
+        {
+          "label": "Последний релиз",
+          "value": "v1.10.1, 2026-09-23",
+          "url": "https://github.com/ChromeDevTools/chrome-devtools-mcp"
+        },
+        {
+          "label": "Сбор статистики использования Google (opt-out)",
+          "value": "да",
+          "url": "https://github.com/ChromeDevTools/chrome-devtools-mcp"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 1,
+          "note": "Примитивы: клики, формы, консоль с source-map, сеть",
+          "evidence": [
+            "https://github.com/ChromeDevTools/chrome-devtools-mcp/blob/main/docs/tool-reference.md"
+          ]
+        },
+        "S2": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S3": {
+          "score": 2,
+          "note": "lighthouse_audit: доступность (Lighthouse/axe-правила)",
+          "evidence": [
+            "https://github.com/ChromeDevTools/chrome-devtools-mcp/blob/main/docs/tool-reference.md"
+          ]
+        },
+        "S4": {
+          "score": 3,
+          "note": "Трассы производительности, insights, CrUX полевые данные, heap-снимки",
+          "evidence": [
+            "https://github.com/ChromeDevTools/chrome-devtools-mcp",
+            "https://github.com/ChromeDevTools/chrome-devtools-mcp/blob/main/docs/tool-reference.md"
+          ]
+        },
+        "S5": {
+          "score": 2,
+          "note": "lighthouse_audit: SEO, best practices, agentic browsing",
+          "evidence": [
+            "https://github.com/ChromeDevTools/chrome-devtools-mcp/blob/main/docs/tool-reference.md"
+          ]
+        },
+        "S6": {
+          "score": 1,
+          "note": "emulate/resize_page, только Chrome",
+          "evidence": [
+            "https://github.com/ChromeDevTools/chrome-devtools-mcp/blob/main/docs/tool-reference.md"
+          ]
+        },
+        "S7": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S8": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S9": {
+          "score": 1,
+          "note": "Скриншоты и screencast_start/stop",
+          "evidence": [
+            "https://github.com/ChromeDevTools/chrome-devtools-mcp/blob/main/docs/tool-reference.md"
+          ]
+        },
+        "S10": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S11": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S12": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S13": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S14": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Лучшая глубина производительности",
+        "Lighthouse a11y/SEO одной командой"
+      ],
+      "weaknesses": [
+        "Только Chrome, без методики QA"
+      ],
+      "risks": [
+        "Телеметрия Google и отправка URL трасс в CrUX по умолчанию"
+      ],
+      "verdict": "partial",
+      "summary": "Отличный движок для S4 и частично S3/S5; можно подключать вместо своего lighthouse.js."
+    },
+    {
+      "id": "claude-in-chrome",
+      "name": "Claude Code + Claude in Chrome (встроенное)",
+      "url": "https://code.claude.com/docs/en/chrome",
+      "kind": "builtin",
+      "collection": null,
+      "license": null,
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "price": "входит в подписку Pro/Max/Team/Enterprise",
+      "claude_code_native": true,
+      "languages": [
+        "en",
+        "ru (интерфейс модели)"
+      ],
+      "quality_signals": [
+        {
+          "label": "Официальная документация",
+          "value": "code.claude.com/docs/en/chrome",
+          "url": "https://code.claude.com/docs/en/chrome"
+        },
+        {
+          "label": "Не работает через API-ключ и Bedrock/Vertex/Foundry",
+          "value": "да",
+          "url": "https://code.claude.com/docs/en/chrome"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 1,
+          "note": "Тест форм и пользовательских потоков, консоль, DOM — по запросу, без методики",
+          "evidence": [
+            "https://code.claude.com/docs/en/chrome"
+          ]
+        },
+        "S2": {
+          "score": null,
+          "note": "не проверено: в документации не описано",
+          "evidence": []
+        },
+        "S3": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S4": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S5": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S6": {
+          "score": 0,
+          "note": "Только Chromium-браузеры",
+          "evidence": []
+        },
+        "S7": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S8": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S9": {
+          "score": 1,
+          "note": "Запись GIF и скриншоты на диск",
+          "evidence": [
+            "https://code.claude.com/docs/en/chrome"
+          ]
+        },
+        "S10": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S11": {
+          "score": 1,
+          "note": "Разрешения по сайтам в расширении, пауза на входе/CAPTCHA",
+          "evidence": [
+            "https://code.claude.com/docs/en/chrome"
+          ]
+        },
+        "S12": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S13": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S14": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Ноль установки, сессии пользователя"
+      ],
+      "weaknesses": [
+        "Нет процесса аудита, отчётов, issues"
+      ],
+      "risks": [
+        "Работает в боевом браузере пользователя с его логинами"
+      ],
+      "verdict": "ignore",
+      "summary": "Базовый заменитель для разовой ручной проверки; свой скил уже использует его в режиме «текущий экран»."
+    },
+    {
+      "id": "jezweb-ux-audit",
+      "name": "jezweb/claude-skills: ux-audit",
+      "url": "https://github.com/jezweb/claude-skills/blob/main/plugins/dev-tools/skills/ux-audit/SKILL.md",
+      "kind": "skill",
+      "collection": "jezweb/claude-skills",
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 1057,
+      "forks": 107,
+      "last_commit": "2026-10-09",
+      "created": "2025-10-20",
+      "contributors": 7,
+      "price": "free",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды / форки (GitHub API, 2026-10-11)",
+          "value": "1057 / 107",
+          "url": "https://github.com/jezweb/claude-skills"
+        },
+        {
+          "label": "Последний push",
+          "value": "2026-10-09",
+          "url": "https://github.com/jezweb/claude-skills"
+        },
+        {
+          "label": "Контрибьюторы (GitHub API)",
+          "value": "7",
+          "url": "https://github.com/jezweb/claude-skills"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 2,
+          "note": "Обход как пользователь с обязательным Interaction Manifest; консоль и 5xx — жёсткие гейты",
+          "evidence": [
+            "https://github.com/jezweb/claude-skills/blob/main/plugins/dev-tools/skills/ux-audit/SKILL.md"
+          ]
+        },
+        "S2": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S3": {
+          "score": 2,
+          "note": "axe-core Critical/Serious — жёсткие гейты по каждой странице",
+          "evidence": [
+            "https://github.com/jezweb/claude-skills/blob/main/plugins/dev-tools/skills/ux-audit/SKILL.md"
+          ]
+        },
+        "S4": {
+          "score": 1,
+          "note": "LCP/CLS/INP на одном представительном маршруте",
+          "evidence": [
+            "https://github.com/jezweb/claude-skills/blob/main/plugins/dev-tools/skills/ux-audit/SKILL.md"
+          ]
+        },
+        "S5": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S6": {
+          "score": 1,
+          "note": "Проверка схлопывания вёрстки на viewport; браузеры не указаны",
+          "evidence": [
+            "https://github.com/jezweb/claude-skills/blob/main/plugins/dev-tools/skills/ux-audit/SKILL.md"
+          ]
+        },
+        "S7": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S8": {
+          "score": 2,
+          "note": "Фазы Polish/Stress: визуальная полировка, 11 стресс-сценариев, взгляд новичка",
+          "evidence": [
+            "https://github.com/jezweb/claude-skills/blob/main/plugins/dev-tools/skills/ux-audit/SKILL.md"
+          ]
+        },
+        "S9": {
+          "score": 2,
+          "note": "Находки с воспроизведением, скриншоты ≥ 2× маршрутов, вердикт Pass/Fail/Incomplete",
+          "evidence": [
+            "https://github.com/jezweb/claude-skills/blob/main/plugins/dev-tools/skills/ux-audit/SKILL.md"
+          ]
+        },
+        "S10": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S11": {
+          "score": 0,
+          "note": "Фаза Fix-and-verify правит код; запретов не заявлено",
+          "evidence": []
+        },
+        "S12": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S13": {
+          "score": 2,
+          "note": "Scorecard гейтов и roadmap",
+          "evidence": [
+            "https://github.com/jezweb/claude-skills/blob/main/plugins/dev-tools/skills/ux-audit/SKILL.md"
+          ]
+        },
+        "S14": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Защита от «фиктивного» аудита (проверка таймингов)",
+        "Жёсткие гейты"
+      ],
+      "weaknesses": [
+        "claude-code-only, нужен доступ к коду для фазы исправлений",
+        "Нет issues"
+      ],
+      "risks": [
+        "7 контрибьюторов"
+      ],
+      "verdict": "inspire",
+      "summary": "Хорошая идея «аудит аудита» и жёстких гейтов; уже указан в plugins-map владельца как усилитель."
+    },
+    {
+      "id": "firecrawl-qa",
+      "name": "Firecrawl workflows: firecrawl-qa + firecrawl-seo-audit",
+      "url": "https://github.com/firecrawl/firecrawl-workflows",
+      "kind": "skill",
+      "collection": "firecrawl/skills",
+      "license": "ISC",
+      "osi_license": true,
+      "stars": 189,
+      "forks": 41,
+      "last_commit": "2026-08-21",
+      "created": "2026-05-14",
+      "contributors": 4,
+      "price": "скиллы бесплатны; нужен FIRECRAWL_API_KEY (платформа платная, цена не проверялась)",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды / форки (GitHub API, 2026-10-11)",
+          "value": "189 / 41",
+          "url": "https://github.com/firecrawl/firecrawl-workflows"
+        },
+        {
+          "label": "Последний push",
+          "value": "2026-08-21",
+          "url": "https://github.com/firecrawl/firecrawl-workflows"
+        },
+        {
+          "label": "Контрибьюторы (GitHub API)",
+          "value": "4",
+          "url": "https://github.com/firecrawl/firecrawl-workflows"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 2,
+          "note": "Map + browser Firecrawl: навигация, ссылки, формы, ошибки",
+          "evidence": [
+            "https://github.com/firecrawl/firecrawl-workflows/blob/main/skills/firecrawl-qa/SKILL.md"
+          ]
+        },
+        "S2": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S3": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S4": {
+          "score": 1,
+          "note": "«Performance observations»: загрузка, ассеты",
+          "evidence": [
+            "https://github.com/firecrawl/firecrawl-workflows/blob/main/skills/firecrawl-qa/SKILL.md"
+          ]
+        },
+        "S5": {
+          "score": 2,
+          "note": "Отдельный SEO-аудит: title/meta/H1–H2/ссылки/canonical/alt, SERP-сравнение",
+          "evidence": [
+            "https://github.com/firecrawl/firecrawl-workflows/blob/main/skills/firecrawl-seo-audit/SKILL.md"
+          ]
+        },
+        "S6": {
+          "score": 1,
+          "note": "Desktop/Tablet/Mobile в облачном браузере",
+          "evidence": [
+            "https://github.com/firecrawl/firecrawl-workflows/blob/main/skills/firecrawl-qa/SKILL.md"
+          ]
+        },
+        "S7": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S8": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S9": {
+          "score": 1,
+          "note": "Серьёзность, URL, шаги, ожидание/факт; без скриншотов-аннотаций",
+          "evidence": [
+            "https://github.com/firecrawl/firecrawl-workflows/blob/main/skills/firecrawl-qa/SKILL.md"
+          ]
+        },
+        "S10": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S11": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S12": {
+          "score": 2,
+          "note": "Параллельные субагенты по направлениям",
+          "evidence": [
+            "https://github.com/firecrawl/firecrawl-workflows/blob/main/skills/firecrawl-qa/SKILL.md"
+          ]
+        },
+        "S13": {
+          "score": 1,
+          "note": "Markdown-отчёт с health score x/10",
+          "evidence": [
+            "https://github.com/firecrawl/firecrawl-workflows/blob/main/skills/firecrawl-qa/SKILL.md"
+          ]
+        },
+        "S14": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Простой вход, параллельные исполнители",
+        "SEO-аудит с конкурентами"
+      ],
+      "weaknesses": [
+        "Страницы уходят во внешний облачный сервис",
+        "Версия 0.1.0, поверхностно"
+      ],
+      "risks": [
+        "Отправка данных наружу и платный ключ",
+        "Скиллы — канал продаж платформы"
+      ],
+      "verdict": "inspire",
+      "summary": "Лёгкий облачный QA-отчёт; не заменяет локальный глубокий аудит."
+    },
+    {
+      "id": "accesslint",
+      "name": "AccessLint skills: accesslint-audit / scan / diff",
+      "url": "https://github.com/sickn33/agentic-awesome-skills/blob/main/skills/accesslint-audit/SKILL.md",
+      "kind": "skill",
+      "collection": "sickn33/agentic-awesome-skills (источник AccessLint/skills)",
+      "license": "MIT (коллекция); у AccessLint/skills лицензия в API не указана",
+      "osi_license": true,
+      "stars": 47451,
+      "forks": 6918,
+      "last_commit": "2026-10-10",
+      "created": "2026-01-14",
+      "contributors": 409,
+      "price": "free",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды / форки (GitHub API, 2026-10-11)",
+          "value": "47451 / 6918",
+          "url": "https://github.com/sickn33/agentic-awesome-skills"
+        },
+        {
+          "label": "Последний push",
+          "value": "2026-10-10",
+          "url": "https://github.com/sickn33/agentic-awesome-skills"
+        },
+        {
+          "label": "Контрибьюторы (GitHub API)",
+          "value": "409",
+          "url": "https://github.com/sickn33/agentic-awesome-skills"
+        },
+        {
+          "label": "Исходный репозиторий AccessLint/skills: звёзды, контрибьюторы",
+          "value": "105, 1",
+          "url": "https://github.com/AccessLint/skills"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S2": {
+          "score": 1,
+          "note": "audit_html для файлов/HTML-строк (без браузерной навигации)",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/skills/accesslint-audit/SKILL.md"
+          ]
+        },
+        "S3": {
+          "score": 3,
+          "note": "WCAG 2.2: аудит живого DOM по CDP, селекторы и привязка к file:line, режим fix→verify, diff",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/skills/accesslint-audit/SKILL.md",
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/skills/accesslint-scan/SKILL.md"
+          ]
+        },
+        "S4": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S5": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S6": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S7": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S8": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S9": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S10": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S11": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S12": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S13": {
+          "score": 2,
+          "note": "Отчёт по impact с worklist",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/skills/accesslint-scan/SKILL.md"
+          ]
+        },
+        "S14": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Глубже по a11y, чем свой скил (привязка к исходникам)"
+      ],
+      "weaknesses": [
+        "Только доступность"
+      ],
+      "risks": [
+        "npx @latest на каждый запуск — цепочка поставок",
+        "Исходный репозиторий — 1 автор"
+      ],
+      "verdict": "partial",
+      "summary": "Может заменить направление accessibility, особенно когда есть исходники."
+    },
+    {
+      "id": "a11y-plugin",
+      "name": "deventually/a11y-plugin (WCAG 2.2)",
+      "url": "https://github.com/deventually/a11y-plugin",
+      "kind": "plugin",
+      "collection": null,
+      "license": null,
+      "osi_license": false,
+      "stars": 0,
+      "forks": 1,
+      "last_commit": "2026-03-31",
+      "created": "2026-03-31",
+      "contributors": 2,
+      "price": "free (лицензия не указана)",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды / форки (GitHub API, 2026-10-11)",
+          "value": "0 / 1",
+          "url": "https://github.com/deventually/a11y-plugin"
+        },
+        {
+          "label": "Последний push",
+          "value": "2026-03-31",
+          "url": "https://github.com/deventually/a11y-plugin"
+        },
+        {
+          "label": "Контрибьюторы (GitHub API)",
+          "value": "2",
+          "url": "https://github.com/deventually/a11y-plugin"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S2": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S3": {
+          "score": 2,
+          "note": "71 детерминированная проверка WCAG 2.2 по файлам + браузерная проверка через Playwright MCP",
+          "evidence": [
+            "https://github.com/deventually/a11y-plugin"
+          ]
+        },
+        "S4": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S5": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S6": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S7": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S8": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S9": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S10": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S11": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S12": {
+          "score": 1,
+          "note": "Параллельные субагенты по пачкам файлов",
+          "evidence": [
+            "https://github.com/deventually/a11y-plugin"
+          ]
+        },
+        "S13": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S14": {
+          "score": 1,
+          "note": "/a11y-test — фикстуры и регрессия a11y",
+          "evidence": [
+            "https://github.com/deventually/a11y-plugin"
+          ]
+        }
+      },
+      "strengths": [
+        "Детерминированные правила и кэш"
+      ],
+      "weaknesses": [
+        "Аудит исходников, не сайта; без лицензии"
+      ],
+      "risks": [
+        "Заброшен (один день активности), 0 звёзд, юридически неясно"
+      ],
+      "verdict": "ignore",
+      "summary": "Нишевый a11y-аудит кода, для аудита чужого сайта не подходит."
+    },
+    {
+      "id": "opentest",
+      "name": "coderphonui/opentest (e2e-test, a11y-test, ux-test, security-scan…)",
+      "url": "https://github.com/coderphonui/opentest",
+      "kind": "skill",
+      "collection": null,
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 0,
+      "forks": 0,
+      "last_commit": "2026-03-18",
+      "created": "2026-03-17",
+      "contributors": 1,
+      "price": "free",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды / форки (GitHub API, 2026-10-11)",
+          "value": "0 / 0",
+          "url": "https://github.com/coderphonui/opentest"
+        },
+        {
+          "label": "Последний push",
+          "value": "2026-03-18",
+          "url": "https://github.com/coderphonui/opentest"
+        },
+        {
+          "label": "Контрибьюторы (GitHub API)",
+          "value": "1",
+          "url": "https://github.com/coderphonui/opentest"
+        },
+        {
+          "label": "Установлен у владельца (e2e-test, ux-test) и указан в plugins-map",
+          "value": "да",
+          "url": "https://github.com/coderphonui/opentest"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 2,
+          "note": "e2e-test: открыть браузер, найти страницы и потоки, выполнить сценарии, отчёт",
+          "evidence": [
+            "https://github.com/coderphonui/opentest"
+          ]
+        },
+        "S2": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S3": {
+          "score": 2,
+          "note": "a11y-test: axe-core через Playwright → WCAG",
+          "evidence": [
+            "https://github.com/coderphonui/opentest"
+          ]
+        },
+        "S4": {
+          "score": 1,
+          "note": "perf-test — нагрузка k6 (это не Lighthouse и запрещено в своём скиле)",
+          "evidence": [
+            "https://github.com/coderphonui/opentest"
+          ]
+        },
+        "S5": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S6": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S7": {
+          "score": 1,
+          "note": "security-scan: OWASP ZAP в Docker, включая активное сканирование (за рамками пассивного)",
+          "evidence": [
+            "https://github.com/coderphonui/opentest"
+          ]
+        },
+        "S8": {
+          "score": 2,
+          "note": "ux-test: 10 эвристик Нильсена",
+          "evidence": [
+            "https://github.com/coderphonui/opentest"
+          ]
+        },
+        "S9": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S10": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S11": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S12": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S13": {
+          "score": 1,
+          "note": "Отчёты с оценкой и rule id",
+          "evidence": [
+            "https://github.com/coderphonui/opentest"
+          ]
+        },
+        "S14": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Широкий набор отдельных скиллов"
+      ],
+      "weaknesses": [
+        "Нагрузочные и активные сканы опасны для чужих сайтов"
+      ],
+      "risks": [
+        "1 автор, 0 звёзд, нет коммитов с марта 2026"
+      ],
+      "verdict": "ignore",
+      "summary": "Пересекается по направлениям, но заброшен и без мер безопасности."
+    },
+    {
+      "id": "anthropic-webapp-testing",
+      "name": "anthropics/skills: webapp-testing",
+      "url": "https://github.com/anthropics/skills/blob/main/skills/webapp-testing/SKILL.md",
+      "kind": "skill",
+      "collection": "anthropics/skills",
+      "license": "Apache-2.0 (LICENSE.txt скилла)",
+      "osi_license": true,
+      "stars": 180422,
+      "forks": 21350,
+      "last_commit": "2026-10-09",
+      "created": "2025-09-22",
+      "contributors": 16,
+      "price": "free",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды / форки (GitHub API, 2026-10-11)",
+          "value": "180422 / 21350",
+          "url": "https://github.com/anthropics/skills"
+        },
+        {
+          "label": "Последний push",
+          "value": "2026-10-09",
+          "url": "https://github.com/anthropics/skills"
+        },
+        {
+          "label": "Контрибьюторы (GitHub API)",
+          "value": "16",
+          "url": "https://github.com/anthropics/skills"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 1,
+          "note": "Скрипты Python Playwright для локальных приложений, скриншоты и логи",
+          "evidence": [
+            "https://github.com/anthropics/skills/blob/main/skills/webapp-testing/SKILL.md"
+          ]
+        },
+        "S2": {
+          "score": 1,
+          "note": "Статический HTML читается напрямую, with_server.py поднимает сервер",
+          "evidence": [
+            "https://github.com/anthropics/skills/blob/main/skills/webapp-testing/SKILL.md"
+          ]
+        },
+        "S3": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S4": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S5": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S6": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S7": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S8": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S9": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S10": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S11": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S12": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S13": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S14": {
+          "score": 1,
+          "note": "Пишет Playwright-скрипты на Python (не Playwright Test)",
+          "evidence": [
+            "https://github.com/anthropics/skills/blob/main/skills/webapp-testing/SKILL.md"
+          ]
+        }
+      },
+      "strengths": [
+        "Официальный, минималистичный"
+      ],
+      "weaknesses": [
+        "Инструмент разработчика, не аудит"
+      ],
+      "risks": [
+        "Нет"
+      ],
+      "verdict": "ignore",
+      "summary": "Тулкит тестирования своего локального приложения, не аудит сайта."
+    },
+    {
+      "id": "addyosmani-devtools",
+      "name": "addyosmani/agent-skills: browser-testing-with-devtools",
+      "url": "https://github.com/addyosmani/agent-skills/blob/main/skills/browser-testing-with-devtools/SKILL.md",
+      "kind": "skill",
+      "collection": "addyosmani/agent-skills",
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 104671,
+      "forks": 10926,
+      "last_commit": "2026-10-10",
+      "created": "2026-02-15",
+      "contributors": 90,
+      "price": "free",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды / форки (GitHub API, 2026-10-11)",
+          "value": "104671 / 10926",
+          "url": "https://github.com/addyosmani/agent-skills"
+        },
+        {
+          "label": "Последний push",
+          "value": "2026-10-10",
+          "url": "https://github.com/addyosmani/agent-skills"
+        },
+        {
+          "label": "Контрибьюторы (GitHub API)",
+          "value": "90",
+          "url": "https://github.com/addyosmani/agent-skills"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 1,
+          "note": "DOM, консоль, сеть, проверка исправления в браузере",
+          "evidence": [
+            "https://github.com/addyosmani/agent-skills/blob/main/skills/browser-testing-with-devtools/SKILL.md"
+          ]
+        },
+        "S2": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S3": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S4": {
+          "score": 2,
+          "note": "Профилирование, Core Web Vitals через Chrome DevTools MCP",
+          "evidence": [
+            "https://github.com/addyosmani/agent-skills/blob/main/skills/browser-testing-with-devtools/SKILL.md"
+          ]
+        },
+        "S5": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S6": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S7": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S8": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S9": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S10": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S11": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S12": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S13": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S14": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Есть evals-кейсы"
+      ],
+      "weaknesses": [
+        "Узкий: отладка при разработке"
+      ],
+      "risks": [
+        "Нужен chrome-devtools MCP"
+      ],
+      "verdict": "ignore",
+      "summary": "Руководство по отладке в браузере для разработчика."
+    },
+    {
+      "id": "claude-seo",
+      "name": "AgriciDaniel/claude-seo",
+      "url": "https://github.com/AgriciDaniel/claude-seo",
+      "kind": "plugin",
+      "collection": null,
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 18683,
+      "forks": 2739,
+      "last_commit": "2026-10-04",
+      "created": "2026-02-07",
+      "contributors": 30,
+      "price": "free (часть расширений требует ключей API: DataForSEO, Google)",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды / форки (GitHub API, 2026-10-11)",
+          "value": "18683 / 2739",
+          "url": "https://github.com/AgriciDaniel/claude-seo"
+        },
+        {
+          "label": "Последний push",
+          "value": "2026-10-04",
+          "url": "https://github.com/AgriciDaniel/claude-seo"
+        },
+        {
+          "label": "Контрибьюторы (GitHub API)",
+          "value": "30",
+          "url": "https://github.com/AgriciDaniel/claude-seo"
+        },
+        {
+          "label": "Установлен у владельца (seo-*)",
+          "value": "да",
+          "url": "https://github.com/AgriciDaniel/claude-seo"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S2": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S3": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S4": {
+          "score": 2,
+          "note": "CWV: CrUX полевые данные, Lighthouse через PageSpeed, /seo unlighthouse",
+          "evidence": [
+            "https://github.com/AgriciDaniel/claude-seo"
+          ]
+        },
+        "S5": {
+          "score": 3,
+          "note": "26 саб-скиллов: техническое SEO, schema, E-E-A-T, hreflang, sitemap, GEO",
+          "evidence": [
+            "https://github.com/AgriciDaniel/claude-seo"
+          ]
+        },
+        "S6": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S7": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S8": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S9": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S10": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S11": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S12": {
+          "score": 2,
+          "note": "До 17 параллельных агентов в полном аудите",
+          "evidence": [
+            "https://github.com/AgriciDaniel/claude-seo"
+          ]
+        },
+        "S13": {
+          "score": 2,
+          "note": "Приоритизированный план действий, PDF-отчёты",
+          "evidence": [
+            "https://github.com/AgriciDaniel/claude-seo"
+          ]
+        },
+        "S14": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Значительно глубже по SEO"
+      ],
+      "weaknesses": [
+        "Только SEO"
+      ],
+      "risks": [
+        "Внешние API для части функций"
+      ],
+      "verdict": "partial",
+      "summary": "Может полностью забрать направление SEO (S5) — свой скил стоит делегировать ему."
+    },
+    {
+      "id": "lighthouse-ci",
+      "name": "Lighthouse + Lighthouse CI (Google)",
+      "url": "https://github.com/GoogleChrome/lighthouse-ci",
+      "kind": "oss-tool",
+      "collection": null,
+      "license": "Apache-2.0",
+      "osi_license": true,
+      "stars": 7107,
+      "forks": 725,
+      "last_commit": "2026-03-27",
+      "created": "2019-04-08",
+      "contributors": 127,
+      "price": "free",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды / форки (GitHub API, 2026-10-11)",
+          "value": "7107 / 725",
+          "url": "https://github.com/GoogleChrome/lighthouse-ci"
+        },
+        {
+          "label": "Последний push",
+          "value": "2026-03-27",
+          "url": "https://github.com/GoogleChrome/lighthouse-ci"
+        },
+        {
+          "label": "Контрибьюторы (GitHub API)",
+          "value": "127",
+          "url": "https://github.com/GoogleChrome/lighthouse-ci"
+        },
+        {
+          "label": "Lighthouse: звёзды",
+          "value": "30879",
+          "url": "https://github.com/GoogleChrome/lighthouse"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S2": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S3": {
+          "score": 1,
+          "note": "Категория accessibility Lighthouse (часть правил axe)",
+          "evidence": [
+            "https://github.com/GoogleChrome/lighthouse-ci"
+          ]
+        },
+        "S4": {
+          "score": 3,
+          "note": "Бюджеты, ассерты, сравнение версий, сервер истории, GitHub-статусы",
+          "evidence": [
+            "https://github.com/GoogleChrome/lighthouse-ci"
+          ]
+        },
+        "S5": {
+          "score": 1,
+          "note": "Категория SEO Lighthouse",
+          "evidence": [
+            "https://github.com/GoogleChrome/lighthouse-ci"
+          ]
+        },
+        "S6": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S7": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S8": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S9": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S10": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S11": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S12": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S13": {
+          "score": 2,
+          "note": "JSON/HTML-отчёты, дашборд сервера",
+          "evidence": [
+            "https://github.com/GoogleChrome/lighthouse-ci"
+          ]
+        },
+        "S14": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Эталон измерений"
+      ],
+      "weaknesses": [
+        "Не QA-процесс"
+      ],
+      "risks": [
+        "LHCI: последний push 2026-03-27, 235 открытых issues"
+      ],
+      "verdict": "ignore",
+      "summary": "Свой скил уже использует Lighthouse; LHCI полезен только для CI-мониторинга."
+    },
+    {
+      "id": "unlighthouse",
+      "name": "Unlighthouse",
+      "url": "https://github.com/harlan-zw/unlighthouse",
+      "kind": "oss-tool",
+      "collection": null,
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 4894,
+      "forks": 178,
+      "last_commit": "2026-10-11",
+      "created": "2021-10-31",
+      "contributors": 30,
+      "price": "free",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды / форки (GitHub API, 2026-10-11)",
+          "value": "4894 / 178",
+          "url": "https://github.com/harlan-zw/unlighthouse"
+        },
+        {
+          "label": "Последний push",
+          "value": "2026-10-11",
+          "url": "https://github.com/harlan-zw/unlighthouse"
+        },
+        {
+          "label": "Контрибьюторы (GitHub API)",
+          "value": "30",
+          "url": "https://github.com/harlan-zw/unlighthouse"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S2": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S3": {
+          "score": 1,
+          "note": "Категории Lighthouse",
+          "evidence": [
+            "https://github.com/harlan-zw/unlighthouse"
+          ]
+        },
+        "S4": {
+          "score": 3,
+          "note": "Lighthouse по всему сайту со smart sampling и UI",
+          "evidence": [
+            "https://github.com/harlan-zw/unlighthouse"
+          ]
+        },
+        "S5": {
+          "score": 1,
+          "note": "Категории Lighthouse",
+          "evidence": [
+            "https://github.com/harlan-zw/unlighthouse"
+          ]
+        },
+        "S6": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S7": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S8": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S9": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S10": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S11": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S12": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S13": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S14": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Масштаб на весь сайт"
+      ],
+      "weaknesses": [
+        "Только Lighthouse"
+      ],
+      "risks": [
+        "Нет"
+      ],
+      "verdict": "inspire",
+      "summary": "Можно звать для массовых замеров производительности вместо постраничного lighthouse.js."
+    },
+    {
+      "id": "pa11y",
+      "name": "Pa11y / Pa11y CI",
+      "url": "https://github.com/pa11y/pa11y",
+      "kind": "oss-tool",
+      "collection": null,
+      "license": "LGPL-3.0",
+      "osi_license": true,
+      "stars": 4573,
+      "forks": 310,
+      "last_commit": "2026-09-28",
+      "created": "2013-03-05",
+      "contributors": 63,
+      "price": "free",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды / форки (GitHub API, 2026-10-11)",
+          "value": "4573 / 310",
+          "url": "https://github.com/pa11y/pa11y"
+        },
+        {
+          "label": "Последний push",
+          "value": "2026-09-28",
+          "url": "https://github.com/pa11y/pa11y"
+        },
+        {
+          "label": "Контрибьюторы (GitHub API)",
+          "value": "63",
+          "url": "https://github.com/pa11y/pa11y"
+        },
+        {
+          "label": "pa11y-ci: звёзды, push",
+          "value": "639, 2026-10-07",
+          "url": "https://github.com/pa11y/pa11y-ci"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S2": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S3": {
+          "score": 2,
+          "note": "Раннеры htmlcs и axe, стандарты WCAG2A/AA/AAA",
+          "evidence": [
+            "https://github.com/pa11y/pa11y"
+          ]
+        },
+        "S4": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S5": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S6": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S7": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S8": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S9": {
+          "score": 1,
+          "note": "Снимок экрана страницы (--screen-capture)",
+          "evidence": [
+            "https://github.com/pa11y/pa11y"
+          ]
+        },
+        "S10": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S11": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S12": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S13": {
+          "score": 1,
+          "note": "Репортеры cli/csv/json",
+          "evidence": [
+            "https://github.com/pa11y/pa11y"
+          ]
+        },
+        "S14": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Два движка, зрелый"
+      ],
+      "weaknesses": [
+        "Только a11y, без клавиатуры/фокуса"
+      ],
+      "risks": [
+        "LGPL"
+      ],
+      "verdict": "ignore",
+      "summary": "Движок a11y; axe-core уже используется в своём скиле."
+    },
+    {
+      "id": "axe-core-devtools",
+      "name": "axe-core / axe DevTools (Deque)",
+      "url": "https://github.com/dequelabs/axe-core",
+      "kind": "oss-tool",
+      "collection": null,
+      "license": "MPL-2.0 (axe-core); DevTools Pro/Bundle — проприетарно",
+      "osi_license": true,
+      "stars": 7624,
+      "forks": 956,
+      "last_commit": "2026-10-09",
+      "created": "2015-06-10",
+      "contributors": 271,
+      "price": "axe-core free; DevTools Extension Free/Pro (цена не опубликована), Bundle с MCP — через продажи",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды / форки (GitHub API, 2026-10-11)",
+          "value": "7624 / 956",
+          "url": "https://github.com/dequelabs/axe-core"
+        },
+        {
+          "label": "Последний push",
+          "value": "2026-10-09",
+          "url": "https://github.com/dequelabs/axe-core"
+        },
+        {
+          "label": "Контрибьюторы (GitHub API)",
+          "value": "271",
+          "url": "https://github.com/dequelabs/axe-core"
+        },
+        {
+          "label": "Bundle включает MCP-подключения",
+          "value": "да",
+          "url": "https://www.deque.com/axe/devtools/pricing/"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S2": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S3": {
+          "score": 2,
+          "note": "Эталонный движок; Pro добавляет guided tests и user flows",
+          "evidence": [
+            "https://github.com/dequelabs/axe-core",
+            "https://www.deque.com/axe/devtools/pricing/"
+          ]
+        },
+        "S4": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S5": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S6": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S7": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S8": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S9": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S10": {
+          "score": 1,
+          "note": "Pro: интеграция с Jira (не GitHub)",
+          "evidence": [
+            "https://www.deque.com/axe/devtools/pricing/"
+          ]
+        },
+        "S11": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S12": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S13": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S14": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Индустриальный стандарт"
+      ],
+      "weaknesses": [
+        "Только a11y"
+      ],
+      "risks": [
+        "Платные функции без публичной цены"
+      ],
+      "verdict": "ignore",
+      "summary": "Уже используется внутри своего скила как движок."
+    },
+    {
+      "id": "browser-tools-mcp",
+      "name": "AgentDeskAI BrowserTools MCP",
+      "url": "https://github.com/AgentDeskAI/browser-tools-mcp",
+      "kind": "mcp",
+      "collection": null,
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 7327,
+      "forks": 535,
+      "last_commit": "2026-08-12",
+      "created": "2025-02-10",
+      "contributors": null,
+      "price": "free",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды / форки (GitHub API, 2026-10-11)",
+          "value": "7327 / 535",
+          "url": "https://github.com/AgentDeskAI/browser-tools-mcp"
+        },
+        {
+          "label": "Последний push",
+          "value": "2026-08-12",
+          "url": "https://github.com/AgentDeskAI/browser-tools-mcp"
+        },
+        {
+          "label": "Контрибьюторы (GitHub API)",
+          "value": "не считалось",
+          "url": "https://github.com/AgentDeskAI/browser-tools-mcp"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 1,
+          "note": "Консоль, сетевые ошибки 4xx/5xx из реального браузера",
+          "evidence": [
+            "https://github.com/AgentDeskAI/browser-tools-mcp"
+          ]
+        },
+        "S2": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S3": {
+          "score": 1,
+          "note": "runAccessibilityAudit (Lighthouse)",
+          "evidence": [
+            "https://github.com/AgentDeskAI/browser-tools-mcp"
+          ]
+        },
+        "S4": {
+          "score": 2,
+          "note": "runPerformanceAudit с CWV",
+          "evidence": [
+            "https://github.com/AgentDeskAI/browser-tools-mcp"
+          ]
+        },
+        "S5": {
+          "score": 1,
+          "note": "SEO-данные Lighthouse",
+          "evidence": [
+            "https://github.com/AgentDeskAI/browser-tools-mcp"
+          ]
+        },
+        "S6": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S7": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S8": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S9": {
+          "score": 1,
+          "note": "Скриншоты",
+          "evidence": [
+            "https://github.com/AgentDeskAI/browser-tools-mcp"
+          ]
+        },
+        "S10": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S11": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S12": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S13": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S14": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Работает в браузере пользователя"
+      ],
+      "weaknesses": [
+        "Нужно расширение Chrome, без методики"
+      ],
+      "risks": [
+        "Последний push 2026-08-12"
+      ],
+      "verdict": "ignore",
+      "summary": "Набор датчиков, перекрывается chrome-devtools-mcp."
+    },
+    {
+      "id": "screaming-frog",
+      "name": "Screaming Frog SEO Spider",
+      "url": "https://www.screamingfrog.co.uk/seo-spider/pricing/",
+      "kind": "saas",
+      "collection": null,
+      "license": "проприетарная",
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "price": "£199/год за лицензию; бесплатно до 500 URL",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Цена и функции",
+          "value": "£199/год, JS-рендеринг, Accessibility Auditing, PageSpeed Insights",
+          "url": "https://www.screamingfrog.co.uk/seo-spider/pricing/"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 1,
+          "note": "Краулер: битые ссылки, коды ответов",
+          "evidence": [
+            "https://www.screamingfrog.co.uk/seo-spider/pricing/"
+          ]
+        },
+        "S2": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S3": {
+          "score": 1,
+          "note": "Accessibility Auditing (движок на странице не назван)",
+          "evidence": [
+            "https://www.screamingfrog.co.uk/seo-spider/pricing/"
+          ]
+        },
+        "S4": {
+          "score": 1,
+          "note": "Интеграция PageSpeed Insights",
+          "evidence": [
+            "https://www.screamingfrog.co.uk/seo-spider/pricing/"
+          ]
+        },
+        "S5": {
+          "score": 3,
+          "note": "Эталон технического SEO-краула",
+          "evidence": [
+            "https://www.screamingfrog.co.uk/seo-spider/pricing/"
+          ]
+        },
+        "S6": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S7": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S8": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S9": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S10": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S11": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S12": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S13": {
+          "score": 2,
+          "note": "Экспорт отчётов",
+          "evidence": [
+            "https://www.screamingfrog.co.uk/seo-spider/pricing/"
+          ]
+        },
+        "S14": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Эталон SEO-краула"
+      ],
+      "weaknesses": [
+        "Не интерактивное QA, нет агента"
+      ],
+      "risks": [
+        "Платная лицензия"
+      ],
+      "verdict": "ignore",
+      "summary": "Для SEO-краула лучше, но это не QA-аудит и не скилл."
+    },
+    {
+      "id": "sitebulb",
+      "name": "Sitebulb",
+      "url": "https://sitebulb.com/pricing/",
+      "kind": "saas",
+      "collection": null,
+      "license": "проприетарная",
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "price": "Cloud от £95/мес; Lite/Pro — цена на странице не показана; триал 14 дней",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "300+ SEO-подсказок, a11y и performance — в Pro",
+          "value": "да",
+          "url": "https://sitebulb.com/pricing/"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S2": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S3": {
+          "score": 1,
+          "note": "Accessibility — Pro",
+          "evidence": [
+            "https://sitebulb.com/pricing/"
+          ]
+        },
+        "S4": {
+          "score": 1,
+          "note": "Performance & Mobile Friendly — Pro",
+          "evidence": [
+            "https://sitebulb.com/pricing/"
+          ]
+        },
+        "S5": {
+          "score": 3,
+          "note": "300+ приоритизированных SEO-подсказок, JS-краул",
+          "evidence": [
+            "https://sitebulb.com/pricing/"
+          ]
+        },
+        "S6": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S7": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S8": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S9": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S10": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S11": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S12": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S13": {
+          "score": 2,
+          "note": "Отчёты",
+          "evidence": [
+            "https://sitebulb.com/pricing/"
+          ]
+        },
+        "S14": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Приоритизация подсказок"
+      ],
+      "weaknesses": [
+        "Только аудит краулером"
+      ],
+      "risks": [
+        "Платно"
+      ],
+      "verdict": "ignore",
+      "summary": "SEO-аудитор, не замена QA."
+    },
+    {
+      "id": "qa-wolf",
+      "name": "QA Wolf",
+      "url": "https://www.qawolf.com/",
+      "kind": "saas",
+      "collection": null,
+      "license": "проприетарная (тесты на Playwright/Appium)",
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "price": "не опубликовано (Contact sales / Start now)",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "MCP-сервер для Claude Code/Codex/Cursor; собственный бенчмарк 92 % (заявление вендора)",
+          "value": "да",
+          "url": "https://www.qawolf.com/"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 2,
+          "note": "Агенты картируют приложение, пишут и гоняют тесты; управляемая QA-команда",
+          "evidence": [
+            "https://www.qawolf.com/"
+          ]
+        },
+        "S2": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S3": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S4": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S5": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S6": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S7": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S8": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S9": {
+          "score": 2,
+          "note": "Воспроизведение каждого падения, видео",
+          "evidence": [
+            "https://www.qawolf.com/"
+          ]
+        },
+        "S10": {
+          "score": 1,
+          "note": "Баги в Linear/Jira (GitHub issues не заявлены)",
+          "evidence": [
+            "https://www.qawolf.com/"
+          ]
+        },
+        "S11": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S12": {
+          "score": 2,
+          "note": "Параллельный прогон",
+          "evidence": [
+            "https://www.qawolf.com/"
+          ]
+        },
+        "S13": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S14": {
+          "score": 3,
+          "note": "Код тестов на Playwright/Appium, сопровождение",
+          "evidence": [
+            "https://www.qawolf.com/"
+          ]
+        }
+      },
+      "strengths": [
+        "Сервис «под ключ»"
+      ],
+      "weaknesses": [
+        "Регресс-тесты своего продукта, не аудит чужого сайта"
+      ],
+      "risks": [
+        "Дорого, закрыто, данные у вендора"
+      ],
+      "verdict": "ignore",
+      "summary": "Корпоративный сервис регресс-тестирования; не по задаче соло-разработчика."
+    },
+    {
+      "id": "qa-tech",
+      "name": "QA.tech",
+      "url": "https://qa.tech/pricing",
+      "kind": "saas",
+      "collection": null,
+      "license": "проприетарная",
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "price": "не опубликовано (Starter/Growth/Enterprise)",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "MCP/API/CLI — на Growth и Enterprise",
+          "value": "да",
+          "url": "https://qa.tech/pricing"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 2,
+          "note": "Агент по описанию на естественном языке, граф функций приложения, exploratory",
+          "evidence": [
+            "https://qa.tech/pricing"
+          ]
+        },
+        "S2": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S3": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S4": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S5": {
+          "score": 1,
+          "note": "geo и i18n тестирование",
+          "evidence": [
+            "https://qa.tech/pricing"
+          ]
+        },
+        "S6": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S7": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S8": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S9": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S10": {
+          "score": 1,
+          "note": "Отчёт в PR GitHub, критерии из Jira/Linear",
+          "evidence": [
+            "https://qa.tech/pricing"
+          ]
+        },
+        "S11": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S12": {
+          "score": 2,
+          "note": "Параллельные прогоны",
+          "evidence": [
+            "https://qa.tech/pricing"
+          ]
+        },
+        "S13": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S14": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Exploratory + PR-боты"
+      ],
+      "weaknesses": [
+        "Нет публичных цен"
+      ],
+      "risks": [
+        "Закрытый SaaS"
+      ],
+      "verdict": "ignore",
+      "summary": "Платный B2B-аналог агентного QA."
+    },
+    {
+      "id": "mabl",
+      "name": "mabl",
+      "url": "https://www.mabl.com/pricing",
+      "kind": "saas",
+      "collection": null,
+      "license": "проприетарная",
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "price": "не опубликовано; триал 14 дней; от 500 облачных кредитов/мес",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Доступность и производительность под нагрузкой, визуальные ассерты",
+          "value": "да",
+          "url": "https://www.mabl.com/pricing"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 2,
+          "note": "Агентные тесты UI и API",
+          "evidence": [
+            "https://www.mabl.com/pricing"
+          ]
+        },
+        "S2": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S3": {
+          "score": 2,
+          "note": "Проверки доступности",
+          "evidence": [
+            "https://www.mabl.com/pricing"
+          ]
+        },
+        "S4": {
+          "score": 1,
+          "note": "Производительность под нагрузкой",
+          "evidence": [
+            "https://www.mabl.com/pricing"
+          ]
+        },
+        "S5": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S6": {
+          "score": 2,
+          "note": "Браузеры и устройства",
+          "evidence": [
+            "https://www.mabl.com/pricing"
+          ]
+        },
+        "S7": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S8": {
+          "score": 1,
+          "note": "Визуальные ассерты",
+          "evidence": [
+            "https://www.mabl.com/pricing"
+          ]
+        },
+        "S9": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S10": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S11": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S12": {
+          "score": 2,
+          "note": "Неограниченная параллельность",
+          "evidence": [
+            "https://www.mabl.com/pricing"
+          ]
+        },
+        "S13": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S14": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Зрелая платформа"
+      ],
+      "weaknesses": [
+        "Тесты своего продукта, цены закрыты"
+      ],
+      "risks": [
+        "Lock-in"
+      ],
+      "verdict": "ignore",
+      "summary": "Корпоративная платформа автотестов."
+    },
+    {
+      "id": "checkly",
+      "name": "Checkly",
+      "url": "https://www.checklyhq.com/pricing/",
+      "kind": "saas",
+      "collection": null,
+      "license": "CLI Apache-2.0; сервис проприетарный",
+      "osi_license": false,
+      "stars": 97,
+      "forks": 25,
+      "last_commit": "2026-10-10",
+      "created": "2021-01-20",
+      "contributors": null,
+      "price": "Hobby $0 (1000 Playwright-прогонов/мес); Starter $24/мес; Team $64/мес (Detect, годовая оплата)",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "checkly-cli звёзды",
+          "value": "97",
+          "url": "https://github.com/checkly/checkly-cli"
+        },
+        {
+          "label": "Тарифы",
+          "value": "см. страницу",
+          "url": "https://www.checklyhq.com/pricing/"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 1,
+          "note": "Мониторинг заданных Playwright-сценариев, не обход",
+          "evidence": [
+            "https://www.checklyhq.com/pricing/"
+          ]
+        },
+        "S2": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S3": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S4": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S5": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S6": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S7": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S8": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S9": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S10": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S11": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S12": {
+          "score": 1,
+          "note": "Мульти-локации",
+          "evidence": [
+            "https://www.checklyhq.com/pricing/"
+          ]
+        },
+        "S13": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S14": {
+          "score": 1,
+          "note": "Запускает уже написанные Playwright-тесты",
+          "evidence": [
+            "https://www.checklyhq.com/pricing/"
+          ]
+        }
+      },
+      "strengths": [
+        "Дёшево, есть бесплатный план"
+      ],
+      "weaknesses": [
+        "Мониторинг, не аудит"
+      ],
+      "risks": [
+        "Нет"
+      ],
+      "verdict": "ignore",
+      "summary": "Синтетический мониторинг; дополняет, не заменяет."
+    },
+    {
+      "id": "applitools",
+      "name": "Applitools (Eyes, Autonomous)",
+      "url": "https://applitools.com/pricing/",
+      "kind": "saas",
+      "collection": null,
+      "license": "проприетарная",
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "price": "Starter $667/мес (годовая оплата); остальные — через продажи",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Visual AI MCP-сервер в Starter",
+          "value": "да",
+          "url": "https://applitools.com/pricing/"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S2": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S3": {
+          "score": 1,
+          "note": "Accessibility в Starter",
+          "evidence": [
+            "https://applitools.com/pricing/"
+          ]
+        },
+        "S4": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S5": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S6": {
+          "score": 3,
+          "note": "Ultrafast Grid: много браузеров/устройств",
+          "evidence": [
+            "https://applitools.com/pricing/"
+          ]
+        },
+        "S7": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S8": {
+          "score": 2,
+          "note": "Visual AI вместо попиксельного сравнения",
+          "evidence": [
+            "https://applitools.com/pricing/"
+          ]
+        },
+        "S9": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S10": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S11": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S12": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S13": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S14": {
+          "score": 1,
+          "note": "Autonomous: потоки из текстовых промптов (Professional)",
+          "evidence": [
+            "https://applitools.com/pricing/"
+          ]
+        }
+      },
+      "strengths": [
+        "Лучшая визуальная регрессия"
+      ],
+      "weaknesses": [
+        "Дорого, нужна базовая линия"
+      ],
+      "risks": [
+        "Lock-in"
+      ],
+      "verdict": "ignore",
+      "summary": "Нишевый визуальный регресс, слишком дорог для задачи."
+    },
+    {
+      "id": "testrigor",
+      "name": "testRigor",
+      "url": "https://testrigor.com/",
+      "kind": "saas",
+      "collection": null,
+      "license": "проприетарная",
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "price": "не подтверждено: страница цен вернула 404",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [],
+      "coverage": {
+        "S1": {
+          "score": null,
+          "note": "не проверено: официальная страница цен/функций не открылась (404), данные только из сторонних обзоров",
+          "evidence": []
+        },
+        "S2": {
+          "score": null,
+          "note": "не проверено: официальная страница цен/функций не открылась (404), данные только из сторонних обзоров",
+          "evidence": []
+        },
+        "S3": {
+          "score": null,
+          "note": "не проверено: официальная страница цен/функций не открылась (404), данные только из сторонних обзоров",
+          "evidence": []
+        },
+        "S4": {
+          "score": null,
+          "note": "не проверено: официальная страница цен/функций не открылась (404), данные только из сторонних обзоров",
+          "evidence": []
+        },
+        "S5": {
+          "score": null,
+          "note": "не проверено: официальная страница цен/функций не открылась (404), данные только из сторонних обзоров",
+          "evidence": []
+        },
+        "S6": {
+          "score": null,
+          "note": "не проверено: официальная страница цен/функций не открылась (404), данные только из сторонних обзоров",
+          "evidence": []
+        },
+        "S7": {
+          "score": null,
+          "note": "не проверено: официальная страница цен/функций не открылась (404), данные только из сторонних обзоров",
+          "evidence": []
+        },
+        "S8": {
+          "score": null,
+          "note": "не проверено: официальная страница цен/функций не открылась (404), данные только из сторонних обзоров",
+          "evidence": []
+        },
+        "S9": {
+          "score": null,
+          "note": "не проверено: официальная страница цен/функций не открылась (404), данные только из сторонних обзоров",
+          "evidence": []
+        },
+        "S10": {
+          "score": null,
+          "note": "не проверено: официальная страница цен/функций не открылась (404), данные только из сторонних обзоров",
+          "evidence": []
+        },
+        "S11": {
+          "score": null,
+          "note": "не проверено: официальная страница цен/функций не открылась (404), данные только из сторонних обзоров",
+          "evidence": []
+        },
+        "S12": {
+          "score": null,
+          "note": "не проверено: официальная страница цен/функций не открылась (404), данные только из сторонних обзоров",
+          "evidence": []
+        },
+        "S13": {
+          "score": null,
+          "note": "не проверено: официальная страница цен/функций не открылась (404), данные только из сторонних обзоров",
+          "evidence": []
+        },
+        "S14": {
+          "score": null,
+          "note": "не проверено: официальная страница цен/функций не открылась (404), данные только из сторонних обзоров",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Тесты на естественном языке (по сторонним обзорам)"
+      ],
+      "weaknesses": [
+        "Не проверено"
+      ],
+      "risks": [
+        "Публичный бесплатный план (по сторонним обзорам)"
+      ],
+      "verdict": "ignore",
+      "summary": "Не удалось проверить по первоисточнику; судя по позиционированию — регресс-тесты своего продукта."
+    },
+    {
+      "id": "octomind",
+      "name": "Octomind",
+      "url": "https://github.com/OctoMind-dev/octomind-mcp",
+      "kind": "saas",
+      "collection": null,
+      "license": "MCP-сервер MIT (репозиторий archived)",
+      "osi_license": true,
+      "stars": 24,
+      "forks": 11,
+      "last_commit": "2026-07-01",
+      "created": "2025-03-22",
+      "contributors": null,
+      "price": "не подтверждено: сайт не открылся",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "octomind-mcp архивирован",
+          "value": "archived=true (GitHub API)",
+          "url": "https://github.com/OctoMind-dev/octomind-mcp"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": null,
+          "note": "не проверено: сайт octomind.dev не открылся, MCP-репозиторий архивирован; статус продукта неясен",
+          "evidence": []
+        },
+        "S2": {
+          "score": null,
+          "note": "не проверено: сайт octomind.dev не открылся, MCP-репозиторий архивирован; статус продукта неясен",
+          "evidence": []
+        },
+        "S3": {
+          "score": null,
+          "note": "не проверено: сайт octomind.dev не открылся, MCP-репозиторий архивирован; статус продукта неясен",
+          "evidence": []
+        },
+        "S4": {
+          "score": null,
+          "note": "не проверено: сайт octomind.dev не открылся, MCP-репозиторий архивирован; статус продукта неясен",
+          "evidence": []
+        },
+        "S5": {
+          "score": null,
+          "note": "не проверено: сайт octomind.dev не открылся, MCP-репозиторий архивирован; статус продукта неясен",
+          "evidence": []
+        },
+        "S6": {
+          "score": null,
+          "note": "не проверено: сайт octomind.dev не открылся, MCP-репозиторий архивирован; статус продукта неясен",
+          "evidence": []
+        },
+        "S7": {
+          "score": null,
+          "note": "не проверено: сайт octomind.dev не открылся, MCP-репозиторий архивирован; статус продукта неясен",
+          "evidence": []
+        },
+        "S8": {
+          "score": null,
+          "note": "не проверено: сайт octomind.dev не открылся, MCP-репозиторий архивирован; статус продукта неясен",
+          "evidence": []
+        },
+        "S9": {
+          "score": null,
+          "note": "не проверено: сайт octomind.dev не открылся, MCP-репозиторий архивирован; статус продукта неясен",
+          "evidence": []
+        },
+        "S10": {
+          "score": null,
+          "note": "не проверено: сайт octomind.dev не открылся, MCP-репозиторий архивирован; статус продукта неясен",
+          "evidence": []
+        },
+        "S11": {
+          "score": null,
+          "note": "не проверено: сайт octomind.dev не открылся, MCP-репозиторий архивирован; статус продукта неясен",
+          "evidence": []
+        },
+        "S12": {
+          "score": null,
+          "note": "не проверено: сайт octomind.dev не открылся, MCP-репозиторий архивирован; статус продукта неясен",
+          "evidence": []
+        },
+        "S13": {
+          "score": null,
+          "note": "не проверено: сайт octomind.dev не открылся, MCP-репозиторий архивирован; статус продукта неясен",
+          "evidence": []
+        },
+        "S14": {
+          "score": null,
+          "note": "не проверено: сайт octomind.dev не открылся, MCP-репозиторий архивирован; статус продукта неясен",
+          "evidence": []
+        }
+      },
+      "strengths": [],
+      "weaknesses": [
+        "Архивирован MCP"
+      ],
+      "risks": [
+        "Возможное прекращение продукта"
+      ],
+      "verdict": "ignore",
+      "summary": "Риск закрытия; не рассматривать."
+    },
+    {
+      "id": "cypress-cy-prompt",
+      "name": "Cypress cy.prompt",
+      "url": "https://docs.cypress.io/api/commands/prompt",
+      "kind": "oss-tool",
+      "collection": null,
+      "license": "Cypress MIT; cy.prompt требует Cypress Cloud",
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "price": "требуется аккаунт Cypress Cloud/record key; цена — в FAQ (не открывался)",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Статус",
+          "value": "beta с 15.13.0; только Chromium",
+          "url": "https://docs.cypress.io/api/commands/prompt"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S2": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S3": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S4": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S5": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S6": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S7": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S8": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S9": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S10": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S11": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S12": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S13": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S14": {
+          "score": 1,
+          "note": "Шаги на естественном языке → команды Cypress (не Playwright), только e2e, только Chromium",
+          "evidence": [
+            "https://docs.cypress.io/api/commands/prompt"
+          ]
+        }
+      },
+      "strengths": [
+        "Простое написание тестов"
+      ],
+      "weaknesses": [
+        "Не Playwright, бета"
+      ],
+      "risks": [
+        "Облачная зависимость"
+      ],
+      "verdict": "ignore",
+      "summary": "Только генерация тестов на Cypress."
+    },
+    {
+      "id": "stagehand",
+      "name": "Stagehand (Browserbase)",
+      "url": "https://github.com/browserbase/stagehand",
+      "kind": "oss-tool",
+      "collection": null,
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 25619,
+      "forks": 1755,
+      "last_commit": "2026-10-10",
+      "created": "2024-03-24",
+      "contributors": 48,
+      "price": "free (облако Browserbase — платно, цена не проверялась)",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды / форки (GitHub API, 2026-10-11)",
+          "value": "25619 / 1755",
+          "url": "https://github.com/browserbase/stagehand"
+        },
+        {
+          "label": "Последний push",
+          "value": "2026-10-10",
+          "url": "https://github.com/browserbase/stagehand"
+        },
+        {
+          "label": "Контрибьюторы (GitHub API)",
+          "value": "48",
+          "url": "https://github.com/browserbase/stagehand"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 1,
+          "note": "SDK для браузерных агентов (act/extract/observe); QA-методики нет",
+          "evidence": [
+            "https://github.com/browserbase/stagehand"
+          ]
+        },
+        "S2": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S3": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S4": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S5": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S6": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S7": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S8": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S9": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S10": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S11": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S12": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S13": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S14": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Надёжные AI-действия"
+      ],
+      "weaknesses": [
+        "Фреймворк, не аудит"
+      ],
+      "risks": [
+        "MCP-сервер Browserbase архивирован"
+      ],
+      "verdict": "ignore",
+      "summary": "Строительный блок, не замена."
+    },
+    {
+      "id": "skyvern",
+      "name": "Skyvern",
+      "url": "https://github.com/Skyvern-AI/skyvern",
+      "kind": "oss-tool",
+      "collection": null,
+      "license": "AGPL-3.0",
+      "osi_license": true,
+      "stars": 23181,
+      "forks": 2192,
+      "last_commit": "2026-10-11",
+      "created": "2024-02-28",
+      "contributors": 95,
+      "price": "free (AGPL); Skyvern Cloud платно",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды / форки (GitHub API, 2026-10-11)",
+          "value": "23181 / 2192",
+          "url": "https://github.com/Skyvern-AI/skyvern"
+        },
+        {
+          "label": "Последний push",
+          "value": "2026-10-11",
+          "url": "https://github.com/Skyvern-AI/skyvern"
+        },
+        {
+          "label": "Контрибьюторы (GitHub API)",
+          "value": "95",
+          "url": "https://github.com/Skyvern-AI/skyvern"
+        },
+        {
+          "label": "WebVoyager 85,8 % (заявление вендора)",
+          "value": "",
+          "url": "https://github.com/Skyvern-AI/skyvern"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 1,
+          "note": "Агент автоматизации форм и workflow, решение CAPTCHA в облаке — противоречит запретам",
+          "evidence": [
+            "https://github.com/Skyvern-AI/skyvern"
+          ]
+        },
+        "S2": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S3": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S4": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S5": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S6": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S7": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S8": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S9": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S10": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S11": {
+          "score": 0,
+          "note": "Облако обходит CAPTCHA — противоположно правилам своего скила",
+          "evidence": []
+        },
+        "S12": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S13": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S14": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Сильная навигация"
+      ],
+      "weaknesses": [
+        "Автоматизация, не QA"
+      ],
+      "risks": [
+        "AGPL, обход капчи"
+      ],
+      "verdict": "ignore",
+      "summary": "Автоматизация задач, не аудит."
+    },
+    {
+      "id": "browser-use",
+      "name": "browser-use",
+      "url": "https://github.com/browser-use/browser-use",
+      "kind": "oss-tool",
+      "collection": null,
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 117613,
+      "forks": 13012,
+      "last_commit": "2026-10-09",
+      "created": "2024-10-31",
+      "contributors": 381,
+      "price": "free; облачный браузер $0,02/час (по README)",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды / форки (GitHub API, 2026-10-11)",
+          "value": "117613 / 13012",
+          "url": "https://github.com/browser-use/browser-use"
+        },
+        {
+          "label": "Последний push",
+          "value": "2026-10-09",
+          "url": "https://github.com/browser-use/browser-use"
+        },
+        {
+          "label": "Контрибьюторы (GitHub API)",
+          "value": "381",
+          "url": "https://github.com/browser-use/browser-use"
+        },
+        {
+          "label": "README содержит обращение к ИИ-агентам «read browser-use.com/llms.txt» (не выполнялось)",
+          "value": "data",
+          "url": "https://github.com/browser-use/browser-use"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 1,
+          "note": "Универсальный браузерный агент; QA-методики нет",
+          "evidence": [
+            "https://github.com/browser-use/browser-use"
+          ]
+        },
+        "S2": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S3": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S4": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S5": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S6": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S7": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S8": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S9": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S10": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S11": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S12": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S13": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S14": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Популярный агент"
+      ],
+      "weaknesses": [
+        "Не QA"
+      ],
+      "risks": [
+        "Stealth/обход CAPTCHA в облаке"
+      ],
+      "verdict": "ignore",
+      "summary": "Универсальный агент, не замена."
+    },
+    {
+      "id": "webpagetest",
+      "name": "WebPageTest (Catchpoint)",
+      "url": "https://github.com/catchpoint/WebPageTest",
+      "kind": "saas",
+      "collection": null,
+      "license": "NOASSERTION (GitHub API)",
+      "osi_license": false,
+      "stars": 3295,
+      "forks": 749,
+      "last_commit": "2025-09-19",
+      "created": "2013-06-28",
+      "contributors": null,
+      "price": "не подтверждено: страница цен вернула 404",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды / форки (GitHub API, 2026-10-11)",
+          "value": "3295 / 749",
+          "url": "https://github.com/catchpoint/WebPageTest"
+        },
+        {
+          "label": "Последний push",
+          "value": "2025-09-19",
+          "url": "https://github.com/catchpoint/WebPageTest"
+        },
+        {
+          "label": "Контрибьюторы (GitHub API)",
+          "value": "не считалось",
+          "url": "https://github.com/catchpoint/WebPageTest"
+        }
+      ],
+      "coverage": {
+        "S1": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S2": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S3": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S4": {
+          "score": null,
+          "note": "не проверено: официальная страница не открылась; по общеизвестным данным — filmstrip/видео/CWV, но первоисточник не проверен",
+          "evidence": []
+        },
+        "S5": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S6": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S7": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S8": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S9": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S10": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S11": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S12": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S13": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        },
+        "S14": {
+          "score": 0,
+          "note": "не заявлено в просмотренных материалах",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Глубокая производительность (по известности)"
+      ],
+      "weaknesses": [
+        "Открытый код не обновлялся с 2025-09"
+      ],
+      "risks": [
+        "Платный Pro"
+      ],
+      "verdict": "ignore",
+      "summary": "Только производительность; первоисточник цен не проверен."
+    }
+  ],
+  "verdict": {
+    "can_replace": "partial",
+    "headline": "Полной замены нет: готовые продукты закрывают по отдельности S1, S3–S5, S9, S14 не хуже или лучше, но связку «аудит чужого сайта без исходников + строгий guard + GitHub issues с дедупликацией и перепроверкой» не даёт никто.",
+    "explanation": "Закрыто сторонними: S1 функциональное QA — gstack /qa (3), agent-browser dogfood (2), jezweb ux-audit (2); S3 доступность — AccessLint (3), agent-browser (встроенный axe, 2), ECC browser-qa (2); S4 производительность — chrome-devtools-mcp (3), Lighthouse CI/Unlighthouse (3); S5 SEO — claude-seo (3), Screaming Frog/Sitebulb (3); S6 кросс-браузер — Playwright MCP (2), Applitools (3, $667/мес); S8 UI/UX — gstack /design-review, jezweb ux-audit, opentest ux-test (2); S9 доказательства — agent-browser dogfood (3: видео и пошаговые скриншоты на каждую находку); S14 e2e — Playwright Test Agents (3), neonwatty qa-skills (3). Не закрыто никем на уровне 2+: S10 (черновики по формам репозитория, дедупликация с открытыми/закрытыми issues, статусы FIXED-OK/REGRESSION, перепроверка заявленных исправлений) — максимум 1 (gstack regression baseline, QA.tech отчёт в PR, axe Pro → Jira); S11 (запреты с проверкой каждого действия и остановкой при сбое guard) — максимум 1 (политики agent-browser, правила read-only в ECC); S2 file:// с ограничением навигации — максимум 1; S7 пассивная безопасность без активного скана — 2 только у neonwatty (частично через код); S12 сочетание параллельных потоков и режимов глубины — 2 у neonwatty/firecrawl/claude-seo, но без режимов smoke/standard/deep. Отдельно уникальны направления legal-ui, content-i18n, работа на русском языке и проверка входа через CDP пользователя без исходников.",
+    "replace_with": [
+      "agent-browser-dogfood",
+      "gstack-qa",
+      "playwright-test-agents"
+    ],
+    "keep_own": [
+      "S2",
+      "S7",
+      "S10",
+      "S11",
+      "S12",
+      "S13"
+    ],
+    "lost_if_replaced": [
+      "Сверка с GitHub issues: формы репозитория, дедупликация по отпечатку, статусы и перепроверка исправлений, публикация скриншотов",
+      "Fail-closed guard на покупки, OAuth, удаление, отправку форм, побочные эффекты с инвариантами",
+      "Аудит чужого боевого сайта без исходников (у gstack, neonwatty, jezweb фазы исправления кода)",
+      "file:// с копией приложения и ограничением навигации",
+      "Кросс-браузер Chromium+Firefox+WebKit с эмуляцией касаний в одном прогоне",
+      "Направления legal-ui, content-i18n, RTL; отчёты и issues на русском",
+      "Независимая перепроверка каждой находки перед публикацией (recheck gate)"
+    ],
+    "migration_effort_days": 4,
+    "keep_developing": "partial",
+    "keep_developing_what": "Развивать только уникальный слой: S10 (issues, дедупликация, перепроверка), S11 (guard и инварианты), оркестрацию потоков/глубины (S12) и единый отчёт (S13), плюс legal-ui/content-i18n. Перестать строить свою инфраструктуру там, где есть зрелые бесплатные инструменты: видео и аннотированные скриншоты — взять agent-browser (record, screenshot --annotate, diff); производительность — chrome-devtools-mcp или Unlighthouse; SEO — делегировать claude-seo; e2e — Playwright Test Agents вместо e2e_stub; a11y с исходниками — AccessLint.",
+    "risks": [
+      "Сторонние скиллы меняются без согласования (gstack обновляется ежедневно, agent-browser пре-1.0)",
+      "У gstack и jezweb фаза исправления кода и коммиты — нельзя применять к чужому сайту без отключения",
+      "Отправка данных наружу: firecrawl (облако), chrome-devtools-mcp (телеметрия и CrUX), gstack (#3102)",
+      "Ни один из сторонних не даёт гарантий безопасности при боевом прогоне (покупки/OAuth/формы)",
+      "Заброшенность мелких проектов (neonwatty — 5 мес. без коммитов, opentest, a11y-plugin)"
+    ],
+    "cost_notes": "Рекомендуемая связка бесплатна (MIT/Apache-2.0); расходы — только токены модели. Платные альтернативы: Checkly от $24/мес (мониторинг), Screaming Frog £199/год (SEO), Sitebulb Cloud от £95/мес, Applitools от $667/мес; QA Wolf, QA.tech, mabl, axe DevTools Bundle — цены не опубликованы."
+  },
+  "sources": [
+    {
+      "url": "https://github.com/garrytan/gstack",
+      "title": "garrytan/gstack (GitHub API)",
+      "date_checked": "2026-10-11",
+      "used_for": "звёзды, даты, лицензия, контрибьюторы"
+    },
+    {
+      "url": "https://github.com/garrytan/gstack/blob/main/qa/SKILL.md",
+      "title": "gstack qa/SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "S1, S9–S14"
+    },
+    {
+      "url": "https://github.com/garrytan/gstack/blob/main/qa/sections/qa-patterns.md",
+      "title": "gstack qa/sections/qa-patterns.md",
+      "date_checked": "2026-10-11",
+      "used_for": "Health Score, мобильный viewport, правила"
+    },
+    {
+      "url": "https://github.com/garrytan/gstack/blob/main/README.md",
+      "title": "gstack README",
+      "date_checked": "2026-10-11",
+      "used_for": "/benchmark, /design-review, /cso, требования"
+    },
+    {
+      "url": "https://github.com/garrytan/gstack/issues/3102",
+      "title": "gstack issue #3102",
+      "date_checked": "2026-10-11",
+      "used_for": "риск отправки кода"
+    },
+    {
+      "url": "https://github.com/vercel-labs/agent-browser",
+      "title": "vercel-labs/agent-browser (GitHub API)",
+      "date_checked": "2026-10-11",
+      "used_for": "статистика, релиз"
+    },
+    {
+      "url": "https://github.com/vercel-labs/agent-browser/blob/main/README.md",
+      "title": "agent-browser README",
+      "date_checked": "2026-10-11",
+      "used_for": "axe, видео, Safari, allowlist, action policy"
+    },
+    {
+      "url": "https://github.com/vercel-labs/agent-browser/blob/main/skill-data/dogfood/SKILL.md",
+      "title": "agent-browser dogfood SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "S1, S9, S11"
+    },
+    {
+      "url": "https://github.com/vercel-labs/agent-browser/blob/main/skill-data/dogfood/references/issue-taxonomy.md",
+      "title": "dogfood issue-taxonomy.md",
+      "date_checked": "2026-10-11",
+      "used_for": "категории и серьёзность"
+    },
+    {
+      "url": "https://github.com/neonwatty/qa-skills",
+      "title": "neonwatty/qa-skills README",
+      "date_checked": "2026-10-11",
+      "used_for": "агенты, генераторы Playwright"
+    },
+    {
+      "url": "https://github.com/affaan-m/ECC",
+      "title": "affaan-m/ECC (GitHub API)",
+      "date_checked": "2026-10-11",
+      "used_for": "статистика"
+    },
+    {
+      "url": "https://github.com/affaan-m/ECC/blob/main/skills/browser-qa/SKILL.md",
+      "title": "ECC browser-qa",
+      "date_checked": "2026-10-11",
+      "used_for": "S1–S11"
+    },
+    {
+      "url": "https://github.com/affaan-m/ECC/blob/main/skills/e2e-testing/SKILL.md",
+      "title": "ECC e2e-testing",
+      "date_checked": "2026-10-11",
+      "used_for": "S14"
+    },
+    {
+      "url": "https://github.com/affaan-m/ECC/blob/main/agents/e2e-runner.md",
+      "title": "ECC e2e-runner",
+      "date_checked": "2026-10-11",
+      "used_for": "S14"
+    },
+    {
+      "url": "https://github.com/affaan-m/ECC/blob/main/skills/accessibility/SKILL.md",
+      "title": "ECC accessibility",
+      "date_checked": "2026-10-11",
+      "used_for": "S3"
+    },
+    {
+      "url": "https://github.com/affaan-m/ECC/blob/main/skills/seo/SKILL.md",
+      "title": "ECC seo",
+      "date_checked": "2026-10-11",
+      "used_for": "S5"
+    },
+    {
+      "url": "https://github.com/microsoft/playwright-mcp",
+      "title": "microsoft/playwright-mcp README",
+      "date_checked": "2026-10-11",
+      "used_for": "флаги браузеров, file://, видео, codegen"
+    },
+    {
+      "url": "https://github.com/microsoft/playwright-cli",
+      "title": "microsoft/playwright-cli (GitHub API)",
+      "date_checked": "2026-10-11",
+      "used_for": "звёзды"
+    },
+    {
+      "url": "https://github.com/anthropics/claude-plugins-official",
+      "title": "claude-plugins-official (GitHub API)",
+      "date_checked": "2026-10-11",
+      "used_for": "плагин playwright"
+    },
+    {
+      "url": "https://playwright.dev/docs/test-agents",
+      "title": "Playwright Test Agents docs",
+      "date_checked": "2026-10-11",
+      "used_for": "S14"
+    },
+    {
+      "url": "https://github.com/microsoft/playwright",
+      "title": "microsoft/playwright (GitHub API)",
+      "date_checked": "2026-10-11",
+      "used_for": "статистика"
+    },
+    {
+      "url": "https://github.com/ChromeDevTools/chrome-devtools-mcp",
+      "title": "chrome-devtools-mcp README",
+      "date_checked": "2026-10-11",
+      "used_for": "производительность, телеметрия"
+    },
+    {
+      "url": "https://github.com/ChromeDevTools/chrome-devtools-mcp/blob/main/docs/tool-reference.md",
+      "title": "chrome-devtools-mcp tool-reference",
+      "date_checked": "2026-10-11",
+      "used_for": "lighthouse_audit, screencast"
+    },
+    {
+      "url": "https://code.claude.com/docs/en/chrome",
+      "title": "Claude Code: Use Claude Code with Chrome",
+      "date_checked": "2026-10-11",
+      "used_for": "встроенные возможности"
+    },
+    {
+      "url": "https://github.com/jezweb/claude-skills/blob/main/plugins/dev-tools/skills/ux-audit/SKILL.md",
+      "title": "jezweb ux-audit SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "гейты, фазы"
+    },
+    {
+      "url": "https://github.com/jezweb/claude-skills",
+      "title": "jezweb/claude-skills (GitHub API)",
+      "date_checked": "2026-10-11",
+      "used_for": "статистика"
+    },
+    {
+      "url": "https://github.com/firecrawl/firecrawl-workflows",
+      "title": "firecrawl-workflows README",
+      "date_checked": "2026-10-11",
+      "used_for": "установка, лицензия"
+    },
+    {
+      "url": "https://github.com/firecrawl/firecrawl-workflows/blob/main/skills/firecrawl-qa/SKILL.md",
+      "title": "firecrawl-qa SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "S1, S12"
+    },
+    {
+      "url": "https://github.com/firecrawl/firecrawl-workflows/blob/main/skills/firecrawl-seo-audit/SKILL.md",
+      "title": "firecrawl-seo-audit SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "S5"
+    },
+    {
+      "url": "https://github.com/sickn33/agentic-awesome-skills/blob/main/skills/accesslint-audit/SKILL.md",
+      "title": "accesslint-audit SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "S3"
+    },
+    {
+      "url": "https://github.com/sickn33/agentic-awesome-skills/blob/main/skills/accesslint-scan/SKILL.md",
+      "title": "accesslint-scan SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "S3"
+    },
+    {
+      "url": "https://github.com/AccessLint/skills",
+      "title": "AccessLint/skills (GitHub API)",
+      "date_checked": "2026-10-11",
+      "used_for": "статистика"
+    },
+    {
+      "url": "https://github.com/sickn33/agentic-awesome-skills",
+      "title": "sickn33/agentic-awesome-skills (GitHub API, дерево)",
+      "date_checked": "2026-10-11",
+      "used_for": "поиск QA-скиллов"
+    },
+    {
+      "url": "https://github.com/deventually/a11y-plugin",
+      "title": "deventually/a11y-plugin README",
+      "date_checked": "2026-10-11",
+      "used_for": "S3"
+    },
+    {
+      "url": "https://github.com/coderphonui/opentest",
+      "title": "coderphonui/opentest README",
+      "date_checked": "2026-10-11",
+      "used_for": "набор скиллов"
+    },
+    {
+      "url": "https://github.com/anthropics/skills/blob/main/skills/webapp-testing/SKILL.md",
+      "title": "anthropics/skills webapp-testing",
+      "date_checked": "2026-10-11",
+      "used_for": "S1, S2, S14"
+    },
+    {
+      "url": "https://github.com/addyosmani/agent-skills/blob/main/skills/browser-testing-with-devtools/SKILL.md",
+      "title": "addyosmani browser-testing-with-devtools",
+      "date_checked": "2026-10-11",
+      "used_for": "S4"
+    },
+    {
+      "url": "https://github.com/AgriciDaniel/claude-seo",
+      "title": "AgriciDaniel/claude-seo README",
+      "date_checked": "2026-10-11",
+      "used_for": "S5"
+    },
+    {
+      "url": "https://github.com/GoogleChrome/lighthouse-ci",
+      "title": "lighthouse-ci README",
+      "date_checked": "2026-10-11",
+      "used_for": "S4"
+    },
+    {
+      "url": "https://github.com/GoogleChrome/lighthouse",
+      "title": "lighthouse (GitHub API)",
+      "date_checked": "2026-10-11",
+      "used_for": "звёзды"
+    },
+    {
+      "url": "https://github.com/harlan-zw/unlighthouse",
+      "title": "unlighthouse README",
+      "date_checked": "2026-10-11",
+      "used_for": "S4"
+    },
+    {
+      "url": "https://github.com/pa11y/pa11y",
+      "title": "pa11y README",
+      "date_checked": "2026-10-11",
+      "used_for": "S3"
+    },
+    {
+      "url": "https://github.com/pa11y/pa11y-ci",
+      "title": "pa11y-ci (GitHub API)",
+      "date_checked": "2026-10-11",
+      "used_for": "статистика"
+    },
+    {
+      "url": "https://github.com/dequelabs/axe-core",
+      "title": "axe-core (GitHub API)",
+      "date_checked": "2026-10-11",
+      "used_for": "статистика"
+    },
+    {
+      "url": "https://www.deque.com/axe/devtools/pricing/",
+      "title": "axe DevTools pricing",
+      "date_checked": "2026-10-11",
+      "used_for": "тарифы, MCP"
+    },
+    {
+      "url": "https://github.com/AgentDeskAI/browser-tools-mcp",
+      "title": "BrowserTools MCP README",
+      "date_checked": "2026-10-11",
+      "used_for": "Lighthouse-аудиты"
+    },
+    {
+      "url": "https://www.screamingfrog.co.uk/seo-spider/pricing/",
+      "title": "Screaming Frog pricing",
+      "date_checked": "2026-10-11",
+      "used_for": "цена, функции"
+    },
+    {
+      "url": "https://sitebulb.com/pricing/",
+      "title": "Sitebulb pricing",
+      "date_checked": "2026-10-11",
+      "used_for": "цена, функции"
+    },
+    {
+      "url": "https://applitools.com/pricing/",
+      "title": "Applitools pricing",
+      "date_checked": "2026-10-11",
+      "used_for": "цена, функции"
+    },
+    {
+      "url": "https://qa.tech/pricing",
+      "title": "QA.tech pricing",
+      "date_checked": "2026-10-11",
+      "used_for": "тарифы, функции"
+    },
+    {
+      "url": "https://www.mabl.com/pricing",
+      "title": "mabl pricing",
+      "date_checked": "2026-10-11",
+      "used_for": "тарифы, функции"
+    },
+    {
+      "url": "https://www.checklyhq.com/pricing/",
+      "title": "Checkly pricing",
+      "date_checked": "2026-10-11",
+      "used_for": "тарифы"
+    },
+    {
+      "url": "https://github.com/checkly/checkly-cli",
+      "title": "checkly-cli (GitHub API)",
+      "date_checked": "2026-10-11",
+      "used_for": "статистика"
+    },
+    {
+      "url": "https://www.qawolf.com/",
+      "title": "QA Wolf главная",
+      "date_checked": "2026-10-11",
+      "used_for": "функции, MCP"
+    },
+    {
+      "url": "https://docs.cypress.io/api/commands/prompt",
+      "title": "Cypress cy.prompt docs",
+      "date_checked": "2026-10-11",
+      "used_for": "S14"
+    },
+    {
+      "url": "https://github.com/browserbase/stagehand",
+      "title": "Stagehand (GitHub API, README)",
+      "date_checked": "2026-10-11",
+      "used_for": "статистика"
+    },
+    {
+      "url": "https://github.com/Skyvern-AI/skyvern",
+      "title": "Skyvern README",
+      "date_checked": "2026-10-11",
+      "used_for": "функции, облако"
+    },
+    {
+      "url": "https://github.com/browser-use/browser-use",
+      "title": "browser-use README",
+      "date_checked": "2026-10-11",
+      "used_for": "функции, облако"
+    },
+    {
+      "url": "https://github.com/OctoMind-dev/octomind-mcp",
+      "title": "octomind-mcp (GitHub API)",
+      "date_checked": "2026-10-11",
+      "used_for": "archived"
+    },
+    {
+      "url": "https://github.com/catchpoint/WebPageTest",
+      "title": "catchpoint/WebPageTest (GitHub API)",
+      "date_checked": "2026-10-11",
+      "used_for": "статистика"
+    },
+    {
+      "url": "https://claudeskills.info/ko/best/testing-qa-skills/",
+      "title": "claudeskills.info: лучшие QA-скиллы 2026",
+      "date_checked": "2026-10-11",
+      "used_for": "поиск кандидатов"
+    },
+    {
+      "url": "https://github.com/mattpocock/skills",
+      "title": "mattpocock/skills (GitHub API, дерево)",
+      "date_checked": "2026-10-11",
+      "used_for": "проверка: скилла qa в текущем дереве нет"
+    },
+    {
+      "url": "https://github.com/addyosmani/agent-skills",
+      "title": "addyosmani/agent-skills (GitHub API)",
+      "date_checked": "2026-10-11",
+      "used_for": "статистика"
+    },
+    {
+      "url": "https://github.com/anthropics/skills",
+      "title": "anthropics/skills (GitHub API)",
+      "date_checked": "2026-10-11",
+      "used_for": "статистика"
+    },
+    {
+      "url": "<репозиторий>/skills/site-qa-audit/README.md",
+      "title": "README своего скила (локально)",
+      "date_checked": "2026-10-11",
+      "used_for": "фактические возможности S1–S14"
+    },
+    {
+      "url": "<репозиторий>/strategy/2026-10-10/research/competitors.md",
+      "title": "Прежнее исследование конкурентов (локально)",
+      "date_checked": "2026-10-11",
+      "used_for": "отправная точка"
+    }
+  ]
+}

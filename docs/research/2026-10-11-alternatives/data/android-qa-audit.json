@@ -1,0 +1,3578 @@
+{
+  "skill": "android-qa-audit",
+  "date": "2026-10-11",
+  "capabilities": [
+    {
+      "id": "A1",
+      "name": "Разбор APK/AAB",
+      "desc": "Манифест, разрешения, minSdk/targetSdk, ABI, debuggable/backup/cleartext, экспортируемые компоненты, deep links, подпись; split APK, .apks, AAB через bundletool; установленный пакет."
+    },
+    {
+      "id": "A2",
+      "name": "Сам создаёт AVD и матрицу стендов",
+      "desc": "Установка образов, создание AVD qa-* с заданными API, ОЗУ, ядрами, экраном; матрица «версии Android × железо × настройки» по глубине smoke/standard/deep."
+    },
+    {
+      "id": "A3",
+      "name": "До 4 стендов параллельно",
+      "desc": "Потоки-очереди ячеек на своих эмуляторах, оркестратор + субагенты, владение стендом, сведение находок исполнителей."
+    },
+    {
+      "id": "A4",
+      "name": "Обход UI через дерево элементов и monkey",
+      "desc": "uiautomator dump, тексты, ранжирование совпадений, проверка результата нажатия, экраны без дерева по скриншоту; monkey с seed."
+    },
+    {
+      "id": "A5",
+      "name": "logcat/dumpsys: падения, ANR, утечки",
+      "desc": "logcat только приложения, падения и ANR, meminfo/gfxinfo, отделение чужих процессов."
+    },
+    {
+      "id": "A6",
+      "name": "Жизненный цикл и конфигурации",
+      "desc": "Поворот, шрифт 1.3/2.0, тёмная тема, язык/RTL, сеть (скорость, офлайн), фон/возврат, смерть процесса, Doze, trim-memory, часовой пояс."
+    },
+    {
+      "id": "A7",
+      "name": "Доступность (TalkBack)",
+      "desc": "Метки, цели 48 dp, контраст, шрифт 2.0, порядок фокуса — чек-лист направления accessibility."
+    },
+    {
+      "id": "A8",
+      "name": "Производительность и soak",
+      "desc": "Холодный/тёплый/горячий старт, память, jank, долгие фоновые сценарии soak/job с предусловием, графики PSS."
+    },
+    {
+      "id": "A9",
+      "name": "Пассивная безопасность",
+      "desc": "debuggable, allowBackup, cleartext, экспортируемые компоненты, разрешения, подпись, секреты в logcat — только пассивно."
+    },
+    {
+      "id": "A10",
+      "name": "Аннотированные скриншоты и ролики находок",
+      "desc": "Скриншоты с рамкой/стрелкой/подписью, контактный лист, короткие ролики без звука ≤10 с ≤3 МБ, GIF, лента кадров, FLAG_SECURE."
+    },
+    {
+      "id": "A11",
+      "name": "Звук в микрофон эмулятора",
+      "desc": "Подача WAV в микрофон эмулятора через gRPC с токеном, loopback или импорт файла — для голосовых приложений."
+    },
+    {
+      "id": "A12",
+      "name": "Черновики GitHub issues, перепроверка",
+      "desc": "Дедупликация fingerprint, сверка с issues (NEW/DUPLICATE/FIXED/REGRESSION), формы issue репозитория, вложения веткой, независимая перепроверка repro до публикации, dry-run по умолчанию."
+    },
+    {
+      "id": "A13",
+      "name": "Запреты безопасности",
+      "desc": "guard на каждое действие (deny/confirm, fail closed), запрет покупок, входа через аккаунты, звонков/SMS, чужих приложений и устройств, маскирование секретов."
+    }
+  ],
+  "candidates": [
+    {
+      "id": "openai-test-android-apps",
+      "name": "OpenAI Test Android Apps (android-emulator-qa + android-performance)",
+      "url": "https://github.com/openai/plugins/tree/main/plugins/test-android-apps",
+      "kind": "plugin",
+      "collection": "openai/plugins",
+      "license": "MIT (plugin.json) / Apache-2.0 (LICENSE.txt скила)",
+      "osi_license": true,
+      "stars": 7385,
+      "forks": 960,
+      "last_commit": "2026-10-08",
+      "created": "2026-03-04",
+      "contributors": 62,
+      "price": "free",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Tessl: общий балл",
+          "value": "74; Content 100 %, Description 83 %, Validation 16/16",
+          "url": "https://tessl.io/registry/skills/github/openai/plugins/android-emulator-qa/review"
+        },
+        {
+          "label": "Snyk (через Tessl)",
+          "value": "Passed, находок нет",
+          "url": "https://tessl.io/registry/skills/github/openai/plugins/android-emulator-qa/review"
+        },
+        {
+          "label": "Версия плагина",
+          "value": "0.1.2; последний коммит в папку плагина 2026-06-08",
+          "url": "https://github.com/openai/plugins/blob/main/plugins/test-android-apps/.codex-plugin/plugin.json"
+        },
+        {
+          "label": "Звёзды/форки репозитория (весь openai/plugins)",
+          "value": "7385 / 960 на 2026-10-11",
+          "url": "https://api.github.com/repos/openai/plugins"
+        }
+      ],
+      "coverage": {
+        "A1": {
+          "score": 0,
+          "note": "Разбора APK нет; ставит сборку через gradlew из исходников.",
+          "evidence": [
+            "https://github.com/openai/plugins/blob/main/plugins/test-android-apps/skills/android-emulator-qa/SKILL.md"
+          ]
+        },
+        "A2": {
+          "score": 0,
+          "note": "Только выбор уже запущенного эмулятора через adb devices.",
+          "evidence": [
+            "https://github.com/openai/plugins/blob/main/plugins/test-android-apps/skills/android-emulator-qa/SKILL.md"
+          ]
+        },
+        "A3": {
+          "score": 0,
+          "note": "Параллелизма нет.",
+          "evidence": [
+            "https://github.com/openai/plugins/blob/main/plugins/test-android-apps/skills/android-emulator-qa/SKILL.md"
+          ]
+        },
+        "A4": {
+          "score": 2,
+          "note": "uiautomator dump, ui_pick.py (координаты из дерева), ui_tree_summarize.py (сжатая сводка); monkey не упомянут.",
+          "evidence": [
+            "https://github.com/openai/plugins/blob/main/plugins/test-android-apps/skills/android-emulator-qa/SKILL.md"
+          ]
+        },
+        "A5": {
+          "score": 2,
+          "note": "logcat --pid, буфер crash; в android-performance — dumpsys meminfo, heap dumps, heapprofd (утечки). ANR отдельно не выделен.",
+          "evidence": [
+            "https://github.com/openai/plugins/blob/main/plugins/test-android-apps/skills/android-emulator-qa/SKILL.md",
+            "https://github.com/openai/plugins/blob/main/plugins/test-android-apps/skills/android-performance/SKILL.md"
+          ]
+        },
+        "A6": {
+          "score": 0,
+          "note": "Поворот, тема, шрифт, язык, сеть не описаны.",
+          "evidence": [
+            "https://github.com/openai/plugins/blob/main/plugins/test-android-apps/skills/android-emulator-qa/SKILL.md"
+          ]
+        },
+        "A7": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/openai/plugins/blob/main/plugins/test-android-apps/skills/android-emulator-qa/SKILL.md"
+          ]
+        },
+        "A8": {
+          "score": 2,
+          "note": "Глубже владельца по профилированию: Simpleperf, Perfetto, gfxinfo framestats, heap/native allocations; но CPU-сэмплы требуют debuggable/profileable сборки, soak-сценариев нет.",
+          "evidence": [
+            "https://github.com/openai/plugins/blob/main/plugins/test-android-apps/skills/android-performance/SKILL.md"
+          ]
+        },
+        "A9": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A10": {
+          "score": 1,
+          "note": "Только screencap в /tmp, без разметки и роликов.",
+          "evidence": [
+            "https://github.com/openai/plugins/blob/main/plugins/test-android-apps/skills/android-emulator-qa/SKILL.md"
+          ]
+        },
+        "A11": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A12": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A13": {
+          "score": 0,
+          "note": "Правил безопасности нет.",
+          "evidence": [
+            "https://github.com/openai/plugins/blob/main/plugins/test-android-apps/skills/android-emulator-qa/SKILL.md"
+          ]
+        }
+      },
+      "strengths": [
+        "Простой вход, минимальный SKILL.md",
+        "Сильный модуль профилирования (Simpleperf/Perfetto/heap)",
+        "Бренд OpenAI, публичная оценка Tessl и Snyk"
+      ],
+      "weaknesses": [
+        "Нужны исходники и Gradle",
+        "Нет матрицы, конфигураций, доступности, безопасности, отчёта и issues",
+        "Плагин в формате Codex (.codex-plugin), для Claude Code — копировать SKILL.md вручную"
+      ],
+      "risks": [
+        "Расхождение лицензий MIT в plugin.json и Apache-2.0 в LICENSE.txt",
+        "Папка плагина не менялась с 2026-06-08"
+      ],
+      "verdict": "inspire",
+      "summary": "Лёгкий скил «прогнать сценарий на эмуляторе» для разработчика с исходниками. Покрывает только A4, A5, A8; модуль android-performance стоит взять как идею (Simpleperf/Perfetto) для A8."
+    },
+    {
+      "id": "google-android-cli-skills",
+      "name": "Google Android CLI + android/skills (android-cli, Journeys, android-profiler, security skills)",
+      "url": "https://github.com/android/skills",
+      "kind": "collection",
+      "collection": "android/skills (Google)",
+      "license": "Apache-2.0 (skills); лицензия самого Android CLI на странице не указана",
+      "osi_license": true,
+      "stars": 7759,
+      "forks": 511,
+      "last_commit": "2026-09-25",
+      "created": "2026-03-16",
+      "contributors": 8,
+      "price": "free",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Релизы",
+          "value": "v1.0.13 от 2026-09-25 (частые релизы: 1.0.11–1.0.13 за сентябрь)",
+          "url": "https://api.github.com/repos/android/skills/releases"
+        },
+        {
+          "label": "Маркетплейс Claude Code",
+          "value": "есть .claude-plugin/marketplace.json, 25 скилов",
+          "url": "https://github.com/android/skills/blob/main/.claude-plugin/marketplace.json"
+        },
+        {
+          "label": "Внешние вклады",
+          "value": "«Public contributions are not accepted»",
+          "url": "https://github.com/android/skills"
+        },
+        {
+          "label": "Телеметрия CLI",
+          "value": "собирает имена команд и флагов, отключается --no-metrics",
+          "url": "https://developer.android.com/tools/agents/android-cli"
+        }
+      ],
+      "coverage": {
+        "A1": {
+          "score": 1,
+          "note": "android-permissions-security и android-intent-security аудируют AndroidManifest.xml в исходниках, play-policy-insights — по коду; разбора готового APK нет.",
+          "evidence": [
+            "https://github.com/android/skills/blob/main/security/android-permissions-security/SKILL.md",
+            "https://github.com/android/skills/blob/main/play/play-policy-insights/SKILL.md"
+          ]
+        },
+        "A2": {
+          "score": 1,
+          "note": "android emulator create/start/stop, android sdk install — создаёт AVD и ставит образы, но матрицы ОЗУ × ядра × настройки нет; на Windows команда emulator отключена.",
+          "evidence": [
+            "https://developer.android.com/tools/agents/android-cli",
+            "https://github.com/android/skills/blob/main/devtools/android-cli/SKILL.md"
+          ]
+        },
+        "A3": {
+          "score": 0,
+          "note": "Параллельных стендов нет.",
+          "evidence": [
+            "https://developer.android.com/tools/agents/android-cli"
+          ]
+        },
+        "A4": {
+          "score": 2,
+          "note": "android layout — плоский JSON с center/bounds/interactions и режимом --diff; screen capture --annotate с номерами областей и screen resolve; journeys — сценарии на естественном языке. monkey нет.",
+          "evidence": [
+            "https://github.com/android/skills/blob/main/devtools/android-cli/references/interact.md",
+            "https://github.com/android/skills/blob/main/devtools/android-cli/references/journeys.md"
+          ]
+        },
+        "A5": {
+          "score": 1,
+          "note": "Journey падает при crash/freeze; android-profiler — heap dumps, утечки памяти, трассы. Сбора logcat/ANR как процесса нет.",
+          "evidence": [
+            "https://github.com/android/skills/blob/main/devtools/android-cli/references/journeys.md",
+            "https://github.com/android/skills/blob/main/profilers/android-profiler/SKILL.md"
+          ]
+        },
+        "A6": {
+          "score": 0,
+          "note": "Не описано в android-cli; в Journeys Studio поворот/складывание не поддерживаются.",
+          "evidence": [
+            "https://github.com/android/skills/blob/main/devtools/android-cli/SKILL.md",
+            "https://developer.android.com/studio/gemini/journeys"
+          ]
+        },
+        "A7": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A8": {
+          "score": 2,
+          "note": "android-profiler: system traces, heap dumps, method recordings, startup, jank, SQL по трассам; soak нет. Оценка по описанию скила.",
+          "evidence": [
+            "https://github.com/android/skills/blob/main/profilers/android-profiler/SKILL.md"
+          ]
+        },
+        "A9": {
+          "score": 1,
+          "note": "Скилы безопасности разрешений/Intent и Play-политик — на уровне исходников, не APK.",
+          "evidence": [
+            "https://github.com/android/skills/blob/main/security/android-permissions-security/SKILL.md",
+            "https://github.com/android/skills/blob/main/security/android-intent-security/SKILL.md"
+          ]
+        },
+        "A10": {
+          "score": 1,
+          "note": "Скриншоты и отчёт journey в markdown со ссылками на скриншоты; разметка --annotate служит навигации, а не находкам; роликов нет.",
+          "evidence": [
+            "https://github.com/android/skills/blob/main/devtools/android-cli/references/journeys.md",
+            "https://github.com/android/skills/blob/main/devtools/android-cli/references/interact.md"
+          ]
+        },
+        "A11": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A12": {
+          "score": 0,
+          "note": "Только markdown-итог journey.",
+          "evidence": [
+            "https://github.com/android/skills/blob/main/devtools/android-cli/references/journeys.md"
+          ]
+        },
+        "A13": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Официальный инструмент Google, ставится в Claude Code маркетплейсом",
+        "layout --diff экономит контекст",
+        "Journeys: формат приёмочных сценариев на естественном языке",
+        "Профилировщик и скилы безопасности на уровне кода"
+      ],
+      "weaknesses": [
+        "Ориентир — разработчик с исходниками",
+        "Нет конфигураций устройства, доступности, отчёта и issues",
+        "Windows: emulator отключён"
+      ],
+      "risks": [
+        "Лицензия CLI не опубликована",
+        "Телеметрия по умолчанию",
+        "Внешние PR не принимаются"
+      ],
+      "verdict": "partial",
+      "summary": "Лучший кандидат на нижний слой: создание AVD, установка SDK, layout/screen для агента. Может стать необязательным бэкендом android-qa-audit, но процесс QA, матрица и безопасность остаются за владельцем."
+    },
+    {
+      "id": "callstack-agent-device",
+      "name": "agent-device (Callstack) + скилы dogfood / android-emulator",
+      "url": "https://github.com/callstack/agent-device",
+      "kind": "oss-tool",
+      "collection": null,
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 4969,
+      "forks": 332,
+      "last_commit": "2026-10-11",
+      "created": "2026-01-30",
+      "contributors": null,
+      "price": "free (OSS); командный QA — по запросу Callstack",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды/форки",
+          "value": "4969 / 332 на 2026-10-11, открытых issues/PR 109",
+          "url": "https://api.github.com/repos/callstack/agent-device"
+        },
+        {
+          "label": "Пользователи",
+          "value": "в README названы Expensify и Shopify",
+          "url": "https://github.com/callstack/agent-device"
+        },
+        {
+          "label": "Скилы для агентов",
+          "value": "skills/dogfood (exploratory QA), skills/android-emulator; allowed-tools ограничены agent-device",
+          "url": "https://github.com/callstack/agent-device/blob/main/skills/dogfood/SKILL.md"
+        }
+      ],
+      "coverage": {
+        "A1": {
+          "score": 0,
+          "note": "Разбора APK в просмотренных материалах нет.",
+          "evidence": [
+            "https://github.com/callstack/agent-device"
+          ]
+        },
+        "A2": {
+          "score": 1,
+          "note": "boot/shutdown существующего AVD по имени, headless; создания AVD с ОЗУ/ядрами и матрицы нет.",
+          "evidence": [
+            "https://github.com/callstack/agent-device/blob/main/website/docs/docs/commands.md"
+          ]
+        },
+        "A3": {
+          "score": 2,
+          "note": "Сессии привязаны к git worktree, «device claims» не дают параллельным агентам захватить чужой эмулятор; удалённые фермы. Оркестрации матрицы нет.",
+          "evidence": [
+            "https://github.com/callstack/agent-device",
+            "https://github.com/callstack/agent-device/blob/main/website/docs/docs/commands.md"
+          ]
+        },
+        "A4": {
+          "score": 2,
+          "note": "Снимки дерева доступности с refs и diff, find/assert/wait, replay-скрипты .ad для CI; monkey нет.",
+          "evidence": [
+            "https://github.com/callstack/agent-device"
+          ]
+        },
+        "A5": {
+          "score": 2,
+          "note": "Логи, детали падений, трассы, сеть, perf-сэмплы.",
+          "evidence": [
+            "https://github.com/callstack/agent-device"
+          ]
+        },
+        "A6": {
+          "score": 2,
+          "note": "orientation, settings appearance dark (night mode), text-size (font_scale до 3.2), airplane/wifi, permission grant/deny/reset, fold, location, clear-app-state; смена языка и смерть процесса в фоне не найдены.",
+          "evidence": [
+            "https://github.com/callstack/agent-device/blob/main/website/docs/docs/commands.md"
+          ]
+        },
+        "A7": {
+          "score": 1,
+          "note": "Крупный шрифт и дерево доступности; аудита TalkBack/контраста нет.",
+          "evidence": [
+            "https://github.com/callstack/agent-device/blob/main/website/docs/docs/commands.md"
+          ]
+        },
+        "A8": {
+          "score": 2,
+          "note": "perf frames, perf memory sample, hprof snapshot; soak-сценариев с предусловием не найдено.",
+          "evidence": [
+            "https://github.com/callstack/agent-device/blob/main/website/docs/docs/commands.md"
+          ]
+        },
+        "A9": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A10": {
+          "score": 1,
+          "note": "Скриншоты и запись видео как доказательства; разметки и бюджета роликов не найдено.",
+          "evidence": [
+            "https://github.com/callstack/agent-device"
+          ]
+        },
+        "A11": {
+          "score": 0,
+          "note": "audio probe — только web/macOS, вывод звука, не микрофон.",
+          "evidence": [
+            "https://github.com/callstack/agent-device/blob/main/website/docs/docs/commands.md"
+          ]
+        },
+        "A12": {
+          "score": 1,
+          "note": "dogfood: отчёт с доказательствами по каждой проблеме; PR получают evidence; черновиков issues и сверки нет.",
+          "evidence": [
+            "https://github.com/callstack/agent-device/blob/main/skills/dogfood/SKILL.md",
+            "https://github.com/callstack/agent-device"
+          ]
+        },
+        "A13": {
+          "score": 1,
+          "note": "allowed-tools только agent-device, захват устройств fail closed; запретов действий в приложении (покупки, вход) нет.",
+          "evidence": [
+            "https://github.com/callstack/agent-device/blob/main/skills/dogfood/SKILL.md",
+            "https://github.com/callstack/agent-device/blob/main/website/docs/docs/commands.md"
+          ]
+        }
+      },
+      "strengths": [
+        "Самое широкое покрытие среди OSS: настройки устройства, perf, логи, параллельные агенты",
+        "CLI + MCP + Node API, работает с Claude Code",
+        "Очень активная разработка, реальные пользователи"
+      ],
+      "weaknesses": [
+        "Инструмент, а не процесс QA: нет матрицы, чек-листов, severity, отчёта",
+        "Нет создания AVD с железом",
+        "Требует Node.js и глобальной установки"
+      ],
+      "risks": [
+        "Проект моложе года, 109 открытых issues/PR",
+        "Быстрые изменения CLI ломают интеграцию"
+      ],
+      "verdict": "partial",
+      "summary": "Ближайшая по функциям открытая замена слоя управления устройством (A4–A6, A8, частично A3). Процесс QA, матрицу стендов, запреты и issues не заменяет."
+    },
+    {
+      "id": "mobile-next-mobile-mcp",
+      "name": "Mobile MCP (mobile-next)",
+      "url": "https://github.com/mobile-next/mobile-mcp",
+      "kind": "mcp",
+      "collection": null,
+      "license": "Apache-2.0",
+      "osi_license": true,
+      "stars": 8957,
+      "forks": 801,
+      "last_commit": "2026-10-10",
+      "created": "2025-03-28",
+      "contributors": 33,
+      "price": "free (облачные устройства mobile-next — отдельно, цена не проверялась)",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды/форки",
+          "value": "8957 / 801 на 2026-10-11",
+          "url": "https://api.github.com/repos/mobile-next/mobile-mcp"
+        },
+        {
+          "label": "Релиз",
+          "value": "1.0.9 от 2026-10-09",
+          "url": "https://api.github.com/repos/mobile-next/mobile-mcp/releases"
+        },
+        {
+          "label": "Плагин Claude Code",
+          "value": "/plugin install mobile-mcp@mobile-mcp, /mobile-mirror",
+          "url": "https://github.com/mobile-next/mobile-mcp"
+        }
+      ],
+      "coverage": {
+        "A1": {
+          "score": 0,
+          "note": "Только mobile_install_app.",
+          "evidence": [
+            "https://github.com/mobile-next/mobile-mcp"
+          ]
+        },
+        "A2": {
+          "score": 0,
+          "note": "Нужен уже запущенный эмулятор.",
+          "evidence": [
+            "https://github.com/mobile-next/mobile-mcp"
+          ]
+        },
+        "A3": {
+          "score": 1,
+          "note": "Несколько устройств и облачный парк, но без оркестрации.",
+          "evidence": [
+            "https://github.com/mobile-next/mobile-mcp"
+          ]
+        },
+        "A4": {
+          "score": 2,
+          "note": "mobile_list_elements_on_screen из дерева доступности, клики по ref, batch-команды; monkey нет.",
+          "evidence": [
+            "https://github.com/mobile-next/mobile-mcp"
+          ]
+        },
+        "A5": {
+          "score": 2,
+          "note": "mobile_get_device_logs (logcat), mobile_list_crashes, mobile_get_crash.",
+          "evidence": [
+            "https://github.com/mobile-next/mobile-mcp"
+          ]
+        },
+        "A6": {
+          "score": 1,
+          "note": "Ориентация, складывание, геолокация, буфер; тема/шрифт/язык/сеть не найдены.",
+          "evidence": [
+            "https://github.com/mobile-next/mobile-mcp"
+          ]
+        },
+        "A7": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A8": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A9": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A10": {
+          "score": 1,
+          "note": "Скриншоты и запись экрана, без разметки.",
+          "evidence": [
+            "https://github.com/mobile-next/mobile-mcp"
+          ]
+        },
+        "A11": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A12": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A13": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Самый популярный мобильный MCP",
+        "Android и iOS одним API",
+        "Плагин Claude Code с зеркалом экрана"
+      ],
+      "weaknesses": [
+        "Только примитивы управления",
+        "Нет QA-процесса"
+      ],
+      "risks": [
+        "Облачная авторизация mobile_login_to_cloud_provider — отправка данных наружу при её использовании"
+      ],
+      "verdict": "inspire",
+      "summary": "Хороший набор инструментов управления устройством для агента; покрывает A4, A5 и частично A6, A10. Замены скилу нет."
+    },
+    {
+      "id": "cursortouch-android-mcp",
+      "name": "Android-MCP (CursorTouch)",
+      "url": "https://github.com/CursorTouch/Android-MCP",
+      "kind": "mcp",
+      "collection": null,
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 890,
+      "forks": 115,
+      "last_commit": "2026-10-07",
+      "created": "2025-06-11",
+      "contributors": 10,
+      "price": "free",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды/форки",
+          "value": "890 / 115 на 2026-10-11",
+          "url": "https://api.github.com/repos/CursorTouch/Android-MCP"
+        },
+        {
+          "label": "Релиз",
+          "value": "v0.2.0 от 2026-05-14",
+          "url": "https://api.github.com/repos/CursorTouch/Android-MCP/releases"
+        }
+      ],
+      "coverage": {
+        "A1": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A2": {
+          "score": 0,
+          "note": "Нужен запущенный эмулятор/устройство Android 10+.",
+          "evidence": [
+            "https://github.com/CursorTouch/Android-MCP"
+          ]
+        },
+        "A3": {
+          "score": 0,
+          "note": "Одно устройство на сервер.",
+          "evidence": [
+            "https://github.com/CursorTouch/Android-MCP"
+          ]
+        },
+        "A4": {
+          "score": 2,
+          "note": "State-Tool: интерактивные элементы из иерархии View, клики/свайпы/ввод; monkey только через Shell-Tool.",
+          "evidence": [
+            "https://github.com/CursorTouch/Android-MCP"
+          ]
+        },
+        "A5": {
+          "score": 1,
+          "note": "Только через Shell-Tool вручную.",
+          "evidence": [
+            "https://github.com/CursorTouch/Android-MCP"
+          ]
+        },
+        "A6": {
+          "score": 1,
+          "note": "Только через Shell-Tool вручную.",
+          "evidence": [
+            "https://github.com/CursorTouch/Android-MCP"
+          ]
+        },
+        "A7": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A8": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A9": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A10": {
+          "score": 1,
+          "note": "Скриншоты (квантование для экономии токенов).",
+          "evidence": [
+            "https://github.com/CursorTouch/Android-MCP"
+          ]
+        },
+        "A11": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A12": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A13": {
+          "score": 0,
+          "note": "README прямо предупреждает: выполняет произвольные действия на устройстве.",
+          "evidence": [
+            "https://github.com/CursorTouch/Android-MCP"
+          ]
+        }
+      },
+      "strengths": [
+        "Лёгкий, без Node",
+        "Квантованные скриншоты"
+      ],
+      "weaknesses": [
+        "Мало инструментов, нет логов и конфигураций"
+      ],
+      "risks": [
+        "Shell-Tool даёт агенту произвольный shell на устройстве"
+      ],
+      "verdict": "ignore",
+      "summary": "Простой MCP для управления Android; уступает mobile-mcp и agent-device, QA-процесса нет."
+    },
+    {
+      "id": "appium-mcp",
+      "name": "Appium MCP + Appium",
+      "url": "https://github.com/appium/appium-mcp",
+      "kind": "mcp",
+      "collection": null,
+      "license": "Apache-2.0",
+      "osi_license": true,
+      "stars": 496,
+      "forks": 92,
+      "last_commit": "2026-10-11",
+      "created": "2025-06-11",
+      "contributors": 32,
+      "price": "free",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Релиз appium-mcp",
+          "value": "v1.95.8 от 2026-10-10",
+          "url": "https://api.github.com/repos/appium/appium-mcp/releases"
+        },
+        {
+          "label": "Appium core",
+          "value": "22060 звёзд, 425+ контрибьюторов, appium@4.0.0-beta.4 от 2026-10-09",
+          "url": "https://api.github.com/repos/appium/appium"
+        },
+        {
+          "label": "Наблюдаемость",
+          "value": "OpenTelemetry-спаны, записи доказательств APPIUM_MCP_EVIDENCE",
+          "url": "https://github.com/appium/appium-mcp"
+        }
+      ],
+      "coverage": {
+        "A1": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A2": {
+          "score": 0,
+          "note": "select_device выбирает локальное устройство; AVD не создаёт.",
+          "evidence": [
+            "https://github.com/appium/appium-mcp"
+          ]
+        },
+        "A3": {
+          "score": 2,
+          "note": "Несколько сессий с sessionId, удалённые Appium-гриды и фермы.",
+          "evidence": [
+            "https://github.com/appium/appium-mcp"
+          ]
+        },
+        "A4": {
+          "score": 2,
+          "note": "Поиск элементов, генерация локаторов, жесты; monkey нет.",
+          "evidence": [
+            "https://github.com/appium/appium-mcp"
+          ]
+        },
+        "A5": {
+          "score": null,
+          "note": "не проверено: в README appium-mcp сбор logcat/падений не описан.",
+          "evidence": []
+        },
+        "A6": {
+          "score": null,
+          "note": "не проверено: поворот и настройки в README не описаны.",
+          "evidence": []
+        },
+        "A7": {
+          "score": 0,
+          "note": "Не найдено.",
+          "evidence": []
+        },
+        "A8": {
+          "score": 0,
+          "note": "Не найдено.",
+          "evidence": []
+        },
+        "A9": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A10": {
+          "score": 1,
+          "note": "Скриншоты и запись экрана MP4 (screenrecord), без разметки.",
+          "evidence": [
+            "https://github.com/appium/appium-mcp"
+          ]
+        },
+        "A11": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A12": {
+          "score": 0,
+          "note": "Нет; зато генерирует тесты Java/TestNG.",
+          "evidence": [
+            "https://github.com/appium/appium-mcp"
+          ]
+        },
+        "A13": {
+          "score": 0,
+          "note": "Только ALLOW_REMOTE_APP_URLS; запретов действий нет.",
+          "evidence": [
+            "https://github.com/appium/appium-mcp"
+          ]
+        }
+      },
+      "strengths": [
+        "Стандарт отрасли, фермы устройств",
+        "Генерация автотестов из естественного языка"
+      ],
+      "weaknesses": [
+        "Тяжёлый стек (Node, драйверы, Java)",
+        "Нет QA-процесса"
+      ],
+      "risks": [
+        "Скачивание приложений по URL включено по умолчанию"
+      ],
+      "verdict": "inspire",
+      "summary": "Мост к Appium для агента; полезен, если нужны повторяемые автотесты и фермы. Скил не заменяет."
+    },
+    {
+      "id": "maestro",
+      "name": "Maestro (CLI, Maestro MCP, Studio, Cloud)",
+      "url": "https://github.com/mobile-dev-inc/Maestro",
+      "kind": "oss-tool",
+      "collection": null,
+      "license": "Apache-2.0",
+      "osi_license": true,
+      "stars": 16009,
+      "forks": 987,
+      "last_commit": "2026-10-08",
+      "created": "2022-03-31",
+      "contributors": 121,
+      "price": "CLI и Studio бесплатно; Maestro Cloud — платно (цена не проверялась), пробный период 7 дней",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды/форки",
+          "value": "16009 / 987, открытых issues 509 на 2026-10-11",
+          "url": "https://api.github.com/repos/mobile-dev-inc/Maestro"
+        },
+        {
+          "label": "Релиз",
+          "value": "cli-2.11.0 от 2026-09-29",
+          "url": "https://api.github.com/repos/mobile-dev-inc/Maestro/releases"
+        },
+        {
+          "label": "MCP встроен",
+          "value": "maestro mcp, работает с Claude Code",
+          "url": "https://github.com/mobile-dev-inc/Maestro"
+        }
+      ],
+      "coverage": {
+        "A1": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A2": {
+          "score": 1,
+          "note": "maestro start-device создаёт и запускает эмулятор с --device-model и --device-os; ОЗУ/ядер/языка нет.",
+          "evidence": [
+            "https://docs.maestro.dev/maestro-flows/flow-control-and-logic/specify-and-start-devices"
+          ]
+        },
+        "A3": {
+          "score": 2,
+          "note": "--shard-split / --shard-all на нескольких локальных эмуляторах; Cloud — сотни параллельно.",
+          "evidence": [
+            "https://docs.maestro.dev/maestro-flows/flow-control-and-logic/specify-and-start-devices",
+            "https://github.com/mobile-dev-inc/Maestro"
+          ]
+        },
+        "A4": {
+          "score": 2,
+          "note": "Работа через слой доступности, view hierarchy, YAML-флоу, MCP для агентского обхода; monkey нет.",
+          "evidence": [
+            "https://github.com/mobile-dev-inc/Maestro",
+            "https://docs.maestro.dev/cli/test-suites-and-reports"
+          ]
+        },
+        "A5": {
+          "score": null,
+          "note": "не проверено: сбор logcat/ANR в просмотренных страницах не описан.",
+          "evidence": []
+        },
+        "A6": {
+          "score": null,
+          "note": "не проверено: команды поворота/настроек не открывались.",
+          "evidence": []
+        },
+        "A7": {
+          "score": 0,
+          "note": "Не найдено.",
+          "evidence": []
+        },
+        "A8": {
+          "score": 0,
+          "note": "Не найдено.",
+          "evidence": []
+        },
+        "A9": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A10": {
+          "score": 1,
+          "note": "Скриншот упавшего шага, с --analyze — скриншоты каждого шага и screen-recording.mp4; без разметки.",
+          "evidence": [
+            "https://docs.maestro.dev/cli/test-suites-and-reports"
+          ]
+        },
+        "A11": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A12": {
+          "score": 0,
+          "note": "Отчёты JUnit/HTML, issues нет.",
+          "evidence": [
+            "https://docs.maestro.dev/cli/test-suites-and-reports"
+          ]
+        },
+        "A13": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Повторяемые регрессионные сценарии",
+        "Шардинг на локальных эмуляторах",
+        "Большое сообщество"
+      ],
+      "weaknesses": [
+        "Скриптовые флоу, а не исследовательское QA",
+        "Нет конфигураций, доступности, безопасности"
+      ],
+      "risks": [
+        "Cloud загружает сборки в чужую инфраструктуру"
+      ],
+      "verdict": "inspire",
+      "summary": "Уже упомянут владельцем как необязательный усилитель. Хорош для превращения находок в регресс-флоу; QA-аудит не заменяет."
+    },
+    {
+      "id": "droidrun-mobilerun",
+      "name": "Mobilerun (бывш. DroidRun) + mobile-harness",
+      "url": "https://github.com/droidrun/mobilerun",
+      "kind": "oss-tool",
+      "collection": null,
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 9611,
+      "forks": 1025,
+      "last_commit": "2026-10-09",
+      "created": "2025-04-12",
+      "contributors": 37,
+      "price": "framework free; Mobilerun Cloud — платно (цена не проверялась)",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды/форки",
+          "value": "9611 / 1025 на 2026-10-11",
+          "url": "https://api.github.com/repos/droidrun/mobilerun"
+        },
+        {
+          "label": "Скил для агентов",
+          "value": "droidrun/mobile-harness: 397 звёзд, .claude-plugin, 3 контрибьютора",
+          "url": "https://github.com/droidrun/mobile-harness"
+        },
+        {
+          "label": "Бенчмарк (заявлен вендором)",
+          "value": "AndroidWorld 116/116 с app cards и памятью",
+          "url": "https://github.com/droidrun/mobile-harness"
+        }
+      ],
+      "coverage": {
+        "A1": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A2": {
+          "score": 0,
+          "note": "Нет; облачные телефоны как альтернатива.",
+          "evidence": [
+            "https://github.com/droidrun/mobilerun"
+          ]
+        },
+        "A3": {
+          "score": 1,
+          "note": "Облачный парк телефонов, без оркестрации QA.",
+          "evidence": [
+            "https://github.com/droidrun/mobilerun"
+          ]
+        },
+        "A4": {
+          "score": 2,
+          "note": "Дерево доступности + скриншоты через приложение Portal, режим vision-only.",
+          "evidence": [
+            "https://github.com/droidrun/mobilerun"
+          ]
+        },
+        "A5": {
+          "score": 0,
+          "note": "Не найдено.",
+          "evidence": []
+        },
+        "A6": {
+          "score": 0,
+          "note": "Не найдено.",
+          "evidence": []
+        },
+        "A7": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A8": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A9": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A10": {
+          "score": 1,
+          "note": "Скриншоты.",
+          "evidence": [
+            "https://github.com/droidrun/mobilerun"
+          ]
+        },
+        "A11": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A12": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A13": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Сильный агент выполнения задач на телефоне",
+        "Есть скил для Claude Code"
+      ],
+      "weaknesses": [
+        "Цель — автоматизация задач, а не QA",
+        "Нужна установка Portal-приложения на устройство"
+      ],
+      "risks": [
+        "Свой LLM-рантайм и ключи провайдера",
+        "Облако — данные наружу"
+      ],
+      "verdict": "ignore",
+      "summary": "Агент «делай задачу на телефоне»; для QA-аудита даёт только обход UI."
+    },
+    {
+      "id": "minitap-mobile-use",
+      "name": "mobile-use (Minitap)",
+      "url": "https://github.com/minitap-ai/mobile-use",
+      "kind": "oss-tool",
+      "collection": null,
+      "license": "Apache-2.0",
+      "osi_license": true,
+      "stars": 3245,
+      "forks": 294,
+      "last_commit": "2026-09-14",
+      "created": "2025-08-16",
+      "contributors": 19,
+      "price": "free (свои ключи LLM)",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды/форки",
+          "value": "3245 / 294 на 2026-10-11",
+          "url": "https://api.github.com/repos/minitap-ai/mobile-use"
+        },
+        {
+          "label": "Последний релиз",
+          "value": "v3.3.0 от 2026-01-12",
+          "url": "https://api.github.com/repos/minitap-ai/mobile-use/releases"
+        }
+      ],
+      "coverage": {
+        "A1": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A2": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A3": {
+          "score": 0,
+          "note": "Не найдено.",
+          "evidence": []
+        },
+        "A4": {
+          "score": 2,
+          "note": "Агенты LangGraph управляют приложением на естественном языке.",
+          "evidence": [
+            "https://github.com/minitap-ai/mobile-use"
+          ]
+        },
+        "A5": {
+          "score": 0,
+          "note": "Не найдено.",
+          "evidence": []
+        },
+        "A6": {
+          "score": 0,
+          "note": "Не найдено.",
+          "evidence": []
+        },
+        "A7": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A8": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A9": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A10": {
+          "score": 0,
+          "note": "Не найдено.",
+          "evidence": []
+        },
+        "A11": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A12": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A13": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Независимость от LLM-провайдера"
+      ],
+      "weaknesses": [
+        "Не QA-инструмент",
+        "Релизов с января 2026 нет"
+      ],
+      "risks": [
+        "Docker-образы и ключи API"
+      ],
+      "verdict": "ignore",
+      "summary": "Агент управления телефоном общего назначения; к QA-аудиту относится косвенно."
+    },
+    {
+      "id": "takahirom-arbigent",
+      "name": "Arbigent",
+      "url": "https://github.com/takahirom/arbigent",
+      "kind": "oss-tool",
+      "collection": null,
+      "license": "Apache-2.0",
+      "osi_license": true,
+      "stars": 650,
+      "forks": 63,
+      "last_commit": "2026-10-02",
+      "created": "2024-12-31",
+      "contributors": 5,
+      "price": "free (свои ключи LLM)",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Релиз",
+          "value": "0.89.0 от 2026-09-25",
+          "url": "https://api.github.com/repos/takahirom/arbigent/releases"
+        },
+        {
+          "label": "Bus factor",
+          "value": "5 контрибьюторов, автор один",
+          "url": "https://api.github.com/repos/takahirom/arbigent"
+        }
+      ],
+      "coverage": {
+        "A1": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A2": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A3": {
+          "score": 1,
+          "note": "--shard=1/4 для параллельного запуска сценариев.",
+          "evidence": [
+            "https://github.com/takahirom/arbigent"
+          ]
+        },
+        "A4": {
+          "score": 2,
+          "note": "AI-агент по сценариям с декомпозицией, аннотированные скриншоты для экранов без доступности, Maestro YAML для подготовки.",
+          "evidence": [
+            "https://github.com/takahirom/arbigent"
+          ]
+        },
+        "A5": {
+          "score": 0,
+          "note": "Не найдено.",
+          "evidence": []
+        },
+        "A6": {
+          "score": 0,
+          "note": "Не найдено.",
+          "evidence": []
+        },
+        "A7": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A8": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A9": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A10": {
+          "score": 1,
+          "note": "HTML-отчёт и скриншоты, result.yml.",
+          "evidence": [
+            "https://github.com/takahirom/arbigent"
+          ]
+        },
+        "A11": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A12": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A13": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Декомпозиция сценариев, replay с откатом на AI",
+        "UI для QA-инженеров"
+      ],
+      "weaknesses": [
+        "Нужны свои сценарии",
+        "Нет конфигураций и диагностики"
+      ],
+      "risks": [
+        "Один основной автор"
+      ],
+      "verdict": "inspire",
+      "summary": "Фреймворк AI-тестов по сценариям; идея replay с откатом на AI полезна для повторных прогонов скила."
+    },
+    {
+      "id": "claude-in-mobile",
+      "name": "claude-in-mobile / mcp-devices (AlexGladkov)",
+      "url": "https://github.com/AlexGladkov/claude-in-mobile",
+      "kind": "mcp",
+      "collection": null,
+      "license": "MIT (package.json; GitHub лицензию не определяет)",
+      "osi_license": true,
+      "stars": 378,
+      "forks": 35,
+      "last_commit": "2026-09-25",
+      "created": "2026-01-05",
+      "contributors": 11,
+      "price": "free",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Релиз",
+          "value": "v4.4.1 от 2026-09-13",
+          "url": "https://api.github.com/repos/AlexGladkov/claude-in-mobile/releases"
+        },
+        {
+          "label": "Модули тестирования",
+          "value": "visual, accessibility, performance, sensor, network",
+          "url": "https://github.com/AlexGladkov/claude-in-mobile/blob/main/docs/modules/built-in-tools.md"
+        }
+      ],
+      "coverage": {
+        "A1": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A2": {
+          "score": 0,
+          "note": "Не найдено.",
+          "evidence": []
+        },
+        "A3": {
+          "score": 0,
+          "note": "Не найдено.",
+          "evidence": []
+        },
+        "A4": {
+          "score": 2,
+          "note": "ui tree (accessibility tree JSON), поиск, ожидания, assertions.",
+          "evidence": [
+            "https://github.com/AlexGladkov/claude-in-mobile/blob/main/docs/modules/built-in-tools.md"
+          ]
+        },
+        "A5": {
+          "score": 1,
+          "note": "Логи; отладка JDWP (точки останова).",
+          "evidence": [
+            "https://github.com/AlexGladkov/claude-in-mobile"
+          ]
+        },
+        "A6": {
+          "score": 1,
+          "note": "Модули sensor/network simulation; детали для Android не проверялись.",
+          "evidence": [
+            "https://github.com/AlexGladkov/claude-in-mobile"
+          ]
+        },
+        "A7": {
+          "score": 1,
+          "note": "Модуль accessibility: audit, check color-contrast — по описанию WCAG, применимость к Android не проверена вживую.",
+          "evidence": [
+            "https://github.com/AlexGladkov/claude-in-mobile/blob/main/docs/modules/built-in-tools.md"
+          ]
+        },
+        "A8": {
+          "score": 1,
+          "note": "Модуль performance (метрики), детали не проверены.",
+          "evidence": [
+            "https://github.com/AlexGladkov/claude-in-mobile"
+          ]
+        },
+        "A9": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A10": {
+          "score": 1,
+          "note": "Скриншоты, визуальная регрессия baseline/compare, модуль recorder.",
+          "evidence": [
+            "https://github.com/AlexGladkov/claude-in-mobile/blob/main/docs/modules/built-in-tools.md"
+          ]
+        },
+        "A11": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A12": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A13": {
+          "score": 0,
+          "note": "Нет (есть модуль sandbox, назначение не проверялось).",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Широкий набор модулей включая a11y и визуальную регрессию",
+        "Плагин Claude Code"
+      ],
+      "weaknesses": [
+        "Малое сообщество",
+        "Глубина модулей не подтверждена"
+      ],
+      "risks": [
+        "Лицензия не распознана GitHub",
+        "Отладчик JDWP даёт широкие права"
+      ],
+      "verdict": "inspire",
+      "summary": "MCP с модулями a11y/perf/visual; ближе к QA, чем mobile-mcp, но без процесса и с малой аудиторией."
+    },
+    {
+      "id": "fluxxion82-android-emulator-skill",
+      "name": "Android Emulator Skill (fluxxion82)",
+      "url": "https://github.com/fluxxion82/android-emulator-skill",
+      "kind": "plugin",
+      "collection": null,
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 10,
+      "forks": 1,
+      "last_commit": "2026-09-03",
+      "created": "2025-12-13",
+      "contributors": 2,
+      "price": "free",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Релиз",
+          "value": "v0.7.0 от 2026-09-03",
+          "url": "https://api.github.com/repos/fluxxion82/android-emulator-skill/releases"
+        },
+        {
+          "label": "Статус",
+          "value": "README: активная разработка, скрипты исправляются по реальному выводу",
+          "url": "https://github.com/fluxxion82/android-emulator-skill"
+        }
+      ],
+      "coverage": {
+        "A1": {
+          "score": 0,
+          "note": "Не найдено.",
+          "evidence": []
+        },
+        "A2": {
+          "score": 1,
+          "note": "create/boot/shutdown/erase/delete AVD; матрицы нет.",
+          "evidence": [
+            "https://github.com/fluxxion82/android-emulator-skill"
+          ]
+        },
+        "A3": {
+          "score": 0,
+          "note": "Не найдено.",
+          "evidence": []
+        },
+        "A4": {
+          "score": 2,
+          "note": "Навигация по доступности вместо координат.",
+          "evidence": [
+            "https://github.com/fluxxion82/android-emulator-skill"
+          ]
+        },
+        "A5": {
+          "score": 1,
+          "note": "Мониторинг logcat.",
+          "evidence": [
+            "https://github.com/fluxxion82/android-emulator-skill"
+          ]
+        },
+        "A6": {
+          "score": 0,
+          "note": "Не найдено.",
+          "evidence": []
+        },
+        "A7": {
+          "score": 1,
+          "note": "Accessibility audit (глубина не проверена).",
+          "evidence": [
+            "https://github.com/fluxxion82/android-emulator-skill"
+          ]
+        },
+        "A8": {
+          "score": 0,
+          "note": "Не найдено.",
+          "evidence": []
+        },
+        "A9": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A10": {
+          "score": 1,
+          "note": "Visual diff, запись теста.",
+          "evidence": [
+            "https://github.com/fluxxion82/android-emulator-skill"
+          ]
+        },
+        "A11": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A12": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A13": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Плагин Claude Code с управлением AVD"
+      ],
+      "weaknesses": [
+        "10 звёзд, 2 контрибьютора, порт iOS-скила"
+      ],
+      "risks": [
+        "Заброшенность, bus factor 1–2"
+      ],
+      "verdict": "ignore",
+      "summary": "Небольшой скил для разработчика; по охвату и зрелости уступает собственному."
+    },
+    {
+      "id": "android-studio-journeys",
+      "name": "Android Studio Journeys (Gemini)",
+      "url": "https://developer.android.com/studio/gemini/journeys",
+      "kind": "saas",
+      "collection": null,
+      "license": null,
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "price": "не опубликовано (нужен вход в Gemini в Android Studio)",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Статус",
+          "value": "Studio Labs preview, с Android Studio Otter 3 Feature Drop",
+          "url": "https://developer.android.com/studio/gemini/journeys"
+        }
+      ],
+      "coverage": {
+        "A1": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A2": {
+          "score": 0,
+          "note": "Выбор устройства в IDE.",
+          "evidence": [
+            "https://developer.android.com/studio/gemini/journeys"
+          ]
+        },
+        "A3": {
+          "score": 0,
+          "note": "Не описано.",
+          "evidence": []
+        },
+        "A4": {
+          "score": 1,
+          "note": "Gemini выполняет шаги по скриншотам: tap, type, swipe; long-press, double-tap, поворот не поддерживаются.",
+          "evidence": [
+            "https://developer.android.com/studio/gemini/journeys"
+          ]
+        },
+        "A5": {
+          "score": 0,
+          "note": "Не описано.",
+          "evidence": []
+        },
+        "A6": {
+          "score": 0,
+          "note": "Поворот/складывание не поддерживаются, все разрешения выдаются по умолчанию.",
+          "evidence": [
+            "https://developer.android.com/studio/gemini/journeys"
+          ]
+        },
+        "A7": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A8": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A9": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A10": {
+          "score": 1,
+          "note": "Скриншоты каждого шага и рассуждения Gemini в панели Results.",
+          "evidence": [
+            "https://developer.android.com/studio/gemini/journeys"
+          ]
+        },
+        "A11": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A12": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A13": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Встроено в IDE, официальная поддержка Google"
+      ],
+      "weaknesses": [
+        "Нужен проект с AGP 9+ (или JOURNEYS_CUSTOM_APP_ID)",
+        "Не работает в Claude Code напрямую",
+        "Только приёмочные сценарии"
+      ],
+      "risks": [
+        "Preview, скриншоты уходят в Gemini",
+        "Все разрешения выданы — сценарии разрешений не проверяются"
+      ],
+      "verdict": "ignore",
+      "summary": "Приёмочные сценарии на естественном языке для разработчика в Android Studio; QA-аудит APK не заменяет."
+    },
+    {
+      "id": "firebase-test-lab-robo",
+      "name": "Firebase Test Lab — Robo test",
+      "url": "https://firebase.google.com/docs/test-lab/android/robo-ux-test",
+      "kind": "saas",
+      "collection": null,
+      "license": null,
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "price": "Spark: 10 запусков/день на виртуальных и 5 на физических; Blaze: 60/30 мин в день бесплатно, далее $1/ч виртуальное, $5/ч физическое",
+      "claude_code_native": false,
+      "languages": [
+        "en",
+        "ru"
+      ],
+      "quality_signals": [
+        {
+          "label": "Закрытие сервиса",
+          "value": "deprecated, полное отключение 2027-09-30, миграция на Developer Device Platform",
+          "url": "https://firebase.google.com/docs/test-lab/android/robo-ux-test"
+        },
+        {
+          "label": "Цены",
+          "value": "$1/ч виртуальное, $5/ч физическое устройство",
+          "url": "https://firebase.google.com/docs/test-lab/usage-quotas-pricing"
+        }
+      ],
+      "coverage": {
+        "A1": {
+          "score": 0,
+          "note": "Не описано.",
+          "evidence": []
+        },
+        "A2": {
+          "score": 2,
+          "note": "Облачные виртуальные и физические устройства (в т.ч. популярные модели в pre-launch report); собственных AVD с заданным ОЗУ/ядрами нет.",
+          "evidence": [
+            "https://firebase.google.com/docs/test-lab/android/robo-ux-test"
+          ]
+        },
+        "A3": {
+          "score": null,
+          "note": "не проверено: параллельный запуск матрицы на открытой странице не описан.",
+          "evidence": []
+        },
+        "A4": {
+          "score": 2,
+          "note": "Автоматический методичный обход UI, граф обхода, Robo-скрипты, fallback на Monkey Actions для экранов без виджетов.",
+          "evidence": [
+            "https://firebase.google.com/docs/test-lab/android/robo-ux-test"
+          ]
+        },
+        "A5": {
+          "score": 1,
+          "note": "Лог-файлы; детектирование падений на странице прямо не описано.",
+          "evidence": [
+            "https://firebase.google.com/docs/test-lab/android/robo-ux-test"
+          ]
+        },
+        "A6": {
+          "score": null,
+          "note": "не проверено: настройки локали/ориентации для Robo не открывались.",
+          "evidence": []
+        },
+        "A7": {
+          "score": null,
+          "note": "не проверено: на открытой странице accessibility insights не упомянуты.",
+          "evidence": []
+        },
+        "A8": {
+          "score": null,
+          "note": "не проверено: метрики производительности на странице не упомянуты.",
+          "evidence": []
+        },
+        "A9": {
+          "score": 0,
+          "note": "Не описано.",
+          "evidence": []
+        },
+        "A10": {
+          "score": 2,
+          "note": "Аннотированные скриншоты и видео из них.",
+          "evidence": [
+            "https://firebase.google.com/docs/test-lab/android/robo-ux-test"
+          ]
+        },
+        "A11": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A12": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A13": {
+          "score": 0,
+          "note": "Обход нажимает всё подряд; есть только автоматический/свой вход.",
+          "evidence": [
+            "https://firebase.google.com/docs/test-lab/android/robo-ux-test"
+          ]
+        }
+      },
+      "strengths": [
+        "Детерминированный обход без сценариев",
+        "Реальные устройства"
+      ],
+      "weaknesses": [
+        "Сервис закрывается 2027-09-30",
+        "Нет агентского разбора UX, конфигураций и issues"
+      ],
+      "risks": [
+        "APK загружается в Google Cloud",
+        "Закрытие сервиса",
+        "Обход без запретов может выполнить опасные действия в приложении"
+      ],
+      "verdict": "ignore",
+      "summary": "Автоматический краулер с хорошими артефактами, но сервис объявлен к закрытию; строить на нём замену нельзя."
+    },
+    {
+      "id": "firebase-app-testing-agent",
+      "name": "Firebase App Distribution — App Testing agent (Android)",
+      "url": "https://firebase.google.com/docs/app-distribution/android/app-testing-agent",
+      "kind": "saas",
+      "collection": null,
+      "license": null,
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "price": "бесплатно в preview, 200 тестов/мес на проект",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Статус",
+          "value": "preview без SLA и политики устаревания",
+          "url": "https://firebase.google.com/docs/app-distribution/android/app-testing-agent"
+        }
+      ],
+      "coverage": {
+        "A1": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A2": {
+          "score": 1,
+          "note": "Устройства облака по спецификации model/version/locale/orientation.",
+          "evidence": [
+            "https://firebase.google.com/docs/app-distribution/android/app-testing-agent"
+          ]
+        },
+        "A3": {
+          "score": null,
+          "note": "не проверено: параллелизм не описан.",
+          "evidence": []
+        },
+        "A4": {
+          "score": 2,
+          "note": "Gemini проходит цели на естественном языке с подсказками и проверкой финального экрана; tap, ввод, свайп, long press, drag, back.",
+          "evidence": [
+            "https://firebase.google.com/docs/app-distribution/android/app-testing-agent"
+          ]
+        },
+        "A5": {
+          "score": 1,
+          "note": "Логи в артефактах Cloud; падения прямо не упомянуты.",
+          "evidence": [
+            "https://firebase.google.com/docs/app-distribution/android/app-testing-agent"
+          ]
+        },
+        "A6": {
+          "score": 1,
+          "note": "Локаль и ориентация на уровне спецификации устройства.",
+          "evidence": [
+            "https://firebase.google.com/docs/app-distribution/android/app-testing-agent"
+          ]
+        },
+        "A7": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A8": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A9": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A10": {
+          "score": 2,
+          "note": "Скриншоты действий, «agent view», видео и логи.",
+          "evidence": [
+            "https://firebase.google.com/docs/app-distribution/android/app-testing-agent"
+          ]
+        },
+        "A11": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A12": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A13": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Бесплатно в preview",
+        "CLI/Gradle/fastlane интеграция"
+      ],
+      "weaknesses": [
+        "Таймаут 5 минут на тест",
+        "FLAG_SECURE — чёрный экран",
+        "Результаты нестабильны между запусками"
+      ],
+      "risks": [
+        "Preview без SLA",
+        "APK и учётные данные уходят в Google"
+      ],
+      "verdict": "ignore",
+      "summary": "Облачный AI-агент приёмочных сценариев от Google; узкий по сравнению со скилом и в статусе preview."
+    },
+    {
+      "id": "browserstack-app-testing",
+      "name": "BrowserStack (App Live / App Automate / App Accessibility, AI agents)",
+      "url": "https://www.browserstack.com/pricing?product=app-automate",
+      "kind": "saas",
+      "collection": null,
+      "license": null,
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "price": "Automate Desktop & Mobile $175/мес, Pro с AI-агентами $225/мес (годовая оплата); App Accessibility и App Live — цена по запросу",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Парк",
+          "value": "35 000+ реальных устройств (тариф Desktop & Mobile)",
+          "url": "https://www.browserstack.com/pricing?product=app-automate"
+        },
+        {
+          "label": "TalkBack",
+          "value": "App Accessibility: Pixel 6, Galaxy S22 Plus (Android 12), S24 Ultra (Android 14), TalkBack 16.2",
+          "url": "https://www.browserstack.com/docs/app-accessibility/screen-reader-testing/talkback"
+        }
+      ],
+      "coverage": {
+        "A1": {
+          "score": 0,
+          "note": "Не найдено.",
+          "evidence": []
+        },
+        "A2": {
+          "score": 3,
+          "note": "Реальные устройства разных моделей и версий вместо AVD — шире по железу, но без заданного ОЗУ/ядер.",
+          "evidence": [
+            "https://www.browserstack.com/pricing?product=app-automate"
+          ]
+        },
+        "A3": {
+          "score": 2,
+          "note": "Параллельные сессии 1/2/5/5+ (платно).",
+          "evidence": [
+            "https://www.browserstack.com/pricing?product=app-automate"
+          ]
+        },
+        "A4": {
+          "score": null,
+          "note": "не проверено: AI-агенты Pro (self-healing, failure analysis) относятся к автотестам; исследовательский обход не проверялся.",
+          "evidence": []
+        },
+        "A5": {
+          "score": null,
+          "note": "не проверено.",
+          "evidence": []
+        },
+        "A6": {
+          "score": null,
+          "note": "не проверено.",
+          "evidence": []
+        },
+        "A7": {
+          "score": 2,
+          "note": "TalkBack на реальных устройствах в App Accessibility — ручной, но настоящий скринридер.",
+          "evidence": [
+            "https://www.browserstack.com/docs/app-accessibility/screen-reader-testing/talkback"
+          ]
+        },
+        "A8": {
+          "score": null,
+          "note": "не проверено.",
+          "evidence": []
+        },
+        "A9": {
+          "score": 0,
+          "note": "Не найдено.",
+          "evidence": []
+        },
+        "A10": {
+          "score": null,
+          "note": "не проверено.",
+          "evidence": []
+        },
+        "A11": {
+          "score": null,
+          "note": "не проверено.",
+          "evidence": []
+        },
+        "A12": {
+          "score": null,
+          "note": "не проверено.",
+          "evidence": []
+        },
+        "A13": {
+          "score": 0,
+          "note": "Нет правил для агента.",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Реальные устройства, TalkBack",
+        "Корпоративный уровень"
+      ],
+      "weaknesses": [
+        "Дорого",
+        "Ручные сессии или свои автотесты; агентского QA-процесса нет"
+      ],
+      "risks": [
+        "APK загружается в чужое облако",
+        "Цены и состав AI-агентов меняются"
+      ],
+      "verdict": "inspire",
+      "summary": "Источник реальных устройств и TalkBack; не замена, а возможная внешняя ферма для подтверждения находок."
+    },
+    {
+      "id": "testmu-kane-cli",
+      "name": "TestMu AI (бывш. LambdaTest) KaneAI / Kane CLI mobile",
+      "url": "https://macaubusiness.com/testmu-ai-launches-mobile-automation-in-kane-cli-bringing-natural-language-test-automation-to-ios-simulators-and-android-emulators/",
+      "kind": "saas",
+      "collection": null,
+      "license": null,
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "price": "не опубликовано",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Анонс",
+          "value": "2026-09-10, мобильная автоматизация в Kane CLI для Android-эмуляторов",
+          "url": "https://macaubusiness.com/testmu-ai-launches-mobile-automation-in-kane-cli-bringing-natural-language-test-automation-to-ios-simulators-and-android-emulators/"
+        }
+      ],
+      "coverage": {
+        "A1": {
+          "score": 0,
+          "note": "Не упомянуто.",
+          "evidence": []
+        },
+        "A2": {
+          "score": null,
+          "note": "не проверено.",
+          "evidence": []
+        },
+        "A3": {
+          "score": null,
+          "note": "не проверено.",
+          "evidence": []
+        },
+        "A4": {
+          "score": 2,
+          "note": "Ожидаемый результат на естественном языке, агент управляет эмулятором, визуальная проверка экрана (по пресс-релизу).",
+          "evidence": [
+            "https://macaubusiness.com/testmu-ai-launches-mobile-automation-in-kane-cli-bringing-natural-language-test-automation-to-ios-simulators-and-android-emulators/"
+          ]
+        },
+        "A5": {
+          "score": 1,
+          "note": "Нативные логи устройства в evidence pack (по пресс-релизу).",
+          "evidence": [
+            "https://macaubusiness.com/testmu-ai-launches-mobile-automation-in-kane-cli-bringing-natural-language-test-automation-to-ios-simulators-and-android-emulators/"
+          ]
+        },
+        "A6": {
+          "score": null,
+          "note": "не проверено.",
+          "evidence": []
+        },
+        "A7": {
+          "score": null,
+          "note": "не проверено.",
+          "evidence": []
+        },
+        "A8": {
+          "score": null,
+          "note": "не проверено.",
+          "evidence": []
+        },
+        "A9": {
+          "score": 0,
+          "note": "Не упомянуто.",
+          "evidence": []
+        },
+        "A10": {
+          "score": 2,
+          "note": "Скриншоты с разметкой по шагам, сетевой трафик; видео не упомянуто.",
+          "evidence": [
+            "https://macaubusiness.com/testmu-ai-launches-mobile-automation-in-kane-cli-bringing-natural-language-test-automation-to-ios-simulators-and-android-emulators/"
+          ]
+        },
+        "A11": {
+          "score": null,
+          "note": "не проверено.",
+          "evidence": []
+        },
+        "A12": {
+          "score": null,
+          "note": "не проверено.",
+          "evidence": []
+        },
+        "A13": {
+          "score": null,
+          "note": "не проверено.",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Evidence pack: скриншоты по шагам, логи, сеть"
+      ],
+      "weaknesses": [
+        "Данные только из пресс-релиза",
+        "Цена не опубликована"
+      ],
+      "risks": [
+        "Закрытый код, данные в облаке вендора",
+        "Заявления вендора без независимой проверки"
+      ],
+      "verdict": "ignore",
+      "summary": "Коммерческий агент проверки сценариев; по открытым данным уже, чем скил, и проверить глубже не удалось."
+    },
+    {
+      "id": "qa-tech-mobile",
+      "name": "QA.tech — Mobile App Testing",
+      "url": "https://docs.qa.tech/test-features/mobile-app-testing",
+      "kind": "saas",
+      "collection": null,
+      "license": null,
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "price": "не проверено (мобильное тестирование включается через поддержку)",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Среда",
+          "value": "облачные Android-эмуляторы; реальные устройства — coming soon",
+          "url": "https://docs.qa.tech/test-features/mobile-app-testing"
+        }
+      ],
+      "coverage": {
+        "A1": {
+          "score": 0,
+          "note": "Только загрузка .apk до 4 ГБ; AAB — конвертировать bundletool.",
+          "evidence": [
+            "https://docs.qa.tech/test-features/mobile-app-testing"
+          ]
+        },
+        "A2": {
+          "score": 1,
+          "note": "Device Presets облачных эмуляторов.",
+          "evidence": [
+            "https://docs.qa.tech/test-features/mobile-app-testing"
+          ]
+        },
+        "A3": {
+          "score": null,
+          "note": "не проверено.",
+          "evidence": []
+        },
+        "A4": {
+          "score": 2,
+          "note": "AI-агент: tap, double tap, long press, swipe, ввод, back, rotate, deep links.",
+          "evidence": [
+            "https://docs.qa.tech/test-features/mobile-app-testing"
+          ]
+        },
+        "A5": {
+          "score": 0,
+          "note": "Логи консоли устройства — coming soon; есть сетевые логи.",
+          "evidence": [
+            "https://docs.qa.tech/test-features/mobile-app-testing"
+          ]
+        },
+        "A6": {
+          "score": 1,
+          "note": "Поворот на Android, GPS в пресете.",
+          "evidence": [
+            "https://docs.qa.tech/test-features/mobile-app-testing"
+          ]
+        },
+        "A7": {
+          "score": 0,
+          "note": "Не упомянуто.",
+          "evidence": []
+        },
+        "A8": {
+          "score": 0,
+          "note": "Не упомянуто.",
+          "evidence": []
+        },
+        "A9": {
+          "score": 0,
+          "note": "Не упомянуто.",
+          "evidence": []
+        },
+        "A10": {
+          "score": null,
+          "note": "не проверено: в документации скриншоты/видео не упомянуты.",
+          "evidence": []
+        },
+        "A11": {
+          "score": 0,
+          "note": "Микрофон и аудио явно не поддерживаются.",
+          "evidence": [
+            "https://docs.qa.tech/test-features/mobile-app-testing"
+          ]
+        },
+        "A12": {
+          "score": null,
+          "note": "не проверено для мобильных (интеграции в документации не упомянуты).",
+          "evidence": []
+        },
+        "A13": {
+          "score": 0,
+          "note": "Не упомянуто.",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Один агент для веба и мобильных",
+        "PR-тестирование через CI"
+      ],
+      "weaknesses": [
+        "Нет микрофона, камеры, биометрии, мультитача",
+        "Нет логов устройства"
+      ],
+      "risks": [
+        "Сборки и трафик идут через облако вендора",
+        "Приложения с проверкой root не стартуют на эмуляторе"
+      ],
+      "verdict": "ignore",
+      "summary": "Коммерческий AI-агент для мобильных сценариев в облаке; беднее скила по диагностике и конфигурациям."
+    },
+    {
+      "id": "mobsf",
+      "name": "MobSF (Mobile Security Framework)",
+      "url": "https://github.com/MobSF/Mobile-Security-Framework-MobSF",
+      "kind": "oss-tool",
+      "collection": null,
+      "license": "GPL-3.0",
+      "osi_license": true,
+      "stars": 21916,
+      "forks": 3784,
+      "last_commit": "2026-09-30",
+      "created": "2015-01-31",
+      "contributors": 114,
+      "price": "free (enterprise-поддержка платно)",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды/форки",
+          "value": "21916 / 3784 на 2026-10-11",
+          "url": "https://api.github.com/repos/MobSF/Mobile-Security-Framework-MobSF"
+        },
+        {
+          "label": "Релиз",
+          "value": "v4.5.3 от 2026-09-21",
+          "url": "https://api.github.com/repos/MobSF/Mobile-Security-Framework-MobSF/releases"
+        },
+        {
+          "label": "Качество кода",
+          "value": "SonarCloud Quality Gate в README",
+          "url": "https://github.com/MobSF/Mobile-Security-Framework-MobSF"
+        }
+      ],
+      "coverage": {
+        "A1": {
+          "score": 3,
+          "note": "Статический анализ APK/IPA/APPX и исходников — глубже собственного apk_info.",
+          "evidence": [
+            "https://github.com/MobSF/Mobile-Security-Framework-MobSF"
+          ]
+        },
+        "A2": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A3": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A4": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A5": {
+          "score": 1,
+          "note": "Динамический анализатор: данные времени выполнения и сеть.",
+          "evidence": [
+            "https://github.com/MobSF/Mobile-Security-Framework-MobSF"
+          ]
+        },
+        "A6": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A7": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A8": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A9": {
+          "score": 3,
+          "note": "Статика + динамика + анализ трафика — шире пассивной проверки (это уже пентест-инструмент).",
+          "evidence": [
+            "https://github.com/MobSF/Mobile-Security-Framework-MobSF"
+          ]
+        },
+        "A10": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A11": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A12": {
+          "score": 0,
+          "note": "Нет; есть REST API и CLI для CI.",
+          "evidence": [
+            "https://github.com/MobSF/Mobile-Security-Framework-MobSF"
+          ]
+        },
+        "A13": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Эталон статического анализа APK",
+        "Docker, REST API"
+      ],
+      "weaknesses": [
+        "Только безопасность"
+      ],
+      "risks": [
+        "GPL-3.0 — не встраивать код в скил под PolyForm",
+        "Динамический режим — активное тестирование, противоречит запрету пентеста скила"
+      ],
+      "verdict": "partial",
+      "summary": "Может заменить A1 и A9 как внешний необязательный шаг (статический отчёт по APK через Docker). Остальное не покрывает."
+    },
+    {
+      "id": "apkanalyzer",
+      "name": "apkanalyzer (Android SDK cmdline-tools)",
+      "url": "https://developer.android.com/tools/apkanalyzer",
+      "kind": "builtin",
+      "collection": "Android SDK",
+      "license": "Android SDK License",
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "price": "free",
+      "claude_code_native": false,
+      "languages": [
+        "en",
+        "ru"
+      ],
+      "quality_signals": [
+        {
+          "label": "Официальный инструмент",
+          "value": "часть cmdline-tools, которые скил уже требует",
+          "url": "https://developer.android.com/tools/apkanalyzer"
+        }
+      ],
+      "coverage": {
+        "A1": {
+          "score": 2,
+          "note": "manifest (permissions, min/target-sdk, debuggable), files, dex, resources, size и compare.",
+          "evidence": [
+            "https://developer.android.com/tools/apkanalyzer"
+          ]
+        },
+        "A2": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A3": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A4": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A5": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A6": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A7": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A8": {
+          "score": 1,
+          "note": "Размер файла и download-size.",
+          "evidence": [
+            "https://developer.android.com/tools/apkanalyzer"
+          ]
+        },
+        "A9": {
+          "score": 1,
+          "note": "Флаг debuggable и список разрешений; без оценки.",
+          "evidence": [
+            "https://developer.android.com/tools/apkanalyzer"
+          ]
+        },
+        "A10": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A11": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A12": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A13": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Уже есть на машине с SDK",
+        "Сравнение двух APK"
+      ],
+      "weaknesses": [
+        "Сырой вывод без интерпретации"
+      ],
+      "risks": [
+        "Нет"
+      ],
+      "verdict": "partial",
+      "summary": "Может служить источником данных для собственного apk_info (A1), но не заменяет интерпретацию и проверки безопасности."
+    },
+    {
+      "id": "adb-monkey",
+      "name": "UI/Application Exerciser Monkey (adb shell monkey)",
+      "url": "https://developer.android.com/studio/test/other-testing-tools/monkey",
+      "kind": "builtin",
+      "collection": "Android platform",
+      "license": "Apache-2.0 (AOSP)",
+      "osi_license": true,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "price": "free",
+      "claude_code_native": false,
+      "languages": [
+        "en",
+        "ru"
+      ],
+      "quality_signals": [
+        {
+          "label": "Повторяемость",
+          "value": "seed -s даёт ту же последовательность событий",
+          "url": "https://developer.android.com/studio/test/other-testing-tools/monkey"
+        }
+      ],
+      "coverage": {
+        "A1": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A2": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A3": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A4": {
+          "score": 1,
+          "note": "Случайные события с seed и процентами типов; без дерева элементов.",
+          "evidence": [
+            "https://developer.android.com/studio/test/other-testing-tools/monkey"
+          ]
+        },
+        "A5": {
+          "score": 1,
+          "note": "Останавливается и сообщает о падении и ANR.",
+          "evidence": [
+            "https://developer.android.com/studio/test/other-testing-tools/monkey"
+          ]
+        },
+        "A6": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A7": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A8": {
+          "score": 1,
+          "note": "--hprof до и после.",
+          "evidence": [
+            "https://developer.android.com/studio/test/other-testing-tools/monkey"
+          ]
+        },
+        "A9": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A10": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A11": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A12": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A13": {
+          "score": 1,
+          "note": "-p ограничивает переходы пакетом приложения; от опасных кнопок внутри приложения не защищает.",
+          "evidence": [
+            "https://developer.android.com/studio/test/other-testing-tools/monkey"
+          ]
+        }
+      },
+      "strengths": [
+        "Встроен в Android"
+      ],
+      "weaknesses": [
+        "Слепой стресс-тест"
+      ],
+      "risks": [
+        "Без guard может нажать «Купить» или «Удалить» внутри приложения"
+      ],
+      "verdict": "ignore",
+      "summary": "Уже используется скилом как один из инструментов; самостоятельной заменой не является."
+    },
+    {
+      "id": "google-atf-android",
+      "name": "Accessibility Test Framework for Android (Google)",
+      "url": "https://github.com/google/Accessibility-Test-Framework-for-Android",
+      "kind": "oss-tool",
+      "collection": null,
+      "license": "Apache-2.0",
+      "osi_license": true,
+      "stars": 523,
+      "forks": 155,
+      "last_commit": "2024-04-03",
+      "created": "2015-09-12",
+      "contributors": null,
+      "price": "free",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Свежесть",
+          "value": "последний push 2024-04-03",
+          "url": "https://api.github.com/repos/google/Accessibility-Test-Framework-for-Android"
+        }
+      ],
+      "coverage": {
+        "A1": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A2": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A3": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A4": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A5": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A6": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A7": {
+          "score": 1,
+          "note": "Библиотека проверок доступности для автотестов (Espresso/Robolectric) — нужны исходники и инструментальные тесты.",
+          "evidence": [
+            "https://github.com/google/Accessibility-Test-Framework-for-Android"
+          ]
+        },
+        "A8": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A9": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A10": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A11": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A12": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A13": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Официальные правила доступности Google"
+      ],
+      "weaknesses": [
+        "Требует исходников и тестового кода",
+        "Не обновлялся с 2024"
+      ],
+      "risks": [
+        "Заброшенность"
+      ],
+      "verdict": "inspire",
+      "summary": "Набор правил можно использовать как справочник для чек-листа A7; заменой чёрного ящика не является."
+    },
+    {
+      "id": "wix-detox",
+      "name": "Detox (Wix)",
+      "url": "https://github.com/wix/Detox",
+      "kind": "oss-tool",
+      "collection": null,
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 12035,
+      "forks": 1907,
+      "last_commit": "2026-10-05",
+      "created": "2016-06-15",
+      "contributors": 281,
+      "price": "free",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Релиз",
+          "value": "20.51.3 от 2026-05-30",
+          "url": "https://api.github.com/repos/wix/Detox/releases"
+        }
+      ],
+      "coverage": {
+        "A1": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A2": {
+          "score": 0,
+          "note": "Не проверялось.",
+          "evidence": []
+        },
+        "A3": {
+          "score": null,
+          "note": "не проверено.",
+          "evidence": []
+        },
+        "A4": {
+          "score": 1,
+          "note": "Gray box E2E-тесты на JavaScript для React Native — нужны исходники и тестовый код.",
+          "evidence": [
+            "https://github.com/wix/Detox"
+          ]
+        },
+        "A5": {
+          "score": 0,
+          "note": "Не проверялось.",
+          "evidence": []
+        },
+        "A6": {
+          "score": 0,
+          "note": "Не проверялось.",
+          "evidence": []
+        },
+        "A7": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A8": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A9": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A10": {
+          "score": 0,
+          "note": "Не проверялось.",
+          "evidence": []
+        },
+        "A11": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A12": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A13": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Стабильные E2E для React Native"
+      ],
+      "weaknesses": [
+        "Только React Native, gray box, нужен код"
+      ],
+      "risks": [
+        "Не подходит под задачу «без исходников»"
+      ],
+      "verdict": "ignore",
+      "summary": "Фреймворк автотестов для разработчиков React Native; другой класс задач."
+    },
+    {
+      "id": "ecc-android-kotlin-skills",
+      "name": "ECC: android-clean-architecture, kotlin-testing, compose-multiplatform-patterns, accessibility",
+      "url": "https://github.com/affaan-m/ECC",
+      "kind": "collection",
+      "collection": "ECC",
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 276823,
+      "forks": 41274,
+      "last_commit": "2026-10-11",
+      "created": "2026-01-18",
+      "contributors": null,
+      "price": "free",
+      "claude_code_native": true,
+      "languages": [
+        "en",
+        "ja",
+        "zh"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды/форки",
+          "value": "276823 / 41274 на 2026-10-11",
+          "url": "https://api.github.com/repos/affaan-m/ECC"
+        },
+        {
+          "label": "Состав по теме",
+          "value": "в локальном клоне (коммит 2026-10-10) нет скилов с adb/uiautomator для Android-QA; есть kotlin-reviewer, kotlin-build-resolver",
+          "url": "https://github.com/affaan-m/ECC"
+        }
+      ],
+      "coverage": {
+        "A1": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A2": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A3": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A4": {
+          "score": 0,
+          "note": "e2e-testing — только Playwright для веба.",
+          "evidence": [
+            "https://github.com/affaan-m/ECC"
+          ]
+        },
+        "A5": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A6": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A7": {
+          "score": 1,
+          "note": "accessibility: WCAG 2.2 для Web/iOS/Android (Compose semantics, contentDescription) — на уровне кода.",
+          "evidence": [
+            "https://github.com/affaan-m/ECC"
+          ]
+        },
+        "A8": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A9": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A10": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A11": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A12": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A13": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Гигантская аудитория, много языков документации"
+      ],
+      "weaknesses": [
+        "Только паттерны разработки Kotlin/Android"
+      ],
+      "risks": [
+        "Широкие хуки ECC при полной установке"
+      ],
+      "verdict": "ignore",
+      "summary": "В ECC нет скила QA Android-приложения по APK; Kotlin/Android-скилы — для разработчиков."
+    },
+    {
+      "id": "claude-code-builtin",
+      "name": "Встроенные возможности Claude Code (Bash + adb/emulator, Read для скриншотов, субагенты)",
+      "url": "https://code.claude.com/docs/en/sub-agents",
+      "kind": "builtin",
+      "collection": null,
+      "license": null,
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "price": "входит в подписку Claude",
+      "claude_code_native": true,
+      "languages": [
+        "en",
+        "ru"
+      ],
+      "quality_signals": [
+        {
+          "label": "Субагенты",
+          "value": "свой контекст и права у каждого, до 20 одновременно по умолчанию",
+          "url": "https://code.claude.com/docs/en/sub-agents"
+        }
+      ],
+      "coverage": {
+        "A1": {
+          "score": 1,
+          "note": "Модель может вызвать aapt2/apkanalyzer через Bash, но без готовой процедуры.",
+          "evidence": [
+            "https://developer.android.com/tools/apkanalyzer"
+          ]
+        },
+        "A2": {
+          "score": 1,
+          "note": "avdmanager/emulator вызываются из Bash вручную.",
+          "evidence": []
+        },
+        "A3": {
+          "score": 1,
+          "note": "Параллельные субагенты есть, но владение стендами и сведение находок — нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/sub-agents"
+          ]
+        },
+        "A4": {
+          "score": 1,
+          "note": "uiautomator dump и input через Bash, Read просматривает PNG.",
+          "evidence": []
+        },
+        "A5": {
+          "score": 1,
+          "note": "logcat/dumpsys через Bash.",
+          "evidence": []
+        },
+        "A6": {
+          "score": 1,
+          "note": "settings/cmd uimode через Bash вручную.",
+          "evidence": []
+        },
+        "A7": {
+          "score": 0,
+          "note": "Нет методики.",
+          "evidence": []
+        },
+        "A8": {
+          "score": 1,
+          "note": "am start -W, dumpsys meminfo вручную.",
+          "evidence": []
+        },
+        "A9": {
+          "score": 0,
+          "note": "Нет методики.",
+          "evidence": []
+        },
+        "A10": {
+          "score": 1,
+          "note": "screencap/screenrecord через Bash, без разметки.",
+          "evidence": []
+        },
+        "A11": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A12": {
+          "score": 1,
+          "note": "gh CLI доступен, процедуры дедупликации и перепроверки нет.",
+          "evidence": []
+        },
+        "A13": {
+          "score": 1,
+          "note": "Система разрешений и хуки Claude Code, но не правила уровня приложения.",
+          "evidence": [
+            "https://code.claude.com/docs/en/sub-agents"
+          ]
+        }
+      },
+      "strengths": [
+        "Ничего ставить не нужно",
+        "Гибкость"
+      ],
+      "weaknesses": [
+        "Всё «в зародыше»: нет процесса, повторяемости и защиты"
+      ],
+      "risks": [
+        "Без guard агент может выполнить опасное действие на устройстве"
+      ],
+      "verdict": "ignore",
+      "summary": "База, на которой построен скил; сама по себе даёт только сырые примитивы (оценки 0–1). Оценки A2, A4–A6, A8, A10, A12 даны по общеизвестной возможности вызова adb из Bash без отдельного источника."
+    },
+    {
+      "id": "genymotion",
+      "name": "Genymotion Desktop / SaaS",
+      "url": "https://www.genymotion.com/pricing/",
+      "kind": "saas",
+      "collection": null,
+      "license": null,
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "price": "Desktop: Free (личное), Individual $239.99/год, Business $479.99/год; SaaS: $0.06/мин или $179–219/мес за устройство",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Ограничения бесплатного",
+          "value": "нет последней версии Android, сетевых профилей, GPS-маршрутов, полного gmtool",
+          "url": "https://www.genymotion.com/pricing/"
+        }
+      ],
+      "coverage": {
+        "A1": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A2": {
+          "score": 1,
+          "note": "Виртуальные устройства, в Premium SaaS — свои CPU/RAM; создание матрицы — не проверено.",
+          "evidence": [
+            "https://www.genymotion.com/pricing/"
+          ]
+        },
+        "A3": {
+          "score": null,
+          "note": "не проверено: число одновременных устройств не указано.",
+          "evidence": []
+        },
+        "A4": {
+          "score": 0,
+          "note": "Только эмулятор.",
+          "evidence": []
+        },
+        "A5": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A6": {
+          "score": 1,
+          "note": "Сетевые профили, GPS (платные виджеты).",
+          "evidence": [
+            "https://www.genymotion.com/pricing/"
+          ]
+        },
+        "A7": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A8": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A9": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A10": {
+          "score": 0,
+          "note": "Не проверено.",
+          "evidence": []
+        },
+        "A11": {
+          "score": 1,
+          "note": "Инъекция камеры/медиа в платных планах; звук в микрофон не проверен.",
+          "evidence": [
+            "https://www.genymotion.com/pricing/"
+          ]
+        },
+        "A12": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        },
+        "A13": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Быстрые эмуляторы, облачный вариант"
+      ],
+      "weaknesses": [
+        "Только среда исполнения, не QA"
+      ],
+      "risks": [
+        "Платные функции, закрытый код"
+      ],
+      "verdict": "ignore",
+      "summary": "Альтернативная среда эмуляции; к QA-процессу отношения не имеет и стандартный эмулятор Android для скила достаточен."
+    }
+  ],
+  "verdict": {
+    "can_replace": "partial",
+    "headline": "Целиком заменить нечем: сторонние продукты закрывают слой управления устройством (A4–A6, A8), но не QA-процесс владельца — матрицу стендов, guard-запреты, находки → issues, микрофон и soak.",
+    "explanation": "Ни один из 26 кандидатов не набирает 2+ балла больше чем по 5 из 13 возможностей (максимум суммы — 15 из 39). Лучшие по сумме: callstack/agent-device (15: A3–A6, A8 на уровне 2, но нет A1, A9, A11, слабые A2, A7, A10, A12, A13), Google Android CLI + android/skills (9: AVD/SDK, layout, профилировщик, скилы безопасности по исходникам), OpenAI test-android-apps (7: обход по дереву, logcat, глубокое профилирование), mobile-mcp (7), MobSF (7, только A1/A9/A5), claude-in-mobile (7, глубина модулей не подтверждена); встроенный Claude Code даёт 10, но только оценками 0–1 (сырые примитивы). Закрыты сторонними: A4 (обход по дереву — у многих, эквивалент), A5 (logcat/падения — mobile-mcp, agent-device), A6 частично (agent-device: тема, шрифт, поворот, сеть, разрешения; нет языка/RTL, смерти процесса, Doze), A8 частично (Simpleperf/Perfetto у OpenAI и Google глубже, но soak нет ни у кого), A1/A9 (MobSF статически глубже, apkanalyzer — эквивалент сырого разбора). Не закрыты никем: A2 в полном виде (матрица API × ОЗУ × ядра × настройки с созданием AVD), A3 как оркестрация потоков с владением стендами и сведением находок (agent-device решает только изоляцию), A11 (звук в микрофон эмулятора), A12 (черновики issues по формам репозитория, дедупликация, перепроверка repro до публикации), A13 (fail-closed guard на каждое действие с запретом покупок, входа, звонков, чужих приложений), A10 в виде аннотированных скриншотов + роликов с бюджетом и лентой кадров. Облачные сервисы (Firebase Test Lab закрывается 2027-09-30; App Testing agent и Journeys — preview; BrowserStack, TestMu, QA.tech — платные/закрытые) дают реальные устройства и AI-прогон сценариев, но не исследовательский аудит без исходников с безопасностью.",
+    "replace_with": [
+      "callstack-agent-device",
+      "google-android-cli-skills",
+      "mobsf"
+    ],
+    "keep_own": [
+      "A1",
+      "A2",
+      "A3",
+      "A6",
+      "A7",
+      "A8",
+      "A9",
+      "A10",
+      "A11",
+      "A12",
+      "A13"
+    ],
+    "lost_if_replaced": [
+      "Матрица «версии Android × ОЗУ/ядра/экран × настройки» с созданием AVD qa-* и переиспользованием",
+      "Оркестрация до 4 потоков с владением стендами, ingest находок исполнителей и дедупликацией fingerprint",
+      "Fail-closed guard на каждое действие (deny/confirm, logs/blocked.jsonl) и базовые запреты",
+      "Звук в микрофон эмулятора (gRPC с токеном, loopback, файл)",
+      "Soak/job долгих сценариев с предусловием и графиками PSS",
+      "Аннотированные скриншоты и ролики находок с бюджетом, лентой кадров и проверкой просмотра",
+      "Сверка с issues, формы issue репозитория, вложения веткой, перепроверка repro и dry-run",
+      "Память о приложении, журнал прогона, русскоязычные отчёты и опрос"
+    ],
+    "migration_effort_days": 6,
+    "keep_developing": "partial",
+    "keep_developing_what": "Развивать уникальное: матрицу стендов, guard/запреты, конвейер находок → issues с перепроверкой, микрофон, soak, ролики; главный приоритет — живые прогоны (многое в 1.1–1.5 проверено только офлайн на фейковом adb). Не развивать дальше собственный низкоуровневый слой управления UI: подключить agent-device или Android CLI как необязательный бэкенд в plugins-map (через guard-обёртку), взять из OpenAI android-performance и Google android-profiler приёмы Simpleperf/Perfetto для A8, MobSF/apkanalyzer — как необязательный внешний шаг для A1/A9, а находки экспортировать в Maestro-флоу для регресса.",
+    "risks": [
+      "Сторонние инструменты управления устройством обходят guard: прямые вызовы MCP/CLI ломают fail-closed модель, нужна обёртка",
+      "agent-device и Android CLI молоды и быстро меняются (agent-device создан 2026-01-30, 109 открытых issues/PR)",
+      "Firebase Test Lab отключается 2027-09-30; App Testing agent и Journeys — preview без SLA",
+      "SaaS (BrowserStack, TestMu, QA.tech, Firebase) требуют загрузки APK и учётных данных во внешнее облако",
+      "MobSF под GPL-3.0 — только как внешний процесс, не встраивать код в скил под PolyForm Noncommercial",
+      "Android CLI собирает телеметрию по умолчанию; лицензия CLI не опубликована"
+    ],
+    "cost_notes": "Открытые замены бесплатны (agent-device MIT, android/skills Apache-2.0, mobile-mcp Apache-2.0, Maestro Apache-2.0, MobSF GPL-3.0). Облако: BrowserStack Automate Desktop & Mobile $175/мес, Pro с AI-агентами $225/мес (годовая оплата); Firebase Test Lab $1/ч виртуальное, $5/ч физическое (бесплатно 60/30 мин в день на Blaze) до закрытия 2027-09-30; App Testing agent бесплатно в preview до 200 тестов/мес; Genymotion Desktop $239.99/год, SaaS $0.06/мин; QA.tech, TestMu KaneAI, Maestro Cloud — цены не опубликованы или не проверялись. Оценка 6 дней — подключение agent-device/Android CLI как необязательного бэкенда с guard-обёрткой и тестами (допущение), а не полная замена."
+  },
+  "sources": [
+    {
+      "url": "https://github.com/openai/plugins/blob/main/plugins/test-android-apps/skills/android-emulator-qa/SKILL.md",
+      "title": "openai/plugins android-emulator-qa SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "возможности OpenAI QA-скила"
+    },
+    {
+      "url": "https://github.com/openai/plugins/blob/main/plugins/test-android-apps/skills/android-performance/SKILL.md",
+      "title": "openai/plugins android-performance SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "профилирование A8, A5"
+    },
+    {
+      "url": "https://github.com/openai/plugins/blob/main/plugins/test-android-apps/.codex-plugin/plugin.json",
+      "title": "Test Android Apps plugin.json",
+      "date_checked": "2026-10-11",
+      "used_for": "версия, лицензия, формат Codex"
+    },
+    {
+      "url": "https://tessl.io/registry/skills/github/openai/plugins/android-emulator-qa/review",
+      "title": "Tessl review android-emulator-qa",
+      "date_checked": "2026-10-11",
+      "used_for": "оценки качества и Snyk"
+    },
+    {
+      "url": "https://api.github.com/repos/openai/plugins",
+      "title": "GitHub API openai/plugins",
+      "date_checked": "2026-10-11",
+      "used_for": "звёзды, форки, даты"
+    },
+    {
+      "url": "https://github.com/android/skills",
+      "title": "android/skills README",
+      "date_checked": "2026-10-11",
+      "used_for": "состав, установка, политика вкладов"
+    },
+    {
+      "url": "https://github.com/android/skills/blob/main/.claude-plugin/marketplace.json",
+      "title": "android/skills marketplace.json",
+      "date_checked": "2026-10-11",
+      "used_for": "совместимость с Claude Code, список скилов"
+    },
+    {
+      "url": "https://github.com/android/skills/blob/main/devtools/android-cli/SKILL.md",
+      "title": "android-cli SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "команды CLI: emulator, run, layout, screen"
+    },
+    {
+      "url": "https://github.com/android/skills/blob/main/devtools/android-cli/references/interact.md",
+      "title": "android-cli interact.md",
+      "date_checked": "2026-10-11",
+      "used_for": "layout --diff, annotate, правила ввода"
+    },
+    {
+      "url": "https://github.com/android/skills/blob/main/devtools/android-cli/references/journeys.md",
+      "title": "android-cli journeys.md",
+      "date_checked": "2026-10-11",
+      "used_for": "формат journeys, отчёт"
+    },
+    {
+      "url": "https://github.com/android/skills/blob/main/profilers/android-profiler/SKILL.md",
+      "title": "android-profiler SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "профилирование A8"
+    },
+    {
+      "url": "https://github.com/android/skills/blob/main/security/android-permissions-security/SKILL.md",
+      "title": "android-permissions-security SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "A1/A9 на уровне исходников"
+    },
+    {
+      "url": "https://github.com/android/skills/blob/main/security/android-intent-security/SKILL.md",
+      "title": "android-intent-security SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "A9"
+    },
+    {
+      "url": "https://github.com/android/skills/blob/main/play/play-policy-insights/SKILL.md",
+      "title": "play-policy-insights SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "A1"
+    },
+    {
+      "url": "https://developer.android.com/tools/agents/android-cli",
+      "title": "Android CLI",
+      "date_checked": "2026-10-11",
+      "used_for": "команды, телеметрия, Windows-ограничение"
+    },
+    {
+      "url": "https://developer.android.com/tools/agents/android-cli/journeys",
+      "title": "Android CLI Journeys",
+      "date_checked": "2026-10-11",
+      "used_for": "запуск journeys агентом"
+    },
+    {
+      "url": "https://developer.android.com/studio/gemini/journeys",
+      "title": "Journeys for Android Studio",
+      "date_checked": "2026-10-11",
+      "used_for": "требования AGP 9, ограничения, выдача разрешений"
+    },
+    {
+      "url": "https://github.com/callstack/agent-device",
+      "title": "callstack/agent-device README",
+      "date_checked": "2026-10-11",
+      "used_for": "возможности, параллельные агенты, пользователи"
+    },
+    {
+      "url": "https://github.com/callstack/agent-device/blob/main/website/docs/docs/commands.md",
+      "title": "agent-device Commands",
+      "date_checked": "2026-10-11",
+      "used_for": "settings, orientation, perf, boot"
+    },
+    {
+      "url": "https://github.com/callstack/agent-device/blob/main/skills/dogfood/SKILL.md",
+      "title": "agent-device dogfood skill",
+      "date_checked": "2026-10-11",
+      "used_for": "исследовательское QA, allowed-tools"
+    },
+    {
+      "url": "https://api.github.com/repos/callstack/agent-device",
+      "title": "GitHub API callstack/agent-device",
+      "date_checked": "2026-10-11",
+      "used_for": "звёзды, даты, issues"
+    },
+    {
+      "url": "https://github.com/mobile-next/mobile-mcp",
+      "title": "mobile-next/mobile-mcp README",
+      "date_checked": "2026-10-11",
+      "used_for": "инструменты MCP, плагин Claude Code"
+    },
+    {
+      "url": "https://github.com/CursorTouch/Android-MCP",
+      "title": "CursorTouch/Android-MCP README",
+      "date_checked": "2026-10-11",
+      "used_for": "инструменты, предупреждение о безопасности"
+    },
+    {
+      "url": "https://github.com/appium/appium-mcp",
+      "title": "appium/appium-mcp README",
+      "date_checked": "2026-10-11",
+      "used_for": "сессии, запись экрана, генерация тестов"
+    },
+    {
+      "url": "https://api.github.com/repos/appium/appium",
+      "title": "GitHub API appium/appium",
+      "date_checked": "2026-10-11",
+      "used_for": "сигналы качества Appium"
+    },
+    {
+      "url": "https://github.com/mobile-dev-inc/Maestro",
+      "title": "Maestro README",
+      "date_checked": "2026-10-11",
+      "used_for": "MCP, Studio, Cloud"
+    },
+    {
+      "url": "https://docs.maestro.dev/maestro-flows/flow-control-and-logic/specify-and-start-devices",
+      "title": "Maestro: Specify and start devices",
+      "date_checked": "2026-10-11",
+      "used_for": "start-device, шардинг"
+    },
+    {
+      "url": "https://docs.maestro.dev/cli/test-suites-and-reports",
+      "title": "Maestro: Test suites and reports",
+      "date_checked": "2026-10-11",
+      "used_for": "отчёты, скриншоты, запись"
+    },
+    {
+      "url": "https://github.com/droidrun/mobilerun",
+      "title": "droidrun/mobilerun README",
+      "date_checked": "2026-10-11",
+      "used_for": "возможности агента, облако"
+    },
+    {
+      "url": "https://github.com/droidrun/mobile-harness",
+      "title": "droidrun/mobile-harness README",
+      "date_checked": "2026-10-11",
+      "used_for": "скил для Claude Code, бенчмарк вендора"
+    },
+    {
+      "url": "https://github.com/minitap-ai/mobile-use",
+      "title": "minitap-ai/mobile-use README",
+      "date_checked": "2026-10-11",
+      "used_for": "возможности"
+    },
+    {
+      "url": "https://github.com/takahirom/arbigent",
+      "title": "takahirom/arbigent README",
+      "date_checked": "2026-10-11",
+      "used_for": "шардинг, отчёты, replay"
+    },
+    {
+      "url": "https://github.com/AlexGladkov/claude-in-mobile",
+      "title": "AlexGladkov/claude-in-mobile README",
+      "date_checked": "2026-10-11",
+      "used_for": "возможности mcp-devices"
+    },
+    {
+      "url": "https://github.com/AlexGladkov/claude-in-mobile/blob/main/docs/modules/built-in-tools.md",
+      "title": "claude-in-mobile Built-in Tools",
+      "date_checked": "2026-10-11",
+      "used_for": "модули accessibility, visual, performance"
+    },
+    {
+      "url": "https://github.com/fluxxion82/android-emulator-skill",
+      "title": "fluxxion82/android-emulator-skill README",
+      "date_checked": "2026-10-11",
+      "used_for": "возможности скила"
+    },
+    {
+      "url": "https://firebase.google.com/docs/test-lab/android/robo-ux-test",
+      "title": "Firebase Robo test",
+      "date_checked": "2026-10-11",
+      "used_for": "обход, артефакты, закрытие 2027-09-30"
+    },
+    {
+      "url": "https://firebase.google.com/docs/test-lab/usage-quotas-pricing",
+      "title": "Firebase Test Lab quotas and pricing",
+      "date_checked": "2026-10-11",
+      "used_for": "цены"
+    },
+    {
+      "url": "https://firebase.google.com/docs/app-distribution/android/app-testing-agent",
+      "title": "Firebase App Testing agent (Android)",
+      "date_checked": "2026-10-11",
+      "used_for": "возможности, preview, квоты"
+    },
+    {
+      "url": "https://www.browserstack.com/pricing?product=app-automate",
+      "title": "BrowserStack pricing",
+      "date_checked": "2026-10-11",
+      "used_for": "цены, парк устройств, AI-агенты"
+    },
+    {
+      "url": "https://www.browserstack.com/docs/app-accessibility/screen-reader-testing/talkback",
+      "title": "BrowserStack TalkBack testing",
+      "date_checked": "2026-10-11",
+      "used_for": "A7"
+    },
+    {
+      "url": "https://macaubusiness.com/testmu-ai-launches-mobile-automation-in-kane-cli-bringing-natural-language-test-automation-to-ios-simulators-and-android-emulators/",
+      "title": "TestMu AI Kane CLI mobile (пресс-релиз)",
+      "date_checked": "2026-10-11",
+      "used_for": "возможности KaneAI mobile"
+    },
+    {
+      "url": "https://docs.qa.tech/test-features/mobile-app-testing",
+      "title": "QA.tech Mobile App Testing",
+      "date_checked": "2026-10-11",
+      "used_for": "возможности и ограничения"
+    },
+    {
+      "url": "https://github.com/MobSF/Mobile-Security-Framework-MobSF",
+      "title": "MobSF README",
+      "date_checked": "2026-10-11",
+      "used_for": "статический/динамический анализ"
+    },
+    {
+      "url": "https://developer.android.com/tools/apkanalyzer",
+      "title": "apkanalyzer",
+      "date_checked": "2026-10-11",
+      "used_for": "A1"
+    },
+    {
+      "url": "https://developer.android.com/studio/test/other-testing-tools/monkey",
+      "title": "UI/Application Exerciser Monkey",
+      "date_checked": "2026-10-11",
+      "used_for": "A4, A5, A13"
+    },
+    {
+      "url": "https://github.com/google/Accessibility-Test-Framework-for-Android",
+      "title": "Accessibility Test Framework for Android (GitHub API)",
+      "date_checked": "2026-10-11",
+      "used_for": "A7, свежесть"
+    },
+    {
+      "url": "https://github.com/wix/Detox",
+      "title": "wix/Detox README",
+      "date_checked": "2026-10-11",
+      "used_for": "класс инструмента"
+    },
+    {
+      "url": "https://github.com/affaan-m/ECC",
+      "title": "ECC (локальный клон, коммит 2026-10-10, + GitHub API)",
+      "date_checked": "2026-10-11",
+      "used_for": "Android/Kotlin-скилы ECC"
+    },
+    {
+      "url": "https://code.claude.com/docs/en/sub-agents",
+      "title": "Claude Code: subagents",
+      "date_checked": "2026-10-11",
+      "used_for": "параллельные субагенты"
+    },
+    {
+      "url": "https://www.genymotion.com/pricing/",
+      "title": "Genymotion pricing",
+      "date_checked": "2026-10-11",
+      "used_for": "цены и ограничения"
+    }
+  ]
+}

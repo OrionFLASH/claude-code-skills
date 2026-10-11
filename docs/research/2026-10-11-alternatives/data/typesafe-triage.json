@@ -1,0 +1,3428 @@
+{
+  "skill": "typesafe-triage",
+  "date": "2026-10-11",
+  "capabilities": [
+    {
+      "id": "T1",
+      "name": "Выбор уровня модели",
+      "desc": "haiku/sonnet/opus/fable под задачу, по строгим критериям"
+    },
+    {
+      "id": "T2",
+      "name": "Выбор reasoning effort",
+      "desc": "low…max независимо от модели, с согласованием осей"
+    },
+    {
+      "id": "T3",
+      "name": "Выбор действия",
+      "desc": "сам / Agent(model, effort) / спросить, с учётом модели сессии и дорогого контекста"
+    },
+    {
+      "id": "T4",
+      "name": "Автоматически хуком UserPromptSubmit",
+      "desc": "заметка «ДЕЙСТВИЕ: …» к каждому запросу, режим «реже», принудительный запуск"
+    },
+    {
+      "id": "T5",
+      "name": "Внешняя вероятностная модель + локальные сигналы",
+      "desc": "TypeSafe Jev (типизированные вероятности) + эвристики текста, окружения, истории сессии"
+    },
+    {
+      "id": "T6",
+      "name": "Пакетный триаж (--batch)",
+      "desc": "таблица подзадач, порядок по пересечению paths, одно подтверждение, готовые Agent(...) и промпты"
+    },
+    {
+      "id": "T7",
+      "name": "Квоты дорогих уровней и защита расхода",
+      "desc": "Fable 1/3, max 2/6 в сутки/неделю, потолок $ на TypeSafe, потолок --run на крайних уровнях, пауза при сбоях"
+    },
+    {
+      "id": "T8",
+      "name": "Маскировка секретов перед отправкой",
+      "desc": "пароли, ключи, seed, карты, PII; блокировка отправки"
+    },
+    {
+      "id": "T9",
+      "name": "Запуск исполнителя (--run)",
+      "desc": "claude -p --model … --effort … с правами и бюджетом"
+    },
+    {
+      "id": "T10",
+      "name": "Журнал фактов и обучение",
+      "desc": "triage-log.jsonl, --fact, автозапись факта, --calibrate train/holdout"
+    },
+    {
+      "id": "T11",
+      "name": "Уважение явных указаний",
+      "desc": "«сам», «используй opus», «effort max», отрицания, русские формы; упоминание ≠ указание"
+    },
+    {
+      "id": "T12",
+      "name": "Отчёты и проверка установки",
+      "desc": "--check, --where, --report, --verify, --extremes"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "cc-builtin-model-effort",
+      "name": "Claude Code: встроенный выбор модели и effort (/model, /effort, opusplan, best, adaptive reasoning, лимиты)",
+      "url": "https://code.claude.com/docs/en/model-config",
+      "kind": "builtin",
+      "collection": null,
+      "license": null,
+      "osi_license": null,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "price": "входит в Claude Code (подписка/API)",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Документация",
+          "value": "официальная страница model-config, открыта 2026-10-11",
+          "url": "https://code.claude.com/docs/en/model-config"
+        },
+        {
+          "label": "Запрос на авто-выбор",
+          "value": "issue #43326 открыт с 2026-04-04, ответа сотрудников Anthropic нет",
+          "url": "https://github.com/anthropics/claude-code/issues/43326"
+        }
+      ],
+      "coverage": {
+        "T1": {
+          "score": 1,
+          "note": "Только ручной выбор (/model, --model, ANTHROPIC_MODEL, settings); авто-смена лишь у opusplan (план→opus, исполнение→sonnet) и при перегрузке (fallbackModel). Авто-выбора по сложности нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/model-config",
+            "https://github.com/anthropics/claude-code/issues/43326"
+          ]
+        },
+        "T2": {
+          "score": 1,
+          "note": "/effort и modelSettings вручную; adaptive reasoning сам решает, «whether and how much to think» на каждом шаге — но в пределах заданного уровня; ultrathink на один ход.",
+          "evidence": [
+            "https://code.claude.com/docs/en/model-config"
+          ]
+        },
+        "T3": {
+          "score": 0,
+          "note": "Нет решения «сам/субагент/спросить» на уровне платформы.",
+          "evidence": [
+            "https://code.claude.com/docs/en/model-config"
+          ]
+        },
+        "T4": {
+          "score": 0,
+          "note": "Ничего не срабатывает на каждый запрос для выбора модели/effort.",
+          "evidence": [
+            "https://code.claude.com/docs/en/model-config",
+            "https://github.com/anthropics/claude-code/issues/43326"
+          ]
+        },
+        "T5": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/model-config"
+          ]
+        },
+        "T6": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/model-config"
+          ]
+        },
+        "T7": {
+          "score": 1,
+          "note": "maxEffortLevel (managed), availableModels/enforceAvailableModels, --max-budget-usd, лимиты трат usage credits; квот на авто-выбор Fable/max нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/model-config",
+            "https://code.claude.com/docs/en/costs"
+          ]
+        },
+        "T8": {
+          "score": 0,
+          "note": "Неприменимо/нет: внешнего классификатора нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/model-config"
+          ]
+        },
+        "T9": {
+          "score": 2,
+          "note": "claude -p --model … --effort … --max-budget-usd — ровно то, что оборачивает --run; выбора уровня нет (это T1/T2).",
+          "evidence": [
+            "https://code.claude.com/docs/en/model-config",
+            "https://code.claude.com/docs/en/costs"
+          ]
+        },
+        "T10": {
+          "score": 1,
+          "note": "/usage по моделям, OpenTelemetry; калибровки по фактам нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/costs"
+          ]
+        },
+        "T11": {
+          "score": 1,
+          "note": "Ключевое слово ultrathink и команды /model, /effort; фраза «используй opus» в тексте модель не меняет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/model-config"
+          ]
+        },
+        "T12": {
+          "score": 1,
+          "note": "/status, /usage, /doctor — общие, не про триаж.",
+          "evidence": [
+            "https://code.claude.com/docs/en/costs"
+          ]
+        }
+      },
+      "strengths": [
+        "Бесплатно и всегда актуально",
+        "Opus 5.5 по умолчанию с effort medium и adaptive reasoning уже снижают нужду в ручном выборе",
+        "--max-budget-usd и лимиты трат — штатная защита расхода"
+      ],
+      "weaknesses": [
+        "Нет авто-выбора модели и effort по задаче (issue #43326 открыт)",
+        "Основную сессию по запросу автоматически не переключает"
+      ],
+      "risks": [
+        "Если Anthropic добавит авто-выбор, ценность стороннего триажа резко упадёт (пока сигналов нет)"
+      ],
+      "verdict": "partial",
+      "summary": "Даёт все рычаги (модель, effort, бюджет, opusplan, adaptive reasoning), но не решает, какой рычаг дёрнуть под конкретный запрос. Закрывает T9 и частично T1/T2/T7."
+    },
+    {
+      "id": "cc-builtin-subagent-model-effort",
+      "name": "Claude Code: модель и effort субагентов (frontmatter model/effort, параметры Agent, CLAUDE_CODE_SUBAGENT_MODEL[_FORCE])",
+      "url": "https://code.claude.com/docs/en/sub-agents",
+      "kind": "builtin",
+      "collection": null,
+      "license": null,
+      "osi_license": null,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "price": "входит в Claude Code",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Документация",
+          "value": "раздел Choose a model / Effort level, открыт 2026-10-11",
+          "url": "https://code.claude.com/docs/en/sub-agents"
+        }
+      ],
+      "coverage": {
+        "T1": {
+          "score": 1,
+          "note": "Порядок: параметр model вызова → frontmatter → CLAUDE_CODE_SUBAGENT_MODEL → модель сессии; Claude может передать model, но критериев выбора платформа не даёт.",
+          "evidence": [
+            "https://code.claude.com/docs/en/sub-agents"
+          ]
+        },
+        "T2": {
+          "score": 1,
+          "note": "effort во frontmatter и параметр effort вызова (v2.1.292+); выбор — за Claude/автором агента.",
+          "evidence": [
+            "https://code.claude.com/docs/en/sub-agents"
+          ]
+        },
+        "T3": {
+          "score": 1,
+          "note": "Claude сам решает делегировать, но без явного правила «сам/агент/спросить» и без учёта цены передачи контекста.",
+          "evidence": [
+            "https://code.claude.com/docs/en/sub-agents"
+          ]
+        },
+        "T4": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/sub-agents"
+          ]
+        },
+        "T5": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/sub-agents"
+          ]
+        },
+        "T6": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/sub-agents"
+          ]
+        },
+        "T7": {
+          "score": 1,
+          "note": "CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1 сажает всех субагентов на одну модель; availableModels подменяет запрещённые.",
+          "evidence": [
+            "https://code.claude.com/docs/en/sub-agents"
+          ]
+        },
+        "T8": {
+          "score": 0,
+          "note": "Неприменимо.",
+          "evidence": [
+            "https://code.claude.com/docs/en/sub-agents"
+          ]
+        },
+        "T9": {
+          "score": 1,
+          "note": "Запуск субагента с model/effort — механизм есть, выбор — нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/sub-agents"
+          ]
+        },
+        "T10": {
+          "score": 0,
+          "note": "Нет журнала решений.",
+          "evidence": [
+            "https://code.claude.com/docs/en/sub-agents"
+          ]
+        },
+        "T11": {
+          "score": 1,
+          "note": "Если пользователь попросит, Claude может передать model; явного разбора указаний нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/sub-agents"
+          ]
+        },
+        "T12": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/sub-agents"
+          ]
+        }
+      },
+      "strengths": [
+        "Статическая маршрутизация «агент = модель+effort» без кода",
+        "Принудительная модель для всех субагентов одной переменной"
+      ],
+      "weaknesses": [
+        "Без классификатора выбор остаётся на совести основной модели (по отчётам — часто наследует модель сессии)"
+      ],
+      "risks": [
+        "Нет"
+      ],
+      "verdict": "partial",
+      "summary": "Даёт исполнителям фиксированные модель и effort; вместе с набором агентов вида routed-opus-high закрывает «исполнение» триажа, но не «решение»."
+    },
+    {
+      "id": "cc-builtin-hooks-mods",
+      "name": "Claude Code: хуки и моды (UserPromptSubmit additionalContext, PreToolUse updatedInput, PreModelSwitch, mods turn.step/agent.spawn/prompt.submit)",
+      "url": "https://code.claude.com/docs/en/plugins/mods/reference",
+      "kind": "builtin",
+      "collection": null,
+      "license": null,
+      "osi_license": null,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "price": "входит в Claude Code (моды — v2.1.287+)",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Моды включены по умолчанию",
+          "value": "Claude Code v2.1.287+",
+          "url": "https://code.claude.com/docs/en/plugins/mods/overview"
+        },
+        {
+          "label": "turn.step",
+          "value": "next({ ...e, model }) / next({ ...e, effort }) для каждого запроса к модели",
+          "url": "https://code.claude.com/docs/en/plugins/mods/reference"
+        },
+        {
+          "label": "agent.spawn",
+          "value": "next({ ...e, model }) — выбор модели субагента",
+          "url": "https://code.claude.com/docs/en/plugins/mods/reference"
+        }
+      ],
+      "coverage": {
+        "T1": {
+          "score": 1,
+          "note": "Платформа: мод на turn.step может отправить каждый запрос (и основной сессии) другой модели — то, что README триажа считает невозможным; классификатора нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/plugins/mods/events",
+            "https://code.claude.com/docs/en/plugins/mods/reference"
+          ]
+        },
+        "T2": {
+          "score": 1,
+          "note": "turn.step принимает effort на каждый запрос; хукам доступен $CLAUDE_EFFORT.",
+          "evidence": [
+            "https://code.claude.com/docs/en/plugins/mods/reference",
+            "https://code.claude.com/docs/en/hooks"
+          ]
+        },
+        "T3": {
+          "score": 1,
+          "note": "agent.spawn выбирает модель субагента; PreToolUse updatedInput переписывает Agent; решения «сам/агент» нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/plugins/mods/reference",
+            "https://code.claude.com/docs/en/hooks"
+          ]
+        },
+        "T4": {
+          "score": 1,
+          "note": "Механизм: UserPromptSubmit additionalContext / prompt.submit context — та же точка внедрения, что у триажа.",
+          "evidence": [
+            "https://code.claude.com/docs/en/hooks",
+            "https://code.claude.com/docs/en/plugins/mods/events"
+          ]
+        },
+        "T5": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/plugins/mods/reference"
+          ]
+        },
+        "T6": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/plugins/mods/reference"
+          ]
+        },
+        "T7": {
+          "score": 1,
+          "note": "PreModelSwitch может запретить/спросить смену модели и видит estimated_cache_write_usd.",
+          "evidence": [
+            "https://code.claude.com/docs/en/hooks"
+          ]
+        },
+        "T8": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/hooks"
+          ]
+        },
+        "T9": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/plugins/mods/reference"
+          ]
+        },
+        "T10": {
+          "score": 1,
+          "note": "turn.step/turn.complete отдают usage и модель-ответчика — база для журнала фактов.",
+          "evidence": [
+            "https://code.claude.com/docs/en/plugins/mods/events"
+          ]
+        },
+        "T11": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/plugins/mods/reference"
+          ]
+        },
+        "T12": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/plugins/mods/reference"
+          ]
+        }
+      },
+      "strengths": [
+        "Позволяет переключать модель и effort основной сессии по каждому запросу (через мод), а не только советовать",
+        "Официальный API, тестируемый (mods test)"
+      ],
+      "weaknesses": [
+        "Только механизм, логику выбора надо писать самому",
+        "Смена модели посреди сессии сбрасывает кеш промпта (дорогой некешированный ход)"
+      ],
+      "risks": [
+        "API модов молодой (v2.1.287) и может меняться"
+      ],
+      "verdict": "inspire",
+      "summary": "Не замена, а возможность: перенос триажа на мод (turn.step + agent.spawn) дал бы реальное переключение, которого нет ни у одного конкурента."
+    },
+    {
+      "id": "cc-builtin-ultracode-workflows",
+      "name": "Claude Code: ultracode и динамические workflows",
+      "url": "https://code.claude.com/docs/en/workflows",
+      "kind": "builtin",
+      "collection": null,
+      "license": null,
+      "osi_license": null,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "price": "входит в платные планы; расход токенов выше",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Документация",
+          "value": "research preview, v2.1.154+",
+          "url": "https://code.claude.com/docs/en/workflows"
+        }
+      ],
+      "coverage": {
+        "T1": {
+          "score": 1,
+          "note": "Скрипт может назначить модель стадии (как per-invocation model); по умолчанию — модель сессии; совет «ask Claude to use a smaller model for stages».",
+          "evidence": [
+            "https://code.claude.com/docs/en/workflows"
+          ]
+        },
+        "T2": {
+          "score": 1,
+          "note": "claude --effort ultracode ставит xhigh; поэтапного выбора effort под подзадачу нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/workflows",
+            "https://code.claude.com/docs/en/model-config"
+          ]
+        },
+        "T3": {
+          "score": 1,
+          "note": "С ultracode Claude сам решает, нужен ли workflow для задачи — но не «спросить» и не цена.",
+          "evidence": [
+            "https://code.claude.com/docs/en/workflows"
+          ]
+        },
+        "T4": {
+          "score": 0,
+          "note": "Нет заметки к запросу.",
+          "evidence": [
+            "https://code.claude.com/docs/en/workflows"
+          ]
+        },
+        "T5": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/workflows"
+          ]
+        },
+        "T6": {
+          "score": 1,
+          "note": "pipeline()/parallel() исполняют пакеты подзадач с изоляцией — шире по исполнению, но без триажа уровня каждой подзадачи.",
+          "evidence": [
+            "https://code.claude.com/docs/en/workflows"
+          ]
+        },
+        "T7": {
+          "score": 1,
+          "note": "Size guideline, предупреждение Large workflow (>25 агентов / 1,5 млн токенов), потолок 1000 агентов, пауза при лимите.",
+          "evidence": [
+            "https://code.claude.com/docs/en/workflows"
+          ]
+        },
+        "T8": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/workflows"
+          ]
+        },
+        "T9": {
+          "score": 1,
+          "note": "Запускает агентов, модель/effort наследуются, если не заданы.",
+          "evidence": [
+            "https://code.claude.com/docs/en/workflows"
+          ]
+        },
+        "T10": {
+          "score": 1,
+          "note": "/workflows показывает токены каждого агента; обучения нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/workflows"
+          ]
+        },
+        "T11": {
+          "score": 1,
+          "note": "Ключевое слово ultracode в запросе — явное согласие.",
+          "evidence": [
+            "https://code.claude.com/docs/en/workflows"
+          ]
+        },
+        "T12": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/workflows"
+          ]
+        }
+      },
+      "strengths": [
+        "Мощная оркестрация пакетов работы",
+        "Сохраняемые и переиспользуемые скрипты"
+      ],
+      "weaknesses": [
+        "Увеличивает расход, а не экономит; не выбирает дешёвые уровни сам"
+      ],
+      "risks": [
+        "Research preview"
+      ],
+      "verdict": "inspire",
+      "summary": "Закрывает исполнение пакетов, но не триаж: модель и effort стадий по-прежнему кто-то должен выбрать."
+    },
+    {
+      "id": "cc-builtin-advisor",
+      "name": "Claude Code: advisor tool (дешёвый исполнитель + сильный советник)",
+      "url": "https://code.claude.com/docs/en/advisor",
+      "kind": "builtin",
+      "collection": null,
+      "license": null,
+      "osi_license": null,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "price": "входит; токены советника тарифицируются",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Статус",
+          "value": "experimental, только Anthropic API",
+          "url": "https://code.claude.com/docs/en/advisor"
+        }
+      ],
+      "coverage": {
+        "T1": {
+          "score": 1,
+          "note": "Эскалация к более сильной модели «at key moments», Claude решает когда — альтернативный подход к выбору уровня.",
+          "evidence": [
+            "https://code.claude.com/docs/en/advisor"
+          ]
+        },
+        "T2": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/advisor"
+          ]
+        },
+        "T3": {
+          "score": 1,
+          "note": "Решение «спросить советника» принимает Claude.",
+          "evidence": [
+            "https://code.claude.com/docs/en/advisor"
+          ]
+        },
+        "T4": {
+          "score": null,
+          "note": "не проверено: автоматического срабатывания на каждый запрос нет в описании",
+          "evidence": []
+        },
+        "T5": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/advisor"
+          ]
+        },
+        "T6": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/advisor"
+          ]
+        },
+        "T7": {
+          "score": 0,
+          "note": "Нет квот; предупреждение о росте токенов.",
+          "evidence": [
+            "https://code.claude.com/docs/en/advisor"
+          ]
+        },
+        "T8": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/advisor"
+          ]
+        },
+        "T9": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/advisor"
+          ]
+        },
+        "T10": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/advisor"
+          ]
+        },
+        "T11": {
+          "score": 1,
+          "note": "/advisor, --advisor — явная настройка пользователем.",
+          "evidence": [
+            "https://code.claude.com/docs/en/advisor"
+          ]
+        },
+        "T12": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://code.claude.com/docs/en/advisor"
+          ]
+        }
+      },
+      "strengths": [
+        "Позволяет держать сессию на sonnet и звать opus/fable только на развилках"
+      ],
+      "weaknesses": [
+        "Экспериментально, не на Bedrock/Vertex/Foundry"
+      ],
+      "risks": [
+        "Может измениться"
+      ],
+      "verdict": "inspire",
+      "summary": "Другая стратегия экономии (каскад вместо триажа); частично снижает потребность в выборе модели заранее."
+    },
+    {
+      "id": "claude-model-router-hook",
+      "name": "Claude Model Router Hook (tzachbon)",
+      "url": "https://github.com/tzachbon/claude-model-router-hook",
+      "kind": "plugin",
+      "collection": null,
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 102,
+      "forks": 11,
+      "last_commit": "2026-08-29",
+      "created": "2026-03-07",
+      "contributors": 1,
+      "price": "free",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды/форки (GitHub API)",
+          "value": "102 / 11 на 2026-10-11",
+          "url": "https://github.com/tzachbon/claude-model-router-hook"
+        },
+        {
+          "label": "Версия",
+          "value": "2.1.0 от 2026-08-28; 2.0.0 — полная переработка на Python",
+          "url": "https://github.com/tzachbon/claude-model-router-hook/blob/main/CHANGELOG.md"
+        },
+        {
+          "label": "Тесты",
+          "value": "pytest + bats, eval-набор 70 размеченных строк, точность 95,71% (заявлено)",
+          "url": "https://github.com/tzachbon/claude-model-router-hook/blob/main/CHANGELOG.md"
+        },
+        {
+          "label": "Основа",
+          "value": "форк идеи model-matchmaker",
+          "url": "https://github.com/coyvalyss1/model-matchmaker"
+        }
+      ],
+      "coverage": {
+        "T1": {
+          "score": 2,
+          "note": "Лестница haiku/sonnet/opus/fable; классы mechanical→haiku, implementation/debugging/architecture/extreme→opus; fable — только явной целью в конфиге.",
+          "evidence": [
+            "https://github.com/tzachbon/claude-model-router-hook",
+            "https://github.com/tzachbon/claude-model-router-hook/blob/main/CHANGELOG.md"
+          ]
+        },
+        "T2": {
+          "score": 2,
+          "note": "Решение — пара (model, effort): medium/high/xhigh/max по классу; демпфирование у границ классов.",
+          "evidence": [
+            "https://github.com/tzachbon/claude-model-router-hook",
+            "https://github.com/tzachbon/claude-model-router-hook/blob/main/CHANGELOG.md"
+          ]
+        },
+        "T3": {
+          "score": 1,
+          "note": "Нет выбора «сам/спросить»; есть переписывание вызовов Agent на routed-агентов и предупреждение о модели сессии.",
+          "evidence": [
+            "https://github.com/tzachbon/claude-model-router-hook",
+            "https://github.com/tzachbon/claude-model-router-hook/blob/main/plugins/claude-model-router-hook/hooks/pre_tool_use.py"
+          ]
+        },
+        "T4": {
+          "score": 3,
+          "note": "UserPromptSubmit + PreToolUse (принудительно переписывает Agent) + PostToolUse + SessionStart — шире, чем только заметка.",
+          "evidence": [
+            "https://github.com/tzachbon/claude-model-router-hook",
+            "https://github.com/tzachbon/claude-model-router-hook/blob/main/plugins/claude-model-router-hook/hooks/pre_tool_use.py"
+          ]
+        },
+        "T5": {
+          "score": 1,
+          "note": "Только локальные эвристики + необязательный фолбэк claude -p --model haiku; внешней вероятностной модели нет.",
+          "evidence": [
+            "https://github.com/tzachbon/claude-model-router-hook",
+            "https://github.com/tzachbon/claude-model-router-hook/blob/main/CHANGELOG.md"
+          ]
+        },
+        "T6": {
+          "score": 0,
+          "note": "Пакетного режима в README нет.",
+          "evidence": [
+            "https://github.com/tzachbon/claude-model-router-hook"
+          ]
+        },
+        "T7": {
+          "score": 1,
+          "note": "Fable-автопереключение выключено по умолчанию, max — только на сессию; квот и денежных потолков нет.",
+          "evidence": [
+            "https://github.com/tzachbon/claude-model-router-hook",
+            "https://github.com/tzachbon/claude-model-router-hook/blob/main/CHANGELOG.md"
+          ]
+        },
+        "T8": {
+          "score": 0,
+          "note": "Наружу текст не уходит (кроме локального claude -p); маскировки нет — по сути не требуется.",
+          "evidence": [
+            "https://github.com/tzachbon/claude-model-router-hook"
+          ]
+        },
+        "T9": {
+          "score": 2,
+          "note": "Сгенерированные агенты routed-opus-high и т.п. с model+effort во frontmatter — исполнение выбранного уровня внутри сессии; autoswitch пишет модель следующей сессии.",
+          "evidence": [
+            "https://github.com/tzachbon/claude-model-router-hook/blob/main/plugins/claude-model-router-hook/agents/routed-opus-high.md",
+            "https://github.com/tzachbon/claude-model-router-hook"
+          ]
+        },
+        "T10": {
+          "score": 1,
+          "note": "Журнал requested vs resolved модели, токены, длительность; обучения на исходах нет.",
+          "evidence": [
+            "https://github.com/tzachbon/claude-model-router-hook",
+            "https://github.com/tzachbon/claude-model-router-hook/blob/main/CHANGELOG.md"
+          ]
+        },
+        "T11": {
+          "score": 1,
+          "note": "Явный model у Agent всегда главнее; префикс ~ или < отключает; разбора фраз «используй opus» не заявлено.",
+          "evidence": [
+            "https://github.com/tzachbon/claude-model-router-hook",
+            "https://github.com/tzachbon/claude-model-router-hook/blob/main/plugins/claude-model-router-hook/hooks/pre_tool_use.py"
+          ]
+        },
+        "T12": {
+          "score": 1,
+          "note": "Лог ~/.claude/hooks/model-router-hook.log, установщик печатает записи settings.json; аналога --check/--report нет.",
+          "evidence": [
+            "https://github.com/tzachbon/claude-model-router-hook"
+          ]
+        }
+      },
+      "strengths": [
+        "Ближе всех к ядру T1+T2+T4, бесплатно, MIT, без ключей",
+        "Принудительная маршрутизация субагентов через PreToolUse",
+        "Плагин маркетплейса, тесты и eval"
+      ],
+      "weaknesses": [
+        "Только английские эвристики",
+        "Нет выбора «спросить», пакетов, квот, калибровки",
+        "Один автор"
+      ],
+      "risks": [
+        "Bus factor 1; последний коммит 2026-08-29",
+        "Установщик по умолчанию предлагает поставить звезду репозиторию через gh",
+        "Порядок слияния нескольких PreToolUse-хуков не документирован (сказано в README)"
+      ],
+      "verdict": "partial",
+      "summary": "Самая сильная сторонняя замена ядра: модель+effort на каждый запрос и принудительно для субагентов. Не закрывает Jev, пакеты, квоты, маскировку, русские указания и калибровку."
+    },
+    {
+      "id": "model-matchmaker",
+      "name": "Model Matchmaker (coyvalyss1)",
+      "url": "https://github.com/coyvalyss1/model-matchmaker",
+      "kind": "oss-tool",
+      "collection": null,
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 168,
+      "forks": 15,
+      "last_commit": "2026-04-16",
+      "created": "2026-03-04",
+      "contributors": 1,
+      "price": "free",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды (GitHub API)",
+          "value": "168 на 2026-10-11",
+          "url": "https://github.com/coyvalyss1/model-matchmaker"
+        }
+      ],
+      "coverage": {
+        "T1": {
+          "score": 1,
+          "note": "Блокирует запрос и советует haiku/sonnet/opus по ключевым словам; автопереключение — только в Cursor через клавиатурную автоматизацию.",
+          "evidence": [
+            "https://github.com/coyvalyss1/model-matchmaker"
+          ]
+        },
+        "T2": {
+          "score": 0,
+          "note": "Effort в README не упоминается.",
+          "evidence": [
+            "https://github.com/coyvalyss1/model-matchmaker"
+          ]
+        },
+        "T3": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/coyvalyss1/model-matchmaker"
+          ]
+        },
+        "T4": {
+          "score": 2,
+          "note": "Хук перед отправкой каждого запроса (Cursor beforeSubmitPrompt / Claude Code).",
+          "evidence": [
+            "https://github.com/coyvalyss1/model-matchmaker"
+          ]
+        },
+        "T5": {
+          "score": 1,
+          "note": "Только ключевые слова, без внешней модели.",
+          "evidence": [
+            "https://github.com/coyvalyss1/model-matchmaker"
+          ]
+        },
+        "T6": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/coyvalyss1/model-matchmaker"
+          ]
+        },
+        "T7": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/coyvalyss1/model-matchmaker"
+          ]
+        },
+        "T8": {
+          "score": 0,
+          "note": "Локально, маскировки нет.",
+          "evidence": [
+            "https://github.com/coyvalyss1/model-matchmaker"
+          ]
+        },
+        "T9": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/coyvalyss1/model-matchmaker"
+          ]
+        },
+        "T10": {
+          "score": 1,
+          "note": "NDJSON-журнал рекомендаций, переопределений и исходов, статистика.",
+          "evidence": [
+            "https://github.com/coyvalyss1/model-matchmaker"
+          ]
+        },
+        "T11": {
+          "score": 1,
+          "note": "Префикс ! отменяет.",
+          "evidence": [
+            "https://github.com/coyvalyss1/model-matchmaker"
+          ]
+        },
+        "T12": {
+          "score": 1,
+          "note": "Просмотр статистики.",
+          "evidence": [
+            "https://github.com/coyvalyss1/model-matchmaker"
+          ]
+        }
+      },
+      "strengths": [
+        "Простота",
+        "Журнал исходов"
+      ],
+      "weaknesses": [
+        "Ориентирован на Cursor",
+        "Блокирует запрос вместо заметки"
+      ],
+      "risks": [
+        "Последний коммит в основной ветке 2026-04-16"
+      ],
+      "verdict": "ignore",
+      "summary": "Предок tzachbon; для Claude Code устарел."
+    },
+    {
+      "id": "guided-model-router",
+      "name": "The Guided Model Router (nobodyohm-web/claude-code-model-router)",
+      "url": "https://github.com/nobodyohm-web/claude-code-model-router",
+      "kind": "plugin",
+      "collection": null,
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 7,
+      "forks": 2,
+      "last_commit": "2026-07-10",
+      "created": "2026-07-09",
+      "contributors": 2,
+      "price": "free",
+      "claude_code_native": true,
+      "languages": [
+        "en",
+        "fr"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды (GitHub API)",
+          "value": "7 на 2026-10-11",
+          "url": "https://github.com/nobodyohm-web/claude-code-model-router"
+        },
+        {
+          "label": "Тесты",
+          "value": "tests/router.bats + CI",
+          "url": "https://github.com/nobodyohm-web/claude-code-model-router"
+        }
+      ],
+      "coverage": {
+        "T1": {
+          "score": 2,
+          "note": "Лестница Haiku/Sonnet/Opus/Fable по типу задачи; три «позы» (posture).",
+          "evidence": [
+            "https://github.com/nobodyohm-web/claude-code-model-router"
+          ]
+        },
+        "T2": {
+          "score": 2,
+          "note": "Каждый уровень — модель·effort (Haiku·low … Fable·xhigh), агенты с effort во frontmatter.",
+          "evidence": [
+            "https://github.com/nobodyohm-web/claude-code-model-router",
+            "https://github.com/nobodyohm-web/claude-code-model-router/blob/main/agents/deep-fable.md"
+          ]
+        },
+        "T3": {
+          "score": 2,
+          "note": "Подсказка «inline или диспетчеризовать агента X»; эскалация после провала уровня.",
+          "evidence": [
+            "https://github.com/nobodyohm-web/claude-code-model-router"
+          ]
+        },
+        "T4": {
+          "score": 2,
+          "note": "UserPromptSubmit-хук classify.sh добавляет однострочную подсказку к каждому запросу.",
+          "evidence": [
+            "https://github.com/nobodyohm-web/claude-code-model-router"
+          ]
+        },
+        "T5": {
+          "score": 1,
+          "note": "Локальные правила rules.json + необязательный вызов Haiku при неоднозначности.",
+          "evidence": [
+            "https://github.com/nobodyohm-web/claude-code-model-router"
+          ]
+        },
+        "T6": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/nobodyohm-web/claude-code-model-router"
+          ]
+        },
+        "T7": {
+          "score": 1,
+          "note": "Позы и цены в конфиге; квот нет.",
+          "evidence": [
+            "https://github.com/nobodyohm-web/claude-code-model-router"
+          ]
+        },
+        "T8": {
+          "score": 0,
+          "note": "Локально; маскировки нет.",
+          "evidence": [
+            "https://github.com/nobodyohm-web/claude-code-model-router"
+          ]
+        },
+        "T9": {
+          "score": 1,
+          "note": "Закреплённые агенты исполняют выбранный уровень.",
+          "evidence": [
+            "https://github.com/nobodyohm-web/claude-code-model-router"
+          ]
+        },
+        "T10": {
+          "score": 2,
+          "note": "PreToolUse-журнал диспетчеризаций и /router-stats с оценкой сэкономленных долларов.",
+          "evidence": [
+            "https://github.com/nobodyohm-web/claude-code-model-router"
+          ]
+        },
+        "T11": {
+          "score": 1,
+          "note": "Уровень форсируется упоминанием агента («use deep-fable»).",
+          "evidence": [
+            "https://github.com/nobodyohm-web/claude-code-model-router"
+          ]
+        },
+        "T12": {
+          "score": 1,
+          "note": "/router-stats, install --dry-run.",
+          "evidence": [
+            "https://github.com/nobodyohm-web/claude-code-model-router"
+          ]
+        }
+      },
+      "strengths": [
+        "По устройству очень похож на триаж (хук-подсказка + агенты-уровни + статистика)"
+      ],
+      "weaknesses": [
+        "7 звёзд, 1 открытый issue, фактически заброшен с июля"
+      ],
+      "risks": [
+        "Заброшенность",
+        "Модели в конфиге устаревают (Opus 4.8, Fable 5)"
+      ],
+      "verdict": "inspire",
+      "summary": "Концептуально ближайший аналог «заметки к запросу», но молодой и без поддержки."
+    },
+    {
+      "id": "jev-interceptor",
+      "name": "jev-interceptor / jev-setup (rayopavri)",
+      "url": "https://github.com/rayopavri/jev-setup",
+      "kind": "plugin",
+      "collection": null,
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 0,
+      "forks": 0,
+      "last_commit": "2026-10-08",
+      "created": "2026-10-08",
+      "contributors": 1,
+      "price": "free + TypeSafe API; опционально ClinePass, ChatGPT/Codex, OpenRouter",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды (GitHub API)",
+          "value": "0, создан 2026-10-08",
+          "url": "https://github.com/rayopavri/jev-setup"
+        }
+      ],
+      "coverage": {
+        "T1": {
+          "score": 2,
+          "note": "Jev задаёт размер: light→Haiku 4.5, standard→Sonnet 5.5, deep→Opus 5.5; риск ≥0,70 → Opus. Fable нет, зато есть сторонние «полосы» (Kimi, DeepSeek, GPT).",
+          "evidence": [
+            "https://github.com/rayopavri/jev-setup"
+          ]
+        },
+        "T2": {
+          "score": 1,
+          "note": "Effort Claude не выбирает; только «redo asks it for more reasoning effort» у Codex.",
+          "evidence": [
+            "https://github.com/rayopavri/jev-setup"
+          ]
+        },
+        "T3": {
+          "score": 2,
+          "note": "Маршруты: субагент Claude нужного уровня / полоса / «план, затем делегирование» — выбор исполнителя.",
+          "evidence": [
+            "https://github.com/rayopavri/jev-setup"
+          ]
+        },
+        "T4": {
+          "score": 2,
+          "note": "UserPromptSubmit на каждый запрос, additionalContext + строка пользователю; fail-open.",
+          "evidence": [
+            "https://github.com/rayopavri/jev-setup"
+          ]
+        },
+        "T5": {
+          "score": 2,
+          "note": "Тот же подход: Jev отвечает вероятностями, пороги в скриптах; фолбэк Jev через OpenRouter.",
+          "evidence": [
+            "https://github.com/rayopavri/jev-setup"
+          ]
+        },
+        "T6": {
+          "score": 1,
+          "note": "Work orders через delegate.py (по одному, с проверкой Done when), без таблицы пакета.",
+          "evidence": [
+            "https://github.com/rayopavri/jev-setup"
+          ]
+        },
+        "T7": {
+          "score": 1,
+          "note": "Обработка лимитов полос, спрашивает перед тратой на Claude через OpenRouter; квот Fable/max нет.",
+          "evidence": [
+            "https://github.com/rayopavri/jev-setup"
+          ]
+        },
+        "T8": {
+          "score": 0,
+          "note": "Маскировка секретов в README не заявлена.",
+          "evidence": [
+            "https://github.com/rayopavri/jev-setup"
+          ]
+        },
+        "T9": {
+          "score": 2,
+          "note": "cline-worker.sh, delegate.py run/--escalate/--up запускают исполнителей.",
+          "evidence": [
+            "https://github.com/rayopavri/jev-setup"
+          ]
+        },
+        "T10": {
+          "score": 2,
+          "note": "Журнал маршрутизации, дашборд, вердикты review по каждой модели.",
+          "evidence": [
+            "https://github.com/rayopavri/jev-setup"
+          ]
+        },
+        "T11": {
+          "score": null,
+          "note": "не проверено: в README нет раздела о явных указаниях пользователя",
+          "evidence": []
+        },
+        "T12": {
+          "score": 2,
+          "note": "check-setup.sh, check-tools.sh, jev-routing-report.py, jev-dashboard.py.",
+          "evidence": [
+            "https://github.com/rayopavri/jev-setup"
+          ]
+        }
+      },
+      "strengths": [
+        "Единственный найденный, кто тоже строит триаж на TypeSafe Jev в хуке UserPromptSubmit",
+        "Шире по исполнителям (не-Claude модели) и с контролем качества результата"
+      ],
+      "weaknesses": [
+        "Нет effort для Claude, нет Fable, нет маскировки",
+        "Сам README: хук не может переключить основную модель"
+      ],
+      "risks": [
+        "0 звёзд, 3 дня от роду, один автор",
+        "Часть оригинала приватна и не включена",
+        "Отправляет запросы в TypeSafe и опционально OpenRouter; широкие права (сторонние агенты правят код)"
+      ],
+      "verdict": "inspire",
+      "summary": "Прямое подтверждение, что идея «Jev-триаж в хуке» тиражируется; по T1/T3/T5/T10/T12 сопоставим, по T2/T7/T8/T11 слабее."
+    },
+    {
+      "id": "nedjamez-subagent-router",
+      "name": "claude-code-model-router (nedjamez) — PreToolUse-роутер субагентов",
+      "url": "https://github.com/nedjamez/claude-code-model-router",
+      "kind": "oss-tool",
+      "collection": null,
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 2,
+      "forks": 1,
+      "last_commit": "2026-08-26",
+      "created": "2026-07-02",
+      "contributors": 1,
+      "price": "free",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды",
+          "value": "2",
+          "url": "https://github.com/nedjamez/claude-code-model-router"
+        },
+        {
+          "label": "CI",
+          "value": "бейдж test workflow",
+          "url": "https://github.com/nedjamez/claude-code-model-router"
+        }
+      ],
+      "coverage": {
+        "T1": {
+          "score": 1,
+          "note": "Подставляет haiku/sonnet/opus субагенту по описанию задачи.",
+          "evidence": [
+            "https://github.com/nedjamez/claude-code-model-router"
+          ]
+        },
+        "T2": {
+          "score": 0,
+          "note": "Effort не упомянут.",
+          "evidence": [
+            "https://github.com/nedjamez/claude-code-model-router"
+          ]
+        },
+        "T3": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/nedjamez/claude-code-model-router"
+          ]
+        },
+        "T4": {
+          "score": 1,
+          "note": "PreToolUse на Agent/Task, не на запрос.",
+          "evidence": [
+            "https://github.com/nedjamez/claude-code-model-router"
+          ]
+        },
+        "T5": {
+          "score": 1,
+          "note": "Ключевые слова.",
+          "evidence": [
+            "https://github.com/nedjamez/claude-code-model-router"
+          ]
+        },
+        "T6": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/nedjamez/claude-code-model-router"
+          ]
+        },
+        "T7": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/nedjamez/claude-code-model-router"
+          ]
+        },
+        "T8": {
+          "score": 0,
+          "note": "Локально.",
+          "evidence": [
+            "https://github.com/nedjamez/claude-code-model-router"
+          ]
+        },
+        "T9": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/nedjamez/claude-code-model-router"
+          ]
+        },
+        "T10": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/nedjamez/claude-code-model-router"
+          ]
+        },
+        "T11": {
+          "score": 1,
+          "note": "Явный model не трогает («floor, not a cage»).",
+          "evidence": [
+            "https://github.com/nedjamez/claude-code-model-router"
+          ]
+        },
+        "T12": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/nedjamez/claude-code-model-router"
+          ]
+        }
+      },
+      "strengths": [
+        "Минимализм, один файл"
+      ],
+      "weaknesses": [
+        "Только субагенты, только модель"
+      ],
+      "risks": [
+        "Bus factor 1"
+      ],
+      "verdict": "ignore",
+      "summary": "Узкий кусок T1 для субагентов."
+    },
+    {
+      "id": "llm-router-ypollak2",
+      "name": "llm-router (ypollak2)",
+      "url": "https://github.com/ypollak2/llm-router",
+      "kind": "oss-tool",
+      "collection": null,
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 97,
+      "forks": 12,
+      "last_commit": "2026-10-11",
+      "created": "2026-03-28",
+      "contributors": 3,
+      "price": "free (pip llm-routing)",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды",
+          "value": "97",
+          "url": "https://github.com/ypollak2/llm-router"
+        },
+        {
+          "label": "Тесты",
+          "value": "1 900+ тестов, RouterArena (по awesome-claude-code)",
+          "url": "https://github.com/hesreallyhim/awesome-claude-code"
+        }
+      ],
+      "coverage": {
+        "T1": {
+          "score": 1,
+          "note": "Отправляет запрос самой дешёвой подходящей модели (бесплатные/локальные/премиум) — не выбор уровня Claude.",
+          "evidence": [
+            "https://github.com/ypollak2/llm-router"
+          ]
+        },
+        "T2": {
+          "score": null,
+          "note": "не проверено: в прочитанной части README про effort нет",
+          "evidence": []
+        },
+        "T3": {
+          "score": 1,
+          "note": "Черновик ответа на бесплатной модели, Claude по умолчанию всё равно берёт ход.",
+          "evidence": [
+            "https://github.com/ypollak2/llm-router"
+          ]
+        },
+        "T4": {
+          "score": 2,
+          "note": "Встраивается в жизненный цикл инструмента и читает каждый запрос.",
+          "evidence": [
+            "https://github.com/ypollak2/llm-router"
+          ]
+        },
+        "T5": {
+          "score": null,
+          "note": "не проверено: метод классификации не изучен",
+          "evidence": []
+        },
+        "T6": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/ypollak2/llm-router"
+          ]
+        },
+        "T7": {
+          "score": 1,
+          "note": "Защищает квоту подписки Pro/Max; квот уровней нет.",
+          "evidence": [
+            "https://github.com/ypollak2/llm-router"
+          ]
+        },
+        "T8": {
+          "score": null,
+          "note": "не проверено: не изучено",
+          "evidence": []
+        },
+        "T9": {
+          "score": 1,
+          "note": "Исполняет на других моделях через MCP.",
+          "evidence": [
+            "https://github.com/ypollak2/llm-router"
+          ]
+        },
+        "T10": {
+          "score": 2,
+          "note": "Проверенная и непроверенная экономия раздельно, с n.",
+          "evidence": [
+            "https://github.com/ypollak2/llm-router"
+          ]
+        },
+        "T11": {
+          "score": null,
+          "note": "не проверено: не изучено",
+          "evidence": []
+        },
+        "T12": {
+          "score": 2,
+          "note": "llm-router doctor / status.",
+          "evidence": [
+            "https://github.com/ypollak2/llm-router"
+          ]
+        }
+      },
+      "strengths": [
+        "Активная разработка, много тестов",
+        "Честная статистика экономии"
+      ],
+      "weaknesses": [
+        "Другая цель: увести запросы с Claude на дешёвые модели"
+      ],
+      "risks": [
+        "pip-пакет, хуки с правом удерживать вызовы инструментов (LLM_ROUTER_ENFORCE)"
+      ],
+      "verdict": "inspire",
+      "summary": "Экономия квоты через сторонние модели; для выбора уровня Claude и effort не подходит."
+    },
+    {
+      "id": "claude-code-router-ccr",
+      "name": "Claude Code Router (musistudio)",
+      "url": "https://github.com/musistudio/claude-code-router",
+      "kind": "oss-tool",
+      "collection": null,
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 37625,
+      "forks": 3160,
+      "last_commit": "2026-10-10",
+      "created": "2025-02-25",
+      "contributors": 72,
+      "price": "free; пожертвования",
+      "claude_code_native": false,
+      "languages": [
+        "en",
+        "zh"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды/форки (GitHub API)",
+          "value": "37 625 / 3 160 на 2026-10-11",
+          "url": "https://github.com/musistudio/claude-code-router"
+        },
+        {
+          "label": "Релиз",
+          "value": "v3.1.3 от 2026-10-09",
+          "url": "https://github.com/musistudio/claude-code-router"
+        },
+        {
+          "label": "Открытые issues/PR",
+          "value": "1 139",
+          "url": "https://github.com/musistudio/claude-code-router"
+        }
+      ],
+      "coverage": {
+        "T1": {
+          "score": 1,
+          "note": "Маршрутизация по условиям на заголовки/тело, префиксы, фолбэки — к любым провайдерам; не оценка сложности задачи.",
+          "evidence": [
+            "https://github.com/musistudio/claude-code-router"
+          ]
+        },
+        "T2": {
+          "score": null,
+          "note": "не проверено: в README v3 управление effort не описано",
+          "evidence": []
+        },
+        "T3": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/musistudio/claude-code-router"
+          ]
+        },
+        "T4": {
+          "score": 1,
+          "note": "Прокси применяет правила к каждому API-запросу (другой механизм, без заметки).",
+          "evidence": [
+            "https://github.com/musistudio/claude-code-router"
+          ]
+        },
+        "T5": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/musistudio/claude-code-router"
+          ]
+        },
+        "T6": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/musistudio/claude-code-router"
+          ]
+        },
+        "T7": {
+          "score": 1,
+          "note": "Клиентские ключи с лимитами запросов и токенов.",
+          "evidence": [
+            "https://github.com/musistudio/claude-code-router"
+          ]
+        },
+        "T8": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/musistudio/claude-code-router"
+          ]
+        },
+        "T9": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/musistudio/claude-code-router"
+          ]
+        },
+        "T10": {
+          "score": 1,
+          "note": "Наблюдаемость: модель, токены, оценка цены, трассы.",
+          "evidence": [
+            "https://github.com/musistudio/claude-code-router"
+          ]
+        },
+        "T11": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/musistudio/claude-code-router"
+          ]
+        },
+        "T12": {
+          "score": 1,
+          "note": "Проверка подключения провайдеров.",
+          "evidence": [
+            "https://github.com/musistudio/claude-code-router"
+          ]
+        }
+      },
+      "strengths": [
+        "Очень популярен и активен"
+      ],
+      "weaknesses": [
+        "Шлюз к API, а не триаж; с подпиской Claude не дружит"
+      ],
+      "risks": [
+        "Трафик через локальный прокси, сторонние партнёрские ссылки в README"
+      ],
+      "verdict": "ignore",
+      "summary": "Другой слой (шлюз провайдеров). Не заменяет триаж."
+    },
+    {
+      "id": "ecc-model-route-cost",
+      "name": "ECC: /model-route, cost-tracker, /cost-report, token-budget-advisor, cost-aware-llm-pipeline, агенты с фиксированными моделями",
+      "url": "https://github.com/affaan-m/ECC",
+      "kind": "collection",
+      "collection": "ECC",
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 276823,
+      "forks": 41274,
+      "last_commit": "2026-10-11",
+      "created": "2026-01-18",
+      "contributors": 446,
+      "price": "free",
+      "claude_code_native": true,
+      "languages": [
+        "en",
+        "zh"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды (GitHub API)",
+          "value": "276 823 на 2026-10-11",
+          "url": "https://github.com/affaan-m/ECC"
+        },
+        {
+          "label": "Агенты с model",
+          "value": "71 агент: 61 sonnet, 6 haiku, 4 opus (локальный клон 2026-10-10)",
+          "url": "https://github.com/affaan-m/ECC"
+        }
+      ],
+      "coverage": {
+        "T1": {
+          "score": 1,
+          "note": "/model-route — ручная рекомендация haiku/sonnet/opus с уверенностью и фолбэком; агенты на фиксированных моделях.",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/commands/model-route.md"
+          ]
+        },
+        "T2": {
+          "score": 0,
+          "note": "Нет; token-budget-advisor выбирает длину ответа, а не effort.",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/skills/token-budget-advisor/SKILL.md"
+          ]
+        },
+        "T3": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/commands/model-route.md"
+          ]
+        },
+        "T4": {
+          "score": 0,
+          "note": "Маршрутизация вручную командой.",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/commands/model-route.md"
+          ]
+        },
+        "T5": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/commands/model-route.md"
+          ]
+        },
+        "T6": {
+          "score": 0,
+          "note": "cost-aware-llm-pipeline — паттерн для своих приложений, не для триажа Claude Code.",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/skills/cost-aware-llm-pipeline/SKILL.md"
+          ]
+        },
+        "T7": {
+          "score": 1,
+          "note": "--budget low|med|high в /model-route; cost-tracker считает траты; квот нет.",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/commands/model-route.md",
+            "https://github.com/affaan-m/ECC/blob/main/commands/cost-report.md"
+          ]
+        },
+        "T8": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/commands/model-route.md"
+          ]
+        },
+        "T9": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/commands/model-route.md"
+          ]
+        },
+        "T10": {
+          "score": 1,
+          "note": "Stop-хук cost-tracker пишет ~/.claude/metrics/costs.jsonl, /cost-report сводит.",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/commands/cost-report.md"
+          ]
+        },
+        "T11": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/commands/model-route.md"
+          ]
+        },
+        "T12": {
+          "score": 1,
+          "note": "/cost-report, /token-card.",
+          "evidence": [
+            "https://github.com/affaan-m/ECC/blob/main/commands/cost-report.md"
+          ]
+        }
+      },
+      "strengths": [
+        "Огромное сообщество",
+        "Учёт затрат"
+      ],
+      "weaknesses": [
+        "Маршрутизация моделей — только подсказка по команде"
+      ],
+      "risks": [
+        "Большой набор с широкими хуками; ставить целиком ради одной команды нецелесообразно"
+      ],
+      "verdict": "inspire",
+      "summary": "Учёт затрат полезен, но триажа модели/effort на каждый запрос нет."
+    },
+    {
+      "id": "aas-jev-use",
+      "name": "jev-use (shitianfang), в коллекции agentic-awesome-skills",
+      "url": "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/jev-use/SKILL.md",
+      "kind": "skill",
+      "collection": "agentic-awesome-skills",
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 56,
+      "forks": 14,
+      "last_commit": "2026-09-22",
+      "created": "2026-09-19",
+      "contributors": 1,
+      "price": "free + ключ TypeSafe/OpenRouter/AI Gateway",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды исходного репозитория",
+          "value": "56",
+          "url": "https://github.com/shitianfang/jev-use"
+        },
+        {
+          "label": "Коллекция AAS",
+          "value": "47 451 звезда",
+          "url": "https://github.com/sickn33/agentic-awesome-skills"
+        }
+      ],
+      "coverage": {
+        "T1": {
+          "score": 0,
+          "note": "Не выбирает модель Claude.",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/jev-use/SKILL.md"
+          ]
+        },
+        "T2": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/jev-use/SKILL.md"
+          ]
+        },
+        "T3": {
+          "score": 1,
+          "note": "Маршрутизирует шаг: Jev отвечает на перечислимые суждения, остальное — агенту (escalation contract).",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/jev-use/SKILL.md"
+          ]
+        },
+        "T4": {
+          "score": 0,
+          "note": "MCP-инструменты по запросу агента.",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/jev-use/SKILL.md"
+          ]
+        },
+        "T5": {
+          "score": 1,
+          "note": "Jev через MCP (jev_judge, jev_gate), пакет вопросов за один вызов.",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/jev-use/SKILL.md"
+          ]
+        },
+        "T6": {
+          "score": 1,
+          "note": "Пакет вопросов о состоянии, не пакет подзадач.",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/jev-use/SKILL.md"
+          ]
+        },
+        "T7": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/jev-use/SKILL.md"
+          ]
+        },
+        "T8": {
+          "score": 0,
+          "note": "Не заявлено.",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/jev-use/SKILL.md"
+          ]
+        },
+        "T9": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/jev-use/SKILL.md"
+          ]
+        },
+        "T10": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/jev-use/SKILL.md"
+          ]
+        },
+        "T11": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/jev-use/SKILL.md"
+          ]
+        },
+        "T12": {
+          "score": 1,
+          "note": "npx jev-use doctor.",
+          "evidence": [
+            "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/jev-use/SKILL.md"
+          ]
+        }
+      },
+      "strengths": [
+        "Аккуратный контракт эскалации",
+        "Режим JEV_BACKEND=mock без сети"
+      ],
+      "weaknesses": [
+        "Не про выбор модели"
+      ],
+      "risks": [
+        "Один автор, 3 недели"
+      ],
+      "verdict": "inspire",
+      "summary": "Не аналог; полезен как образец батчинга вопросов к Jev и контракта эскалации."
+    },
+    {
+      "id": "typesafe-official-skill",
+      "name": "TypeSafe Agent Skills (typesafe-ai/skills, плагин typesafe@typesafe-ai)",
+      "url": "https://github.com/typesafe-ai/skills",
+      "kind": "plugin",
+      "collection": null,
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 2658,
+      "forks": 162,
+      "last_commit": "2026-09-12",
+      "created": "2026-08-24",
+      "contributors": 2,
+      "price": "free + оплата TypeSafe",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды",
+          "value": "2 658",
+          "url": "https://github.com/typesafe-ai/skills"
+        }
+      ],
+      "coverage": {
+        "T1": {
+          "score": 0,
+          "note": "Обучает строить решения на Jev в своих приложениях; триажа Claude Code нет.",
+          "evidence": [
+            "https://github.com/typesafe-ai/skills"
+          ]
+        },
+        "T2": {
+          "score": 0,
+          "note": "Обучает строить решения на Jev в своих приложениях; триажа Claude Code нет.",
+          "evidence": [
+            "https://github.com/typesafe-ai/skills"
+          ]
+        },
+        "T3": {
+          "score": 0,
+          "note": "Обучает строить решения на Jev в своих приложениях; триажа Claude Code нет.",
+          "evidence": [
+            "https://github.com/typesafe-ai/skills"
+          ]
+        },
+        "T4": {
+          "score": 0,
+          "note": "Обучает строить решения на Jev в своих приложениях; триажа Claude Code нет.",
+          "evidence": [
+            "https://github.com/typesafe-ai/skills"
+          ]
+        },
+        "T6": {
+          "score": 0,
+          "note": "Обучает строить решения на Jev в своих приложениях; триажа Claude Code нет.",
+          "evidence": [
+            "https://github.com/typesafe-ai/skills"
+          ]
+        },
+        "T7": {
+          "score": 0,
+          "note": "Обучает строить решения на Jev в своих приложениях; триажа Claude Code нет.",
+          "evidence": [
+            "https://github.com/typesafe-ai/skills"
+          ]
+        },
+        "T8": {
+          "score": 0,
+          "note": "Обучает строить решения на Jev в своих приложениях; триажа Claude Code нет.",
+          "evidence": [
+            "https://github.com/typesafe-ai/skills"
+          ]
+        },
+        "T9": {
+          "score": 0,
+          "note": "Обучает строить решения на Jev в своих приложениях; триажа Claude Code нет.",
+          "evidence": [
+            "https://github.com/typesafe-ai/skills"
+          ]
+        },
+        "T10": {
+          "score": 0,
+          "note": "Обучает строить решения на Jev в своих приложениях; триажа Claude Code нет.",
+          "evidence": [
+            "https://github.com/typesafe-ai/skills"
+          ]
+        },
+        "T11": {
+          "score": 0,
+          "note": "Обучает строить решения на Jev в своих приложениях; триажа Claude Code нет.",
+          "evidence": [
+            "https://github.com/typesafe-ai/skills"
+          ]
+        },
+        "T12": {
+          "score": 0,
+          "note": "Обучает строить решения на Jev в своих приложениях; триажа Claude Code нет.",
+          "evidence": [
+            "https://github.com/typesafe-ai/skills"
+          ]
+        },
+        "T5": {
+          "score": 1,
+          "note": "Даёт доступ к Jev и кукбукам — строительный блок для T5.",
+          "evidence": [
+            "https://github.com/typesafe-ai/skills"
+          ]
+        }
+      },
+      "strengths": [
+        "Официальный от TypeSafe"
+      ],
+      "weaknesses": [
+        "Не триаж"
+      ],
+      "risks": [
+        "TypeSafe может выпустить свой роутер для Claude Code"
+      ],
+      "verdict": "inspire",
+      "summary": "Строительный блок, а не замена."
+    },
+    {
+      "id": "pick-model-tekhne",
+      "name": "pick-model (pantheon-org/tekhne)",
+      "url": "https://github.com/pantheon-org/tekhne/blob/main/skills/agentic-harness/pick-model/SKILL.md",
+      "kind": "skill",
+      "collection": null,
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 10,
+      "forks": 1,
+      "last_commit": null,
+      "created": "2026-02-21",
+      "contributors": null,
+      "price": "free",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Tessl review",
+          "value": "73 балла, 92% best practices",
+          "url": "https://tessl.io/registry/skills/github/pantheon-org/tekhne/pick-model/review"
+        },
+        {
+          "label": "Звёзды репозитория",
+          "value": "10; push 2026-10-09",
+          "url": "https://github.com/pantheon-org/tekhne"
+        }
+      ],
+      "coverage": {
+        "T1": {
+          "score": 1,
+          "note": "Самый дешёвый уровень Haiku/Sonnet/Opus по матрице и эскалаторам (scope, stakes, ambiguity); вызывается вручную.",
+          "evidence": [
+            "https://github.com/pantheon-org/tekhne/blob/main/skills/agentic-harness/pick-model/SKILL.md"
+          ]
+        },
+        "T2": {
+          "score": 0,
+          "note": "Effort не выбирает.",
+          "evidence": [
+            "https://github.com/pantheon-org/tekhne/blob/main/skills/agentic-harness/pick-model/SKILL.md",
+            "https://tessl.io/registry/skills/github/pantheon-org/tekhne/pick-model/review"
+          ]
+        },
+        "T3": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/pantheon-org/tekhne/blob/main/skills/agentic-harness/pick-model/SKILL.md"
+          ]
+        },
+        "T4": {
+          "score": 0,
+          "note": "Вызов по фразе «which model».",
+          "evidence": [
+            "https://github.com/pantheon-org/tekhne/blob/main/skills/agentic-harness/pick-model/SKILL.md"
+          ]
+        },
+        "T5": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/pantheon-org/tekhne/blob/main/skills/agentic-harness/pick-model/SKILL.md"
+          ]
+        },
+        "T6": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/pantheon-org/tekhne/blob/main/skills/agentic-harness/pick-model/SKILL.md"
+          ]
+        },
+        "T7": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/pantheon-org/tekhne/blob/main/skills/agentic-harness/pick-model/SKILL.md"
+          ]
+        },
+        "T8": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/pantheon-org/tekhne/blob/main/skills/agentic-harness/pick-model/SKILL.md"
+          ]
+        },
+        "T9": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/pantheon-org/tekhne/blob/main/skills/agentic-harness/pick-model/SKILL.md"
+          ]
+        },
+        "T10": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/pantheon-org/tekhne/blob/main/skills/agentic-harness/pick-model/SKILL.md"
+          ]
+        },
+        "T11": {
+          "score": 1,
+          "note": "Не применяется, если модель уже задана пользователем.",
+          "evidence": [
+            "https://github.com/pantheon-org/tekhne/blob/main/skills/agentic-harness/pick-model/SKILL.md"
+          ]
+        },
+        "T12": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/pantheon-org/tekhne/blob/main/skills/agentic-harness/pick-model/SKILL.md"
+          ]
+        }
+      },
+      "strengths": [
+        "Хорошо сформулированные правила эскалации"
+      ],
+      "weaknesses": [
+        "Только совет, без хука"
+      ],
+      "risks": [
+        "Мелкий проект"
+      ],
+      "verdict": "ignore",
+      "summary": "Методичка выбора уровня; T1 частично."
+    },
+    {
+      "id": "smart-model-routing-vibecosystem",
+      "name": "Smart Model Routing (vibeeval/vibecosystem)",
+      "url": "https://claudskills.com/skills/smart-model-routing/",
+      "kind": "skill",
+      "collection": null,
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 533,
+      "forks": 44,
+      "last_commit": null,
+      "created": "2026-03-14",
+      "contributors": null,
+      "price": "free",
+      "claude_code_native": true,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды репозитория",
+          "value": "533; push 2026-08-08",
+          "url": "https://github.com/vibeeval/vibecosystem"
+        }
+      ],
+      "coverage": {
+        "T1": {
+          "score": 1,
+          "note": "Взвешенная система сигналов выбирает Opus/Sonnet/Haiku по задаче (по описанию в каталоге).",
+          "evidence": [
+            "https://claudskills.com/skills/smart-model-routing/"
+          ]
+        },
+        "T2": {
+          "score": null,
+          "note": "не проверено: в карточке каталога effort не указан",
+          "evidence": []
+        },
+        "T3": {
+          "score": null,
+          "note": "не проверено: SKILL.md не открывался",
+          "evidence": []
+        },
+        "T4": {
+          "score": null,
+          "note": "не проверено: хуки не упомянуты",
+          "evidence": []
+        },
+        "T5": {
+          "score": 0,
+          "note": "Только локальные сигналы.",
+          "evidence": [
+            "https://claudskills.com/skills/smart-model-routing/"
+          ]
+        },
+        "T6": {
+          "score": null,
+          "note": "не проверено: не изучено",
+          "evidence": []
+        },
+        "T7": {
+          "score": null,
+          "note": "не проверено: не изучено",
+          "evidence": []
+        },
+        "T8": {
+          "score": null,
+          "note": "не проверено: не изучено",
+          "evidence": []
+        },
+        "T9": {
+          "score": null,
+          "note": "не проверено: не изучено",
+          "evidence": []
+        },
+        "T10": {
+          "score": null,
+          "note": "не проверено: не изучено",
+          "evidence": []
+        },
+        "T11": {
+          "score": null,
+          "note": "не проверено: не изучено",
+          "evidence": []
+        },
+        "T12": {
+          "score": null,
+          "note": "не проверено: не изучено",
+          "evidence": []
+        }
+      },
+      "strengths": [
+        "Часть большой коллекции"
+      ],
+      "weaknesses": [
+        "Проверено только по карточке каталога"
+      ],
+      "risks": [
+        "Нет данных"
+      ],
+      "verdict": "ignore",
+      "summary": "Ещё один скил-подсказка выбора модели; глубоко не проверен."
+    },
+    {
+      "id": "openrouter-jev-router",
+      "name": "OpenRouter Jev Router (typesafe/jev-router)",
+      "url": "https://openrouter.ai/docs/guides/routing/routers/jev-router.md",
+      "kind": "saas",
+      "collection": null,
+      "license": null,
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "price": "цена выбранной модели; отдельной цены на странице нет (оценки estimated_cost не равны счёту)",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Документация",
+          "value": "OpenRouter, открыта 2026-10-11",
+          "url": "https://openrouter.ai/docs/guides/routing/routers/jev-router.md"
+        },
+        {
+          "label": "Claude Code через OpenRouter",
+          "value": "ANTHROPIC_BASE_URL=https://openrouter.ai/api",
+          "url": "https://openrouter.ai/docs/cookbook/coding-agents/claude-code-integration.md"
+        }
+      ],
+      "coverage": {
+        "T1": {
+          "score": 2,
+          "note": "Выбирает модель на каждый запрос (пул можно сузить до anthropic/*), может менять между ходами.",
+          "evidence": [
+            "https://openrouter.ai/docs/guides/routing/routers/jev-router.md"
+          ]
+        },
+        "T2": {
+          "score": 2,
+          "note": "Сам выбирает reasoning effort; переданный effort — лишь подсказка.",
+          "evidence": [
+            "https://openrouter.ai/docs/guides/routing/routers/jev-router.md"
+          ]
+        },
+        "T3": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://openrouter.ai/docs/guides/routing/routers/jev-router.md"
+          ]
+        },
+        "T4": {
+          "score": 1,
+          "note": "Шлюз на каждый запрос, без заметки и без хука.",
+          "evidence": [
+            "https://openrouter.ai/docs/guides/routing/routers/jev-router.md"
+          ]
+        },
+        "T5": {
+          "score": 2,
+          "note": "Тот же Jev + политика с оценкой цены; локальных сигналов Claude Code нет.",
+          "evidence": [
+            "https://openrouter.ai/docs/guides/routing/routers/jev-router.md"
+          ]
+        },
+        "T6": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://openrouter.ai/docs/guides/routing/routers/jev-router.md"
+          ]
+        },
+        "T7": {
+          "score": 1,
+          "note": "cost tier low/medium/high — предпочтение, не потолок.",
+          "evidence": [
+            "https://openrouter.ai/docs/guides/routing/routers/jev-router.md"
+          ]
+        },
+        "T8": {
+          "score": 0,
+          "note": "Весь запрос уходит в OpenRouter.",
+          "evidence": [
+            "https://openrouter.ai/docs/guides/routing/routers/jev-router.md",
+            "https://openrouter.ai/docs/cookbook/coding-agents/claude-code-integration.md"
+          ]
+        },
+        "T9": {
+          "score": 1,
+          "note": "Генерирует выбранная модель — исполнение встроено.",
+          "evidence": [
+            "https://openrouter.ai/docs/guides/routing/routers/jev-router.md"
+          ]
+        },
+        "T10": {
+          "score": 1,
+          "note": "Метаданные кандидатов и estimated_cost в ответе.",
+          "evidence": [
+            "https://openrouter.ai/docs/guides/routing/routers/jev-router.md"
+          ]
+        },
+        "T11": {
+          "score": 1,
+          "note": "allowed_models / excluded_models, подсказка effort.",
+          "evidence": [
+            "https://openrouter.ai/docs/guides/routing/routers/jev-router.md"
+          ]
+        },
+        "T12": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://openrouter.ai/docs/guides/routing/routers/jev-router.md"
+          ]
+        }
+      },
+      "strengths": [
+        "Реально переключает модель и effort на каждый запрос, в т.ч. основной сессии",
+        "Сделан самим TypeSafe"
+      ],
+      "weaknesses": [
+        "Только при оплате через OpenRouter (не подписка Claude)",
+        "Вне Claude Code: нет действия, пакетов, квот"
+      ],
+      "risks": [
+        "Отправка всего контекста стороннему шлюзу",
+        "Цена и пул моделей могут меняться"
+      ],
+      "verdict": "partial",
+      "summary": "Для пользователей API — сильная частичная замена T1/T2/T5 «из коробки». Для подписки Claude Max неприменим."
+    },
+    {
+      "id": "openrouter-auto-router",
+      "name": "OpenRouter Auto Router (openrouter/auto)",
+      "url": "https://openrouter.ai/docs/guides/routing/routers/auto-router.md",
+      "kind": "saas",
+      "collection": null,
+      "license": null,
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "price": "цена выбранной модели, без наценки роутера",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Документация",
+          "value": "открыта 2026-10-11",
+          "url": "https://openrouter.ai/docs/guides/routing/routers/auto-router.md"
+        }
+      ],
+      "coverage": {
+        "T1": {
+          "score": 1,
+          "note": "~30 типов задач + данные о расходах пользователей за 7 дней; не учитывает уровни Claude.",
+          "evidence": [
+            "https://openrouter.ai/docs/guides/routing/routers/auto-router.md"
+          ]
+        },
+        "T2": {
+          "score": 0,
+          "note": "Выбор effort на странице не заявлен.",
+          "evidence": [
+            "https://openrouter.ai/docs/guides/routing/routers/auto-router.md"
+          ]
+        },
+        "T3": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://openrouter.ai/docs/guides/routing/routers/auto-router.md"
+          ]
+        },
+        "T4": {
+          "score": 1,
+          "note": "Шлюз на каждый запрос.",
+          "evidence": [
+            "https://openrouter.ai/docs/guides/routing/routers/auto-router.md"
+          ]
+        },
+        "T5": {
+          "score": 1,
+          "note": "Лёгкий классификатор + рыночные данные.",
+          "evidence": [
+            "https://openrouter.ai/docs/guides/routing/routers/auto-router.md"
+          ]
+        },
+        "T6": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://openrouter.ai/docs/guides/routing/routers/auto-router.md"
+          ]
+        },
+        "T7": {
+          "score": 1,
+          "note": "cost_tier, provider.max_price.",
+          "evidence": [
+            "https://openrouter.ai/docs/guides/routing/routers/auto-router.md"
+          ]
+        },
+        "T8": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://openrouter.ai/docs/guides/routing/routers/auto-router.md"
+          ]
+        },
+        "T9": {
+          "score": 1,
+          "note": "Генерирует выбранная модель.",
+          "evidence": [
+            "https://openrouter.ai/docs/guides/routing/routers/auto-router.md"
+          ]
+        },
+        "T10": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://openrouter.ai/docs/guides/routing/routers/auto-router.md"
+          ]
+        },
+        "T11": {
+          "score": 1,
+          "note": "allowed_models/excluded_models.",
+          "evidence": [
+            "https://openrouter.ai/docs/guides/routing/routers/auto-router.md"
+          ]
+        },
+        "T12": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://openrouter.ai/docs/guides/routing/routers/auto-router.md"
+          ]
+        }
+      },
+      "strengths": [
+        "Без наценки"
+      ],
+      "weaknesses": [
+        "Не про Claude Code и не про effort"
+      ],
+      "risks": [
+        "Отправка данных наружу"
+      ],
+      "verdict": "ignore",
+      "summary": "Общий роутер провайдеров; слабее Jev Router для этой задачи."
+    },
+    {
+      "id": "litellm-auto-router",
+      "name": "LiteLLM Auto Router (complexity / JEV classifier)",
+      "url": "https://docs.litellm.ai/docs/proxy/auto_routing",
+      "kind": "oss-tool",
+      "collection": null,
+      "license": "MIT (ядро; enterprise-часть отдельно, GitHub: NOASSERTION)",
+      "osi_license": null,
+      "stars": 60949,
+      "forks": 12218,
+      "last_commit": "2026-10-11",
+      "created": "2023-07-27",
+      "contributors": 1789,
+      "price": "free (self-hosted); enterprise — платно",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды (GitHub API)",
+          "value": "60 949",
+          "url": "https://github.com/BerriAI/litellm"
+        },
+        {
+          "label": "Статус Auto Router",
+          "value": "beta, v1.94.x",
+          "url": "https://docs.litellm.ai/docs/proxy/auto_routing"
+        }
+      ],
+      "coverage": {
+        "T1": {
+          "score": 2,
+          "note": "Уровни SIMPLE/MEDIUM/COMPLEX/REASONING → модель или пул.",
+          "evidence": [
+            "https://docs.litellm.ai/docs/proxy/auto_routing"
+          ]
+        },
+        "T2": {
+          "score": 1,
+          "note": "Косвенно: отдельные записи model_list с разным reasoning_effort/thinking.",
+          "evidence": [
+            "https://docs.litellm.ai/docs/proxy/auto_routing"
+          ]
+        },
+        "T3": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://docs.litellm.ai/docs/proxy/auto_routing"
+          ]
+        },
+        "T4": {
+          "score": 1,
+          "note": "Прокси на каждый запрос.",
+          "evidence": [
+            "https://docs.litellm.ai/docs/proxy/auto_routing"
+          ]
+        },
+        "T5": {
+          "score": 2,
+          "note": "Эвристический скорер по 7 измерениям, LLM-классификатор или JEV-классификатор.",
+          "evidence": [
+            "https://docs.litellm.ai/docs/proxy/auto_routing"
+          ]
+        },
+        "T6": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://docs.litellm.ai/docs/proxy/auto_routing"
+          ]
+        },
+        "T7": {
+          "score": null,
+          "note": "не проверено: бюджеты LiteLLM на этой странице не описаны",
+          "evidence": []
+        },
+        "T8": {
+          "score": null,
+          "note": "не проверено: PII-guardrails LiteLLM не проверялись",
+          "evidence": []
+        },
+        "T9": {
+          "score": 1,
+          "note": "Генерирует выбранная модель.",
+          "evidence": [
+            "https://docs.litellm.ai/docs/proxy/auto_routing"
+          ]
+        },
+        "T10": {
+          "score": 2,
+          "note": "Адаптивный пул с Thompson sampling — обучение на результатах.",
+          "evidence": [
+            "https://docs.litellm.ai/docs/proxy/auto_routing"
+          ]
+        },
+        "T11": {
+          "score": 0,
+          "note": "Не заявлено.",
+          "evidence": [
+            "https://docs.litellm.ai/docs/proxy/auto_routing"
+          ]
+        },
+        "T12": {
+          "score": 0,
+          "note": "Не заявлено.",
+          "evidence": [
+            "https://docs.litellm.ai/docs/proxy/auto_routing"
+          ]
+        }
+      },
+      "strengths": [
+        "Зрелый шлюз, огромное сообщество",
+        "Есть JEV-классификатор и адаптивное обучение"
+      ],
+      "weaknesses": [
+        "Нужно поднимать прокси и платить по API; подписка Claude не подходит"
+      ],
+      "risks": [
+        "Сложность эксплуатации",
+        "Лицензия смешанная"
+      ],
+      "verdict": "inspire",
+      "summary": "Для API-сценария закрывает T1/T5/T10 на уровне шлюза; к Claude Code-подписке не применим."
+    },
+    {
+      "id": "routellm",
+      "name": "RouteLLM (lm-sys)",
+      "url": "https://github.com/lm-sys/RouteLLM",
+      "kind": "oss-tool",
+      "collection": null,
+      "license": "Apache-2.0",
+      "osi_license": true,
+      "stars": 5586,
+      "forks": 440,
+      "last_commit": "2024-08-10",
+      "created": "2024-06-03",
+      "contributors": 7,
+      "price": "free",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды",
+          "value": "5 586",
+          "url": "https://github.com/lm-sys/RouteLLM"
+        },
+        {
+          "label": "Свежесть",
+          "value": "последний коммит 2024-08-10",
+          "url": "https://github.com/lm-sys/RouteLLM"
+        }
+      ],
+      "coverage": {
+        "T1": {
+          "score": 1,
+          "note": "Двоичный выбор strong/weak обученным роутером.",
+          "evidence": [
+            "https://github.com/lm-sys/RouteLLM"
+          ]
+        },
+        "T2": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/lm-sys/RouteLLM"
+          ]
+        },
+        "T3": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/lm-sys/RouteLLM"
+          ]
+        },
+        "T4": {
+          "score": 0,
+          "note": "OpenAI-совместимый сервер.",
+          "evidence": [
+            "https://github.com/lm-sys/RouteLLM"
+          ]
+        },
+        "T5": {
+          "score": 1,
+          "note": "Обученные вероятностные роутеры (локально).",
+          "evidence": [
+            "https://github.com/lm-sys/RouteLLM"
+          ]
+        },
+        "T6": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/lm-sys/RouteLLM"
+          ]
+        },
+        "T7": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/lm-sys/RouteLLM"
+          ]
+        },
+        "T8": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/lm-sys/RouteLLM"
+          ]
+        },
+        "T9": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/lm-sys/RouteLLM"
+          ]
+        },
+        "T10": {
+          "score": 0,
+          "note": "Только оценка на бенчмарках.",
+          "evidence": [
+            "https://github.com/lm-sys/RouteLLM"
+          ]
+        },
+        "T11": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/lm-sys/RouteLLM"
+          ]
+        },
+        "T12": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://github.com/lm-sys/RouteLLM"
+          ]
+        }
+      },
+      "strengths": [
+        "Научная база (paper)"
+      ],
+      "weaknesses": [
+        "Заброшен с 2024",
+        "Двоичный выбор"
+      ],
+      "risks": [
+        "Заброшенность"
+      ],
+      "verdict": "ignore",
+      "summary": "Исследовательский прототип, для Claude Code не подходит."
+    },
+    {
+      "id": "not-diamond",
+      "name": "Not Diamond",
+      "url": "https://www.notdiamond.ai/pricing",
+      "kind": "saas",
+      "collection": null,
+      "license": null,
+      "osi_license": false,
+      "stars": 91,
+      "forks": 13,
+      "last_commit": "2025-12-11",
+      "created": "2024-07-24",
+      "contributors": null,
+      "price": "$0.05 за 1 млн маршрутизированных токенов (по заявке из листа ожидания); Enterprise — по запросу",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Python SDK",
+          "value": "архивирован (GitHub API)",
+          "url": "https://github.com/Not-Diamond/notdiamond-python"
+        },
+        {
+          "label": "Заявленная экономия",
+          "value": "20–40% (маркетинг)",
+          "url": "https://www.notdiamond.ai/pricing"
+        }
+      ],
+      "coverage": {
+        "T1": {
+          "score": 1,
+          "note": "Предсказывает модель для каждого промпта.",
+          "evidence": [
+            "https://www.notdiamond.ai/pricing"
+          ]
+        },
+        "T2": {
+          "score": null,
+          "note": "не проверено: не заявлено",
+          "evidence": []
+        },
+        "T3": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://www.notdiamond.ai/pricing"
+          ]
+        },
+        "T4": {
+          "score": 1,
+          "note": "Интеграция со шлюзами, «multi-harness».",
+          "evidence": [
+            "https://www.notdiamond.ai/pricing"
+          ]
+        },
+        "T5": {
+          "score": 1,
+          "note": "Внешняя предсказательная модель.",
+          "evidence": [
+            "https://www.notdiamond.ai/pricing"
+          ]
+        },
+        "T6": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://www.notdiamond.ai/pricing"
+          ]
+        },
+        "T7": {
+          "score": null,
+          "note": "не проверено: не заявлено",
+          "evidence": []
+        },
+        "T8": {
+          "score": null,
+          "note": "не проверено: privacy-preserving deployment только в Enterprise",
+          "evidence": []
+        },
+        "T9": {
+          "score": 0,
+          "note": "Не шлюз.",
+          "evidence": [
+            "https://www.notdiamond.ai/pricing"
+          ]
+        },
+        "T10": {
+          "score": 1,
+          "note": "«Continuous learning» (заявлено).",
+          "evidence": [
+            "https://www.notdiamond.ai/pricing"
+          ]
+        },
+        "T11": {
+          "score": null,
+          "note": "не проверено: не заявлено",
+          "evidence": []
+        },
+        "T12": {
+          "score": 1,
+          "note": "Дашборд экономии.",
+          "evidence": [
+            "https://www.notdiamond.ai/pricing"
+          ]
+        }
+      },
+      "strengths": [
+        "Коммерческий роутер с обучением"
+      ],
+      "weaknesses": [
+        "Лист ожидания, закрытый код"
+      ],
+      "risks": [
+        "SDK архивирован",
+        "Данные уходят наружу"
+      ],
+      "verdict": "ignore",
+      "summary": "Корпоративный роутер; для личного Claude Code нецелесообразен."
+    },
+    {
+      "id": "portkey-gateway",
+      "name": "Portkey AI Gateway (conditional routing)",
+      "url": "https://portkey.ai/docs/product/ai-gateway/conditional-routing",
+      "kind": "oss-tool",
+      "collection": null,
+      "license": "MIT",
+      "osi_license": true,
+      "stars": 13164,
+      "forks": 1336,
+      "last_commit": "2026-05-25",
+      "created": "2023-08-23",
+      "contributors": 123,
+      "price": "OSS free; облако — платно (цены не проверялись)",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Звёзды",
+          "value": "13 164",
+          "url": "https://github.com/Portkey-AI/gateway"
+        }
+      ],
+      "coverage": {
+        "T1": {
+          "score": 1,
+          "note": "Маршрут по правилам metadata/params, без оценки сложности.",
+          "evidence": [
+            "https://portkey.ai/docs/product/ai-gateway/conditional-routing"
+          ]
+        },
+        "T2": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://portkey.ai/docs/product/ai-gateway/conditional-routing"
+          ]
+        },
+        "T3": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://portkey.ai/docs/product/ai-gateway/conditional-routing"
+          ]
+        },
+        "T4": {
+          "score": 1,
+          "note": "Шлюз на каждый запрос.",
+          "evidence": [
+            "https://portkey.ai/docs/product/ai-gateway/conditional-routing"
+          ]
+        },
+        "T5": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://portkey.ai/docs/product/ai-gateway/conditional-routing"
+          ]
+        },
+        "T6": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://portkey.ai/docs/product/ai-gateway/conditional-routing"
+          ]
+        },
+        "T7": {
+          "score": null,
+          "note": "не проверено: бюджеты на этой странице не описаны",
+          "evidence": []
+        },
+        "T8": {
+          "score": null,
+          "note": "не проверено: guardrails не проверялись",
+          "evidence": []
+        },
+        "T9": {
+          "score": 1,
+          "note": "Генерирует целевая модель.",
+          "evidence": [
+            "https://portkey.ai/docs/product/ai-gateway/conditional-routing"
+          ]
+        },
+        "T10": {
+          "score": null,
+          "note": "не проверено: наблюдаемость не проверялась",
+          "evidence": []
+        },
+        "T11": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://portkey.ai/docs/product/ai-gateway/conditional-routing"
+          ]
+        },
+        "T12": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://portkey.ai/docs/product/ai-gateway/conditional-routing"
+          ]
+        }
+      },
+      "strengths": [
+        "Зрелый шлюз"
+      ],
+      "weaknesses": [
+        "Правила пишутся вручную"
+      ],
+      "risks": [
+        "Последний коммит 2026-05-25"
+      ],
+      "verdict": "ignore",
+      "summary": "Шлюз с ручными правилами; не триаж."
+    },
+    {
+      "id": "inworld-router",
+      "name": "Inworld Router (claude --model auto)",
+      "url": "https://docs.inworld.ai/router/guides/claude-code",
+      "kind": "saas",
+      "collection": null,
+      "license": null,
+      "osi_license": false,
+      "stars": null,
+      "forks": null,
+      "last_commit": null,
+      "created": null,
+      "contributors": null,
+      "price": "не опубликовано на странице",
+      "claude_code_native": false,
+      "languages": [
+        "en"
+      ],
+      "quality_signals": [
+        {
+          "label": "Гайд для Claude Code",
+          "value": "открыт 2026-10-11",
+          "url": "https://docs.inworld.ai/router/guides/claude-code"
+        }
+      ],
+      "coverage": {
+        "T1": {
+          "score": 1,
+          "note": "claude --model auto с критериями cost/latency/intelligence; кастомные роутеры с CEL-условиями.",
+          "evidence": [
+            "https://docs.inworld.ai/router/guides/claude-code"
+          ]
+        },
+        "T2": {
+          "score": null,
+          "note": "не проверено: на странице нет",
+          "evidence": []
+        },
+        "T3": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://docs.inworld.ai/router/guides/claude-code"
+          ]
+        },
+        "T4": {
+          "score": 1,
+          "note": "Шлюз на каждый запрос.",
+          "evidence": [
+            "https://docs.inworld.ai/router/guides/claude-code"
+          ]
+        },
+        "T5": {
+          "score": null,
+          "note": "не проверено: метод не описан",
+          "evidence": []
+        },
+        "T6": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://docs.inworld.ai/router/guides/claude-code"
+          ]
+        },
+        "T7": {
+          "score": null,
+          "note": "не проверено: бюджеты не описаны",
+          "evidence": []
+        },
+        "T8": {
+          "score": 0,
+          "note": "Данные уходят в шлюз.",
+          "evidence": [
+            "https://docs.inworld.ai/router/guides/claude-code"
+          ]
+        },
+        "T9": {
+          "score": 1,
+          "note": "Генерирует выбранная модель.",
+          "evidence": [
+            "https://docs.inworld.ai/router/guides/claude-code"
+          ]
+        },
+        "T10": {
+          "score": null,
+          "note": "не проверено: не описано",
+          "evidence": []
+        },
+        "T11": {
+          "score": null,
+          "note": "не проверено: не описано",
+          "evidence": []
+        },
+        "T12": {
+          "score": 0,
+          "note": "Нет.",
+          "evidence": [
+            "https://docs.inworld.ai/router/guides/claude-code"
+          ]
+        }
+      },
+      "strengths": [
+        "Прямой гайд для Claude Code"
+      ],
+      "weaknesses": [
+        "Цены не опубликованы"
+      ],
+      "risks": [
+        "Закрытый сервис"
+      ],
+      "verdict": "ignore",
+      "summary": "Шлюз с авто-моделью для Claude Code через API; не про effort и действие."
+    }
+  ],
+  "verdict": {
+    "can_replace": "partial",
+    "headline": "Полной замены нет: ядро (модель+effort на каждый запрос) закрывает tzachbon/claude-model-router-hook поверх встроенных рычагов Claude Code, но Jev, «спросить», пакеты, квоты, маскировка, калибровка и русские указания есть только у своего скила.",
+    "explanation": "Никто не делает всё сразу (хук на запрос + модель + effort + действие + пакеты + квоты). Ближе всех: (1) tzachbon/claude-model-router-hook — T1, T2, T4 (даже шире: PreToolUse принудительно переписывает Agent), T9 через агентов routed-*, но только английские эвристики, без Jev, пакетов, квот и калибровки; (2) jev-interceptor (rayopavri/jev-setup) — тоже Jev в UserPromptSubmit, сильнее в T3/T10/T12 и в сторонних исполнителях, но без effort для Claude, без Fable и маскировки, 0 звёзд и 3 дня от роду; (3) Guided Model Router (nobodyohm) — та же схема «подсказка + агенты-уровни + статистика», заброшен с июля; (4) OpenRouter Jev Router и LiteLLM Auto Router сами выбирают модель и effort на каждый запрос, но только при оплате по API через шлюз (подписке Claude не подходят) и вне логики Claude Code. Встроенный Claude Code (2026-10-11) даёт все рычаги — /model, /effort, opusplan, best, adaptive reasoning, model/effort у субагентов и у вызова Agent, CLAUDE_CODE_SUBAGENT_MODEL_FORCE, --max-budget-usd, advisor, ultracode — но НЕ выбирает их под запрос: issue #43326 открыт с апреля без ответа Anthropic. Без стороннего кода покрытие оценивается примерно в треть: T9 полностью, T1/T2/T7/T10/T11 частично, T3–T6, T8, T12 — нет. Важная находка: моды Claude Code (v2.1.287+) позволяют на turn.step менять model и effort каждого запроса, а на agent.spawn — модель субагента. Значит утверждение README скила «основную сессию переключить нельзя» устарело, и ни один конкурент этим ещё не пользуется.",
+    "replace_with": [
+      "claude-model-router-hook",
+      "cc-builtin-subagent-model-effort",
+      "cc-builtin-model-effort"
+    ],
+    "keep_own": [
+      "T3",
+      "T5",
+      "T6",
+      "T7",
+      "T8",
+      "T10",
+      "T11",
+      "T12"
+    ],
+    "lost_if_replaced": [
+      "Оценка через TypeSafe Jev (вероятности) вместо английских ключевых слов",
+      "Действие «спросить» и учёт модели сессии и дорогого контекста при выборе «сам/Agent»",
+      "Пакетный триаж --batch с порядком по paths и одним подтверждением",
+      "Квоты Fable/max и потолки расхода на крайних уровнях",
+      "Маскировка и блокировка секретов перед отправкой",
+      "Журнал фактов, автозапись факта и --calibrate train/holdout",
+      "Разбор русских явных указаний и отрицаний («используй Fable», «не нужно глубоко»), «упоминание ≠ указание»",
+      "Русская документация, --check/--report/--verify"
+    ],
+    "migration_effort_days": 1,
+    "keep_developing": "partial",
+    "keep_developing_what": "Развивать только уникальное: (а) перенести исполнение на мод Claude Code — turn.step (model/effort основной сессии на запрос, с учётом цены сброса кеша) и agent.spawn (модель субагента принудительно), это даст то, чего нет ни у кого; (б) перенять у tzachbon принудительную маршрутизацию субагентов через PreToolUse и eval-набор с порогом точности в CI; (в) оставить Jev, русские указания, пакеты, квоты, маскировку, калибровку. Не вкладываться в то, что дублирует встроенное: --run (это обёртка над claude -p --model --effort --max-budget-usd), собственные правила max/xhigh там, где хватает adaptive reasoning и effort по умолчанию medium у Opus 5.5.",
+    "risks": [
+      "Anthropic может добавить нативный авто-выбор (issue #43326, метки area:model, area:hooks) — тогда ценность T1/T2 обнулится",
+      "TypeSafe уже продаёт Jev Router в OpenRouter и может выпустить собственный роутер для Claude Code",
+      "tzachbon — один автор, последний коммит 2026-08-29; при замене риск заброшенности переходит на чужой проект",
+      "Шлюзы (OpenRouter, LiteLLM, Inworld) требуют оплаты по API и отправляют весь контекст третьей стороне",
+      "Переключение модели на каждый запрос через мод сбрасывает кеш промпта — экономия может уйти в минус без учёта context_tokens"
+    ],
+    "cost_notes": "tzachbon/claude-model-router-hook, nobodyohm, nedjamez, встроенные возможности — бесплатно (MIT/входит в Claude Code). Свой скил: TypeSafe по факту, локальный потолок $2 в месяц (README скила). OpenRouter Jev/Auto Router — цена выбранной модели по API, отдельной платы роутера на страницах нет. Not Diamond — $0.05 за 1 млн маршрутизированных токенов (по заявке). LiteLLM/Portkey OSS — бесплатно плюс эксплуатация прокси. Оценка внедрения tzachbon: ~1 день (установка плагина, конфиг ~/.claude/model-router.json, проверка на своих запросах, снятие хука триажа) — допущение."
+  },
+  "sources": [
+    {
+      "url": "https://code.claude.com/docs/en/model-config",
+      "title": "Claude Code docs: Model configuration",
+      "date_checked": "2026-10-11",
+      "used_for": "встроенные /model, /effort, opusplan, best, adaptive reasoning, лимиты, CLAUDE_CODE_SUBAGENT_MODEL"
+    },
+    {
+      "url": "https://code.claude.com/docs/en/sub-agents",
+      "title": "Claude Code docs: Subagents",
+      "date_checked": "2026-10-11",
+      "used_for": "порядок выбора модели и effort субагента, _FORCE"
+    },
+    {
+      "url": "https://code.claude.com/docs/en/hooks",
+      "title": "Claude Code docs: Hooks reference",
+      "date_checked": "2026-10-11",
+      "used_for": "UserPromptSubmit additionalContext, PreToolUse updatedInput, PreModelSwitch, поле effort"
+    },
+    {
+      "url": "https://code.claude.com/docs/en/plugins/mods/events",
+      "title": "Claude Code docs: React to events with a mod",
+      "date_checked": "2026-10-11",
+      "used_for": "prompt.submit, turn.step model/effort"
+    },
+    {
+      "url": "https://code.claude.com/docs/en/plugins/mods/reference",
+      "title": "Claude Code docs: Mods reference",
+      "date_checked": "2026-10-11",
+      "used_for": "turn.step next({model}/{effort}), agent.spawn model"
+    },
+    {
+      "url": "https://code.claude.com/docs/en/plugins/mods/overview",
+      "title": "Claude Code docs: Mods overview",
+      "date_checked": "2026-10-11",
+      "used_for": "моды включены с v2.1.287"
+    },
+    {
+      "url": "https://code.claude.com/docs/en/workflows",
+      "title": "Claude Code docs: Dynamic workflows",
+      "date_checked": "2026-10-11",
+      "used_for": "ultracode, модель агентов workflow, лимиты, размер"
+    },
+    {
+      "url": "https://code.claude.com/docs/en/advisor",
+      "title": "Claude Code docs: Advisor tool",
+      "date_checked": "2026-10-11",
+      "used_for": "каскад исполнитель+советник"
+    },
+    {
+      "url": "https://code.claude.com/docs/en/costs",
+      "title": "Claude Code docs: Manage costs",
+      "date_checked": "2026-10-11",
+      "used_for": "лимиты трат, --max-budget-usd, выбор модели"
+    },
+    {
+      "url": "https://github.com/anthropics/claude-code/issues/43326",
+      "title": "anthropics/claude-code #43326 Auto-select model and effort",
+      "date_checked": "2026-10-11",
+      "used_for": "статус нативного авто-выбора"
+    },
+    {
+      "url": "https://github.com/tzachbon/claude-model-router-hook",
+      "title": "tzachbon/claude-model-router-hook README",
+      "date_checked": "2026-10-11",
+      "used_for": "главный конкурент: хуки, классы, effort, конфиг"
+    },
+    {
+      "url": "https://github.com/tzachbon/claude-model-router-hook/blob/main/CHANGELOG.md",
+      "title": "tzachbon/claude-model-router-hook CHANGELOG",
+      "date_checked": "2026-10-11",
+      "used_for": "версии 2.0.0/2.1.0, eval 95,71%"
+    },
+    {
+      "url": "https://github.com/tzachbon/claude-model-router-hook/blob/main/plugins/claude-model-router-hook/hooks/pre_tool_use.py",
+      "title": "tzachbon pre_tool_use.py",
+      "date_checked": "2026-10-11",
+      "used_for": "переписывание Agent, уважение явной модели, CLAUDE_CODE_SUBAGENT_MODEL"
+    },
+    {
+      "url": "https://github.com/tzachbon/claude-model-router-hook/blob/main/plugins/claude-model-router-hook/agents/routed-opus-high.md",
+      "title": "tzachbon routed-opus-high.md",
+      "date_checked": "2026-10-11",
+      "used_for": "агенты с model+effort"
+    },
+    {
+      "url": "https://api.github.com/repos/tzachbon/claude-model-router-hook",
+      "title": "GitHub API: claude-model-router-hook",
+      "date_checked": "2026-10-11",
+      "used_for": "звёзды, форки, даты, лицензия"
+    },
+    {
+      "url": "https://github.com/coyvalyss1/model-matchmaker",
+      "title": "coyvalyss1/model-matchmaker README",
+      "date_checked": "2026-10-11",
+      "used_for": "предок tzachbon"
+    },
+    {
+      "url": "https://github.com/nobodyohm-web/claude-code-model-router",
+      "title": "nobodyohm-web/claude-code-model-router README",
+      "date_checked": "2026-10-11",
+      "used_for": "Guided Model Router: ладдер модель·effort, /router-stats"
+    },
+    {
+      "url": "https://github.com/nobodyohm-web/claude-code-model-router/blob/main/agents/deep-fable.md",
+      "title": "nobodyohm deep-fable.md",
+      "date_checked": "2026-10-11",
+      "used_for": "effort во frontmatter"
+    },
+    {
+      "url": "https://github.com/rayopavri/jev-setup",
+      "title": "rayopavri/jev-setup README (jev-interceptor)",
+      "date_checked": "2026-10-11",
+      "used_for": "Jev-триаж в UserPromptSubmit, маршруты, лимиты"
+    },
+    {
+      "url": "https://github.com/nedjamez/claude-code-model-router",
+      "title": "nedjamez/claude-code-model-router README",
+      "date_checked": "2026-10-11",
+      "used_for": "PreToolUse-роутер субагентов"
+    },
+    {
+      "url": "https://github.com/ypollak2/llm-router",
+      "title": "ypollak2/llm-router README",
+      "date_checked": "2026-10-11",
+      "used_for": "роутер квоты подписки"
+    },
+    {
+      "url": "https://github.com/hesreallyhim/awesome-claude-code",
+      "title": "hesreallyhim/awesome-claude-code README",
+      "date_checked": "2026-10-11",
+      "used_for": "поиск кандидатов (llm-router и др.)"
+    },
+    {
+      "url": "https://github.com/musistudio/claude-code-router",
+      "title": "musistudio/claude-code-router README",
+      "date_checked": "2026-10-11",
+      "used_for": "шлюз CCR v3"
+    },
+    {
+      "url": "https://github.com/affaan-m/ECC/blob/main/commands/model-route.md",
+      "title": "ECC commands/model-route.md (локальный клон 2026-10-10)",
+      "date_checked": "2026-10-11",
+      "used_for": "/model-route"
+    },
+    {
+      "url": "https://github.com/affaan-m/ECC/blob/main/commands/cost-report.md",
+      "title": "ECC commands/cost-report.md",
+      "date_checked": "2026-10-11",
+      "used_for": "cost-tracker и отчёт"
+    },
+    {
+      "url": "https://github.com/affaan-m/ECC/blob/main/skills/token-budget-advisor/SKILL.md",
+      "title": "ECC skills/token-budget-advisor",
+      "date_checked": "2026-10-11",
+      "used_for": "глубина ответа, не effort"
+    },
+    {
+      "url": "https://github.com/affaan-m/ECC/blob/main/skills/cost-aware-llm-pipeline/SKILL.md",
+      "title": "ECC skills/cost-aware-llm-pipeline",
+      "date_checked": "2026-10-11",
+      "used_for": "паттерн маршрутизации для приложений"
+    },
+    {
+      "url": "https://github.com/sickn33/agentic-awesome-skills/blob/main/plugins/agentic-awesome-skills-claude/skills/jev-use/SKILL.md",
+      "title": "agentic-awesome-skills: jev-use SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "Jev через MCP"
+    },
+    {
+      "url": "https://github.com/shitianfang/jev-use",
+      "title": "shitianfang/jev-use (GitHub API)",
+      "date_checked": "2026-10-11",
+      "used_for": "звёзды, даты"
+    },
+    {
+      "url": "https://github.com/typesafe-ai/skills",
+      "title": "typesafe-ai/skills README",
+      "date_checked": "2026-10-11",
+      "used_for": "официальный плагин TypeSafe"
+    },
+    {
+      "url": "https://openrouter.ai/docs/guides/routing/routers/jev-router.md",
+      "title": "OpenRouter: Jev Router",
+      "date_checked": "2026-10-11",
+      "used_for": "выбор модели и effort Jev-ом на запрос"
+    },
+    {
+      "url": "https://openrouter.ai/docs/guides/routing/routers/auto-router.md",
+      "title": "OpenRouter: Auto Router",
+      "date_checked": "2026-10-11",
+      "used_for": "общий роутер, cost_tier"
+    },
+    {
+      "url": "https://openrouter.ai/docs/cookbook/coding-agents/claude-code-integration.md",
+      "title": "OpenRouter: Claude Code integration",
+      "date_checked": "2026-10-11",
+      "used_for": "подключение Claude Code к шлюзу"
+    },
+    {
+      "url": "https://docs.litellm.ai/docs/proxy/auto_routing",
+      "title": "LiteLLM: Auto Router",
+      "date_checked": "2026-10-11",
+      "used_for": "уровни сложности, JEV-классификатор, Thompson sampling"
+    },
+    {
+      "url": "https://github.com/BerriAI/litellm",
+      "title": "GitHub API: BerriAI/litellm",
+      "date_checked": "2026-10-11",
+      "used_for": "звёзды, лицензия"
+    },
+    {
+      "url": "https://github.com/lm-sys/RouteLLM",
+      "title": "lm-sys/RouteLLM README",
+      "date_checked": "2026-10-11",
+      "used_for": "исследовательский роутер, свежесть"
+    },
+    {
+      "url": "https://www.notdiamond.ai/pricing",
+      "title": "Not Diamond pricing",
+      "date_checked": "2026-10-11",
+      "used_for": "цена, функции"
+    },
+    {
+      "url": "https://github.com/Not-Diamond/notdiamond-python",
+      "title": "GitHub API: Not-Diamond/notdiamond-python",
+      "date_checked": "2026-10-11",
+      "used_for": "архивирован"
+    },
+    {
+      "url": "https://portkey.ai/docs/product/ai-gateway/conditional-routing",
+      "title": "Portkey: Conditional routing",
+      "date_checked": "2026-10-11",
+      "used_for": "ручные правила"
+    },
+    {
+      "url": "https://github.com/Portkey-AI/gateway",
+      "title": "GitHub API: Portkey-AI/gateway",
+      "date_checked": "2026-10-11",
+      "used_for": "звёзды, свежесть"
+    },
+    {
+      "url": "https://docs.inworld.ai/router/guides/claude-code",
+      "title": "Inworld Router: Claude Code guide",
+      "date_checked": "2026-10-11",
+      "used_for": "claude --model auto"
+    },
+    {
+      "url": "https://github.com/pantheon-org/tekhne/blob/main/skills/agentic-harness/pick-model/SKILL.md",
+      "title": "pantheon-org/tekhne pick-model SKILL.md",
+      "date_checked": "2026-10-11",
+      "used_for": "скил выбора уровня"
+    },
+    {
+      "url": "https://tessl.io/registry/skills/github/pantheon-org/tekhne/pick-model/review",
+      "title": "Tessl review: pick-model",
+      "date_checked": "2026-10-11",
+      "used_for": "оценка 73"
+    },
+    {
+      "url": "https://claudskills.com/skills/smart-model-routing/",
+      "title": "claudskills.com: Smart Model Routing",
+      "date_checked": "2026-10-11",
+      "used_for": "карточка скила"
+    },
+    {
+      "url": "https://withmartian.com/",
+      "title": "Martian homepage",
+      "date_checked": "2026-10-11",
+      "used_for": "исключён: сайт описывает исследовательскую лабораторию, продукта-роутера и цен нет"
+    },
+    {
+      "url": "https://unify.ai/",
+      "title": "Unify homepage",
+      "date_checked": "2026-10-11",
+      "used_for": "исключён: сменил продукт на continual learning агентов; unifyai/unify архивирован (GitHub API)"
+    },
+    {
+      "url": "https://claudepluginhub.com/plugins/0xrdan-claude-router",
+      "title": "0xrdan claude-router (ClaudePluginHub)",
+      "date_checked": "2026-10-11",
+      "used_for": "исключён: HTTP 410, репозиторий не найден в GitHub API"
+    }
+  ]
+}
