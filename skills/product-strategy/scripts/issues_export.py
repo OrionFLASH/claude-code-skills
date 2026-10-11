@@ -1,7 +1,17 @@
 #!/usr/bin/env python3
 """Issues и Pull Requests репозитория как карта спроса (только чтение через gh).
 
-  issues_export.py <repo> <OUT> [--limit 500] [--summary-only]
+  issues_export.py <repo | owner/repo | URL GitHub> <OUT> [--repo-path PATH] [--internal-authors a,b] [--limit 500] [--summary-only]
+
+Первый аргумент — путь к репозиторию (owner/repo берётся из git remote, затем `gh repo view` в этой папке, затем
+run-config repo.remote, затем sources.external.tracker) или сразу `owner/repo` / `https://github.com/owner/repo` (если такой папки нет). `--repo-path` —
+явный путь к репозиторию (тогда первый аргумент может быть `owner/repo`, он главнее remote).
+
+Органика: авторы ≠ владелец репозитория, ≠ «внутренние» авторы (заказчик, QA, тестировщики: --internal-authors или
+run-config `sources.internal_authors` или `issues.internal_authors`) и ≠ боты. Доля органики — в counts.organic_share, в issues-summary.json и в
+research/issues-demand.md; при доле < 30 % или одном авторе > 50 % обращений — предупреждение «слабый внешний сигнал».
+Запасной путь: если `gh issue list` с полным набором полей не выполнился (старый gh, нет reactionGroups), повтор с
+минимальным набором полей.
 
 При scope.issues=false (или sources.issues=false) в <OUT>/build/run-config.json, либо с --summary-only, пишется только
 сводка счётчиков <OUT>/data/issues-summary.json ({repo, date, open, closed, total, limit_reached, detailed: false,
@@ -32,6 +42,11 @@ from datetime import date
 from pathlib import Path
 
 ISSUE_FIELDS = "number,title,body,state,stateReason,labels,createdAt,updatedAt,closedAt,comments,reactionGroups,author,url"
+ISSUE_FIELDS_MIN = "number,title,body,state,labels,createdAt,closedAt,author,url"
+SLUG_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+GH_URL_RE = re.compile(r"github\.com[:/]([^/\s]+)/([^/\s#?]+?)(?:\.git)?/?(?:[#?].*)?$")
+BOT_LOGINS = {"dependabot", "github-actions", "renovate", "renovate-bot", "codecov", "snyk-bot", "pre-commit-ci", "imgbot", "allcontributors"}
+ORGANIC_WARN = 0.30
 PR_FIELDS = "number,title,state,labels,createdAt,mergedAt,closedAt,url,isDraft,additions,deletions,changedFiles,author"
 
 TYPE_LABELS = [
@@ -92,6 +107,95 @@ def github_remote(repo):
     return None
 
 
+def slug_from_text(text):
+    """owner/repo из «owner/repo» или URL GitHub, иначе None."""
+    t = (text or "").strip()
+    m = GH_URL_RE.search(t)
+    if m:
+        return "%s/%s" % (m.group(1), m.group(2))
+    return t if SLUG_RE.match(t) and not t.startswith(".") else None
+
+
+def gh_repo_view(gh, repo):
+    """owner/repo через `gh repo view` в папке репозитория (gh сам разбирает remote; только чтение)."""
+    if not gh or not repo:
+        return None
+    code, so, _ = run([gh, "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"], cwd=str(repo), timeout=60)
+    return slug_from_text(so.strip()) if code == 0 else None
+
+
+def load_cfg(out):
+    try:
+        return json.loads((out / "build" / "run-config.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def resolve_target(repo_arg, repo_path, out, gh):
+    """→ (путь репозитория | None, owner/repo | None, откуда взят slug)."""
+    cfg = load_cfg(out)
+    arg_path = Path(repo_arg).expanduser() if repo_arg else None
+    path = Path(repo_path).expanduser().resolve() if repo_path else (arg_path.resolve() if arg_path and arg_path.exists() else None)
+    if repo_path or path is None:
+        direct = slug_from_text(repo_arg)
+        if direct:
+            return path, direct, "аргумент owner/repo"
+    if path is None:
+        tracker = slug_from_text(str((((cfg.get("sources") or {}).get("external") or {}).get("tracker")) or ""))
+        if tracker:
+            return None, tracker, "run-config sources.external.tracker"
+        return None, None, "нет папки «%s» и это не owner/repo" % repo_arg
+    slug = github_remote(path)
+    if slug:
+        return path, slug, "git remote"
+    slug = gh_repo_view(gh, path)
+    if slug:
+        return path, slug, "gh repo view"
+    slug = slug_from_text(str(((cfg.get("repo") or {}).get("remote")) or ""))
+    if slug:
+        return path, slug, "run-config repo.remote"
+    slug = slug_from_text(str((((cfg.get("sources") or {}).get("external") or {}).get("tracker")) or ""))
+    if slug:
+        return path, slug, "run-config sources.external.tracker"
+    return path, None, "нет удалённого адреса на GitHub"
+
+
+def internal_authors(out, cli):
+    """Логины «внутренних» авторов (заказчик, QA): --internal-authors + run-config sources.internal_authors / issues.internal_authors."""
+    cfg = load_cfg(out)
+    vals = [x for x in (cli or "").split(",")]
+    for src in ((cfg.get("sources") or {}).get("internal_authors"), (cfg.get("issues") or {}).get("internal_authors"),
+                (cfg.get("project") or {}).get("internal_authors")):
+        if isinstance(src, str):
+            vals += src.split(",")
+        elif isinstance(src, list):
+            vals += [str(x) for x in src]
+    return {v.strip().lstrip("@").lower() for v in vals if v and v.strip()}
+
+
+def author_role(author, owner, internal):
+    login = ((author or {}).get("login") or "").lower()
+    if (author or {}).get("is_bot") or login.endswith("[bot]") or login.startswith("app/") or login in BOT_LOGINS:
+        return "bot"
+    if login and owner and login == owner.lower():
+        return "owner"
+    if login and login in internal:
+        return "internal"
+    return "external" if login else "unknown"
+
+
+def organic_stats(issues):
+    """Доля органики (внешние авторы) и доминирующий автор (по служебному _login)."""
+    n = len(issues)
+    roles = Counter(i.get("author_role") for i in issues)
+    logins = Counter(i["_login"] for i in issues if i.get("_login"))
+    top_login, top_n = (logins.most_common(1)[0] if logins else (None, 0))
+    top_role = next((i.get("author_role") for i in issues if i.get("_login") == top_login), None) if top_login else None
+    organic = roles.get("external", 0) + roles.get("unknown", 0)
+    return {"organic": organic, "organic_share": round(organic / n, 3) if n else None, "internal": roles.get("internal", 0),
+            "bots": roles.get("bot", 0), "top_author_share": round(top_n / n, 3) if n else None, "top_author_role": top_role}
+
+
 def classify(title, body, labels):
     lab = " ".join(labels)
     for t, rx in TYPE_LABELS:
@@ -133,12 +237,14 @@ def demand_score(it):
         s += REACTION_W.get(k, 0.3) * v
     if it.get("state") == "OPEN":
         s *= 1.2
-    if it.get("author_is_owner"):
-        s *= 0.6                                            # внутренние заметки владельца — слабее внешнего спроса
+    if it.get("author_is_owner") or it.get("author_role") == "internal":
+        s *= 0.6                                            # заметки владельца, заказчика и QA — слабее внешнего спроса
+    elif it.get("author_role") == "bot":
+        s *= 0.3
     return round(s, 2)
 
 
-def normalize_issue(raw, owner):
+def normalize_issue(raw, owner, internal=frozenset()):
     labels = [l.get("name", "") for l in raw.get("labels") or [] if isinstance(l, dict)]
     body = raw.get("body") or ""
     reactions = {}
@@ -156,6 +262,7 @@ def normalize_issue(raw, owner):
         "state": (raw.get("state") or "").upper(), "state_reason": raw.get("stateReason"), "labels": labels,
         "type": t, "type_by": how, "created": (raw.get("createdAt") or "")[:10], "closed": (raw.get("closedAt") or "")[:10] or None,
         "comments": ncom, "reactions": reactions, "author_is_owner": bool(login and owner and login == owner.lower()),
+        "author_role": author_role(raw.get("author"), owner, internal),
         "body_len": len(body), "body_excerpt": re.sub(r"\s+", " ", body)[:300],
         "suspicious_instruction": sus, "suspicious_match": why,
     }
@@ -216,11 +323,11 @@ def write_outputs(out, data):
     with open(out / "data" / "issues-demand.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["number", "title", "url", "state", "type", "labels", "cluster", "comments", "reactions", "demand",
-                    "demand_level", "created", "closed", "author_is_owner", "suspicious_instruction"])
+                    "demand_level", "created", "closed", "author_is_owner", "suspicious_instruction", "author_role"])
         for it in data.get("issues", []):
             w.writerow([it["number"], it["title"], it["url"], it["state"], it["type"], ";".join(it["labels"]), it.get("cluster", ""),
                         it["comments"], sum(it["reactions"].values()), it["demand"], it.get("demand_level", ""), it["created"],
-                        it["closed"] or "", int(it["author_is_owner"]), int(it["suspicious_instruction"])])
+                        it["closed"] or "", int(it["author_is_owner"]), int(it["suspicious_instruction"]), it.get("author_role", "")])
     (out / "research" / "issues-demand.md").write_text(render_md(data), encoding="utf-8")
 
 
@@ -245,8 +352,17 @@ def render_md(d):
     L.append("- По типу: " + ", ".join("%s — %d" % (k, v) for k, v in c["by_type"].items()))
     L.append("- От владельца репозитория: %d из %d (%.0f %%); внешних авторов: %d" % (
         c["by_owner"], c["issues"], 100.0 * c["by_owner"] / max(1, c["issues"]), c["external_authors"]))
+    if c.get("organic_share") is not None:
+        L.append("- Органика (авторы ≠ владелец, заказчик/QA из `sources.internal_authors`, боты): %d из %d (%.0f %%); внутренних: %d; ботов: %d" % (
+            c["organic"], c["issues"], 100.0 * c["organic_share"], c["internal"], c["bots"]))
     if c["issues"] and c["by_owner"] / c["issues"] > 0.7:
         L.append("- **Внимание:** большинство Issues заведены владельцем — это слабый внешний сигнал спроса (класс доказательств C).")
+    if c.get("organic_share") is not None and c["issues"] >= 5 and c["organic_share"] < ORGANIC_WARN:
+        L.append("- **Внимание:** органики меньше %d %% — трекер отражает работу владельца/заказчика/QA, а не внешний спрос; "
+                 "в стратегии — класс доказательств C и оговорка." % int(ORGANIC_WARN * 100))
+    if c.get("top_author_share") and c["issues"] >= 10 and c["top_author_share"] > 0.5 and c.get("top_author_role") == "external":
+        L.append("- **Внимание:** один автор завёл %.0f %% обращений и он не отмечен как внутренний — если это заказчик или "
+                 "тестировщик, укажите его в run-config `sources.internal_authors` (или `--internal-authors`) и перезапустите." % (100.0 * c["top_author_share"]))
     L.append("- Предел выгрузки: %d; выгружено полностью: %s" % (d["limit"], "нет" if c["issues"] >= d["limit"] else "да"))
     L.append("")
     L.append("## Кластеры")
@@ -335,16 +451,18 @@ def skipped_data(repo_name, reason, limit):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Issues/PR через gh (только чтение) → data/issues.json, research/issues-demand.md")
-    ap.add_argument("repo")
+    ap.add_argument("repo", help="путь к репозиторию, owner/repo или URL GitHub")
     ap.add_argument("out")
+    ap.add_argument("--repo-path", help="явный путь к репозиторию (первый аргумент тогда может быть owner/repo)")
+    ap.add_argument("--internal-authors", default="", help="логины заказчика/QA через запятую (не органика); также run-config sources.internal_authors")
     ap.add_argument("--limit", type=int, default=500, help="максимум Issues и PR (по отдельности), по умолчанию 500")
     ap.add_argument("--summary-only", action="store_true",
                     help="только счётчики открыто/закрыто → data/issues-summary.json (так же при scope.issues=false в run-config)")
     ap.add_argument("--gh", default="gh", help=argparse.SUPPRESS)
     a = ap.parse_args(argv)
-    repo, out = Path(a.repo).expanduser().resolve(), Path(a.out).expanduser().resolve()
-    slug = github_remote(repo)
+    out = Path(a.out).expanduser().resolve()
     gh = shutil.which(a.gh)
+    repo, slug, slug_how = resolve_target(a.repo, a.repo_path, out, gh)
     if a.summary_only or issues_disabled(out):
         why = "подробный анализ выключен (scope.issues=false)" if not a.summary_only else "подробный анализ выключен (--summary-only)"
         counts = issue_counts(gh, slug, max(a.limit, 5000))
@@ -356,7 +474,7 @@ def main(argv=None):
         return 0
     reason = None
     if not slug:
-        reason = "нет удалённого адреса на GitHub"
+        reason = slug_how if slug_how.startswith("нет") else "нет удалённого адреса на GitHub"
     elif not gh:
         reason = "не установлен gh (GitHub CLI)"
     if reason:
@@ -365,6 +483,12 @@ def main(argv=None):
         print("issues_export: пропущено — %s" % reason)
         return 0
     code, so, se = run([gh, "issue", "list", "-R", slug, "--state", "all", "--limit", str(a.limit), "--json", ISSUE_FIELDS], timeout=300)
+    fields_note = None
+    if code != 0:                                           # запасной путь: минимальный набор полей
+        code2, so2, se2 = run([gh, "issue", "list", "-R", slug, "--state", "all", "--limit", str(a.limit), "--json", ISSUE_FIELDS_MIN], timeout=300)
+        if code2 == 0:
+            code, so, se = code2, so2, se2
+            fields_note = "gh issue list с полным набором полей не выполнился — выгрузка по минимальному набору (без реакций и комментариев)"
     if code != 0:
         first = (se.strip().splitlines() or ["ошибка gh"])[0][:200]
         write_outputs(out, skipped_data(slug, "gh issue list не выполнился: %s" % first, a.limit))
@@ -385,8 +509,10 @@ def main(argv=None):
     else:
         pr_note = "gh pr list не выполнился: %s" % ((se.strip().splitlines() or [""])[0][:160])
     owner = slug.split("/")[0]
-    issues = [normalize_issue(r, owner) for r in raw_issues if isinstance(r, dict)]
+    internal = internal_authors(out, a.internal_authors)
+    issues = [normalize_issue(r, owner, internal) for r in raw_issues if isinstance(r, dict)]
     ext_authors = len({i["_login"] for i in issues if i["_login"] and not i["author_is_owner"]})
+    org = organic_stats(issues)
     for i in issues:
         i.pop("_login", None)
     scores = sorted((i["demand"] for i in issues), reverse=True)
@@ -412,14 +538,18 @@ def main(argv=None):
                    "closed": sum(1 for i in issues if i["state"] != "OPEN"),
                    "by_type": dict(Counter(i["type"] for i in issues).most_common()),
                    "by_owner": sum(1 for i in issues if i["author_is_owner"]), "external_authors": ext_authors,
-                   "prs": len(prs), "prs_merged": sum(1 for p in prs if p["merged"])},
+                   "prs": len(prs), "prs_merged": sum(1 for p in prs if p["merged"]), **org},
+        "slug_source": slug_how, "internal_authors_count": len(internal),
         "issues": issues, "prs": prs, "clusters": clusters, "suspicious": sus,
-        "notes": [n for n in [pr_note] if n],
+        "notes": [n for n in [pr_note, fields_note] if n],
     }
     write_outputs(out, data)
     write_summary(out, summary_data(slug, {"open": data["counts"]["open"], "closed": data["counts"]["closed"], "total": len(issues),
-                                           "limit_reached": len(issues) >= a.limit}, True))
-    print("issues_export: %s — Issues %d, PR %d, кластеров %d, подозрительных %d" % (slug, len(issues), len(prs), len(clusters), len(sus)))
+                                           "limit_reached": len(issues) >= a.limit, "organic": org["organic"],
+                                           "organic_share": org["organic_share"]}, True))
+    print("issues_export: %s (%s) — Issues %d, PR %d, кластеров %d, подозрительных %d, органика %s" % (
+        slug, slug_how, len(issues), len(prs), len(clusters), len(sus),
+        "—" if org["organic_share"] is None else "%d %%" % round(100 * org["organic_share"])))
     return 0
 
 

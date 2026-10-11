@@ -2,7 +2,10 @@
 """Скан репозитория для product-strategy: стек, точки входа, маршруты, функции, i18n, интеграции, качество, git,
 цены и тарифы, совместимость платформ.
 
-  repo_scan.py <repo> <OUT> [--max-files 20000] [--max-file-bytes 1000000] [--no-git]
+  repo_scan.py <repo> <OUT> [--max-files 20000] [--max-file-bytes 1000000] [--no-git] [--strict-limit]
+
+Код выхода: 0 — готово; 2 — нет папки репозитория; 3 — достигнут предел --max-files при --strict-limit (скан неполный;
+без флага — код 0, но в stdout строка «СКАН НЕПОЛНЫЙ», в stderr — предупреждение, в repo-scan.json — scan.truncated).
 
 Пишет <OUT>/data/repo-scan.json (схема — references/data-contract.md) и <OUT>/research/repo-scan.md
 (читаемая сводка со ссылками file:line).
@@ -10,7 +13,8 @@
 Какие файлы смотрятся:
 - репозиторий под git — только `git ls-files` (отслеживаемые) + `git ls-files -o --exclude-standard` (новые, не
   исключённые .gitignore); сторонний код пропускается и здесь, даже если он закоммичен (venv, node_modules, vendor,
-  *.nosync, site-packages, __pycache__, папки с pyvenv.cfg…);
+  third_party, external, рабочие копии .worktrees, сборка NDK .cxx/.externalNativeBuild, *.nosync, site-packages,
+  __pycache__, папки с pyvenv.cfg…);
 - не git (или --no-git) — обход папок с исключениями (venv .venv env node_modules *.nosync build dist site-packages
   __pycache__ .tox .mypy_cache .next target vendor Pods .gradle …) и простыми шаблонами корневого .gitignore;
 - папки прошлых прогонов product-strategy (есть build/run-config.json) и сама папка <OUT> пропускаются;
@@ -52,6 +56,7 @@ SKIP_DIRS = {
     "coverage", ".nyc_output", "htmlcov", "target", ".gradle", ".idea", "Pods", "DerivedData", ".dart_tool",
     "bower_components", "jspm_packages", ".terraform", ".serverless", "site-packages", ".eggs", "out-tsc",
     ".playwright-mcp", ".yarn", ".pnpm-store", "Library", "Temp", "obj",
+    ".worktrees", ".cxx", ".externalNativeBuild", "third_party", "third-party", "external",
 }
 # Сторонний и сгенерированный код: пропускается и в режиме git, даже если закоммичен (иначе TODO и маршруты
 # фреймворков выглядят как «технический долг» продукта). build/env в режиме git не пропускаются: закоммиченные
@@ -61,6 +66,7 @@ VENDOR_DIRS = {
     ".tox", ".nox", ".mypy_cache", ".pytest_cache", ".ruff_cache", ".next", ".nuxt", ".svelte-kit", ".turbo", "Pods",
     ".gradle", "bower_components", "jspm_packages", ".eggs", ".playwright-mcp", ".yarn", ".pnpm-store", "DerivedData",
     ".dart_tool", ".terraform", ".parcel-cache", ".angular", ".expo", "dist", "target",
+    ".worktrees", ".cxx", ".externalNativeBuild", "third_party", "third-party", "external",   # рабочие копии git, NDK, вендор
 }
 LOCK_FILES = {
     "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lockb", "bun.lock", "poetry.lock", "Pipfile.lock",
@@ -2212,12 +2218,22 @@ def main(argv=None):
     ap.add_argument("--max-files", type=int, default=20000, help="предел просматриваемых файлов (по умолчанию 20000)")
     ap.add_argument("--max-file-bytes", type=int, default=1_000_000, help="файлы крупнее не читаются (по умолчанию 1 МБ)")
     ap.add_argument("--no-git", action="store_true", help="не брать список файлов из git (обход папок с правилами .gitignore)")
+    ap.add_argument("--force", action="store_true", help="сканировать и в режиме external (product.mode=external в run-config)")
+    ap.add_argument("--strict-limit", action="store_true", help="код 3, если достигнут предел --max-files (скан неполный)")
     a = ap.parse_args(argv)
     repo = Path(a.repo).expanduser().resolve()
     out = Path(a.out).expanduser().resolve()
     if not repo.is_dir():
         print("ошибка: нет папки репозитория %s" % repo, file=sys.stderr)
         return 2
+    try:                                                       # режим «внешний продукт» (product.mode=external): кода нет — пропуск
+        _mode = (json.loads((out / "build" / "run-config.json").read_text(encoding="utf-8")).get("product") or {}).get("mode")
+    except (OSError, ValueError, AttributeError):
+        _mode = None
+    if _mode == "external" and not a.force:
+        print("%s: пропущено — run-config product.mode=external (продукт без кода, references/external-product.md); фаза 1 — "
+              "store_stats.py, app_scan.py, сайт, трекер. Сканировать всё равно — --force" % "repo_scan")
+        return 0
     started = time.time()
     s = Scan(repo, out, a.max_files, a.max_file_bytes, use_git=not a.no_git)
     s.walk()
@@ -2240,6 +2256,9 @@ def main(argv=None):
     if pc.get("mismatch"):
         print("внимание: платформы — " + pc.get("note", ""), file=sys.stderr)
     print("→ %s\n→ %s" % (out / "data" / "repo-scan.json", out / "research" / "repo-scan.md"))
+    if s.truncated:
+        print("СКАН НЕПОЛНЫЙ: %s%s" % (truncation_warning(s), "" if a.strict_limit else " (код 3 — с --strict-limit)"))
+        return 3 if a.strict_limit else 0
     return 0
 
 

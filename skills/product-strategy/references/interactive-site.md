@@ -12,7 +12,10 @@ deliverables/
   assets/app.css        стили (раньше <style>)
   assets/app.js         логика страницы (раньше встроенный <script>)
   assets/data.js        window.PS_DATA = {…}: реестр, оценки, конкуренты, модель, Гант, Kanban, источники (JS, а не JSON: fetch() по file:// запрещён)
-  assets/charts.js      window.PS_CHARTS = {ключ: {svg, meta}}: SVG графиков и пояснения к их элементам; подгружаются при показе раздела
+  assets/charts-<группа>.js   window.PS_CHARTS[ключ] = {svg, meta}: SVG интерактивных графиков и пояснения к их элементам,
+                        по файлу на группу — раздел графика из charts-index.json (`section`: scores, registry, plan, model,
+                        market…; нет раздела — `other`); файл подключается динамически при первом показе графика группы или по
+                        глубокой ссылке #chart/<ключ>/<id>; в single/lite SVG и meta встроены в index.html, файлов charts-*.js нет
   assets/img/…          скриншоты, макеты, референсы: WebP/PNG, одна копия на изображение, миниатюры thumbs/
   assets/extra.css, extra.js   необязательные пользовательские правки из <OUT>/build/extra.{css,js} (подключаются, если есть)
   data/                 открытые данные рядом: proposals.json, proposals.csv, scores.csv, competitors.csv, gantt.csv, kanban.csv, sources.csv (для людей и импорта; страница от них не зависит)

@@ -185,13 +185,23 @@ def test_merge_append(tmp_path):
           proposal(0, id="G7-03", title="Лицензия и открытие репозитория кода", description="Выбрать лицензию, открыть код.",
                    dependencies=["G7-02"])]
     jdump(out / "data" / "proposals-draft-G7.json", g7)
+    # 1.4: по умолчанию --append ничего не вливает — дубль G7-01 добавлен, пара напечатана для ручного решения
+    import shutil as _sh
+    _sh.copytree(out, tmp_path / "copy")
     r = run("merge_proposals.py", out, "--append", "G7")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "[ ] G7-01" in r.stdout and "→ P002" in r.stdout
+    assert len(jload(out / "data" / "proposals.json")) == 8
+    # --allow-merge — прежнее поведение: дубль с тем же названием вливается в существующее
+    out = tmp_path / "copy"
+    r = run("merge_proposals.py", out, "--append", "G7", "--allow-merge")
     assert r.returncode == 0, r.stdout + r.stderr
     P = {p["id"]: p for p in jload(out / "data" / "proposals.json")}
     assert sorted(P) == ["P001", "P002", "P003", "P004", "P005", "P006", "P007"]
     assert P["P002"]["merged_from"] == ["P002", "G7-01"] and len(P["P002"]["evidence"]) == 2
     assert P["P006"]["merged_from"] == [] and P["P006"]["dependencies"] == ["P001"]
     assert P["P007"]["dependencies"] == ["P006"]       # ссылка G7-02 → новый id
+    assert jload(out / "build" / "id-map.json") == {"G7-01": "P002", "G7-02": "P006", "G7-03": "P007"}
     assert run("check_registry.py", out, "--min", "1", "--demo").returncode == 0
 
 

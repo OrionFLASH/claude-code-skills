@@ -8,8 +8,14 @@
 ранги (сортировка по round(composite, 9), затем id; перестановка внутри ничьей с разницей ≤ 1e-6 допускается),
 квадранты, приоритеты, MoSCoW и метки; поля зависимостей (blocked_by, unlocks, dep_rank, dep_bonus, critical_path) и
 порядок критического пути data/critical-path.json — с учётом data/gap-audit-deps.json и разрыва циклов. Если в
-scores.json нет полей зависимостей (файл до 1.1), они не сверяются (сообщение). Код выхода 0 — совпадает, 1 — есть
-расхождения или нет файлов. Только стандартная библиотека.
+scores.json нет полей зависимостей (файл до 1.1), они не сверяются (сообщение).
+
+Сравнения с медианой (квадранты) и порогами меток — через round(x, 9), как в score.py. Расхождение квадранта,
+метки или приоритета у значения в пределах 1e-6 от медианы/порога — «ничья» (сообщение, не ошибка). Неприменимые
+подшкалы (null в scores или в списке scores_na) исключаются из индекса ценности, как в score.py.
+
+Код выхода 0 — совпадает (в т. ч. только ничьи: последняя строка «OK: … ничьих N — не ошибка»), 1 — есть
+расхождения или нет файлов (последняя строка «FAIL: расхождений N»). Только стандартная библиотека.
 """
 import argparse
 import json
@@ -19,6 +25,20 @@ from collections import deque
 from pathlib import Path
 
 TIE_EPS = 1e-6
+NDIGITS = 9
+
+
+def R(x):
+    return round(x, NDIGITS)
+
+
+def na_set(p):
+    sc = p.get("scores") if isinstance(p.get("scores"), dict) else {}
+    na = {k for k in sc if sc[k] is None}
+    if isinstance(p.get("scores_na"), list):
+        na.update(str(k) for k in p["scores_na"])
+    na.discard("value")
+    return na
 DEP_DEFAULTS = {"unlock_bonus": 0.10, "decay": 0.5, "bonus_cap": 0.15, "critical_top_n": 20, "warn_top": 20, "warn_below": 60}
 TOL = {"value_index": 1e-3, "cost_index": 1e-3, "risk_index": 1e-3, "confidence_calc": 1e-3, "rice": 2e-3,
        "ice": 2e-3, "wsjf": 1e-3, "value_per_effort": 1e-3, "risk_adjusted": 1e-3, "composite": 2e-6}
@@ -67,11 +87,13 @@ def recompute_one(p, W):
     c0 = score_or(sc, "cost", 3.0)
     r0 = score_or(sc, "risk", 3.0)
     conf0 = score_or(sc, "confidence", 3.0)
+    na = na_set(p)
     vals = {"value": v0}
     for k in list(KNOWN_VALUE) + [k for k in W["value"] if k not in KNOWN_VALUE]:
         if k != "value":
-            vals[k] = score_or(sc, k, v0)
-    vi = weighted({k: vals[k] for k in W["value"]}, W["value"])
+            vals[k] = v0 if k in na else score_or(sc, k, v0)
+    vw = dict((k, w) for k, w in W["value"].items() if k not in na)
+    vi = weighted({k: vals[k] for k in vw}, vw)
 
     maps = W["maps"]
     ed = p.get("effort_days")
@@ -115,7 +137,7 @@ def recompute_one(p, W):
     radj = vi * (1.0 - W["risk_adjust_max"] * (ri - 1.0) / 4.0)
     return {"value_index": vi, "cost_index": ci, "risk_index": ri, "confidence_calc": conf, "rice": rice, "ice": ice,
             "wsjf": wsjf, "value_per_effort": vpe, "risk_adjusted": radj,
-            "moat": vals["moat"], "days": days, "money": money, "cost_raw": c0}
+            "moat": None if "moat" in na else vals["moat"], "days": days, "money": money, "cost_raw": c0}
 
 
 def recompute(props, W):
@@ -144,6 +166,10 @@ def median(xs):
     return s[n // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2]) / 2.0
 
 
+def quad(hi_v, lo_c):
+    return ("quick_win" if lo_c else "big_bet") if hi_v else ("filler" if lo_c else "money_pit")
+
+
 def classify(rows, order, props, W):
     n = len(order)
     if not n:
@@ -152,10 +178,14 @@ def classify(rows, order, props, W):
     mc = median([rows[i]["cost_index"] for i in order])
     for i in order:
         r = rows[i]
-        if r["value_index"] >= mv:
-            r["quadrant"] = "quick_win" if r["cost_index"] <= mc else "big_bet"
-        else:
-            r["quadrant"] = "filler" if r["cost_index"] <= mc else "money_pit"
+        r["near"] = set()       # где значение в пределах TIE_EPS от медианы/порога — расхождение считается ничьей
+        hv, lc = R(r["value_index"]) >= R(mv), R(r["cost_index"]) <= R(mc)
+        r["quadrant"] = quad(hv, lc)
+        hvs = {hv, not hv} if abs(r["value_index"] - mv) <= TIE_EPS else {hv}
+        lcs = {lc, not lc} if abs(r["cost_index"] - mc) <= TIE_EPS else {lc}
+        r["tie_quadrants"] = {quad(a, b) for a in hvs for b in lcs} - {r["quadrant"]}
+        if r["tie_quadrants"]:
+            r["near"].add("quadrant")
     pr = W["priority"]
     quota = max(1, int(math.floor(n * pr["p0_share"] + 0.5)))
     chosen = []
@@ -172,16 +202,25 @@ def classify(rows, order, props, W):
     L = W["labels"]
     vpes = sorted(rows[i]["value_per_effort"] for i in order)
     cut = vpes[min(n - 1, int(n * L["effective_quantile"]))]
+    def near(x, t):
+        return abs(x - t) <= TIE_EPS
+
     for i in order:
         r, p = rows[i], props[i]
         lab = []
-        if r["value_index"] >= L["important_value"]:
+        for name, x, t in (("important", r["value_index"], L["important_value"]), ("effective", r["value_per_effort"], cut),
+                           ("expensive", r["cost_index"], L["expensive_cost"]), ("risky", r["risk_index"], L["risky_risk"]),
+                           ("tempting_weak", r["value_index"], L["tempting_value"]),
+                           ("tempting_weak", r["confidence_calc"], L["tempting_confidence"])):
+            if near(x, t):
+                r["near"].add(name)
+        if R(r["value_index"]) >= R(L["important_value"]):
             lab.append("important")
-        if r["value_per_effort"] >= cut:
+        if R(r["value_per_effort"]) >= R(cut):
             lab.append("effective")
-        if r["cost_index"] >= L["expensive_cost"] or (r["money"] is not None and r["money"] >= L["expensive_money"]):
+        if R(r["cost_index"]) >= R(L["expensive_cost"]) or (r["money"] is not None and r["money"] >= L["expensive_money"]):
             lab.append("expensive")
-        if r["risk_index"] >= L["risky_risk"]:
+        if R(r["risk_index"]) >= R(L["risky_risk"]):
             lab.append("risky")
         fast = r["days"] <= L["fast_days"] if r["days"] is not None else r["cost_raw"] <= 2
         slow = r["days"] >= L["slow_days"] if r["days"] is not None else r["cost_raw"] >= 4
@@ -189,9 +228,9 @@ def classify(rows, order, props, W):
             lab.append("fast")
         if slow:
             lab.append("slow")
-        if r["moat"] >= L["strategic_moat"] and p.get("horizon") in L["strategic_horizons"]:
+        if r["moat"] is not None and r["moat"] >= L["strategic_moat"] and p.get("horizon") in L["strategic_horizons"]:
             lab.append("strategic")
-        if r["value_index"] >= L["tempting_value"] and (r["confidence_calc"] < L["tempting_confidence"] or p.get("evidence_class") == "D"):
+        if R(r["value_index"]) >= R(L["tempting_value"]) and (R(r["confidence_calc"]) < R(L["tempting_confidence"]) or p.get("evidence_class") == "D"):
             lab.append("tempting_weak")
         r["labels"] = lab
 
@@ -340,6 +379,8 @@ def validate(out_dir, quiet=False):
     rows, order = recompute(list(props.values()), W)
     classify(rows, order, props, W)
     bad = 0
+    ties = 0
+    quad_tie = False
     if set(props) != {s.get("id") for s in scores}:
         bad += 1
         msgs.append("наборы id в proposals.json и scores.json различаются")
@@ -362,17 +403,35 @@ def validate(out_dir, quiet=False):
         if s.get("rank") != r["rank"]:
             other = by_rank.get(r["rank"])
             if other is not None and other.get("id") in rows and abs(rows[other["id"]]["composite"] - r["composite"]) <= TIE_EPS:
+                ties += 1
                 msgs.append("ничья: %s / %s — порядок различается только внутри ничьей" % (i, other["id"]))
             else:
                 bad += 1
                 msgs.append("%s: ранг в файле %s, пересчёт %s" % (i, s.get("rank"), r["rank"]))
+        if s.get("quadrant") != r["quadrant"] and s.get("quadrant") in r.get("tie_quadrants", ()):
+            quad_tie = True
+    for s in scores:
+        i = s.get("id")
+        if i not in rows:
+            continue
+        r = rows[i]
         for key in ("quadrant", "priority", "moscow"):
             if s.get(key) != r[key]:
+                if (key == "quadrant" and s.get(key) in r.get("tie_quadrants", ())) or (key != "quadrant" and quad_tie):
+                    ties += 1
+                    msgs.append("ничья: %s — %s в файле %s, пересчёт %s (значение на медиане, разница ≤ %g)"
+                                % (i, key, s.get(key), r[key], TIE_EPS))
+                    continue
                 bad += 1
                 msgs.append("%s: %s в файле %s, пересчёт %s" % (i, key, s.get(key), r[key]))
-        if sorted(s.get("labels") or []) != sorted(r["labels"]):
-            bad += 1
-            msgs.append("%s: метки в файле %s, пересчёт %s" % (i, s.get("labels"), r["labels"]))
+        diff = set(s.get("labels") or []) ^ set(r["labels"])
+        if diff:
+            if diff <= r["near"]:
+                ties += 1
+                msgs.append("ничья: %s — метки %s на пороге (разница ≤ %g)" % (i, ", ".join(sorted(diff)), TIE_EPS))
+            else:
+                bad += 1
+                msgs.append("%s: метки в файле %s, пересчёт %s" % (i, s.get("labels"), r["labels"]))
     if [s.get("rank") for s in scores] != list(range(1, len(scores) + 1)):
         bad += 1
         msgs.append("ранги в scores.json не идут подряд 1..N в порядке файла")
@@ -412,9 +471,9 @@ def validate(out_dir, quiet=False):
     msgs.append("проверено строк: %d; сумма composite: пересчёт %.4f, файл %.4f"
                 % (len(scores), sum(r["composite"] for r in rows.values()), sum(s.get("composite", 0) for s in scores)))
     if bad:
-        msgs.append("FAIL: расхождений %d" % bad)
+        msgs.append("FAIL: расхождений %d%s" % (bad, "; ничьих %d — не ошибка" % ties if ties else ""))
     else:
-        msgs.append("OK: независимый пересчёт совпадает")
+        msgs.append("OK: независимый пересчёт совпадает" + ("; ничьих %d — не ошибка" % ties if ties else ""))
     return bad == 0, msgs
 
 

@@ -303,11 +303,20 @@ def main(argv=None):
     ap.add_argument("out")
     ap.add_argument("--issues-limit", type=int, default=5000, help="предел выгрузки состояний Issues для счётчиков")
     ap.add_argument("--gh", default="gh", help=argparse.SUPPRESS)
+    ap.add_argument("--force", action="store_true", help="сканировать и в режиме external (product.mode=external в run-config)")
     a = ap.parse_args(argv)
     repo, out = Path(a.repo).expanduser().resolve(), Path(a.out).expanduser().resolve()
     if not repo.is_dir():
         print("ошибка: нет папки репозитория %s" % repo, file=sys.stderr)
         return 2
+    try:                                                       # режим «внешний продукт» (product.mode=external): кода нет — пропуск
+        _mode = (json.loads((out / "build" / "run-config.json").read_text(encoding="utf-8")).get("product") or {}).get("mode")
+    except (OSError, ValueError, AttributeError):
+        _mode = None
+    if _mode == "external" and not a.force:
+        print("%s: пропущено — run-config product.mode=external (продукт без кода, references/external-product.md); фаза 1 — "
+              "store_stats.py, app_scan.py, сайт, трекер. Сканировать всё равно — --force" % "repo_facts")
+        return 0
     d = build(repo, out, a.gh, a.issues_limit)
     (out / "data").mkdir(parents=True, exist_ok=True)
     (out / "research").mkdir(parents=True, exist_ok=True)

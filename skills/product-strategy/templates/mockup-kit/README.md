@@ -10,6 +10,17 @@
 | `_kit.css` | `<OUT>/mockups/concepts/_kit.css` | компоненты; токены `--c-*` берёт из `../tokens.css`, свои значения — только запасные (слой `ps-defaults`) |
 | `_base.html` | `<OUT>/mockups/concepts/_base.html` (и как основа каждого `Mxx-<slug>.html`) | типовой экран: боковая навигация, верхняя панель, KPI, карточки, таблица, нижняя мобильная панель, бейдж концепта |
 | `kit-demo.html` | `<OUT>/mockups/concepts/_kit-demo.html` | все компоненты в светлой и тёмной теме + автопроверка контраста |
+| `_icons.css` | `<OUT>/mockups/concepts/_icons.css` | 76 контурных иконок `ps-i ps-i-<имя>` (маски из `data:` URI, без сети), цвет — `currentColor`; для десктопа и мобильных |
+| `mobile/_mobile.css` | `<OUT>/mockups/concepts/_mobile.css` | мобильный слой `pm-*`: экран телефона 390×844 и его компоненты, раскадровка |
+| `mobile/_base-mobile.html` | `<OUT>/mockups/concepts/_base-mobile.html` (и основа мобильных `Mxx-<slug>.html`) | один экран телефона во весь viewport 390×844 |
+| `mobile/_storyboard.html` | `<OUT>/mockups/concepts/_storyboard.html` (и основа раскадровок) | 2–4 экрана в ряд с подписями (`1720x1000` для четырёх) |
+| `mobile/kit-demo-mobile.html` | `<OUT>/mockups/concepts/_kit-demo-mobile.html` | все мобильные компоненты в обеих темах, галерея иконок, автопроверка контраста |
+| `mobile/kit-demo-mobile.png`, `mobile/storyboard.png` | не копировать | пример: как выглядят демо и раскадровка на запасной палитре |
+
+Какой набор: `product.type` = `mobile` (или мобильные экраны продукта: приложение, PWA, бот-мини-приложение) — `_kit.css` +
+`_icons.css` + `_mobile.css`, макеты на `_base-mobile.html` и `_storyboard.html`; веб-приложение, сайт, дашборд,
+`desktop` — `_kit.css` (+ `_icons.css`), макеты на `_base.html`; смешанный продукт — оба (мобильный слой не мешает
+десктопным классам).
 
 Имена с `_` в начале shoot_mockups не добавляет в `data/mockups-index.json`; снять и проверить их можно так:
 
@@ -22,6 +33,9 @@ node <SKILL_DIR>/scripts/node/shoot_mockups.mjs <OUT> --kit
 каждое нарушение в консоль (`console.error`), поэтому замечание попадает в `console_errors`. Итог также в
 `window.psContrast` и атрибуте `<html data-contrast="ok|fail:N">`. Посмотрите PNG через Read **до** раздачи макетов.
 
+Полностраничные снимки (`--kit`, `--full-page`): бейдж `.ps-concept-badge` с `position: fixed` уезжает в низ полного снимка —
+на длинных страницах и раскадровках используйте `.ps-concept-badge.is-inline` (в потоке) или `.is-strip` внутри телефона.
+
 ## Токены
 
 `audit_site.mjs` пишет `<OUT>/mockups/tokens.css` с обеими темами: роли `--c-bg`, `--c-surface`, `--c-text`,
@@ -29,10 +43,29 @@ node <SKILL_DIR>/scripts/node/shoot_mockups.mjs <OUT> --kit
 `--font-size`, `--shadow` и CSS custom properties продукта (`:root` и `[data-theme="dark"]`). Набор дополнительно
 понимает `--c-success`, `--c-warning`, `--c-danger`, `--c-on-danger`, `--c-focus` (иначе — запасные значения).
 
-Если `tokens.css` написан вручную и в нём нет блока `[data-theme="dark"]`, тёмные макеты возьмут светлые значения
-продукта — добавьте блок или не делайте тёмных макетов. Производные цвета (мягкие фоны бейджей, «чернила» статусов)
-считаются через `color-mix()` от токенов, поэтому контраст зависит от продукта: проверяйте `_kit-demo` с реальными
-токенами.
+**Мост.** `tokens.css` написан вручную (мобильное приложение, нет сайта для `audit_site.mjs`) и `--c-*` в нём нет —
+набор берёт привычные имена сам: `--bg`/`--background` → `--c-bg`, `--surface`/`--card` → `--c-surface`, `--text`/
+`--foreground` → `--c-text`, `--text-muted`/`--muted-foreground`/`--muted` → `--c-muted`, `--border`/`--line` →
+`--c-border`, `--primary`/`--brand` → `--c-accent`, `--on-primary` → `--c-on-accent`, `--success`, `--warning`,
+`--danger`/`--error`, `--focus`/`--ring`, `--font-sans` → `--font`, `--font-display` → `--font-heading` (а также
+`--color-<роль>`). Значения моста — цвета целиком; «голые» тройки HSL (`--primary: 222 47% 11%`) набор не понимает —
+для них пишите `--c-*` сами (`shoot_mockups` сообщит «значение роли — не цвет»).
+
+**Запасные цвета — громко.** Запасная палитра (`--k-def-*`, синий акцент `#2f5bd3`) работает, только если для роли нет
+ни `--c-*`, ни имени моста. `shoot_mockups.mjs` (и `--kit`, и обычные макеты на наборе) сравнивает вычисленные
+`--c-bg/surface/text/muted/border/accent` в каждой теме страницы с запасными и проверяет, объявлена ли роль в
+`tokens.css` или своих стилях страницы: «использован запасной цвет набора» — FAIL, если у продукта есть свои
+переменные (токены не дошли до набора), и предупреждение, если `tokens.css` пуст (нейтральная палитра осознанно).
+
+Тёмная тема: если в `tokens.css` нет блока `[data-theme="dark"]` (или `@media (prefers-color-scheme: dark)`), тёмное
+поддерево рисуется запасной тёмной палитрой набора — `shoot_mockups` сообщит об этом как о запасных цветах (`dark: …`).
+Добавьте блок или не делайте тёмных макетов. Производные цвета (мягкие фоны бейджей, «чернила» статусов, `--k-muted-
+strong` для приглушённого текста на градиентах) считаются через `color-mix()` от токенов, поэтому контраст зависит от
+продукта: проверяйте `_kit-demo` и `_kit-demo-mobile` с реальными токенами.
+
+**Моноширинный шрифт.** `--font-mono: Menlo, "SF Mono", Consolas, "Liberation Mono", "DejaVu Sans Mono", monospace` —
+системные шрифты перед `monospace`: иначе Chromium на macOS рисует кириллицу шрифтом с засечками. Свой `--font-mono` в
+`tokens.css` без Menlo/SF Mono/Consolas — предупреждение `shoot_mockups`.
 
 ## Темы и размеры
 
@@ -40,7 +73,9 @@ node <SKILL_DIR>/scripts/node/shoot_mockups.mjs <OUT> --kit
   так `kit-demo.html` показывает обе темы на одной странице).
 - Размер: `<html data-viewport="1440x900">` или `"390x844"`; раскладка мобильная при ширине ≤ 640 px (боковая
   навигация скрыта, сетки в одну колонку, видна `.ps-bottom-nav`). `.ps-g4.is-keep-2` — две колонки на телефоне.
-- Связь с реестром: `<html data-proposals="P003,P017">` — shoot_mockups перенесёт в индекс при автообнаружении.
+- Связь с реестром: `<html data-proposals="P003,P017">` (или `<meta name="ps:proposals" content="P003,P017">`) — shoot_mockups
+  перенесёт в индекс при автообнаружении и обновит при правке HTML (записи `discovered: true`). Так же — `ps:viewport`,
+  `ps:title`, `ps:kind` (`component` — служебный макет, например `M00-design-language`: с предложениями не связывается).
 
 ## Компоненты
 
@@ -57,6 +92,41 @@ node <SKILL_DIR>/scripts/node/shoot_mockups.mjs <OUT> --kit
 панель `.ps-bottom-nav` (`.is-always` — показать и на десктопе); бейдж концепта `.ps-concept-badge` (`.is-top`,
 `.is-above-nav`).
 
+Метки новизны: `.ps-new` («НОВОЕ») и `.ps-changed` («ИЗМЕНЕНО») — пунктирный контур и ярлык в `::after` (свой текст —
+`data-label`); `::before` элемента остаётся свободным. Ярлык выступает над рамкой на 10 px: внутри контейнера с
+`overflow: hidden` — `.is-inside` (ярлык внутри рамки) или обёртка `<div class="ps-new">…</div>` снаружи. Градиентная
+карточка `.ps-card.is-gradient` (приглушённый текст внутри — `--k-muted-strong`), моноширинный блок `.ps-code`.
+
+## Мобильный слой (`mobile/_mobile.css`, префикс `pm-`)
+
+Подключение: `../tokens.css`, `_kit.css`, `_icons.css`, `_mobile.css`. Цвета — те же токены `--c-*`, обе темы.
+
+- Экран: `.pm-phone` (390×844, скругление; `.is-flat` — без) `> .ps-concept-badge.is-strip` (полоса-бейдж над строкой
+  состояния) `+ .pm-status` (время, отверстие камеры, `.pm-status-icons`) `+ .pm-appbar` (`.pm-iconbtn`, `h1`; `.is-large` —
+  крупный заголовок с `.pm-appbar-row` и `.pm-sub`; `.is-surface` — на поверхности) `+ .pm-body` (`.is-center`) `+ .pm-tabbar`
+  `+ .pm-gesture`. Один экран в макете: `<body class="pm-single">`, `data-viewport="390x844"`.
+- Содержимое: `.pm-search`, `.pm-chips` (с `.ps-chip`), `.pm-overline`, `.pm-card` (`.is-gradient`), список `.pm-list >
+  .pm-item` (`.pm-lead`/`.is-round`, `.pm-grow > b + small`, `.pm-trail`; `.pm-item.is-card` — отдельной карточкой),
+  `.pm-progress > i`, `.pm-actions` (`.is-row`), `.pm-btn-block` (кнопка на всю ширину вместе с `.ps-btn`).
+- Навигация: `.pm-tabbar > .pm-tab` (`.is-active`, иконка в `.pm-tab-pill`); `.pm-tabbar.has-fab` — пять колонок, `.pm-fab`
+  по центру; отдельный `.pm-fab` (`.is-extended` — с подписью) — над панелью справа.
+- Поверх экрана: `.pm-scrim`, нижний лист `.pm-sheet > .pm-grabber` (ручка — отдельный элемент, `::before` листа свободен
+  для меток), диалог `.pm-dialog` (`.pm-dialog-ico`), снекбар `.pm-snackbar` (`.pm-snack-action`; `.is-low` — без панели
+  вкладок, `.is-static` — в потоке).
+- Система: уведомление `.pm-notif` (`.pm-notif-head > .pm-notif-ico + b`, `.pm-notif-title`, `.pm-notif-text`,
+  `.pm-notif-actions`; `.is-heads-up` — всплывающее сверху; стопка `.pm-notifs`), экран блокировки `.pm-phone.is-lock`
+  (`.pm-lock-clock`, `.pm-lock-date`, `.pm-lock-bottom > .pm-lock-btn`, `.pm-lock-hint`), рабочий стол `.pm-phone.is-home`
+  (`.pm-home-grid > .pm-app > i.pm-app-ico`, `.pm-dock`), виджет `.pm-widget` (4×2; `.is-2x2`; `.pm-widget-head`,
+  `.pm-widget-value`, `.pm-widget-bars > i`). Обои — тёмные из акцента, текст белый: контраст держится при любом акценте.
+- Раскадровка: `.pm-board` `> .pm-board-head` (заголовок + `.ps-concept-badge.is-inline`) `+ .pm-frame[data-screen="N"] >
+  .pm-phone + .pm-cap` (`.pm-step` — номер, `small` — P-id и пояснение). Viewport по числу экранов: 4 — `1720x1000`,
+  3 — `1320x1000`, 2 — `900x1000`; высота ≥ 960 — иначе подписи под телефонами обрезаются (`shoot_mockups` считает
+  раскадровку выше viewport замечанием). `data-screen` переносится в `hotspots[].screen` (`measure_hotspots.mjs`).
+
+Иконки: `<i class="ps-i ps-i-mic"></i>` (размер `1.25em`; `.is-16/.is-20/.is-24/.is-28/.is-32`). Список имён — в
+шапке `_icons.css` и в галерее `_kit-demo-mobile`. Рисунки собственные, по мотивам Material/Feather; своя иконка —
+строка по образцу (контур 24×24 в `data:` URI).
+
 ## Исправлено по сравнению с набором реального прогона
 
 - бейдж концепта: `position: fixed`, одна строка (`white-space: nowrap` + многоточие), на мобильном с нижней панелью
@@ -67,4 +137,8 @@ node <SKILL_DIR>/scripts/node/shoot_mockups.mjs <OUT> --kit
 - `.ps-lock`: штриховка только поверх `.ps-lock-body`, заголовок `.ps-lock-head` всегда читается;
 - `.ps-tip` по умолчанию в потоке (`position: relative`), плавающая — только `.is-floating`; `.ps-rail`, `.ps-card`,
   `.ps-main`, `.ps-page`, `.ps-topbar` — `position: relative`, выноски не уезжают;
-- добавлены сегментный переключатель, чипы, тумблер, чекбокс, радио, список, алерты, тёмная тема.
+- добавлены сегментный переключатель, чипы, тумблер, чекбокс, радио, список, алерты, тёмная тема;
+- 1.2 (по отзывам прогонов мобильного приложения): мобильный слой и иконки; мост `--c-*` из `--primary/--bg/--text…` и
+  громкая проверка запасных цветов; `.ps-concept-badge.is-inline`; `--font-mono` с Menlo/SF Mono/Consolas; метки
+  `.ps-new`/`.ps-changed` без обрезки (у `.ps-list` больше нет `overflow: hidden`); `--k-muted-strong` на градиентах;
+  проверка контраста учитывает цвета градиентов (худший случай).

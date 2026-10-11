@@ -1,0 +1,50 @@
+<!doctype html>
+<!-- Стартовый мобильный экран (один телефон во весь viewport 390×844). Скопируйте в mockups/concepts/Mxx-<slug>.html
+     и замените содержимое. Метаданные для индекса макетов — атрибутами <html> или <meta name="ps:…">:
+     ps:viewport (390x844), ps:proposals (P-id через запятую), ps:title (иначе <title>), ps:kind (concept | component).
+     Тёмная тема: data-theme="dark" на <html>. Компоненты — README набора, раздел «Мобильный слой». -->
+<html lang="ru" data-viewport="390x844" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="ps:viewport" content="390x844">
+<meta name="ps:proposals" content="P000">
+<title>Mxx — название мобильного экрана</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="_kit.css">
+<link rel="stylesheet" href="_icons.css">
+<link rel="stylesheet" href="_mobile.css">
+</head>
+<body class="pm-single">
+<div class="pm-phone">
+  <div class="ps-concept-badge is-strip">Концепт, не существующая функция · Продукт · ГГГГ-ММ-ДД</div>
+  <div class="pm-status"><span>9:41</span><span class="pm-status-icons"><i class="ps-i ps-i-signal"></i><i class="ps-i ps-i-wifi"></i><i class="ps-i ps-i-battery"></i></span></div>
+  <header class="pm-appbar">
+    <button class="pm-iconbtn" aria-label="Меню"><i class="ps-i ps-i-menu"></i></button>
+    <h1>Заголовок экрана</h1>
+    <button class="pm-iconbtn" aria-label="Поиск"><i class="ps-i ps-i-search"></i></button>
+  </header>
+  <main class="pm-body">
+    <div class="pm-card is-gradient ps-new">
+      <h3>Новое: суть концепта</h3>
+      <p>Главный объект экрана — то, ради чего делается предложение. Реалистичные данные, без lorem ipsum.</p>
+      <div class="pm-actions is-row"><button class="ps-btn is-ghost is-small">Позже</button><button class="ps-btn is-primary is-small">Попробовать</button></div>
+    </div>
+    <div class="pm-overline"><span>Существующее (как есть)</span><span>3</span></div>
+    <div class="pm-list">
+      <div class="pm-item"><span class="pm-lead"><i class="ps-i ps-i-doc"></i></span><div class="pm-grow"><b>Строка списка 1</b><small>подпись · время</small></div><span class="pm-trail">12:40</span></div>
+      <div class="pm-item"><span class="pm-lead"><i class="ps-i ps-i-image"></i></span><div class="pm-grow"><b>Строка списка 2</b><small>подпись</small></div><i class="ps-i ps-i-chevron-right"></i></div>
+      <div class="pm-item"><span class="pm-lead"><i class="ps-i ps-i-star"></i></span><div class="pm-grow"><b>Строка списка 3</b><small>подпись</small></div><span class="ps-badge is-success">готово</span></div>
+    </div>
+  </main>
+  <nav class="pm-tabbar has-fab">
+    <a class="pm-tab is-active" href="#"><span class="pm-tab-pill"><i class="ps-i ps-i-home"></i></span>Главная</a>
+    <a class="pm-tab" href="#"><span class="pm-tab-pill"><i class="ps-i ps-i-list"></i></span>Список</a>
+    <button class="pm-fab" aria-label="Главное действие"><i class="ps-i ps-i-plus"></i></button>
+    <a class="pm-tab" href="#"><span class="pm-tab-pill"><i class="ps-i ps-i-bell"></i></span>События</a>
+    <a class="pm-tab" href="#"><span class="pm-tab-pill"><i class="ps-i ps-i-user"></i></span>Профиль</a>
+  </nav>
+  <div class="pm-gesture"></div>
+</div>
+</body>
+</html>

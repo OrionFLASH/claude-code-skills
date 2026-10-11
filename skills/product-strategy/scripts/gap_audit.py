@@ -3,6 +3,7 @@
 
   gap_audit.py <OUT> [--top 30] [--bets P012,P031,P056]   → build/gap-audit-facts.md + data/gap-audit-facts.json
   gap_audit.py <OUT> --check                              → проверка research/gap-audit.md и data/proposals-draft-G7.json
+  gap_audit.py <OUT> --remap                              → data/gap-audit-deps.json: G7-NN → P-id по build/id-map.json
 
 Фактура (режим по умолчанию) — только факты из данных, без выводов (выводы делает агент-аудитор):
   - топ-N (по умолчанию 30) по рангу и три главные ставки (--bets, иначе эвристика: лучшие по рангу из квадранта
@@ -23,7 +24,13 @@ data/registry-check.json, data/gap-audit-deps.json (необязательно).
 --check (для build_all): research/gap-audit.md существует и содержит разделы (заголовки #…) «Предпосылки»,
 «Пробелы», «Конфликты»; P-id в нём существуют в реестре; data/proposals-draft-G7.json (если есть) — список
 предложений по контракту (check_registry.check_proposal), id вида G7-NN; data/gap-audit-deps.json (если есть) —
-объект {id: [id…]} с существующими id. Код выхода 0 — ок, 1 — есть ошибки. Только стандартная библиотека.
+объект {id: [id…]} с существующими id; до слияния G7 допустимы и ссылки на черновики G7-NN из
+data/proposals-draft-G7.json (предупреждение «переведите после --append»), прочие неизвестные — ошибка.
+
+--remap (после merge_proposals.py --append G7; тот же перевод merge_proposals делает сам): ключи и значения вида
+G7-NN (и любые G\d+-\d+) в data/gap-audit-deps.json переводятся по накопительной карте build/id-map.json
+(слитые черновики — в id победителя); прежние P-id не меняются. Код 1 — остались непереведённые ссылки.
+Код выхода 0 — ок, 1 — есть ошибки. Только стандартная библиотека.
 """
 import argparse
 import json
@@ -35,7 +42,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from check_registry import CATEGORIES, category_requirements, check_proposal, evidence_split  # noqa: E402
-from merge_proposals import Similarity  # noqa: E402
+from merge_proposals import GREF_RE, Similarity, load_id_map, remap_gap_deps  # noqa: E402
 
 # семейства предпосылок: ключ → (подпись, регулярное выражение RU/EN)
 PREREQ_FAMILIES = [
@@ -400,6 +407,7 @@ def run_check(out_dir):
                 if pid not in ids:
                     errors.append("research/gap-audit.md: %s нет в реестре" % pid)
     draft = out_dir / "data" / "proposals-draft-G7.json"
+    g7_ids = set()
     if draft.exists():
         try:
             raw = json.loads(draft.read_text(encoding="utf-8"))
@@ -418,10 +426,11 @@ def run_check(out_dir):
                     errors.append("G7 #%d: не объект" % (i + 1))
                     continue
                 seen[p.get("id")] += 1
+                g7_ids.add(str(p.get("id")))
                 if not re.fullmatch(r"G7-\d{2,}", str(p.get("id") or "")):
                     errors.append("G7 #%d: id %r не вида G7-NN" % (i + 1, p.get("id")))
                 e0, w0 = [], []
-                check_proposal(p, i, False, e0, w0, {})
+                check_proposal(p, i, False, e0, w0, {}, allow_draft_refs=True)
                 errors += ["G7: " + e for e in e0]
                 warnings += ["G7: " + w for w in w0]
                 for d in p.get("dependencies") or []:
@@ -439,12 +448,20 @@ def run_check(out_dir):
         if not isinstance(d, dict):
             errors.append("data/gap-audit-deps.json должен быть объектом {id: [предпосылки]}")
         else:
+            pending = set()
             for k, v in d.items():
-                if k not in ids:
-                    errors.append("gap-audit-deps.json: %s нет в реестре" % k)
-                for x in (v if isinstance(v, list) else [v]):
-                    if x not in ids:
+                for x in [k] + list(v if isinstance(v, list) else [v]):
+                    if x in ids:
+                        continue
+                    if isinstance(x, str) and GREF_RE.fullmatch(x) and x in g7_ids:
+                        pending.add(x)
+                    elif x == k:
+                        errors.append("gap-audit-deps.json: %s нет в реестре" % k)
+                    else:
                         errors.append("gap-audit-deps.json: %s → %r нет в реестре" % (k, x))
+            if pending:
+                warnings.append("gap-audit-deps.json: ссылки на черновики %s — после merge_proposals.py --append G7 "
+                                "переводятся в P-id (автоматически или gap_audit.py --remap)" % ", ".join(sorted(pending)))
     return errors, warnings
 
 
@@ -455,8 +472,23 @@ def main(argv=None):
     ap.add_argument("--bets", help="три главные ставки через запятую (иначе эвристика)")
     ap.add_argument("--sim", type=float, default=0.18, help="порог сходства для пар внутри топа (0.18)")
     ap.add_argument("--check", action="store_true", help="проверить research/gap-audit.md и data/proposals-draft-G7.json")
+    ap.add_argument("--remap", action="store_true", help="перевести G7-NN → P-id в data/gap-audit-deps.json по build/id-map.json")
     a = ap.parse_args(argv)
     out_dir = Path(a.out).resolve()
+    if a.remap:
+        idmap = load_id_map(out_dir)
+        res = remap_gap_deps(out_dir, idmap)
+        if res.get("missing"):
+            print("нет data/gap-audit-deps.json — переводить нечего")
+            return 0
+        if res.get("error"):
+            print("data/gap-audit-deps.json %s" % res["error"])
+            return 1
+        print("data/gap-audit-deps.json: переведено ссылок %d по карте build/id-map.json (%d записей)" % (res["changed"], len(idmap)))
+        if res["unresolved"]:
+            print("  ! непереведённые (нет в карте — сначала merge_proposals.py --append G7): %s" % ", ".join(res["unresolved"]))
+            return 1
+        return 0
     if a.check:
         errors, warnings = run_check(out_dir)
         for w in warnings:

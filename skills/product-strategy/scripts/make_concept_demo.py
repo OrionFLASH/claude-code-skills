@@ -162,10 +162,12 @@ def main(argv=None):
                            "cards": [{"id": p["id"], "title": p["title"], "column": cols[k % 3], "goal": "демо-цель", "steps": ["шаг 1"],
                                       "kpi": "активные соседи", "links": [], "tags": p["tags"], "priority": "P1", "effort_days": p["effort_days"]}
                                      for k, p in enumerate(props[:20])]})
-    svg = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 120"><rect data-node="first-use:1" x="10" y="30" width="180" height="60" rx="8" fill="#eef"/>'
-           '<text x="100" y="65" text-anchor="middle">Узнал от соседа</text><rect data-node="first-use:2" x="230" y="30" width="180" height="60" rx="8" fill="#efe"/>'
-           '<text x="320" y="65" text-anchor="middle">Нашёл книгу</text><rect data-node="first-use:3" x="450" y="30" width="180" height="60" rx="8" fill="#fee"/>'
-           '<text x="540" y="65" text-anchor="middle">Вернул</text></svg>')
+    # узел — <g data-node> с фигурой и подписью внутри (как в брифе flows.md): check_flow.mjs считает подпись своей
+    svg = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 120">'
+           + "".join('<g data-node="first-use:%d"><rect x="%d" y="30" width="180" height="60" rx="8" fill="%s"/>'
+                     '<text x="%d" y="65" text-anchor="middle">%s</text></g>' % (k + 1, 10 + 220 * k, fill, 100 + 220 * k, lab)
+                     for k, (lab, fill) in enumerate(zip(('Узнал от соседа', 'Нашёл книгу', 'Вернул'), ("#eef", "#efe", "#fee"))))
+           + "</svg>")
     w("charts/flows/first-use.svg", svg)
     w("data/flows.json", [{"key": "first-use", "title": "Первый опыт (концепт)", "svg": "charts/flows/first-use.svg",
                            "nodes": [{"id": "first-use:%d" % k, "label": lab, "what": "демо", "now": "продукта ещё нет", "todo": ["демо"],

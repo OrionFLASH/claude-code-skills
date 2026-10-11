@@ -12,6 +12,9 @@ monetization/partnerships/localization/new_lines — «по запросу», с
 предупреждение, если внешних A+B < 40 %; формат URL (http/https, без заглушек вроде example.com); цитаты короче
 15 слов; зависимости на существующие id (и циклы — предупреждение); горизонты, классы Кано, шкалы 1–5.
 Класс D без url/file — норма (рассуждение в note); предупреждение только если нет и note.
+Ссылки на черновики (G3-07 и т. п.) в тексте, dependencies и tags (кроме merged:…, merged_from, source_group) — ошибка:
+их переводит merge_proposals.py по build/id-map.json. Подшкала ценности null или в списке scores_na — «неприменима»
+(score.py исключает её из индекса ценности); обязательные value/cost/risk/confidence неприменимыми быть не могут.
 
 Профиль zero-budget-solo: минимум категории monetization применяется, если strategy.paid_tier = yes или
 project.goal = commercial; localization — если рынков (strategy.markets) больше одного; partnerships и new_lines —
@@ -41,6 +44,11 @@ EVIDENCE_KINDS = ["competitor", "community", "issue", "docs", "repo", "research"
 HORIZONS = ["now", "next", "later", "vision"]
 KANO = ["must", "linear", "delight", "indifferent"]
 SCORE_REQUIRED = ["value", "cost", "risk", "confidence"]
+VALUE_SUBSCALES = ["reach", "impact", "acquisition", "activation", "conversion", "retention", "revenue", "virality",
+                   "seo", "trust", "moat", "fit", "demand", "season"]
+DRAFT_REF = re.compile(r"\bG\d+-\d+\b")
+REF_SKIP = {"id", "merged_from", "source_group"}
+URL_KEYS = {"url", "doc_url", "file"}           # адреса и пути не считаются текстом со ссылками на черновики
 SCORE_OPTIONAL = ["reach", "impact", "acquisition", "activation", "conversion", "retention", "revenue", "virality",
                   "seo", "trust", "moat", "fit", "demand", "season", "testability", "spread"]
 RISK_KEYS = ["legal", "ip", "platform", "privacy", "tech", "reputation"]
@@ -83,6 +91,30 @@ def type_ok(v, types):
     if isinstance(v, bool):
         return False
     return isinstance(v, types)
+
+
+def find_draft_refs(p):
+    """Оставшиеся ссылки на черновики: [(поле, ссылка)] (id, merged_from, source_group и теги merged:… не смотрятся)."""
+    out = []
+
+    def walk(v, path):
+        if isinstance(v, str):
+            out.extend((path, m.group(0)) for m in DRAFT_REF.finditer(v))
+        elif isinstance(v, list):
+            for k, x in enumerate(v):
+                walk(x, "%s[%d]" % (path, k))
+        elif isinstance(v, dict):
+            for k, x in v.items():
+                if k not in URL_KEYS:
+                    walk(x, "%s.%s" % (path, k))
+
+    for k, v in p.items():
+        if k in REF_SKIP:
+            continue
+        if k == "tags" and isinstance(v, list):
+            v = [t for t in v if not (isinstance(t, str) and t.startswith("merged:"))]
+        walk(v, k)
+    return out
 
 
 def check_url(url, demo):
@@ -229,7 +261,8 @@ def evidence_split(props, cfg=None):
             "ab_external_count": ab_ext, "ab_internal_count": ab_int, "evidence_sides": dict(sides), "own_markers": own}
 
 
-def check_proposal(p, idx, demo, errors, warnings, quote_by_url):
+def check_proposal(p, idx, demo, errors, warnings, quote_by_url, allow_draft_refs=False):
+    """allow_draft_refs — черновик (G7 до слияния): ссылки G\\d+-\\d+ допустимы."""
     pid = p.get("id") if isinstance(p.get("id"), str) and p.get("id") else "#%d" % (idx + 1)
     for f, (types, required) in FIELDS.items():
         if f not in p:
@@ -314,8 +347,25 @@ def check_proposal(p, idx, demo, errors, warnings, quote_by_url):
             if not (is_num(v) and 1 <= v <= 5):
                 errors.append("%s: scores.%s=%r — нужно число 1–5" % (pid, k, v))
         for k in SCORE_OPTIONAL:
+            if k in sc and sc[k] is None and k in VALUE_SUBSCALES:
+                continue                                  # null — подшкала неприменима
             if k in sc and not (is_num(sc[k]) and 1 <= sc[k] <= 5):
                 errors.append("%s: scores.%s=%r вне 1–5" % (pid, k, sc[k]))
+    na = p.get("scores_na")
+    if na is not None and not isinstance(na, list):
+        errors.append("%s: scores_na — нужен список подшкал" % pid)
+    if isinstance(na, list):
+        for k in na:
+            if k in SCORE_REQUIRED:
+                errors.append("%s: scores_na — %r обязательна и не может быть неприменимой" % (pid, k))
+            elif k not in VALUE_SUBSCALES:
+                errors.append("%s: scores_na — %r не подшкала ценности (%s)" % (pid, k, ", ".join(VALUE_SUBSCALES)))
+            elif isinstance(sc, dict) and is_num(sc.get(k)):
+                warnings.append("%s: scores.%s задана, но в scores_na — считается неприменимой" % (pid, k))
+    refs = [] if allow_draft_refs else find_draft_refs(p)
+    if refs:
+        errors.append("%s: ссылки на черновики %s — переведите в P-id (merge_proposals.py, build/id-map.json)" % (
+            pid, ", ".join("%s в %s" % (r, f) for f, r in refs[:5]) + (" и ещё %d" % (len(refs) - 5) if len(refs) > 5 else "")))
     for k, kp in enumerate(p.get("effect_kpi") or []):
         if not isinstance(kp, dict) or not kp.get("kpi"):
             warnings.append("%s: effect_kpi[%d] без kpi" % (pid, k))

@@ -46,6 +46,11 @@ def make_demo(path, n=None):
 
 
 def build(out, *args):
+    """Сборка страницы. Тесты этого файла проверяют автономную страницу (single): без явного режима добавляется --single
+    (по умолчанию build_html.py собирает сайт — его проверяет test_site_mode.py)."""
+    args = list(args)
+    if not {"--single", "--lite", "--site"} & set(args):
+        args.append("--single")
     r = subprocess.run([sys.executable, str(BUILD), str(out)] + list(args), capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr
     target = Path(args[args.index("--out") + 1]) if "--out" in args else out / "deliverables" / "index.html"
@@ -852,9 +857,29 @@ def test_without_progress_matches_pre_tracking_builder(rich, tmp_path):
 
     def norm(x):
         x = re.sub(r"<script>.*?</script>", "<script/>", x, flags=re.S)
-        return re.sub(r'Content-Security-Policy" content="[^"]+"', "CSP", x)
+        return qa_page_norm(re.sub(r'Content-Security-Policy" content="[^"]+"', "CSP", x))
     assert norm(a) == norm(b)
-    assert css_of(a) == css_of(b)
+    assert qa_page_norm(css_of(a)) == qa_page_norm(css_of(b))
+
+
+def qa_page_norm(x):
+    """Намеренные отличия от 1.1 по эпику E-QA-PAGE (tests/test_qa_page.py) убираются с обеих сторон: цвета статусов из
+    переменных темы (--ps-ok/--ps-bad) вместо жёстких тёмных правил, универсальный перенос (main, .tbl td, <wbr>), класс num
+    по типу данных в «Сообществах» (aud/rules/comm), правило для тегов на телефоне. Всё остальное — байт в байт."""
+    x = re.sub(r";--ps-(?:ok|bad):#[0-9a-f]{6}", "", x)
+    x = re.sub(r"/\* (?:перенос длинных|универсально для ячеек|цвета --ps-ok|телефон: длинные теги).*?\*/", "", x, flags=re.S)
+    x = re.sub(r"@media \(prefers-color-scheme:dark\)\{(?::root:not\(\[data-theme=light\]\) [^{}]+\{(?:border-)?color:#(?:4ade80|f87171)[^{}]*\})+\}", "", x)
+    x = re.sub(r":root\[data-theme=dark\] [^{}]+\{color:#(?:4ade80|f87171)[^{}]*\}", "", x)
+    for k, v in (("main{min-width:0;padding:28px 44px 80px;max-width:1280px;width:100%;overflow-wrap:break-word}", "main{min-width:0;padding:28px 44px 80px;max-width:1280px;width:100%}"),
+                 (".tbl td{overflow-wrap:break-word;word-break:normal}", ""),
+                 ("table.comm td.rules,table.comm th.rules{min-width:220px}table.comm td.aud,table.comm th.aud{min-width:96px}", ""),
+                 ("table.cm tr.self td.n,table.cm tr.self td.u{color:var(--ps-text)}", ""),
+                 ("main .tag,main .st-ok,main .st-bad,main .st-unk,main .ok{white-space:normal;max-width:100%;overflow-wrap:anywhere}", ""),
+                 ("var(--ps-ok,#166534)", "#166534"), ("var(--ps-bad,#9f1f14)", "#9f1f14"),
+                 (' class="data sortable comm"', ' class="data sortable"'), ('class="aud"', 'class="num"'), (' class="rules"', ""), ("<wbr>", "")):
+        x = x.replace(k, v)
+    x = re.sub(r"@media \(max-width:699px\)\{\s*\}", "", x)
+    return re.sub(r"\s+", " ", x)
 
 
 def test_progress_section_and_nav(tracked):
