@@ -1,0 +1,361 @@
+(function () {
+  'use strict';
+  var D = window.ECC || {};
+  var M = D.meta || {}, INV = D.inventory || {}, RT = D.runtime || {}, SEC = D.security || {}, GR = D.graph || {}, US = D.usage || {}, WEB = D.web || {}, OV = D.overview || {};
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function link(u, t) { u = String(u || ''); if (!/^https?:\/\//i.test(u)) return esc(t || u); return '<a href="' + esc(u) + '" target="_blank" rel="noopener noreferrer">' + esc(t || u.replace(/^https?:\/\/(www\.)?/, '').slice(0, 70)) + '</a>'; }
+  function gh(file, line, text) { if (!file) return ''; return link('https://github.com/affaan-m/ECC/blob/' + (M.commit || 'main') + '/' + String(file).replace(/^\/+/, '') + (line ? '#L' + line : ''), text || (file + (line ? ':' + line : ''))); }
+  function num(n) { return n == null || n === '' ? '—' : String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
+  function arr(a) { return Array.isArray(a) ? a : []; }
+  function ul(a) { a = arr(a); return a.length ? '<ul class="tight">' + a.map(function (x) { return '<li>' + (typeof x === 'string' ? esc(x) : esc(JSON.stringify(x))) + '</li>'; }).join('') + '</ul>' : '<p class="muted small">—</p>'; }
+  function badge(cls, t) { return '<span class="badge ' + cls + '">' + esc(t) + '</span>'; }
+  function tag(t) { return '<span class="tag">' + esc(t) + '</span>'; }
+  var SEV = { critical: 'sev-critical', high: 'sev-high', medium: 'sev-medium', low: 'sev-low', info: 'sev-info' };
+  var SEVRU = { critical: 'критично', high: 'высокая', medium: 'средняя', low: 'низкая', info: 'инфо' };
+  var SEVORD = ['critical', 'high', 'medium', 'low', 'info'];
+  var RISKRU = { low: 'низкий', medium: 'средний', high: 'высокий' };
+
+  // ---------- панель ----------
+  var panel = $('#panel'), lastFocus = null;
+  function openPanel(html, hash) {
+    lastFocus = document.activeElement; panel.innerHTML = '<button class="x" aria-label="Закрыть">×</button>' + html; panel.hidden = false;
+    $('.x', panel).onclick = closePanel; $('.x', panel).focus(); panel.scrollTop = 0;
+    if (hash) { try { history.replaceState(null, '', hash); } catch (e) { } }
+    $$('[data-open]', panel).forEach(function (a) { a.onclick = function (e) { e.preventDefault(); route(a.getAttribute('data-open')); }; });
+    $$('.copy', panel).forEach(function (b) { b.onclick = function () { try { navigator.clipboard.writeText(b.getAttribute('data-copy')); b.textContent = 'скопировано'; } catch (e) { } }; });
+  }
+  function closePanel() { panel.hidden = true; if (lastFocus && lastFocus.focus) lastFocus.focus(); try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { } }
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !panel.hidden) closePanel(); });
+  function openLink(kind, id, label) { return '<a href="#" data-open="#' + kind + '/' + encodeURIComponent(id) + '">' + esc(label || id) + '</a>'; }
+
+  // ---------- индексы ----------
+  var agents = arr(INV.agents), skills = arr(INV.skills), commands = arr(INV.commands);
+  var idx = { agent: {}, skill: {}, cmd: {}, hook: {}, finding: {}, flow: {}, wf: {} };
+  agents.forEach(function (a) { idx.agent[a.name] = a; });
+  skills.forEach(function (s) { idx.skill[s.name] = s; });
+  commands.forEach(function (c) { idx.cmd[String(c.name).replace(/^\//, '')] = c; });
+  arr(RT.hooks).forEach(function (h, i) { h._i = h.id || ('h' + i); idx.hook[h._i] = h; });
+  arr(SEC.findings).forEach(function (f) { idx.finding[f.id] = f; });
+  arr(SEC.data_flows).forEach(function (f) { idx.flow[f.id] = f; });
+  arr(US.workflows).forEach(function (w) { idx.wf[w.id] = w; });
+
+  function refs(names, kind) { names = arr(names); return names.length ? names.map(function (n) { var ok = kind === 'agent' ? idx.agent[n] : kind === 'skill' ? idx.skill[n] : idx.cmd[String(n).replace(/^\//, '')]; return ok ? openLink(kind, kind === 'cmd' ? String(n).replace(/^\//, '') : n, n) : esc(n); }).join(', ') : '—'; }
+
+  // ---------- карточки деталей ----------
+  function agentPanel(a) {
+    var h = '<h3>' + esc(a.name) + '</h3><p>' + badge('b-info', 'агент') + ' ' + (a.model ? tag('модель: ' + a.model) : '') + (a.proactive ? badge('b-partial', 'вызывается сам') : '') + '</p><p>' + esc(a.summary || a.description || '') + '</p>';
+    h += '<dl class="kv"><dt>Домен</dt><dd>' + esc(a.domain || '—') + '</dd><dt>Файл</dt><dd>' + gh(a.file) + '</dd><dt>Инструменты</dt><dd>' + esc(arr(a.tools).join(', ') || '—') + '</dd>' + (a.proactive_phrase ? '<dt>Фраза</dt><dd>«' + esc(a.proactive_phrase) + '»</dd>' : '') + '<dt>Скилы</dt><dd>' + refs(a.skills_used, 'skill') + '</dd><dt>Команды</dt><dd>' + refs(a.commands_using, 'cmd') + '</dd></dl>';
+    h += '<p><a href="#" data-open="#node/agent:' + encodeURIComponent(a.name) + '">Показать на схеме связей →</a></p>';
+    openPanel(h, '#agent/' + encodeURIComponent(a.name));
+  }
+  function skillPanel(s) {
+    var h = '<h3>' + esc(s.name) + '</h3><p>' + badge('b-yes', 'скил') + ' ' + (s.has_scripts ? tag('есть скрипты') : '') + tag(num(s.lines) + ' строк') + '</p><p>' + esc(s.summary || s.description || '') + '</p>';
+    h += '<dl class="kv"><dt>Домен</dt><dd>' + esc(s.domain || '—') + '</dd><dt>Файл</dt><dd>' + gh(s.file) + '</dd>' + (arr(s.scripts).length ? '<dt>Скрипты</dt><dd>' + arr(s.scripts).map(function (x) { return gh(x); }).join('<br>') + '</dd>' : '') + (s.auto_invoke_hint ? '<dt>Когда включается</dt><dd>' + esc(s.auto_invoke_hint) + '</dd>' : '') + '</dl>';
+    h += '<p><a href="#" data-open="#node/skill:' + encodeURIComponent(s.name) + '">Показать на схеме связей →</a></p>';
+    openPanel(h, '#skill/' + encodeURIComponent(s.name));
+  }
+  function cmdPanel(c) {
+    var key = String(c.name).replace(/^\//, ''), ch = arr(US.cheatsheet).filter(function (x) { return String(x.command).replace(/^\//, '') === key; })[0];
+    var h = '<h3>' + esc(c.name) + '</h3><p>' + badge('b-n', 'команда') + ' ' + tag(c.kind || '') + (c.manual_only === false ? '' : badge('b-partial', 'запускается вручную')) + '</p><p>' + esc(c.summary || c.description || '') + '</p>';
+    h += '<dl class="kv"><dt>Файл</dt><dd>' + gh(c.file) + '</dd><dt>Агент</dt><dd>' + (c.agent ? refs([c.agent], 'agent') : '—') + '</dd><dt>Скилы</dt><dd>' + refs(c.skills, 'skill') + '</dd></dl>';
+    if (ch) h += '<h4>Как использовать</h4><dl class="kv"><dt>Аргументы</dt><dd>' + esc(ch.args || '—') + '</dd><dt>Пример</dt><dd><code>' + esc(ch.example || '') + '</code></dd>' + (ch.caution ? '<dt>Осторожно</dt><dd>' + esc(ch.caution) + '</dd>' : '') + '</dl>';
+    h += '<p><a href="#" data-open="#node/cmd:' + encodeURIComponent(key) + '">Показать на схеме связей →</a></p>';
+    openPanel(h, '#cmd/' + encodeURIComponent(key));
+  }
+  function hookPanel(x) {
+    var h = '<h3>Хук: ' + esc(x.id || x.script) + '</h3><p>' + badge('risk-' + (x.risk || 'low'), 'риск: ' + (RISKRU[x.risk] || x.risk || '—')) + ' ' + tag(x.event || '') + (x.matcher ? tag('matcher: ' + x.matcher) : '') + (x.profile_gate ? tag('профиль: ' + x.profile_gate) : '') + (x.async ? tag('async') : '') + '</p><p>' + esc(x.what || '') + '</p>';
+    h += '<dl class="kv"><dt>Скрипт</dt><dd>' + gh(x.script) + '</dd><dt>Запись в hooks.json</dt><dd>' + gh(x.file, x.line) + '</dd><dt>Читает</dt><dd>' + esc(arr(x.reads).join(', ') || '—') + '</dd><dt>Пишет</dt><dd>' + esc(arr(x.writes).join(', ') || '—') + '</dd><dt>Сеть</dt><dd>' + (x.network ? 'да — ' + esc(x.network_detail || '') : 'нет') + '</dd><dt>Запускает claude</dt><dd>' + (x.spawns_claude ? 'да' : 'нет') + '</dd><dt>Может блокировать</dt><dd>' + (x.can_block ? 'да — ' + esc(x.blocks_when || '') : 'нет') + '</dd><dt>Проверено</dt><dd>' + esc(x.verified || '—') + '</dd><dt>Отключить</dt><dd><code>' + esc(x.disable || '—') + '</code></dd></dl>';
+    if (x.risk_why) h += '<p class="small"><b>Почему такой риск:</b> ' + esc(x.risk_why) + '</p>';
+    openPanel(h, '#hook/' + encodeURIComponent(x._i));
+  }
+  function findingPanel(f) {
+    var h = '<h3>' + esc(f.id) + ' · ' + esc(f.title) + '</h3><p>' + badge(SEV[f.severity] || 'sev-info', 'серьёзность: ' + (SEVRU[f.severity] || f.severity)) + ' ' + tag(f.category || '') + tag('проверено: ' + (f.verified || '—')) + '</p><p>' + esc(f.description || '') + '</p>';
+    h += '<h4>Доказательства</h4>' + (arr(f.evidence).length ? '<ul class="tight">' + arr(f.evidence).map(function (e) { return '<li>' + (e.url ? link(e.url, (e.file || 'источник') + (e.line ? ':' + e.line : '')) : gh(e.file, e.line)) + (e.snippet ? ' — «' + esc(e.snippet) + '»' : '') + '</li>'; }).join('') + '</ul>' : '<p class="muted small">—</p>');
+    h += '<h4>Чем грозит</h4><p>' + esc(f.impact || '—') + '</p><h4>Что делать</h4><p>' + esc(f.mitigation || '—') + '</p>';
+    openPanel(h, '#finding/' + encodeURIComponent(f.id));
+  }
+  function flowPanel(f) {
+    var h = '<h3>' + esc(f.id) + ' · ' + esc(f.what) + '</h3><dl class="kv"><dt>Откуда</dt><dd>' + esc(f.from) + '</dd><dt>Куда</dt><dd><b>' + esc(f.to) + '</b></dd><dt>Когда</dt><dd>' + esc(f.when || '—') + '</dd><dt>Обязательно</dt><dd>' + (f.mandatory ? 'да' : 'нет') + '</dd><dt>Включено по умолчанию</dt><dd>' + (f.default_on ? 'да' : 'нет') + '</dd></dl><p>' + esc(f.note || '') + '</p>';
+    if (arr(f.evidence).length) h += '<h4>Доказательства</h4><ul class="tight">' + arr(f.evidence).map(function (e) { return '<li>' + (typeof e === 'string' ? esc(e) : gh(e.file, e.line)) + '</li>'; }).join('') + '</ul>';
+    openPanel(h, '#flow/' + encodeURIComponent(f.id));
+  }
+  function wfPanel(w) {
+    var h = '<h3>' + esc(w.title) + '</h3><p>' + esc(w.when || '') + '</p><div class="flow">' + arr(w.steps).map(function (s, i) { return (i ? '<span class="ar">→</span>' : '') + '<div class="st k-' + esc(s.kind || 'manual') + '"><b>' + esc(s.name) + '</b>' + esc(s.what || '') + (s.produces ? '<br><span class="muted">→ ' + esc(s.produces) + '</span>' : '') + '</div>'; }).join('') + '</div>';
+    h += '<dl class="kv"><dt>Результат</dt><dd>' + esc(arr(w.artifacts).join(', ') || '—') + '</dd><dt>С вашей настройкой</dt><dd>' + esc(w.works_with_user_setup || '—') + '</dd></dl><p class="small">' + esc(w.notes || '') + '</p>';
+    openPanel(h, '#wf/' + encodeURIComponent(w.id));
+  }
+
+  // ---------- таблицы ----------
+  var tableSeq = 0;
+  function mkTable(cols, rows, o) {
+    o = o || {}; var id = 'tb' + (++tableSeq), html = '';
+    var doms = {}; if (o.filter) rows.forEach(function (r) { doms[o.filter.get(r) || '—'] = 1; });
+    html += '<div class="toolbar"><input type="search" placeholder="Поиск…" data-tb="' + id + '" aria-label="Поиск">' + (o.filter ? '<select data-tb="' + id + '" data-f="1" aria-label="' + esc(o.filter.label) + '"><option value="">' + esc(o.filter.label) + ': все</option>' + Object.keys(doms).sort().map(function (d) { return '<option>' + esc(d) + '</option>'; }).join('') + '</select>' : '') + (o.extra || '') + '<span class="muted small" id="' + id + '-n"></span></div>';
+    html += '<div class="tbl"' + (o.tall ? ' style="max-height:70vh"' : '') + '><table id="' + id + '"><thead><tr>' + cols.map(function (c, i) { return '<th data-i="' + i + '"' + (c.nosort ? ' data-nosort="1"' : '') + '>' + esc(c.h) + '</th>'; }).join('') + '</tr></thead><tbody></tbody></table></div>';
+    setTimeout(function () {
+      var T = $('#' + id); if (!T) return; var q = '', fv = '', sort = { i: o.sortBy == null ? -1 : o.sortBy, d: o.sortDir || 1 }, ex = {};
+      function draw() {
+        var l = rows.filter(function (r) { var s = (o.search ? o.search(r) : JSON.stringify(r)).toLowerCase(); return (!q || s.indexOf(q) >= 0) && (!fv || (o.filter.get(r) || '—') === fv) && (!o.pred || o.pred(r, ex)); });
+        if (sort.i >= 0) l.sort(function (a, b) { var x = cols[sort.i].v ? cols[sort.i].v(a) : '', y = cols[sort.i].v ? cols[sort.i].v(b) : ''; return (x > y ? 1 : x < y ? -1 : 0) * sort.d; });
+        $('tbody', T).innerHTML = l.map(function (r, k) { return '<tr class="row" tabindex="0" data-k="' + k + '">' + cols.map(function (c) { return '<td' + (c.cls ? ' class="' + c.cls + '"' : '') + '>' + c.r(r) + '</td>'; }).join('') + '</tr>'; }).join('');
+        $$('tr.row', T).forEach(function (tr) { tr.onclick = function (e) { if (e.target.closest('a')) return; var rr = l[+tr.getAttribute('data-k')]; if (o.onRow && rr) o.onRow(rr); }; tr.onkeydown = function (e) { if (e.key === 'Enter') tr.click(); }; });
+        var n = $('#' + id + '-n'); if (n) n.textContent = 'Показано ' + l.length + ' из ' + rows.length;
+      }
+      $$('th[data-i]', T).forEach(function (th) { if (th.getAttribute('data-nosort')) return; th.onclick = function () { var i = +th.getAttribute('data-i'); sort = { i: i, d: sort.i === i ? -sort.d : 1 }; draw(); }; });
+      $$('[data-tb="' + id + '"]').forEach(function (e) { e.oninput = e.onchange = function () { if (e.hasAttribute('data-f')) fv = e.value; else if (e.type === 'checkbox') ex[e.getAttribute('data-x')] = e.checked; else q = e.value.toLowerCase(); draw(); }; });
+      draw();
+    }, 0);
+    return html;
+  }
+  function checkbox(id, key, label) { return '<label><input type="checkbox" data-tb="' + id + '" data-x="' + key + '"> ' + esc(label) + '</label>'; }
+
+  // ---------- разделы ----------
+  function sSummary() {
+    var c = INV.counts || {}, V = SEC.verdict || {}, vc = { yes: ['b-yes', 'Можно ставить'], conditional: ['b-partial', 'Только с условиями'], no: ['b-no', 'Не ставить'] }[V.safe_to_install] || ['b-n', '—'];
+    var h = '<section id="summary"><h2>Итог</h2><p class="lead">' + esc(OV.headline || 'Что такое ECC, что он ставит и меняет, как работает и безопасен ли.') + '</p>';
+    arr(OV.paragraphs).forEach(function (p) { h += '<p>' + esc(p) + '</p>'; });
+    h += '<div class="cards">' + [['Агенты', INV.agents ? agents.length : c.agents, '#inventory', 'agents'], ['Команды', commands.length || c.commands, '#inventory', 'commands'], ['Скилы', skills.length || c.skills, '#inventory', 'skills'], ['Хуки (записей)', arr(RT.hooks).length || c.hook_entries, '#hooks'], ['Файлов правил', c.rules_files, '#inventory', 'rules'], ['MCP-серверов в каталоге', c.mcp_servers, '#inventory', 'mcp']].map(function (x) { return '<div class="card"><a href="' + x[2] + '" data-tab="' + (x[3] || '') + '" style="text-decoration:none;color:inherit"><div class="muted small">' + esc(x[0]) + '</div><div class="big">' + num(x[1]) + '</div></a></div>'; }).join('') + '</div>';
+    h += '<div class="cards" style="margin-top:14px"><div class="card"><h3>Безопасность</h3><p>' + badge(vc[0], vc[1]) + '</p><p>' + esc(V.headline || SEC.summary || '') + '</p><p><a href="#security">Подробнее →</a></p></div>';
+    var wr = WEB.repo || {}; h += '<div class="card"><h3>Репозиторий</h3><dl class="kv"><dt>Звёзды</dt><dd>' + num(wr.stars) + '</dd><dt>Форки</dt><dd>' + num(wr.forks) + '</dd><dt>Лицензия</dt><dd>' + esc(wr.license || '—') + '</dd><dt>Обновлён</dt><dd>' + esc((wr.pushed || '').slice(0, 10) || '—') + '</dd><dt>Коммит разбора</dt><dd>' + link(M.repo + '/tree/' + M.commit, String(M.commit).slice(0, 10)) + '</dd></dl></div>';
+    var au = (RT.auto_vs_manual || {}); h += '<div class="card"><h3>Само и вручную</h3><p>Само: ' + arr(au.automatic).length + ' механизмов<br>Вручную: ' + arr(au.manual).length + ' действий</p><p><a href="#hooks">Хуки →</a> · <a href="#usage">Как использовать →</a></p></div></div>';
+    (arr(OV.key_points).length) && (h += '<h3>Главное</h3>' + ul(OV.key_points));
+    return h + '</section>';
+  }
+
+  var tabNow = 'agents';
+  function sInventory() {
+    var h = '<section id="inventory"><h2>Состав репозитория</h2><p class="lead">Клик по строке — подробности и связи. Файлы открываются на GitHub в точной версии разбора.</p>';
+    h += '<h3>Верхний уровень</h3><div class="tbl"><table><thead><tr><th>Путь</th><th>Что это</th><th>Файлов</th><th>Ставится плагином</th></tr></thead><tbody>' + arr(INV.top_level).map(function (t) { return '<tr><td><code>' + esc(t.path) + '</code></td><td>' + esc(t.purpose) + '</td><td class="num">' + num(t.files) + '</td><td>' + (t.installed_by_plugin === true ? 'да' : t.installed_by_plugin === false ? 'нет' : '—') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    var doms = arr(INV.domains);
+    if (doms.length) {
+      var max = Math.max.apply(null, doms.map(function (d) { return (d.agents || 0) + (d.skills || 0) + (d.commands || 0); }).concat([1]));
+      h += '<h3>Домены</h3><p class="muted small">Клик по домену фильтрует таблицы ниже.</p><div class="chart"><svg width="760" height="' + (doms.length * 26 + 10) + '" role="group" aria-label="Распределение по доменам">' + doms.map(function (d, i) { var y = 6 + i * 26, w1 = 440 * (d.agents || 0) / max, w2 = 440 * (d.skills || 0) / max, w3 = 440 * (d.commands || 0) / max; return '<g class="node" tabindex="0" role="button" data-dom="' + esc(d.id) + '" aria-label="' + esc(d.title + ': агентов ' + d.agents + ', скилов ' + d.skills + ', команд ' + d.commands) + '"><text x="0" y="' + (y + 15) + '" font-size="12" fill="var(--text)">' + esc((d.title || d.id).slice(0, 34)) + '</text><rect x="220" y="' + y + '" width="' + Math.max(1, w1) + '" height="20" fill="#0ea5e9"/><rect x="' + (220 + w1) + '" y="' + y + '" width="' + w2 + '" height="20" fill="#10b981"/><rect x="' + (220 + w1 + w2) + '" y="' + y + '" width="' + w3 + '" height="20" fill="#6366f1"/><text x="' + (228 + w1 + w2 + w3) + '" y="' + (y + 15) + '" font-size="11" fill="var(--muted)">' + (d.agents || 0) + ' / ' + (d.skills || 0) + ' / ' + (d.commands || 0) + '</text></g>'; }).join('') + '</svg><div class="legend"><span><i style="background:#0ea5e9"></i>агенты</span><span><i style="background:#10b981"></i>скилы</span><span><i style="background:#6366f1"></i>команды</span></div></div>';
+    }
+    h += '<div class="tabs" role="tablist" id="inv-tabs">' + [['agents', 'Агенты (' + agents.length + ')'], ['commands', 'Команды (' + commands.length + ')'], ['skills', 'Скилы (' + skills.length + ')'], ['rules', 'Правила'], ['mcp', 'MCP'], ['other', 'Прочее']].map(function (t) { return '<button type="button" role="tab" data-t="' + t[0] + '" aria-selected="' + (t[0] === tabNow) + '">' + t[1] + '</button>'; }).join('') + '</div><div id="inv-body"></div></section>';
+    return h;
+  }
+  function invBody(tab) {
+    tabNow = tab; $$('#inv-tabs button').forEach(function (b) { b.setAttribute('aria-selected', b.getAttribute('data-t') === tab); });
+    var b = $('#inv-body'), h = '';
+    if (tab === 'agents') h = mkTable([{ h: 'Агент', r: function (a) { return '<b>' + esc(a.name) + '</b>'; }, v: function (a) { return a.name; } }, { h: 'Домен', r: function (a) { return esc(a.domain || ''); }, v: function (a) { return a.domain || ''; } }, { h: 'Модель', r: function (a) { return esc(a.model || ''); }, v: function (a) { return a.model || ''; } }, { h: 'Сам?', r: function (a) { return a.proactive ? 'вызывается сам' : ''; }, v: function (a) { return a.proactive ? 0 : 1; } }, { h: 'Что делает', r: function (a) { return esc((a.summary || a.description || '').slice(0, 150)); } }], agents, { filter: { label: 'Домен', get: function (r) { return r.domain; } }, search: function (r) { return [r.name, r.domain, r.summary, r.description].join(' '); }, onRow: agentPanel, sortBy: 0 });
+    else if (tab === 'commands') h = mkTable([{ h: 'Команда', r: function (c) { return '<b>' + esc(c.name) + '</b>'; }, v: function (c) { return c.name; } }, { h: 'Вид', r: function (c) { return esc(c.kind || ''); }, v: function (c) { return c.kind || ''; } }, { h: 'Агент', r: function (c) { return esc(c.agent || ''); }, v: function (c) { return c.agent || ''; } }, { h: 'Скилы', r: function (c) { return esc(arr(c.skills).slice(0, 3).join(', ')); } }, { h: 'Что делает', r: function (c) { return esc((c.summary || c.description || '').slice(0, 150)); } }], commands, { filter: { label: 'Вид', get: function (r) { return r.kind; } }, search: function (r) { return [r.name, r.agent, (r.skills || []).join(' '), r.summary, r.description].join(' '); }, onRow: cmdPanel, sortBy: 0 });
+    else if (tab === 'skills') h = mkTable([{ h: 'Скил', r: function (s) { return '<b>' + esc(s.name) + '</b>'; }, v: function (s) { return s.name; } }, { h: 'Домен', r: function (s) { return esc(s.domain || ''); }, v: function (s) { return s.domain || ''; } }, { h: 'Строк', r: function (s) { return num(s.lines); }, v: function (s) { return s.lines || 0; }, cls: 'num' }, { h: 'Скрипты', r: function (s) { return s.has_scripts ? 'да' : ''; }, v: function (s) { return s.has_scripts ? 0 : 1; } }, { h: 'Что делает', r: function (s) { return esc((s.summary || s.description || '').slice(0, 150)); } }], skills, { filter: { label: 'Домен', get: function (r) { return r.domain; } }, search: function (r) { return [r.name, r.domain, r.summary, r.description].join(' '); }, onRow: skillPanel, sortBy: 0, tall: true });
+    else if (tab === 'rules') { var R = INV.rules || {}; h = '<h3>Общие правила (всегда в контексте)</h3><div class="tbl"><table><thead><tr><th>Файл</th><th>Всегда загружается</th><th>О чём</th></tr></thead><tbody>' + arr(R.common).map(function (r) { return '<tr><td>' + gh(r.file) + '</td><td>' + (r.always_loaded ? 'да' : 'нет') + '</td><td>' + esc(r.summary || '') + '</td></tr>'; }).join('') + '</tbody></table></div><h3>Правила по языкам (подгружаются при работе с подходящими файлами)</h3><div class="tbl"><table><thead><tr><th>Язык</th><th>Файлов</th><th>Маски</th><th>О чём</th></tr></thead><tbody>' + arr(R.languages).map(function (r) { return '<tr><td><b>' + esc(r.lang) + '</b></td><td class="num">' + num(r.files) + '</td><td class="small">' + esc(arr(r.paths_globs).join(', ')) + '</td><td>' + esc(r.summary || '') + '</td></tr>'; }).join('') + '</tbody></table></div><p class="muted small">Плагин сам правила не устанавливает — их копируют вручную (см. раздел «Установка»).</p>'; }
+    else if (tab === 'mcp') { var X = INV.mcp || {}; h = '<h3>В плагине</h3><p>' + esc(typeof X.in_plugin === 'string' ? X.in_plugin : (X.in_plugin_note || (arr(X.in_plugin).length ? arr(X.in_plugin).join(', ') : 'MCP-серверов плагин не включает'))) + '</p>' + (X.root_dot_mcp_json ? '<p class="small">' + esc(typeof X.root_dot_mcp_json === 'string' ? X.root_dot_mcp_json : JSON.stringify(X.root_dot_mcp_json)) + '</p>' : '') + '<h3>Каталог (копируется вручную)</h3><div class="tbl"><table><thead><tr><th>Сервер</th><th>Вид</th><th>Ключи</th><th>Куда уходят данные</th><th>Что делает</th></tr></thead><tbody>' + arr(X.catalog).map(function (m) { return '<tr><td><b>' + esc(m.name) + '</b></td><td>' + esc((m.kind || '') + ' ' + (m.transport || '')) + '</td><td class="small">' + esc(arr(m.needs_keys).join(', ') || '—') + '</td><td>' + esc(m.sends_data_to || '—') + '</td><td>' + esc(m.summary || '') + '</td></tr>'; }).join('') + '</tbody></table></div>'; }
+    else h = '<div class="tbl"><table><thead><tr><th>Путь</th><th>Язык</th><th>Статус</th><th>Что это</th></tr></thead><tbody>' + arr(INV.other_components).map(function (o) { return '<tr><td><code>' + esc(o.path) + '</code></td><td>' + esc(o.language || '') + '</td><td>' + esc(o.status || '') + '</td><td>' + esc(o.summary || o.what || '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    b.innerHTML = h;
+  }
+
+  // ---------- схема взаимодействия ----------
+  var TCOL = { user: 0, plugin: 0, command: 1, agent: 2, skill: 3, hook: 4, event: 4, mcp: 4, cli: 4, rule: 4, file: 5 };
+  var TCLR = { command: '#e0e7ff', agent: '#dbeafe', skill: '#d1fae5', hook: '#fee2e2', mcp: '#fef3c7', cli: '#f3e8ff', rule: '#e5e7eb', file: '#f1f5f9', event: '#fde2e2', user: '#fff', plugin: '#fff' };
+  var gnodes = {}, gout = {}, gin = {};
+  arr(GR.nodes).forEach(function (n) { gnodes[n.id] = n; });
+  arr(GR.edges).forEach(function (e) { (gout[e.from] = gout[e.from] || []).push(e); (gin[e.to] = gin[e.to] || []).push(e); });
+  function archDiagram() {
+    var W = 980, H = 430, boxes = [
+      { id: 'user', x: 10, y: 170, w: 120, h: 70, t: 'Вы', s: 'запрос или /ecc:команда', c: '#fff', go: '#usage' },
+      { id: 'cmd', x: 170, y: 40, w: 150, h: 70, t: 'Команды (' + (commands.length || '?') + ')', s: 'вручную: /ecc:имя', c: TCLR.command, go: '#inventory', tab: 'commands' },
+      { id: 'agent', x: 360, y: 40, w: 150, h: 70, t: 'Агенты (' + (agents.length || '?') + ')', s: 'свой контекст, tools, model', c: TCLR.agent, go: '#inventory', tab: 'agents' },
+      { id: 'skill', x: 550, y: 40, w: 150, h: 70, t: 'Скилы (' + (skills.length || '?') + ')', s: 'в контексте — описание', c: TCLR.skill, go: '#inventory', tab: 'skills' },
+      { id: 'rules', x: 740, y: 40, w: 150, h: 70, t: 'Правила', s: 'common — всегда; языки — по маскам', c: TCLR.rule, go: '#inventory', tab: 'rules' },
+      { id: 'hooks', x: 170, y: 190, w: 340, h: 70, t: 'Хуки на событиях (' + (arr(RT.hooks).length || '?') + ')', s: 'PreToolUse · PostToolUse · Stop · SessionStart · PreCompact · UserPromptSubmit', c: TCLR.hook, go: '#hooks' },
+      { id: 'mcp', x: 740, y: 190, w: 150, h: 70, t: 'MCP', s: 'каталог — вручную', c: TCLR.mcp, go: '#inventory', tab: 'mcp' },
+      { id: 'cli', x: 550, y: 190, w: 150, h: 70, t: 'CLI / npm', s: 'ecc, ecc-install, память', c: TCLR.cli, go: '#install' },
+      { id: 'store', x: 170, y: 330, w: 340, h: 70, t: 'Файлы на машине', s: '~/.claude: настройки, сессии, инстинкты, журналы', c: TCLR.file, go: '#install' },
+      { id: 'claude', x: 550, y: 330, w: 340, h: 70, t: 'Вложенный claude -p', s: 'в хуках: сводки сессий (уходит в Anthropic)', c: '#fde2e2', go: '#security' }];
+    var E = [['user', 'cmd'], ['cmd', 'agent'], ['agent', 'skill'], ['user', 'hooks'], ['hooks', 'store'], ['hooks', 'claude'], ['cli', 'store'], ['agent', 'mcp'], ['store', 'hooks']];
+    var by = {}; boxes.forEach(function (b) { by[b.id] = b; });
+    var o = '<svg class="arch" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '" role="group" aria-label="Архитектура ECC"><defs><marker id="ah" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--muted)"/></marker></defs>';
+    E.forEach(function (e) { var a = by[e[0]], b = by[e[1]], x1 = a.x + a.w / 2, y1 = a.y + a.h, x2 = b.x + b.w / 2, y2 = b.y; if (Math.abs(a.y - b.y) < 5) { x1 = a.x + a.w; y1 = a.y + a.h / 2; x2 = b.x; y2 = b.y + b.h / 2; } else if (b.y < a.y) { y1 = a.y; y2 = b.y + b.h; } o += '<path d="M' + x1 + ',' + y1 + ' C' + x1 + ',' + ((y1 + y2) / 2) + ' ' + x2 + ',' + ((y1 + y2) / 2) + ' ' + x2 + ',' + y2 + '" fill="none" stroke="var(--muted)" stroke-width="1.6" marker-end="url(#ah)" opacity=".7"/>'; });
+    boxes.forEach(function (b) { o += '<g><rect class="box" tabindex="0" role="button" data-arch="' + b.id + '" aria-label="' + esc(b.t) + '" x="' + b.x + '" y="' + b.y + '" width="' + b.w + '" height="' + b.h + '" rx="12" fill="' + b.c + '" stroke="var(--border)"/><text x="' + (b.x + b.w / 2) + '" y="' + (b.y + 27) + '" text-anchor="middle" font-size="14" font-weight="700" fill="#111827" pointer-events="none">' + esc(b.t) + '</text><text x="' + (b.x + b.w / 2) + '" y="' + (b.y + 48) + '" text-anchor="middle" font-size="11" fill="#374151" pointer-events="none">' + esc(b.s.length > 56 ? b.s.slice(0, 55) + '…' : b.s) + '</text></g>'; });
+    return { svg: o + '</svg>', boxes: by };
+  }
+  var ARCH_TEXT = { user: 'Вы пишете запрос или вызываете команду /ecc:имя (в плагине) либо /имя (ручная установка). Всё остальное либо вызывается вами, либо срабатывает само по событиям.', cmd: 'Команды — «шимы»: короткие промпты-входы. Большинство работает inline, часть передаёт работу агенту (поле agent:).', agent: 'Агент — отдельный контекст со своим набором инструментов и моделью. У части в описании «PROACTIVELY / MUST BE USED», поэтому Claude вызывает их сам.', skill: 'Скил — инструкция; в списке контекста всегда лежит только описание, полный текст грузится при вызове.', rules: 'Общие правила без масок лежат в контексте всегда; языковые — подгружаются при работе с подходящими файлами. Плагин правила не ставит, их копируют вручную.', hooks: 'Хуки срабатывают сами на событиях Claude Code. Набор зависит от профиля (minimal / standard / strict). Часть может блокировать действие, часть пишет журналы, часть запускает вложенный claude.', mcp: 'MCP-серверы ECC включены в плагин не по умолчанию: каталог лежит в mcp-configs, подключается вручную.', cli: 'CLI ecc-universal (npm): установка, диагностика, память, панель. Запускается вручную.', store: 'Куда ECC пишет на вашей машине: настройки, данные сессий, «инстинкты», метрики, журналы.', claude: 'Хуки конца сессии и сжатия контекста запускают вложенный claude -p для сводок. Это отдельный вызов вашего Claude — в нём сработают и ваши хуки (в том числе UserPromptSubmit).' };
+  function sGraph() {
+    var h = '<section id="graph"><h2>Схема взаимодействия</h2><p class="lead">Как устроены и связаны компоненты. Клик по блоку — пояснение. Ниже — «исследователь цепочек»: выберите команду, агента или скил и увидите, что с чем связано (связи извлечены программно из исходников, у каждой — степень уверенности).</p>';
+    var A = archDiagram();
+    h += '<div class="chart">' + A.svg + '</div><h3>Исследователь цепочек</h3>';
+    var ns = arr(GR.nodes).filter(function (n) { return n.type === 'command' || n.type === 'agent' || n.type === 'skill' || n.type === 'hook'; });
+    h += '<div class="toolbar"><input type="search" id="gx-q" placeholder="Найти команду, агента, скил…" list="gx-list" aria-label="Узел"><datalist id="gx-list">' + ns.map(function (n) { return '<option value="' + esc(n.id) + '">' + esc(n.label || n.id) + '</option>'; }).join('') + '</datalist><button type="button" id="gx-go">Показать</button><span class="muted small" id="gx-info"></span></div><div class="chart" id="gx"></div>';
+    h += '<div class="legend">' + [['command', 'команда'], ['agent', 'агент'], ['skill', 'скил'], ['hook', 'хук'], ['mcp', 'MCP']].map(function (t) { return '<span><i style="background:' + TCLR[t[0]] + ';border:1px solid var(--border)"></i>' + t[1] + '</span>'; }).join('') + '<span>сплошная линия — явная связь, остальные — по упоминанию или предположение</span></div>';
+    return h + '</section>';
+  }
+  function drawGraph(id) {
+    var box = $('#gx'); if (!box) return; var c = gnodes[id]; if (!c) { box.innerHTML = '<p class="muted">Узел не найден в графе.</p>'; return; }
+    var seen = {}, cols = {}; seen[id] = 1;
+    function add(n) { var col = TCOL[n.type] == null ? 4 : TCOL[n.type]; (cols[col] = cols[col] || []).push(n); }
+    add(c); var frontier = [id], total = 1, CAP = [26, 14], PR = { explicit: 0, 'text-mention': 1, inferred: 2 };
+    for (var d = 0; d < 2; d++) {
+      var cand = [];
+      frontier.forEach(function (x) { arr(gout[x]).concat(arr(gin[x])).forEach(function (e) { var o = e.from === x ? e.to : e.from, on = gnodes[o]; if (!on || seen[o] || on.type === 'user' || on.type === 'plugin') return; cand.push({ id: o, p: PR[e.confidence] == null ? 3 : PR[e.confidence] }); }); });
+      cand.sort(function (a, b) { return a.p - b.p; });
+      var nf = []; cand.forEach(function (q) { if (seen[q.id] || nf.length >= CAP[d]) return; seen[q.id] = 1; add(gnodes[q.id]); nf.push(q.id); });
+      frontier = nf;
+    }
+    var keys = Object.keys(cols).map(Number).sort(function (a, b) { return a - b; }), cw = 210, W = keys.length * cw + 20, rowH = 40, maxn = Math.max.apply(null, keys.map(function (k) { return cols[k].length; })), H = maxn * rowH + 30, pos = {};
+    keys.forEach(function (k, ci) { cols[k].forEach(function (n, i) { pos[n.id] = { x: 10 + ci * cw, y: 14 + i * rowH + (maxn - cols[k].length) * rowH / 2 }; }); });
+    var o = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="group" aria-label="Связи узла">', ed = '';
+    arr(GR.edges).forEach(function (e) { if (!pos[e.from] || !pos[e.to]) return; var a = pos[e.from], b = pos[e.to]; if (a.x === b.x) return; var hi = e.from === id || e.to === id, x1 = a.x + 182, y1 = a.y + 14, x2 = b.x, y2 = b.y + 14; if (b.x <= a.x) { x1 = a.x; x2 = b.x + 182; } var dash = e.confidence === 'explicit' ? '' : ' stroke-dasharray="5 4"'; ed += '<path class="edge' + (hi ? ' hi' : '') + '" d="M' + x1 + ',' + y1 + ' C' + ((x1 + x2) / 2) + ',' + y1 + ' ' + ((x1 + x2) / 2) + ',' + y2 + ' ' + x2 + ',' + y2 + '"' + dash + '><title>' + esc((e.kind || '') + (e.evidence ? ' · ' + e.evidence : '') + ' · ' + (e.confidence || '')) + '</title></path>'; });
+    o += ed; Object.keys(pos).forEach(function (k) { var n = gnodes[k], p = pos[k]; o += '<g class="node' + (k === id ? ' sel' : '') + '" tabindex="0" role="button" data-gn="' + esc(k) + '" aria-label="' + esc(n.type + ' ' + (n.label || k)) + '"><rect x="' + p.x + '" y="' + p.y + '" width="182" height="28" rx="8" fill="' + (TCLR[n.type] || '#fff') + '"/><text x="' + (p.x + 8) + '" y="' + (p.y + 18) + '" font-size="11.5" fill="#111827">' + esc(String(n.label || k).slice(0, 26)) + '</text></g>'; });
+    box.innerHTML = o + '</svg>'; $('#gx-info').textContent = c.type + ' · связей: ' + (arr(gout[id]).length + arr(gin[id]).length) + (c.summary ? ' · ' + c.summary.slice(0, 120) : '');
+    $('#gx-q').value = id;
+  }
+  function graphNodePanel(n) {
+    var nm = String(n.id).split(':').slice(1).join(':'), h = '<h3>' + esc(n.label || n.id) + '</h3><p>' + tag(n.type) + (n.group ? tag(n.group) : '') + (n.auto ? badge('b-partial', 'срабатывает само') : '') + '</p><p>' + esc(n.summary || '') + '</p>' + (n.file ? '<p>' + gh(n.file) + '</p>' : '');
+    h += '<h4>Исходящие связи</h4>' + ul(arr(gout[n.id]).slice(0, 40).map(function (e) { return (e.kind || '→') + ' → ' + e.to + (e.confidence ? ' (' + e.confidence + ')' : '') + (e.evidence ? ' · ' + e.evidence : ''); })) + '<h4>Входящие связи</h4>' + ul(arr(gin[n.id]).slice(0, 40).map(function (e) { return e.from + ' → ' + (e.kind || '') + (e.confidence ? ' (' + e.confidence + ')' : '') + (e.evidence ? ' · ' + e.evidence : ''); }));
+    var det = n.type === 'agent' ? idx.agent[nm] : n.type === 'skill' ? idx.skill[nm] : n.type === 'command' ? idx.cmd[nm] : null;
+    if (det) h += '<p><a href="#" data-open="#' + (n.type === 'command' ? 'cmd' : n.type) + '/' + encodeURIComponent(nm) + '">Полная карточка →</a></p>';
+    openPanel(h);
+  }
+
+  // ---------- установка ----------
+  function sInstall() {
+    var I = RT.install || {}, h = '<section id="install"><h2>Установка и что меняется на машине</h2><p class="lead">Способы установки, что каждый пишет и какие настройки Claude Code меняет. Клик по карточке способа — подробности.</p>';
+    h += '<div class="cards">' + arr(I.methods).map(function (m) { return '<div class="card"><h3>' + esc(m.title || m.id) + '</h3><pre class="cmd">' + esc(m.command || '') + '</pre><p class="small">' + esc(arr(m.what_it_does).slice(0, 3).join(' · ')) + '</p><p>' + badge(m.needs_node ? 'b-partial' : 'b-n', m.needs_node ? 'нужен Node.js' : 'без Node') + ' ' + badge(m.reversible && m.reversible !== 'no' ? 'b-yes' : 'b-no', 'откат: ' + (m.reversible || '—')) + '</p><p><a href="#" data-open="#method/' + encodeURIComponent(m.id) + '">Что именно делает →</a></p></div>'; }).join('') + '</div>';
+    h += '<h3>Профили хуков</h3><div class="tbl"><table><thead><tr><th>Профиль</th><th>Хуки</th><th>Эффект</th></tr></thead><tbody>' + arr(I.profiles).map(function (p) { return '<tr><td><b>' + esc(p.id) + '</b></td><td class="small">' + esc(arr(p.hooks_enabled).join(', ') || '—') + '</td><td>' + esc(p.effect || '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    if (arr(I.modules).length) h += '<h3>Модули установщика</h3><div class="tbl"><table><thead><tr><th>Модуль</th><th>Что даёт</th><th>Файлов</th></tr></thead><tbody>' + arr(I.modules).map(function (m) { return '<tr><td><b>' + esc(m.id) + '</b></td><td>' + esc(m.what || '') + '</td><td class="num">' + num(m.files) + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    h += '<h3>Какие файлы создаются на машине</h3><div class="tbl"><table><thead><tr><th>Путь</th><th>Кто создаёт</th><th>Что внутри</th><th>Чувствительно?</th><th>Хранение</th></tr></thead><tbody>' + arr(RT.files_created).map(function (f) { return '<tr><td><code>' + esc(f.path) + '</code></td><td>' + esc(f.created_by || '') + '</td><td>' + esc(f.content || '') + '</td><td>' + (f.sensitive ? badge('b-no', 'да') : 'нет') + '</td><td class="small">' + esc(f.retention || '—') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    h += '<div class="two"><div><h3>CLI</h3>' + (arr(RT.cli).length ? '<div class="tbl"><table><tbody>' + arr(RT.cli).map(function (c) { return '<tr><td><code>' + esc(c.bin) + '</code></td><td>' + esc(c.what || '') + (c.network ? ' ' + badge('b-no', 'сеть') : '') + '</td></tr>'; }).join('') + '</tbody></table></div>' : '') + '</div><div><h3>Переменные окружения</h3><div class="tbl"><table><tbody>' + arr(RT.env_vars).map(function (v) { return '<tr><td><code>' + esc(v.name) + '</code></td><td>' + esc(v.effect || '') + '</td></tr>'; }).join('') + '</tbody></table></div></div></div>';
+    var U = RT.uninstall || {}; h += '<h3>Удаление</h3><p>' + esc(U.how || '—') + '</p>' + (arr(U.leaves_behind).length ? '<p><b>Остаётся после удаления:</b></p>' + ul(U.leaves_behind) : '');
+    if (arr(RT.sandbox_runs).length) h += '<h3>Что запускали в песочнице</h3><div class="tbl"><table><thead><tr><th>Что</th><th>Команда</th><th>Результат</th><th>Записано</th><th>Сеть</th></tr></thead><tbody>' + arr(RT.sandbox_runs).map(function (r) { return '<tr><td>' + esc(r.what) + '</td><td class="small"><code>' + esc(r.command || '') + '</code></td><td>' + esc(r.result || '') + '</td><td class="small">' + esc(arr(r.observed_writes).join(', ') || '—') + '</td><td>' + esc(r.observed_network || '—') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    return h + '</section>';
+  }
+  function methodPanel(m) {
+    var h = '<h3>' + esc(m.title || m.id) + '</h3><pre class="cmd">' + esc(m.command || '') + '</pre><p>' + esc(m.notes || '') + '</p><h4>Что делает</h4>' + ul(m.what_it_does) + '<h4>Что пишет</h4>' + ul(arr(m.writes).map(function (w) { return w.path + ' — ' + w.what; })) + '<h4>Какие настройки меняет</h4>' + ul(arr(m.modifies_settings).map(function (w) { return w.file + ': ' + arr(w.keys).join(', ') + ' — ' + w.what; })) + '<p><b>Откат:</b> ' + esc(m.reversible || '—') + '</p>';
+    openPanel(h, '#method/' + encodeURIComponent(m.id));
+  }
+
+  // ---------- хуки ----------
+  function sHooks() {
+    var hs = arr(RT.hooks), h = '<section id="hooks"><h2>Хуки: что запускается само</h2><p class="lead">Хуки срабатывают на событиях Claude Code без вашего участия. Цвет — риск; клик — что читает, пишет, ходит ли в сеть, запускает ли вложенный claude.</p>';
+    var evs = {}; hs.forEach(function (x) { (evs[x.event || '—'] = evs[x.event || '—'] || []).push(x); });
+    var order = ['SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'PreCompact', 'Stop', 'SubagentStop'], ks = order.filter(function (k) { return evs[k]; }).concat(Object.keys(evs).filter(function (k) { return order.indexOf(k) < 0; }));
+    var colW = 150, W = ks.length * colW + 10, maxn = Math.max.apply(null, ks.map(function (k) { return evs[k].length; }).concat([1])), H = 54 + maxn * 26, clr = { low: 'var(--ok-bg)', medium: 'var(--warn-bg)', high: 'var(--bad-bg)' }, stroke = { low: 'var(--ok)', medium: 'var(--warn)', high: 'var(--bad)' };
+    var o = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="group" aria-label="Хуки по событиям">';
+    ks.forEach(function (k, i) { o += '<text x="' + (i * colW + colW / 2) + '" y="18" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text)">' + esc(k) + '</text><text x="' + (i * colW + colW / 2) + '" y="34" text-anchor="middle" font-size="11" fill="var(--muted)">' + evs[k].length + ' хук.</text>'; evs[k].forEach(function (x, j) { var lab = String(x.id || x.script || '').replace(/^.*\//, '').replace(/\.js$/, '').slice(0, 20); o += '<g class="node" tabindex="0" role="button" data-hook="' + esc(x._i) + '" aria-label="' + esc('Хук ' + (x.id || x.script) + ', риск ' + (RISKRU[x.risk] || x.risk)) + '"><rect x="' + (i * colW + 4) + '" y="' + (44 + j * 26) + '" width="' + (colW - 10) + '" height="22" rx="6" fill="' + (clr[x.risk] || 'var(--surface2)') + '" stroke="' + (stroke[x.risk] || 'var(--border)') + '"/><text x="' + (i * colW + 10) + '" y="' + (59 + j * 26) + '" font-size="10.5" fill="var(--text)">' + (x.network ? '🌐 ' : '') + (x.spawns_claude ? '⚙ ' : '') + (x.can_block ? '⛔ ' : '') + esc(lab) + '</text></g>'; }); });
+    h += '<div class="chart">' + o + '</svg><div class="legend"><span><i style="background:var(--ok-bg);border:1px solid var(--ok)"></i>риск низкий</span><span><i style="background:var(--warn-bg);border:1px solid var(--warn)"></i>средний</span><span><i style="background:var(--bad-bg);border:1px solid var(--bad)"></i>высокий</span><span>🌐 сеть · ⚙ запускает claude · ⛔ может блокировать</span></div></div>';
+    if (arr(RT.events).length) h += '<h3>Что происходит на каждом событии</h3><div class="tbl"><table><tbody>' + arr(RT.events).map(function (e) { return '<tr><td><b>' + esc(e.event) + '</b></td><td class="num">' + num(e.hooks_count) + '</td><td>' + esc(e.what_happens || '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    var id0;
+    h += '<h3>Все хуки</h3>' + mkTable([{ h: 'Хук', r: function (x) { return '<b>' + esc(x.id || x.script) + '</b>'; }, v: function (x) { return x.id || ''; } }, { h: 'Событие', r: function (x) { return esc(x.event || ''); }, v: function (x) { return x.event || ''; } }, { h: 'Профиль', r: function (x) { return esc(x.profile_gate || ''); }, v: function (x) { return x.profile_gate || ''; } }, { h: 'Риск', r: function (x) { return badge('risk-' + (x.risk || 'low'), RISKRU[x.risk] || x.risk || '—'); }, v: function (x) { return ['high', 'medium', 'low'].indexOf(x.risk); } }, { h: 'Сеть', r: function (x) { return x.network ? 'да' : ''; }, v: function (x) { return x.network ? 0 : 1; } }, { h: 'claude -p', r: function (x) { return x.spawns_claude ? 'да' : ''; }, v: function (x) { return x.spawns_claude ? 0 : 1; } }, { h: 'Блок', r: function (x) { return x.can_block ? 'да' : ''; }, v: function (x) { return x.can_block ? 0 : 1; } }, { h: 'Что делает', r: function (x) { return esc((x.what || '').slice(0, 130)); } }], hs, { filter: { label: 'Событие', get: function (r) { return r.event; } }, search: function (r) { return [r.id, r.event, r.what, r.script].join(' '); }, onRow: hookPanel, sortBy: 3 });
+    var A = RT.auto_vs_manual || {};
+    h += '<h3>Само и вручную</h3><div class="two"><div class="card k-auto"><h4>Срабатывает само</h4>' + arr(A.automatic).map(function (x) { return '<p><b>' + esc(x.what) + '</b><br><span class="muted small">' + esc(x.trigger || '') + ' · ' + esc(x.component || '') + '</span></p>'; }).join('') + '</div><div class="card k-manual"><h4>Нужно запускать руками</h4>' + arr(A.manual).map(function (x) { return '<p><b>' + esc(x.what) + '</b><br><code>' + esc(x.how || '') + '</code><br><span class="muted small">' + esc(x.component || '') + '</span></p>'; }).join('') + '</div></div>';
+    return h + '</section>';
+  }
+
+  // ---------- безопасность ----------
+  function sSecurity() {
+    var V = SEC.verdict || {}, vc = { yes: ['b-yes', 'Можно ставить'], conditional: ['b-partial', 'Только с условиями'], no: ['b-no', 'Не ставить'] }[V.safe_to_install] || ['b-n', '—'], F = arr(SEC.findings);
+    var h = '<section id="security"><h2>Безопасность и утечки данных</h2><p class="lead">Статический разбор кода ECC (' + esc(String(M.commit).slice(0, 10)) + ') и запуск отдельных скриптов в песочнице без сети. У каждой находки — доказательства со ссылками на строки кода.</p>';
+    h += '<div class="verdict ' + (V.safe_to_install === 'yes' ? 'yes' : V.safe_to_install === 'no' ? 'no' : 'partial') + '"><p>' + badge(vc[0], vc[1]) + ' <b>' + esc(V.headline || '') + '</b></p><p>' + esc(SEC.summary || '') + '</p>' + (arr(V.conditions).length ? '<p><b>Условия:</b></p>' + ul(V.conditions) : '') + '</div>';
+    // матрица серьёзность × категория
+    var cats = {}, cnt = {}; F.forEach(function (f) { var c = f.category || 'other'; cats[c] = 1; cnt[c + '|' + f.severity] = (cnt[c + '|' + f.severity] || 0) + 1; }); var ck = Object.keys(cats).sort();
+    if (F.length) {
+      var lw = 170, cw = 84, ch = 30, top = 34, W = lw + SEVORD.length * cw + 10, H = top + ck.length * ch + 10, colr = { critical: '#7f1d1d', high: '#dc2626', medium: '#f59e0b', low: '#3b82f6', info: '#94a3b8' };
+      var o = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="group" aria-label="Матрица находок">';
+      SEVORD.forEach(function (s, i) { o += '<text x="' + (lw + i * cw + cw / 2) + '" y="20" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text)">' + SEVRU[s] + '</text>'; });
+      ck.forEach(function (c, j) { var y = top + j * ch; o += '<text x="' + (lw - 8) + '" y="' + (y + 19) + '" text-anchor="end" font-size="12" fill="var(--text)">' + esc(c) + '</text>'; SEVORD.forEach(function (s, i) { var n = cnt[c + '|' + s] || 0; o += '<rect class="cell" tabindex="' + (n ? 0 : -1) + '" role="button" data-sevc="' + esc(c) + '|' + s + '" aria-label="' + esc(c + ', ' + SEVRU[s] + ': ' + n) + '" x="' + (lw + i * cw) + '" y="' + y + '" width="' + (cw - 3) + '" height="' + (ch - 3) + '" rx="5" fill="' + (n ? colr[s] : 'var(--sn)') + '" opacity="' + (n ? Math.min(1, .5 + n * .2) : 1) + '"/><text x="' + (lw + i * cw + cw / 2) + '" y="' + (y + 19) + '" text-anchor="middle" font-size="12" fill="' + (n ? '#fff' : 'var(--muted)') + '" pointer-events="none">' + (n || '·') + '</text>'; }); });
+      h += '<h3>Карта находок: категория × серьёзность</h3><p class="muted small">Клик по ячейке фильтрует список ниже.</p><div class="chart">' + o + '</svg></div>';
+    }
+    h += '<h3>Находки (' + F.length + ')</h3>' + mkTable([{ h: 'ID', r: function (f) { return '<b>' + esc(f.id) + '</b>'; }, v: function (f) { return f.id; } }, { h: 'Серьёзность', r: function (f) { return badge(SEV[f.severity] || 'sev-info', SEVRU[f.severity] || f.severity); }, v: function (f) { return SEVORD.indexOf(f.severity); } }, { h: 'Категория', r: function (f) { return esc(f.category || ''); }, v: function (f) { return f.category || ''; } }, { h: 'Находка', r: function (f) { return '<b>' + esc(f.title) + '</b><br><span class="muted small">' + esc((f.description || '').slice(0, 170)) + '</span>'; } }, { h: 'Проверено', r: function (f) { return esc(f.verified || ''); }, v: function (f) { return f.verified || ''; } }], F, { filter: { label: 'Категория', get: function (r) { return r.category; } }, search: function (r) { return [r.id, r.title, r.description, r.category, r.severity].join(' '); }, onRow: findingPanel, sortBy: 1, extra: '<span id="sevc-f" class="muted small"></span>', pred: function (r) { return !curSevc || (r.category + '|' + r.severity) === curSevc; } });
+    h += '<h3>Куда уходят данные</h3>' + flowDiagram();
+    h += '<div class="tbl"><table><thead><tr><th>Поток</th><th>Откуда</th><th>Куда</th><th>Обязательно</th><th>По умолчанию</th></tr></thead><tbody>' + arr(SEC.data_flows).map(function (f) { return '<tr class="row" tabindex="0" data-flow="' + esc(f.id) + '"><td><b>' + esc(f.id) + '</b> ' + esc(f.what) + '</td><td>' + esc(f.from) + '</td><td><b>' + esc(f.to) + '</b></td><td>' + (f.mandatory ? 'да' : 'нет') + '</td><td>' + (f.default_on ? 'да' : 'нет') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    var T = SEC.telemetry || {}; h += '<div class="two"><div class="card"><h3>Телеметрия</h3><p>' + badge(T.present ? 'b-no' : 'b-yes', T.present ? 'есть' : 'не найдена') + '</p><p>' + esc(T.details || '') + '</p>' + (arr(T.evidence).length ? '<p class="small">' + arr(T.evidence).map(function (e) { return typeof e === 'string' ? esc(e) : gh(e.file, e.line); }).join(' · ') + '</p>' : '') + '</div><div class="card"><h3>Сетевые адреса</h3>' + (arr(SEC.network_endpoints).length ? '<ul class="tight">' + arr(SEC.network_endpoints).map(function (n) { return '<li><b>' + esc(n.host) + '</b> — ' + esc(n.purpose || '') + (n.default_on ? ' ' + badge('b-no', 'по умолчанию') : ' ' + badge('b-n', 'по желанию')) + '<br><span class="muted small">' + esc(n.component || '') + (n.evidence ? ' · ' + esc(n.evidence) : '') + '</span></li>'; }).join('') + '</ul>' : '<p class="muted">Сетевых адресов в коде по умолчанию не найдено.</p>') + '</div></div>';
+    h += '<h3>Что пишется на диск</h3><div class="tbl"><table><thead><tr><th>Путь</th><th>Что логируется</th><th>Риск секретов</th><th>Хранение</th></tr></thead><tbody>' + arr(SEC.local_logging).map(function (l) { return '<tr><td><code>' + esc(l.path) + '</code></td><td>' + esc(l.what_is_logged || '') + '</td><td>' + esc(l.contains_secrets_risk || '') + '</td><td class="small">' + esc(l.retention || '—') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    h += '<h3>Вложенные процессы claude</h3><div class="tbl"><table><thead><tr><th>Команда</th><th>Где</th><th>Что уходит в промпт</th><th>Сработают ли ваши хуки</th></tr></thead><tbody>' + arr(SEC.child_processes).map(function (c) { return '<tr><td><code>' + esc(c.command) + '</code></td><td>' + esc(c.component || '') + '</td><td>' + esc(c.input_sent || '') + '</td><td>' + esc(c.triggers_user_hooks || '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    var S = SEC.supply_chain || {}; h += '<h3>Цепочка поставки</h3><dl class="kv"><dt>npm-пакет</dt><dd>' + esc(S.npm_package || '—') + '</dd><dt>Install-скрипты</dt><dd>' + esc(arr(S.install_scripts).join(', ') || 'нет') + '</dd><dt>Lock-файлы</dt><dd>' + esc(arr(S.lockfiles).join(', ') || '—') + '</dd><dt>Provenance</dt><dd>' + esc(S.provenance || '—') + '</dd><dt>Docker / CI</dt><dd>' + esc((S.docker || '—') + ' / ' + (S.ci || '—')) + '</dd></dl>' + (arr(S.dependencies).length ? '<div class="tbl"><table><thead><tr><th>Зависимость</th><th>Версия</th><th>Закреплена</th></tr></thead><tbody>' + arr(S.dependencies).map(function (d) { return '<tr><td>' + esc(d.name) + '</td><td>' + esc(d.version) + '</td><td>' + (d.pinned ? 'да' : 'нет') + '</td></tr>'; }).join('') + '</tbody></table></div>' : '') + '<p class="small">' + esc(S.notes || '') + '</p>';
+    var sh = SEC.secrets_handling || {}, pi = SEC.prompt_injection || {}; h += '<div class="two"><div class="card"><h3>Секреты</h3><p>' + esc(sh.redaction || '') + '</p><p class="small">Читает .env: ' + (sh.reads_env_files ? 'да' : 'нет') + '; пути учётных данных: ' + esc(arr(sh.reads_credentials_paths).join(', ') || 'нет') + '</p></div><div class="card"><h3>Prompt injection</h3><p><b>Защиты</b></p>' + ul(pi.defenses) + '<p><b>Слабые места</b></p>' + ul(pi.weaknesses) + '</div></div>';
+    if (arr(SEC.mcp_security).length) h += '<h3>MCP: что отправляют наружу</h3><div class="tbl"><table><thead><tr><th>Сервер</th><th>Данные</th><th>Ключи</th><th>Риск</th></tr></thead><tbody>' + arr(SEC.mcp_security).map(function (m) { return '<tr><td><b>' + esc(m.server) + '</b></td><td>' + esc(m.data_sent || '') + '</td><td class="small">' + esc(arr(m.needs_keys).join(', ') || '—') + '</td><td>' + esc(m.risk || '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    h += '<h3>Что сделано хорошо</h3>' + ul(SEC.positives);
+    h += '<h3>Конфликты с вашими правилами</h3><div class="tbl"><table><thead><tr><th>Ваше правило</th><th>Поведение ECC</th><th>Серьёзность</th><th>Как снять</th></tr></thead><tbody>' + arr(SEC.owner_conflicts).map(function (c) { return '<tr><td>' + esc(c.owner_rule) + '</td><td>' + esc(c.ecc_behavior) + '</td><td>' + esc(c.severity || '') + '</td><td>' + esc(c.fix || '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    if (arr(SEC.sandbox_tests).length) h += '<h3>Проверки в песочнице</h3><div class="tbl"><table><thead><tr><th>Что</th><th>Команда</th><th>Наблюдали</th><th>Вывод</th></tr></thead><tbody>' + arr(SEC.sandbox_tests).map(function (t) { return '<tr><td>' + esc(t.what) + '</td><td class="small"><code>' + esc(t.command || '') + '</code></td><td>' + esc(t.observed || '') + '</td><td>' + esc(t.conclusion || '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    h += '<h3>Рекомендации</h3><ol>' + arr(SEC.recommendations).map(function (r) { return '<li>' + badge(r.priority === 'P0' ? 'b-no' : r.priority === 'P1' ? 'b-partial' : 'b-info', r.priority || '') + ' <b>' + esc(r.what) + '</b><br><span class="muted small">' + esc(r.how || '') + '</span></li>'; }).join('') + '</ol>';
+    return h + '</section>';
+  }
+  var curSevc = '';
+  function flowDiagram() {
+    var fl = arr(SEC.data_flows); if (!fl.length) return '';
+    var dests = {}, srcs = {}; fl.forEach(function (f) { dests[f.to] = (dests[f.to] || []).concat([f]); srcs[f.from] = (srcs[f.from] || []).concat([f]); });
+    var dk = Object.keys(dests), sk = Object.keys(srcs), rowH = 34, H = Math.max(dk.length, sk.length) * rowH + 20, W = 900, o = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="group" aria-label="Потоки данных">', pos = {};
+    sk.forEach(function (s, i) { pos['s' + s] = { y: 10 + i * rowH + (H - 20 - sk.length * rowH) / 2 + 12 }; o += '<g><rect x="4" y="' + (pos['s' + s].y - 12) + '" width="270" height="26" rx="7" fill="var(--surface2)" stroke="var(--border)"/><text x="12" y="' + (pos['s' + s].y + 5) + '" font-size="11.5" fill="var(--text)">' + esc(s.slice(0, 42)) + '</text></g>'; });
+    dk.forEach(function (d, i) { pos['d' + d] = { y: 10 + i * rowH + (H - 20 - dk.length * rowH) / 2 + 12 }; var ext = /anthropic|внешн|сервис|http|github|npm|registry|network|сеть|GET|удал[её]нн/i.test(d) && !/^локальн|никуда/i.test(d), clr = ext ? 'var(--bad-bg)' : 'var(--ok-bg)'; o += '<g><rect x="560" y="' + (pos['d' + d].y - 12) + '" width="334" height="26" rx="7" fill="' + clr + '" stroke="var(--border)"/><text x="568" y="' + (pos['d' + d].y + 5) + '" font-size="11.5" fill="var(--text)">' + esc(d.slice(0, 50)) + '</text></g>'; });
+    fl.forEach(function (f) { var a = pos['s' + f.from], b = pos['d' + f.to], c = f.mandatory ? 'var(--bad)' : 'var(--muted)'; o += '<path class="node" tabindex="0" role="button" data-flow="' + esc(f.id) + '" aria-label="' + esc(f.id + ': ' + f.what) + '" d="M274,' + a.y + ' C420,' + a.y + ' 420,' + b.y + ' 560,' + b.y + '" fill="none" stroke="' + c + '" stroke-width="' + (f.default_on ? 3 : 1.6) + '"' + (f.mandatory ? '' : ' stroke-dasharray="6 4"') + ' opacity=".8"><title>' + esc(f.what) + '</title></path>'; });
+    return '<div class="chart">' + o + '</svg><div class="legend"><span>красный фон — данные покидают машину, зелёный — остаются локально</span><span>толстая линия — включено по умолчанию, пунктир — по желанию</span><span>клик по линии — подробности</span></div></div>';
+  }
+
+  // ---------- использование ----------
+  function sUsage() {
+    var h = '<section id="usage"><h2>Как использовать в разработке</h2><p class="lead">Сценарии работы, шпаргалка команд, память между сессиями и минимальная безопасная установка именно для вашей настройки.</p>';
+    h += '<h3>Сценарии</h3><div class="cards">' + arr(US.workflows).map(function (w) { return '<div class="card"><h3>' + esc(w.title) + '</h3><p class="small">' + esc(w.when || '') + '</p><div class="flow">' + arr(w.steps).slice(0, 6).map(function (s, i) { return (i ? '<span class="ar">→</span>' : '') + '<div class="st k-' + esc(s.kind || 'manual') + '"><b>' + esc(s.name) + '</b></div>'; }).join('') + '</div><p>' + badge(w.works_with_user_setup === 'yes' ? 'b-yes' : w.works_with_user_setup === 'no' ? 'b-no' : 'b-partial', 'с вашей настройкой: ' + (w.works_with_user_setup || '—')) + '</p><p><a href="#" data-open="#wf/' + encodeURIComponent(w.id) + '">Подробно →</a></p></div>'; }).join('') + '</div>';
+    h += '<h3>Что использовать под задачу</h3><div class="tbl"><table><thead><tr><th>Задача</th><th>Что взять</th><th>Чего избегать</th></tr></thead><tbody>' + arr(US.by_task).map(function (t) { return '<tr><td><b>' + esc(t.task) + '</b></td><td>' + arr(t.use).map(function (u) { return '<span class="tag">' + esc(u.kind || '') + '</span> <b>' + esc(u.name) + '</b> — ' + esc(u.how || ''); }).join('<br>') + '</td><td>' + esc(t.avoid || '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    h += '<h3>Шпаргалка команд</h3>' + mkTable([{ h: 'Команда', r: function (c) { return '<code>' + esc(c.command) + '</code><button class="copy" data-copy="' + esc(c.command) + '" type="button">копировать</button>'; }, v: function (c) { return c.command; } }, { h: 'Запуск', r: function (c) { return esc(c.auto_or_manual || ''); }, v: function (c) { return c.auto_or_manual || ''; } }, { h: 'Что делает', r: function (c) { return esc(c.what || ''); } }, { h: 'Пример', r: function (c) { return '<code class="small">' + esc(c.example || '') + '</code>'; } }, { h: 'Осторожно', r: function (c) { return esc(c.caution || ''); } }], arr(US.cheatsheet), { search: function (r) { return [r.command, r.what, r.example, r.agent_or_skill].join(' '); }, onRow: function (c) { var k = String(c.command).replace(/^\//, ''); if (idx.cmd[k]) cmdPanel(idx.cmd[k]); }, sortBy: 0, tall: true });
+    var m = US.memory_and_learning || {}; h += '<h3>Память и «инстинкты»</h3><p>' + esc(m.how_it_works || '') + '</p><dl class="kv"><dt>Команды</dt><dd>' + esc(arr(m.commands).join(', ') || '—') + '</dd><dt>Файлы</dt><dd>' + esc(arr(m.files).join(', ') || '—') + '</dd><dt>Риски</dt><dd>' + esc(m.risks || '—') + '</dd></dl>';
+    var ia = US.install_advice || {}; h += '<h3>Минимальная безопасная установка для вас</h3><ol>' + arr(ia.minimal_safe_setup).map(function (s) { return '<li><b>' + esc(s.step) + '</b><br><code>' + esc(s.how || '') + '</code><br><span class="muted small">' + esc(s.why || '') + '</span></li>'; }).join('') + '</ol><div class="two"><div class="card"><h4>Что не ставить</h4>' + ul(ia.what_not_to_install) + '</div><div class="card"><h4>Проверить в настройках</h4>' + ul(ia.settings_to_check) + '<p class="small"><b>Профиль хуков:</b> ' + esc(ia.profile_recommendation || '—') + '</p></div></div>';
+    h += '<h3>Совместимость с вашей настройкой</h3><div class="tbl"><table><thead><tr><th>Область</th><th>ECC</th><th>У вас</th><th>Вердикт</th><th>Совет</th></tr></thead><tbody>' + arr(US.compat_with_user_setup).map(function (c) { return '<tr><td><b>' + esc(c.area) + '</b></td><td>' + esc(c.ecc || '') + '</td><td>' + esc(c.owner || '') + '</td><td>' + badge(c.verdict === 'ok' ? 'b-yes' : c.verdict === 'conflict' ? 'b-no' : 'b-partial', c.verdict || '—') + '</td><td>' + esc(c.advice || '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    h += '<h3>Идеи, которые стоит перенять</h3><div class="tbl"><table><thead><tr><th>Идея</th><th>Где в ECC</th><th>Как перенести</th></tr></thead><tbody>' + arr(US.learn_ideas).map(function (c) { return '<tr><td><b>' + esc(c.idea) + '</b></td><td class="small">' + esc(c.where_in_ecc || '') + '</td><td>' + esc(c.how_to_port || '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    return h + '</section>';
+  }
+
+  // ---------- веб-данные ----------
+  function sWeb() {
+    var r = WEB.repo || {}, h = '<section id="web"><h2>Что известно снаружи</h2><p class="lead">Метаданные GitHub и npm, обсуждения, отзывы, проверка заявлений README. Дата проверки: ' + esc(r.checked || M.date) + '.</p>';
+    h += '<div class="cards"><div class="card"><h3>GitHub</h3><dl class="kv"><dt>Звёзды</dt><dd>' + num(r.stars) + '</dd><dt>Форки</dt><dd>' + num(r.forks) + '</dd><dt>Open issues</dt><dd>' + num(r.open_issues) + '</dd><dt>Open PR</dt><dd>' + num(r.open_prs) + '</dd><dt>Контрибьюторов</dt><dd>' + num(r.contributors) + '</dd><dt>Создан</dt><dd>' + esc((r.created || '').slice(0, 10)) + '</dd><dt>Лицензия</dt><dd>' + esc(r.license || '—') + '</dd></dl></div>';
+    var n = WEB.npm || {}; h += '<div class="card"><h3>npm</h3><dl class="kv"><dt>Пакет</dt><dd>' + esc(n.package || '—') + '</dd><dt>Версия</dt><dd>' + esc(n.version || '—') + '</dd><dt>Загрузок в неделю</dt><dd>' + num(n.weekly_downloads) + '</dd><dt>Provenance</dt><dd>' + esc(n.provenance || '—') + '</dd></dl><p class="small">' + esc(n.notes || '') + '</p></div>';
+    var cm = WEB.commercial || {}; h += '<div class="card"><h3>Коммерческие связи</h3><p class="small">' + esc([cm.sponsors, cm.paid_products, cm.affiliations, cm.notes].filter(Boolean).join(' · ') || '—') + '</p></div></div>';
+    var g = arr(WEB.growth); if (g.length > 1) { var W = 760, H = 220, L = 60, B = 30, mx = Math.max.apply(null, g.map(function (x) { return x.stars || 0; })), pts = g.map(function (x, i) { return [L + (W - L - 20) * i / (g.length - 1), 10 + (H - B - 10) * (1 - (x.stars || 0) / mx)]; }); h += '<h3>Рост звёзд</h3><div class="chart"><svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Рост звёзд"><polyline fill="none" stroke="var(--accent)" stroke-width="2.5" points="' + pts.map(function (p) { return p.join(','); }).join(' ') + '"/>' + g.map(function (x, i) { return '<circle class="pt" tabindex="0" role="button" data-growth="' + i + '" cx="' + pts[i][0] + '" cy="' + pts[i][1] + '" r="6" fill="var(--accent)"><title>' + esc(x.date + ': ' + num(x.stars)) + '</title></circle><text x="' + pts[i][0] + '" y="' + (H - 10) + '" text-anchor="middle" font-size="10.5" fill="var(--muted)">' + esc(String(x.date).slice(0, 7)) + '</text>'; }).join('') + '<text x="4" y="16" font-size="11" fill="var(--muted)">' + num(mx) + '</text></svg></div>'; }
+    h += '<h3>Обсуждения (issues и PR)</h3>' + mkTable([{ h: '#', r: function (i) { return esc(i.number); }, v: function (i) { return i.number || 0; }, cls: 'num' }, { h: 'Тема', r: function (i) { return esc(i.topic || ''); }, v: function (i) { return i.topic || ''; } }, { h: 'Состояние', r: function (i) { return esc(i.state || ''); } }, { h: 'Название', r: function (i) { return link(i.url, i.title); } }, { h: 'Суть', r: function (i) { return esc(i.summary || ''); } }], arr(WEB.issues), { filter: { label: 'Тема', get: function (r) { return r.topic; } }, search: function (r) { return [r.number, r.title, r.summary, r.topic].join(' '); }, sortBy: 0, sortDir: -1, onRow: function (i) { openPanel('<h3>#' + esc(i.number) + ' ' + esc(i.title) + '</h3><p>' + tag(i.topic || '') + tag(i.state || '') + arr(i.labels).map(tag).join('') + '</p><p>' + link(i.url, 'Открыть на GitHub') + '</p><h4>Суть</h4><p>' + esc(i.summary || '—') + '</p><h4>Почему важно вам</h4><p>' + esc(i.relevance || '—') + '</p>'); } });
+    h += '<h3>Отзывы и обзоры</h3><div class="cards">' + arr(WEB.reviews).map(function (v) { return '<div class="card"><h4>' + link(v.url, v.title) + '</h4><p>' + badge(v.stance === 'positive' ? 'b-yes' : v.stance === 'negative' ? 'b-no' : 'b-partial', v.stance || '—') + ' <span class="muted small">' + esc((v.author || '') + ' ' + (v.date || '')) + '</span></p>' + ul(v.takeaways) + '</div>'; }).join('') + '</div>';
+    h += '<h3>Проверка заявлений README</h3><div class="tbl"><table><thead><tr><th>Заявление</th><th>Подтверждено</th><th>Доказательство</th></tr></thead><tbody>' + arr(WEB.claims_check).map(function (c) { return '<tr><td>' + esc(c.claim) + '</td><td>' + badge(c.verified === 'yes' ? 'b-yes' : c.verified === 'no' ? 'b-no' : 'b-partial', c.verified || '—') + '</td><td>' + esc(c.evidence || '') + (c.url ? ' · ' + link(c.url, 'источник') : '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    if (arr(WEB.controversies).length) h += '<h3>Спорные места</h3><div class="cards">' + arr(WEB.controversies).map(function (c) { return '<div class="card"><h4>' + esc(c.topic) + '</h4><p>' + esc(c.summary || '') + '</p><p class="small"><b>Оценка:</b> ' + esc(c.assessment || '') + (c.url ? ' · ' + link(c.url, 'источник') : '') + '</p></div>'; }).join('') + '</div>';
+    if (arr(WEB.releases).length) h += '<h3>Релизы</h3><div class="tbl"><table><tbody>' + arr(WEB.releases).slice(0, 15).map(function (x) { return '<tr><td><b>' + esc(x.tag) + '</b></td><td>' + esc(x.date) + '</td><td>' + esc(x.highlights || '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    if (arr(WEB.alternatives).length) h += '<h3>Альтернативы</h3><ul class="tight">' + arr(WEB.alternatives).map(function (a) { return '<li>' + link(a.url, a.name) + ' — ' + esc(a.how_compares || '') + '</li>'; }).join('') + '</ul>';
+    return h + '</section>';
+  }
+  function sSources() {
+    var s = arr(WEB.sources), h = '<section id="sources"><h2>Источники и методика</h2><ul class="tight"><li>Код ECC читался статически на коммите ' + link(M.repo + '/tree/' + M.commit, String(M.commit).slice(0, 10)) + ' (11.10.2026, версия 2.2.3). Ссылки «файл:строка» ведут на этот коммит.</li><li>Запуск отдельных скриптов — только в песочнице macOS (сеть и запись вне временной папки запрещены), реальный ~/.claude не затрагивался. Что именно запускалось — в таблицах «Проверки в песочнице».</li><li>Всё прочитанное в репозитории и в вебе считалось данными, не инструкциями. Обращения к ИИ внутри файлов (например, «ALWAYS …» в промптах агентов) описаны как содержимое.</li><li>Оценки риска — суждение исследователей; «проверено: static» — прочитан код, «sandbox» — запущено в песочнице, «docs» — только документация, «not-verified» — не проверено.</li><li>Репозиторий ежедневно меняется (сотни коммитов в месяц): выводы относятся к указанному коммиту.</li></ul>';
+    if (s.length) h += '<h3>Внешние источники (' + s.length + ')</h3><div class="tbl"><table><thead><tr><th>Источник</th><th>Проверено</th><th>Для чего</th></tr></thead><tbody>' + s.map(function (x) { return '<tr><td>' + link(x.url, x.title || x.url) + '</td><td>' + esc(x.date_checked || '') + '</td><td class="small">' + esc(x.used_for || '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    return h + '</section>';
+  }
+
+  // ---------- сборка ----------
+  function build() {
+    var h = sSummary() + sInventory() + sGraph() + sInstall() + sHooks() + sSecurity() + sUsage() + sWeb() + sSources();
+    $('#main').innerHTML = '<h1 style="margin:0 0 4px;font-size:30px">' + esc(M.title) + '</h1><p class="lead">Что внутри, что ставит и меняет, как работает, что запускается само, безопасно ли. Данные на ' + esc(M.date) + ', коммит ' + esc(String(M.commit).slice(0, 10)) + '. Элементы страницы кликабельны.</p>' + h;
+    $('#nav').innerHTML = '<h1>Разбор ECC</h1>' + [['summary', 'Итог'], ['inventory', 'Состав'], ['graph', 'Схема взаимодействия'], ['install', 'Установка'], ['hooks', 'Хуки: само и вручную'], ['security', 'Безопасность'], ['usage', 'Как использовать'], ['web', 'Что известно снаружи'], ['sources', 'Источники и методика']].map(function (x) { return '<a href="#' + x[0] + '">' + x[1] + '</a>'; }).join('') + '<button id="theme" type="button">Тема: авто</button>';
+    var th = $('#theme'); th.onclick = function () { var c = document.documentElement.getAttribute('data-theme'), n = c === 'dark' ? 'light' : c === 'light' ? '' : 'dark'; if (n) document.documentElement.setAttribute('data-theme', n); else document.documentElement.removeAttribute('data-theme'); try { localStorage.setItem('ecc-theme', n); } catch (e) { } th.textContent = 'Тема: ' + (n === 'dark' ? 'тёмная' : n === 'light' ? 'светлая' : 'авто'); };
+    invBody(tabNow); var first = arr(GR.nodes).filter(function (n) { return n.type === 'command'; }).sort(function (a, b) { return arr(gout[b.id]).length - arr(gout[a.id]).length; })[0]; if (first) drawGraph(first.id);
+    $('#inv-tabs').onclick = function (e) { var b = e.target.closest('button'); if (b) invBody(b.getAttribute('data-t')); };
+    $('#gx-go').onclick = function () { drawGraph($('#gx-q').value); };
+  }
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    var tab = t.closest('[data-tab]'); if (tab && tab.getAttribute('data-tab')) { tabNow = tab.getAttribute('data-tab'); setTimeout(function () { invBody(tabNow); }, 0); }
+    var a = t.closest('[data-arch]'); if (a) { var id = a.getAttribute('data-arch'); var go = { user: '#usage', cmd: '#inventory', agent: '#inventory', skill: '#inventory', rules: '#inventory', hooks: '#hooks', mcp: '#inventory', cli: '#install', store: '#install', claude: '#security' }[id]; var bx = $('#panel'); openPanel('<h3>' + esc(a.getAttribute('aria-label')) + '</h3><p>' + esc(ARCH_TEXT[id] || '') + '</p><p><a href="' + go + '" id="arch-go">Перейти к разделу →</a></p>'); $('#arch-go').onclick = function () { closePanel(); if (id === 'cmd' || id === 'agent' || id === 'skill' || id === 'rules' || id === 'mcp') { tabNow = { cmd: 'commands', agent: 'agents', skill: 'skills', rules: 'rules', mcp: 'mcp' }[id]; invBody(tabNow); } }; return; }
+    var d = t.closest('[data-dom]'); if (d) { var dm = d.getAttribute('data-dom'); tabNow = 'agents'; invBody('agents'); var sel = $('#inv-body select[data-f]'); if (sel) { sel.value = ''; Array.prototype.some.call(sel.options, function (o) { if (o.value === dm || o.text === dm) { sel.value = o.value; sel.onchange(); return true; } }); } $('#inv-tabs').scrollIntoView(); return; }
+    var gr = t.closest('[data-growth]'); if (gr) { var gg = arr(WEB.growth)[+gr.getAttribute('data-growth')]; if (gg) openPanel('<h3>' + esc(gg.date) + '</h3><p><b>' + num(gg.stars) + '</b> звёзд</p><p>' + esc(gg.note || '') + '</p>' + (arr(WEB.growth_note).length ? '' : (WEB.growth_note ? '<p class="small muted">' + esc(WEB.growth_note) + '</p>' : ''))); return; }
+    var gn = t.closest('[data-gn]'); if (gn) { var nid = gn.getAttribute('data-gn'); drawGraph(nid); graphNodePanel(gnodes[nid]); return; }
+    var hk = t.closest('[data-hook]'); if (hk) { var hh = idx.hook[hk.getAttribute('data-hook')]; if (hh) hookPanel(hh); return; }
+    var fl = t.closest('[data-flow]'); if (fl) { var ff = idx.flow[fl.getAttribute('data-flow')]; if (ff) flowPanel(ff); return; }
+    var sv = t.closest('[data-sevc]'); if (sv) { var v = sv.getAttribute('data-sevc'); curSevc = curSevc === v ? '' : v; var n = (SEC.findings || []).filter(function (f) { return (f.category + '|' + f.severity) === curSevc; }).length; var lab = $('#sevc-f'); if (lab) lab.textContent = curSevc ? 'Фильтр: ' + curSevc.replace('|', ' / ') + ' (' + n + ')' : ''; var si = $('#security .toolbar input[type=search]'); if (si) { si.value = si.value; si.dispatchEvent(new Event('input')); } return; }
+    var m = t.closest('[data-method]'); if (m) return;
+  });
+  document.addEventListener('keydown', function (e) { if ((e.key === 'Enter' || e.key === ' ') && e.target && e.target.matches && e.target.matches('.node,.cell,.pt,.box,tr.row')) { e.preventDefault(); e.target.click(); } });
+  function route(h) {
+    var p = String(h || location.hash).replace(/^#/, '').split('/').map(decodeURIComponent);
+    if (p[0] === 'agent' && idx.agent[p[1]]) agentPanel(idx.agent[p[1]]);
+    else if (p[0] === 'skill' && idx.skill[p[1]]) skillPanel(idx.skill[p[1]]);
+    else if (p[0] === 'cmd' && idx.cmd[p[1]]) cmdPanel(idx.cmd[p[1]]);
+    else if (p[0] === 'hook' && idx.hook[p[1]]) hookPanel(idx.hook[p[1]]);
+    else if (p[0] === 'finding' && idx.finding[p[1]]) findingPanel(idx.finding[p[1]]);
+    else if (p[0] === 'flow' && idx.flow[p[1]]) flowPanel(idx.flow[p[1]]);
+    else if (p[0] === 'wf' && idx.wf[p[1]]) wfPanel(idx.wf[p[1]]);
+    else if (p[0] === 'method') { var m = arr((RT.install || {}).methods).filter(function (x) { return x.id === p[1]; })[0]; if (m) methodPanel(m); }
+    else if (p[0] === 'node') { var id = p.slice(1).join('/'); if (gnodes[id]) { closePanel(); drawGraph(id); var g = $('#graph'); if (g) g.scrollIntoView(); } }
+    else if (h && h.charAt(0) === '#') { var t = document.getElementById(p[0]); if (t) t.scrollIntoView(); }
+  }
+  window.addEventListener('hashchange', function () { route(); });
+  build();
+  if (location.hash) setTimeout(function () { route(); }, 60);
+})();

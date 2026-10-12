@@ -1,0 +1,2565 @@
+{
+  "meta": {
+    "commit": "b92f181b3b748d1abbc2afd94af6aa7d8c8fca29",
+    "version": "2.2.3",
+    "generated_by": "usage agent, static read",
+    "commands_in_cheatsheet": 97,
+    "notes": [
+      "auto_or_manual: все 97 — слэш-команды, вызываются человеком; manual-only = disable-model-invocation: true (модель не может вызвать сама). После установки плагином имена — /ecc:<имя>.",
+      "12 устаревших команд (/tdd, /verify, /eval, /e2e, /orchestrate, /docs, /claw, /devfleet, /context-budget, /prompt-optimize, /rules-distill, /agent-sort) лежат в legacy-command-shims/commands/ и плагином не загружаются — в шпаргалку не входят.",
+      "agent_or_skill взяты из graph.json (рёбра команда→агент/скил; одно поле agent: во frontmatter — только у /security-scan)."
+    ]
+  },
+  "workflows": [
+    {
+      "id": "plan-tdd-review-verify",
+      "title": "Классика: план → TDD → ревью → проверка → PR",
+      "when": "Новая функция средней сложности, когда хочется ручного контроля на каждом шаге.",
+      "steps": [
+        {
+          "kind": "command",
+          "name": "/plan",
+          "what": "Пересказ требований, риски, фазы; ждёт «да» до правки кода",
+          "produces": "план в чате (или .plan.md для /plan-canvas)"
+        },
+        {
+          "kind": "command",
+          "name": "/plan-canvas",
+          "what": "(необязательно) пометки и одобрение плана в браузере",
+          "produces": "одобренный план, ~/.claude/plan-canvas/sessions.json"
+        },
+        {
+          "kind": "skill",
+          "name": "tdd-workflow",
+          "what": "Красный → зелёный → рефакторинг; или языковая команда /go-test, /rust-test, /react-test…",
+          "produces": "тесты + код"
+        },
+        {
+          "kind": "auto",
+          "name": "hook pre:edit-write:gateguard-fact-force",
+          "what": "Первая правка каждого файла блокируется вопросами «что проверил?»",
+          "produces": "задержка + вопросы"
+        },
+        {
+          "kind": "auto",
+          "name": "hook post:quality-gate / stop:format-typecheck",
+          "what": "Форматирование и tsc/ruff/gofmt по правленым файлам",
+          "produces": "отформатированные файлы, предупреждения"
+        },
+        {
+          "kind": "command",
+          "name": "/code-review",
+          "what": "Ревью незакоммиченных изменений по чек-листу",
+          "produces": "список замечаний CRITICAL/HIGH/…"
+        },
+        {
+          "kind": "skill",
+          "name": "verification-loop",
+          "what": "Финальная проверка: сборка, тесты, линт, дифф",
+          "produces": "отчёт о проверке"
+        },
+        {
+          "kind": "command",
+          "name": "/checkpoint",
+          "what": "Контрольная точка: stash/commit + строка в .claude/checkpoints.log",
+          "produces": "git-коммит/stash"
+        },
+        {
+          "kind": "command",
+          "name": "/pr",
+          "what": "Push ветки и gh pr create",
+          "produces": "PR на GitHub"
+        }
+      ],
+      "artifacts": [
+        "план",
+        "тесты",
+        "коммиты",
+        ".claude/checkpoints.log",
+        "PR"
+      ],
+      "works_with_user_setup": "partly",
+      "notes": "Совместимо, если делать в своей ветке; /pr и /checkpoint делают git-действия — по правилам владельца вливание в main он делает сам, PR не обязателен. Языковые команды и шаблоны на английском."
+    },
+    {
+      "id": "orch-gated-feature",
+      "title": "Оркестратор orch-*: функция «под ключ» с двумя воротами",
+      "when": "Нужен единый конвейер исследование→план→TDD→ревью→коммит с остановками только на плане и на коммите.",
+      "steps": [
+        {
+          "kind": "command",
+          "name": "/orch-add-feature <что добавить>",
+          "what": "Запуск скила orch-add-feature поверх общего движка orch-pipeline",
+          "produces": ""
+        },
+        {
+          "kind": "skill",
+          "name": "orch-pipeline",
+          "what": "Шаг 0: оценка размера (trivial/small/standard/large) — от неё зависит, какие фазы идут",
+          "produces": "строка с размером"
+        },
+        {
+          "kind": "agent",
+          "name": "code-explorer",
+          "what": "Изучение текущего кода (фаза Intake)",
+          "produces": "карта затронутых мест"
+        },
+        {
+          "kind": "manual",
+          "name": "research",
+          "what": "Поиск готовых решений: gh search, Context7, реестры пакетов, Exa",
+          "produces": "ссылки на переиспользование"
+        },
+        {
+          "kind": "agent",
+          "name": "planner (opus)",
+          "what": "План тонкими вертикальными срезами → ВОРОТА 1 (ждёт одобрения)",
+          "produces": "task_list"
+        },
+        {
+          "kind": "agent",
+          "name": "tdd-guide",
+          "what": "Каждую задачу — через TDD",
+          "produces": "тесты + код"
+        },
+        {
+          "kind": "agent",
+          "name": "code-reviewer (+ security-reviewer при триггерах безопасности)",
+          "what": "Ревью; CRITICAL/HIGH надо закрыть до коммита",
+          "produces": "замечания"
+        },
+        {
+          "kind": "manual",
+          "name": "ВОРОТА 2",
+          "what": "Показывает дифф и conventional-коммиты, ждёт подтверждения",
+          "produces": "коммиты feat:/fix:/refactor:"
+        }
+      ],
+      "artifacts": [
+        "task_list",
+        "тесты",
+        "коммиты",
+        "docs/ (PRD/архитектура для large)"
+      ],
+      "works_with_user_setup": "partly",
+      "notes": "Хорошо ложится на привычку владельца (план → подтверждение → работа), но агенты закреплены на моделях (planner — opus), что обходит TypeSafe-триаж; коммиты — только в отдельной ветке."
+    },
+    {
+      "id": "bugfix",
+      "title": "Багфикс через регрессионный тест",
+      "when": "Поведение сломано (не новая функция и не желаемое изменение).",
+      "steps": [
+        {
+          "kind": "command",
+          "name": "/orch-fix-defect <что сломано>",
+          "what": "Классификация размера, при неясности — code-explorer",
+          "produces": ""
+        },
+        {
+          "kind": "skill",
+          "name": "orch-fix-defect",
+          "what": "Сначала новый ПАДАЮЩИЙ тест, воспроизводящий баг",
+          "produces": "красный тест"
+        },
+        {
+          "kind": "command",
+          "name": "/build-fix",
+          "what": "Если ломается сборка — минимальные правки (или языковые /go-build, /rust-build…)",
+          "produces": "зелёная сборка"
+        },
+        {
+          "kind": "agent",
+          "name": "code-reviewer / security-reviewer",
+          "what": "Ревью; security — если баг в чувствительном месте",
+          "produces": "замечания"
+        },
+        {
+          "kind": "manual",
+          "name": "ВОРОТА 2",
+          "what": "Подтверждение fix:-коммита",
+          "produces": "коммит"
+        }
+      ],
+      "artifacts": [
+        "регрессионный тест",
+        "fix:-коммит"
+      ],
+      "works_with_user_setup": "yes",
+      "notes": "Альтернатива владельца — superpowers:systematic-debugging; ECC-вариант добавляет обязательный падающий тест."
+    },
+    {
+      "id": "pr-review",
+      "title": "Ревью PR: три уровня глубины",
+      "when": "Нужно проверить чужой или свой PR/дифф.",
+      "steps": [
+        {
+          "kind": "command",
+          "name": "/code-review <номер|URL>",
+          "what": "Пошаговое ревью по чек-листу (один проход, дешевле всего)",
+          "produces": "замечания"
+        },
+        {
+          "kind": "command",
+          "name": "/review-pr",
+          "what": "До 6 агентов: code-reviewer, comment-analyzer (haiku), pr-test-analyzer, silent-failure-hunter, type-design-analyzer, code-simplifier",
+          "produces": "сводный отчёт"
+        },
+        {
+          "kind": "command",
+          "name": "/orch-review",
+          "what": "Нативный Workflow: веер измерений, перекрёстная проверка находок, блокирующие vs советы",
+          "produces": "блокирующие/советы"
+        },
+        {
+          "kind": "command",
+          "name": "/astra-review",
+          "what": "(необязательно) Независимое ревью внешней моделью через Codex CLI",
+          "produces": "замечания GPT"
+        }
+      ],
+      "artifacts": [
+        "отчёт ревью",
+        "комментарии в PR (если попросить)"
+      ],
+      "works_with_user_setup": "partly",
+      "notes": "У владельца уже есть /code-review (встроенный) и superpowers:requesting-code-review. /review-pr зовёт агента на haiku без подтверждения; /astra-review отправляет код в OpenAI."
+    },
+    {
+      "id": "security",
+      "title": "Проверка безопасности агентной конфигурации и кода",
+      "when": "Перед установкой чужих хуков/MCP, перед релизом, при работе с секретами.",
+      "steps": [
+        {
+          "kind": "command",
+          "name": "/security-scan",
+          "what": "AgentShield (npx ecc-agentshield scan) по агентам, хукам, MCP, правам, секретам; агент security-reviewer",
+          "produces": "оценка и находки"
+        },
+        {
+          "kind": "agent",
+          "name": "security-reviewer",
+          "what": "Ревью кода на OWASP, секреты, инъекции",
+          "produces": "находки"
+        },
+        {
+          "kind": "skill",
+          "name": "security-review / safety-guard / gateguard",
+          "what": "Чек-листы и приёмы защиты",
+          "produces": ""
+        },
+        {
+          "kind": "auto",
+          "name": "hook pre:config-protection",
+          "what": "Блокирует правку конфигов линтеров/форматтеров (чтобы не «ослабляли» проверки)",
+          "produces": "deny"
+        },
+        {
+          "kind": "auto",
+          "name": "hook pre:bash:block-no-verify",
+          "what": "Блокирует git commit --no-verify",
+          "produces": "deny"
+        },
+        {
+          "kind": "command",
+          "name": "/harness-audit",
+          "what": "Детерминированная оценка «готовности» репозитория",
+          "produces": "оценочная карта"
+        }
+      ],
+      "artifacts": [
+        "отчёт AgentShield",
+        "оценочная карта"
+      ],
+      "works_with_user_setup": "partly",
+      "notes": "npx скачивает пакет из npm в момент запуска — для владельца лучше разово в песочнице. У владельца уже есть встроенный /security-review."
+    },
+    {
+      "id": "autonomous-loops",
+      "title": "Ночной / автономный цикл (loop, GAN, Santa, MVP)",
+      "when": "Длинная работа без постоянного участия: генерация MVP, доводка дизайна до оценки, двойное ревью до одобрения.",
+      "steps": [
+        {
+          "kind": "command",
+          "name": "/loop-start <pattern> --mode safe",
+          "what": "Готовит runbook в .claude/plans/ и печатает команды запуска; паттерны sequential, continuous-pr, rfc-dag, infinite",
+          "produces": "runbook"
+        },
+        {
+          "kind": "command",
+          "name": "/loop-status",
+          "what": "Прогресс, сигналы сбоев, когда вмешаться",
+          "produces": "статус"
+        },
+        {
+          "kind": "command",
+          "name": "/gan-build \"<бриф>\"",
+          "what": "gan-planner → (gan-generator ↔ gan-evaluator) до порога 7.0, до 15 итераций, плато → стоп",
+          "produces": "gan-harness/spec.md, feedback/*.md, коммиты"
+        },
+        {
+          "kind": "command",
+          "name": "/gan-design \"<бриф>\"",
+          "what": "То же для визуального дизайна без планировщика",
+          "produces": "gan-harness/"
+        },
+        {
+          "kind": "command",
+          "name": "/orch-build-mvp <spec.md>",
+          "what": "MVP по спецификации, внутренний цикл — /gan-build --skip-planner",
+          "produces": "срезы MVP, коммиты"
+        },
+        {
+          "kind": "command",
+          "name": "/santa-loop",
+          "what": "Два независимых ревьюера должны оба сказать PASS; до 3 раундов; при успехе git push",
+          "produces": "вердикт NICE/NAUGHTY, push"
+        },
+        {
+          "kind": "command",
+          "name": "/multi-workflow",
+          "what": "Мультимодельный цикл (Codex/Gemini/Antigravity) — только с внешним ccg-workflow",
+          "produces": "план и код"
+        }
+      ],
+      "artifacts": [
+        "gan-harness/",
+        ".claude/plans/",
+        "коммиты",
+        "push"
+      ],
+      "works_with_user_setup": "no",
+      "notes": "Противоречит правилам владельца: автоматические коммиты/push, внешние провайдеры, высокий расход. Если пробовать — только в отдельной ветке/worktree, --max-iterations малым и без santa push."
+    },
+    {
+      "id": "memory-instincts",
+      "title": "Память и «инстинкты» (continuous-learning-v2)",
+      "when": "Хочется, чтобы Claude сам накапливал привычки проекта между сессиями.",
+      "steps": [
+        {
+          "kind": "auto",
+          "name": "hook pre:observe / post:observe:continuous-learning",
+          "what": "observe.sh пишет каждый вызов инструмента (вход/выход до 5000 знаков, с маскировкой секретов) в observations.jsonl проекта",
+          "produces": "~/.local/share/ecc-homunculus/projects/<hash>/observations.jsonl"
+        },
+        {
+          "kind": "auto",
+          "name": "observer-loop.sh (выключен по умолчанию)",
+          "what": "При observer.enabled=true раз в 5 минут запускает claude --model haiku и превращает наблюдения в инстинкты",
+          "produces": "instincts/personal/*.md"
+        },
+        {
+          "kind": "command",
+          "name": "/instinct-status",
+          "what": "Список инстинктов проекта и глобальных с уверенностью 0.3–0.9",
+          "produces": "таблица"
+        },
+        {
+          "kind": "command",
+          "name": "/evolve [--generate]",
+          "what": "Кластеризует инстинкты и предлагает/создаёт скилы, команды, агентов",
+          "produces": "evolved/{skills,commands,agents}"
+        },
+        {
+          "kind": "command",
+          "name": "/promote",
+          "what": "Переносит инстинкт в глобальные (если встречается в 2+ проектах со средней уверенностью ≥ 0.8)",
+          "produces": "глобальный инстинкт"
+        },
+        {
+          "kind": "command",
+          "name": "/instinct-export / /instinct-import",
+          "what": "Обмен инстинктами (файл/URL)",
+          "produces": "yaml-файл"
+        },
+        {
+          "kind": "command",
+          "name": "/prune",
+          "what": "Удаляет неподтверждённые инстинкты старше 30 дней",
+          "produces": ""
+        },
+        {
+          "kind": "auto",
+          "name": "hook session:start",
+          "what": "На старте подмешивает до 6 инстинктов с уверенностью ≥ 0.7 и до 6 выученных скилов",
+          "produces": "дополнительный контекст"
+        }
+      ],
+      "artifacts": [
+        "observations.jsonl",
+        "instincts/",
+        "evolved/"
+      ],
+      "works_with_user_setup": "partly",
+      "notes": "Без включённого наблюдателя инстинкты сами не появляются — только наблюдения копятся. Наблюдатель зовёт haiku без подтверждения (нарушает правило владельца) и проходит через его UserPromptSubmit-хуки."
+    },
+    {
+      "id": "session-continuity",
+      "title": "Продолжение между сессиями: сводки и компакция",
+      "when": "Длинная работа на несколько сессий; контекст подходит к пределу.",
+      "steps": [
+        {
+          "kind": "auto",
+          "name": "hook stop:session-end",
+          "what": "После каждого ответа обновляет ~/.claude/session-data/<дата>-<id>-session.tmp (задачи, файлы, инструменты); при <20% контекста или каждые 50 сообщений — LLM-сводка через claude -p (haiku)",
+          "produces": "session .tmp"
+        },
+        {
+          "kind": "auto",
+          "name": "hook pre:compact",
+          "what": "Перед компакцией — LLM-сводка через claude -p (haiku) в тот же файл",
+          "produces": "блок LLM_SUMMARY"
+        },
+        {
+          "kind": "auto",
+          "name": "hook session:start",
+          "what": "На старте вставляет последнюю подходящую сводку (помечена как историческая, лимит 8000 знаков)",
+          "produces": "контекст"
+        },
+        {
+          "kind": "command",
+          "name": "/save-session",
+          "what": "Ручное подробное сохранение состояния",
+          "produces": "файл в session-data"
+        },
+        {
+          "kind": "command",
+          "name": "/resume-session [дата|файл]",
+          "what": "Загрузка сводки и продолжение",
+          "produces": ""
+        },
+        {
+          "kind": "command",
+          "name": "/sessions",
+          "what": "Список, псевдонимы (~/.claude/session-aliases.json), метаданные",
+          "produces": ""
+        },
+        {
+          "kind": "command",
+          "name": "/aside <вопрос>",
+          "what": "Побочный вопрос без сбоя основной задачи",
+          "produces": ""
+        },
+        {
+          "kind": "auto",
+          "name": "hook pre:edit-write:suggest-compact",
+          "what": "Подсказывает ручную компакцию на логических границах",
+          "produces": "подсказка"
+        }
+      ],
+      "artifacts": [
+        "~/.claude/session-data/*.tmp",
+        "~/.claude/session-aliases.json"
+      ],
+      "works_with_user_setup": "partly",
+      "notes": "Дублирует TASKS.md с разделом «Где остановился» у владельца; вложенный claude -p запускает его хуки TypeSafe/QA. Разумно: ECC_SKIP_LLM_SUMMARY=1 и вести TASKS.md."
+    },
+    {
+      "id": "release",
+      "title": "Подготовка релиза",
+      "when": "Перед выпуском версии: документация, проверки, PR.",
+      "steps": [
+        {
+          "kind": "command",
+          "name": "/update-docs",
+          "what": "Синхронизация документации с источниками истины",
+          "produces": "обновлённые docs"
+        },
+        {
+          "kind": "command",
+          "name": "/update-codemaps",
+          "what": "Компактные карты архитектуры",
+          "produces": "codemaps"
+        },
+        {
+          "kind": "command",
+          "name": "/test-coverage",
+          "what": "Поиск пробелов покрытия и генерация тестов",
+          "produces": "тесты"
+        },
+        {
+          "kind": "skill",
+          "name": "verification-loop / delivery-gate",
+          "what": "Финальная проверка перед поставкой",
+          "produces": "отчёт"
+        },
+        {
+          "kind": "command",
+          "name": "/prp-commit",
+          "what": "Коммит с выбором файлов словами",
+          "produces": "коммит"
+        },
+        {
+          "kind": "command",
+          "name": "/pr или /prp-pr",
+          "what": "Push и PR с шаблоном",
+          "produces": "PR"
+        },
+        {
+          "kind": "skill",
+          "name": "deployment-patterns / canary-watch",
+          "what": "Паттерны выкладки и наблюдение после релиза",
+          "produces": ""
+        }
+      ],
+      "artifacts": [
+        "docs",
+        "коммиты",
+        "PR",
+        "CHANGELOG (вручную)"
+      ],
+      "works_with_user_setup": "partly",
+      "notes": "У владельца релиз = вливание ветки в main и push; CHANGELOG ведётся в его репозитории вручную."
+    },
+    {
+      "id": "marketing-content",
+      "title": "Маркетинг и контент",
+      "when": "Нужна кампания, лендинг, письма, посты.",
+      "steps": [
+        {
+          "kind": "command",
+          "name": "/marketing-campaign [бриф]",
+          "what": "Делегирует marketing-agent",
+          "produces": ""
+        },
+        {
+          "kind": "agent",
+          "name": "marketing-agent",
+          "what": "Позиционирование, лендинг, цепочка писем, посты, реклама, видео-сценарии, контент-календарь",
+          "produces": "пакет текстов"
+        },
+        {
+          "kind": "skill",
+          "name": "brand-voice / content-engine / crosspost / market-research",
+          "what": "Голос бренда, производство контента, кросс-постинг, исследование рынка",
+          "produces": ""
+        },
+        {
+          "kind": "skill",
+          "name": "seo / article-writing / investor-materials",
+          "what": "Смежные бизнес-скилы",
+          "produces": ""
+        }
+      ],
+      "artifacts": [
+        "тексты кампании",
+        "календарь"
+      ],
+      "works_with_user_setup": "redundant",
+      "notes": "У владельца уже есть плагины marketing:*, cro-kit, churn-prevention и правило «гипотеза = метрика + MDE + выборка» — ECC-вариант этого не требует."
+    },
+    {
+      "id": "multi-agent-analysis",
+      "title": "Мультиагентный разбор кода/архитектуры",
+      "when": "Незнакомая кодовая база, архитектурное решение, большой PR.",
+      "steps": [
+        {
+          "kind": "command",
+          "name": "/feature-dev",
+          "what": "code-explorer (карта кода) → code-architect (варианты) → code-reviewer",
+          "produces": "архитектурный план"
+        },
+        {
+          "kind": "agent",
+          "name": "architect / code-architect (opus/sonnet)",
+          "what": "Структурные решения",
+          "produces": "ADR"
+        },
+        {
+          "kind": "skill",
+          "name": "council / council-multi-model",
+          "what": "Совет из нескольких ролей/моделей",
+          "produces": "сводное мнение"
+        },
+        {
+          "kind": "skill",
+          "name": "architecture-decision-records",
+          "what": "Фиксация решения в ADR",
+          "produces": "docs/adr/*.md"
+        },
+        {
+          "kind": "command",
+          "name": "/multi-plan",
+          "what": "План от двух внешних моделей (нужен ccg-workflow)",
+          "produces": ".claude/plan/*"
+        }
+      ],
+      "artifacts": [
+        "ADR",
+        "план"
+      ],
+      "works_with_user_setup": "partly",
+      "notes": "rules/common/agents.md требует «ALWAYS use parallel Task execution» — конфликтует с триажем владельца (кому делегировать решает TypeSafe)."
+    },
+    {
+      "id": "refactor",
+      "title": "Рефакторинг и чистка",
+      "when": "Структура плохая, поведение должно остаться.",
+      "steps": [
+        {
+          "kind": "command",
+          "name": "/orch-refine-code <что>",
+          "what": "Тесты зелёные до → перестройка → зелёные после → ревью → коммит",
+          "produces": "refactor:-коммит"
+        },
+        {
+          "kind": "command",
+          "name": "/refactor-clean",
+          "what": "Мёртвый код: knip, depcheck, ts-prune, vulture, deadcode; проверка после каждой правки",
+          "produces": "удалённый код"
+        },
+        {
+          "kind": "agent",
+          "name": "refactor-cleaner / code-simplifier",
+          "what": "Агенты чистки и упрощения",
+          "produces": ""
+        }
+      ],
+      "artifacts": [
+        "коммиты"
+      ],
+      "works_with_user_setup": "yes",
+      "notes": "npx-утилиты недоступны в режиме Work (нет Node); vulture — только через pip, тоже недоступен в Work."
+    },
+    {
+      "id": "build-fix",
+      "title": "Сломалась сборка",
+      "when": "Ошибки компиляции/типов/линтера.",
+      "steps": [
+        {
+          "kind": "command",
+          "name": "/build-fix",
+          "what": "Определяет систему сборки и чинит по одной ошибке",
+          "produces": ""
+        },
+        {
+          "kind": "command",
+          "name": "/go-build, /rust-build, /kotlin-build, /cpp-build, /flutter-build, /react-build, /gradle-build",
+          "what": "Языковые варианты с агентами *-build-resolver",
+          "produces": "зелёная сборка"
+        }
+      ],
+      "artifacts": [],
+      "works_with_user_setup": "yes",
+      "notes": ""
+    },
+    {
+      "id": "prd-to-pr",
+      "title": "Серия PRP: PRD → план → реализация → коммит → PR",
+      "when": "Продуктовая задача, где сначала нужен PRD.",
+      "steps": [
+        {
+          "kind": "command",
+          "name": "/prp-prd или /plan-prd",
+          "what": "PRD «от проблемы» с вопросами",
+          "produces": "*.prd.md"
+        },
+        {
+          "kind": "command",
+          "name": "/prp-plan <prd.md>",
+          "what": "План с анализом кода и паттернов",
+          "produces": "plan.md"
+        },
+        {
+          "kind": "command",
+          "name": "/prp-implement <plan.md>",
+          "what": "Реализация с циклами проверки",
+          "produces": "код"
+        },
+        {
+          "kind": "command",
+          "name": "/prp-commit",
+          "what": "Коммит",
+          "produces": ""
+        },
+        {
+          "kind": "command",
+          "name": "/prp-pr",
+          "what": "PR",
+          "produces": "PR"
+        }
+      ],
+      "artifacts": [
+        "prd.md",
+        "plan.md",
+        "PR"
+      ],
+      "works_with_user_setup": "partly",
+      "notes": "Пересекается со скилами владельца product-strategy/product-concept и superpowers:writing-plans."
+    },
+    {
+      "id": "skill-authoring",
+      "title": "Создание своих скилов и хуков",
+      "when": "Нужно закрепить приём или запретить нежелательное поведение.",
+      "steps": [
+        {
+          "kind": "command",
+          "name": "/skill-create",
+          "what": "Генерация SKILL.md по git-истории",
+          "produces": "SKILL.md"
+        },
+        {
+          "kind": "command",
+          "name": "/learn или /learn-eval",
+          "what": "Извлечь приём из текущей сессии",
+          "produces": "~/.claude/skills/<имя>/SKILL.md"
+        },
+        {
+          "kind": "command",
+          "name": "/hookify <поведение>",
+          "what": "Правило-хук (markdown) против поведения",
+          "produces": ".claude/hookify.*.local.md"
+        },
+        {
+          "kind": "command",
+          "name": "/skill-health",
+          "what": "Панель использования скилов",
+          "produces": "дашборд"
+        },
+        {
+          "kind": "skill",
+          "name": "skill-stocktake / skill-scout",
+          "what": "Аудит качества и поиск дублей",
+          "produces": ""
+        }
+      ],
+      "artifacts": [
+        "SKILL.md",
+        "правила hookify"
+      ],
+      "works_with_user_setup": "partly",
+      "notes": "У владельца есть tools/new-skill.sh и validate.sh в своём репозитории; hookify — интересная идея для переноса (правила-хуки в markdown)."
+    },
+    {
+      "id": "github-epics",
+      "title": "Координация эпиков в GitHub",
+      "when": "Несколько агентов/людей делят эпик на задачи.",
+      "steps": [
+        {
+          "kind": "command",
+          "name": "/epic-validate",
+          "what": "Готовность и зависимости",
+          "produces": ""
+        },
+        {
+          "kind": "command",
+          "name": "/epic-decompose",
+          "what": "Дочерние задачи",
+          "produces": "issues"
+        },
+        {
+          "kind": "command",
+          "name": "/epic-claim",
+          "what": "Взять эпик",
+          "produces": "метки"
+        },
+        {
+          "kind": "command",
+          "name": "/epic-sync / /epic-unblock",
+          "what": "Синхронизация и разблокировка",
+          "produces": ""
+        },
+        {
+          "kind": "command",
+          "name": "/epic-review / /epic-publish",
+          "what": "Ревью и публикация",
+          "produces": ""
+        }
+      ],
+      "artifacts": [
+        "GitHub issues"
+      ],
+      "works_with_user_setup": "partly",
+      "notes": "Пишет в GitHub; владелец ведёт issues на русском через свой скил github-issue-structuring."
+    }
+  ],
+  "by_task": [
+    {
+      "task": "новая функция",
+      "use": [
+        {
+          "kind": "command",
+          "name": "/plan",
+          "how": "план с ожиданием подтверждения"
+        },
+        {
+          "kind": "command",
+          "name": "/orch-add-feature",
+          "how": "весь конвейер с двумя воротами"
+        },
+        {
+          "kind": "command",
+          "name": "/feature-dev",
+          "how": "если код незнаком"
+        }
+      ],
+      "avoid": "/multi-* без установленного ccg-workflow; /gan-build для небольших задач — слишком дорого"
+    },
+    {
+      "task": "багфикс",
+      "use": [
+        {
+          "kind": "command",
+          "name": "/orch-fix-defect",
+          "how": "падающий тест → починка"
+        },
+        {
+          "kind": "command",
+          "name": "/build-fix",
+          "how": "если сломана сборка"
+        },
+        {
+          "kind": "agent",
+          "name": "silent-failure-hunter",
+          "how": "поиск проглоченных ошибок"
+        }
+      ],
+      "avoid": "чинить без воспроизводящего теста"
+    },
+    {
+      "task": "ревью PR",
+      "use": [
+        {
+          "kind": "command",
+          "name": "/code-review <PR>",
+          "how": "быстро"
+        },
+        {
+          "kind": "command",
+          "name": "/review-pr",
+          "how": "глубоко, 6 агентов"
+        },
+        {
+          "kind": "command",
+          "name": "/orch-review",
+          "how": "с перекрёстной проверкой находок"
+        }
+      ],
+      "avoid": "/santa-loop — сам пушит; /astra-review — код уходит в OpenAI"
+    },
+    {
+      "task": "рефакторинг",
+      "use": [
+        {
+          "kind": "command",
+          "name": "/orch-refine-code",
+          "how": "с зелёными тестами до и после"
+        },
+        {
+          "kind": "command",
+          "name": "/refactor-clean",
+          "how": "мёртвый код"
+        }
+      ],
+      "avoid": "рефакторинг без тестов"
+    },
+    {
+      "task": "безопасность",
+      "use": [
+        {
+          "kind": "command",
+          "name": "/security-scan",
+          "how": "AgentShield по конфигурации"
+        },
+        {
+          "kind": "agent",
+          "name": "security-reviewer",
+          "how": "ревью кода"
+        },
+        {
+          "kind": "skill",
+          "name": "security-review",
+          "how": "чек-лист"
+        }
+      ],
+      "avoid": "запуск npx на рабочей машине без проверки версии"
+    },
+    {
+      "task": "релиз",
+      "use": [
+        {
+          "kind": "command",
+          "name": "/update-docs",
+          "how": ""
+        },
+        {
+          "kind": "command",
+          "name": "/test-coverage",
+          "how": ""
+        },
+        {
+          "kind": "command",
+          "name": "/pr",
+          "how": "push + PR"
+        }
+      ],
+      "avoid": "/auto-update в середине релиза"
+    },
+    {
+      "task": "маркетинг",
+      "use": [
+        {
+          "kind": "command",
+          "name": "/marketing-campaign",
+          "how": "через marketing-agent"
+        },
+        {
+          "kind": "skill",
+          "name": "content-engine",
+          "how": ""
+        }
+      ],
+      "avoid": "заменять свои marketing:* плагины без нужды"
+    },
+    {
+      "task": "исследование",
+      "use": [
+        {
+          "kind": "skill",
+          "name": "search-first",
+          "how": "сначала поиск готового"
+        },
+        {
+          "kind": "skill",
+          "name": "deep-research / exa-search",
+          "how": "веб-исследование (Exa требует ключ)"
+        },
+        {
+          "kind": "agent",
+          "name": "docs-lookup (haiku)",
+          "how": "документация библиотек"
+        }
+      ],
+      "avoid": "агенты на haiku без подтверждения (правило владельца)"
+    },
+    {
+      "task": "память между сессиями",
+      "use": [
+        {
+          "kind": "command",
+          "name": "/save-session + /resume-session",
+          "how": "вручную"
+        },
+        {
+          "kind": "auto",
+          "name": "session-end/session-start",
+          "how": "автоматически"
+        },
+        {
+          "kind": "command",
+          "name": "/instinct-status",
+          "how": "инстинкты"
+        }
+      ],
+      "avoid": "держать одновременно TASKS.md и session-data — два источника правды"
+    },
+    {
+      "task": "тесты и покрытие",
+      "use": [
+        {
+          "kind": "command",
+          "name": "/go-test, /rust-test, /kotlin-test, /cpp-test, /react-test, /flutter-test",
+          "how": "TDD по языку"
+        },
+        {
+          "kind": "command",
+          "name": "/test-coverage",
+          "how": "пробелы покрытия"
+        },
+        {
+          "kind": "agent",
+          "name": "tdd-guide",
+          "how": ""
+        }
+      ],
+      "avoid": "слепо гнаться за 80% покрытия из rules/common/testing.md"
+    },
+    {
+      "task": "сломалась сборка",
+      "use": [
+        {
+          "kind": "command",
+          "name": "/build-fix",
+          "how": ""
+        },
+        {
+          "kind": "command",
+          "name": "/<язык>-build",
+          "how": ""
+        }
+      ],
+      "avoid": ""
+    },
+    {
+      "task": "документация",
+      "use": [
+        {
+          "kind": "command",
+          "name": "/update-docs",
+          "how": ""
+        },
+        {
+          "kind": "command",
+          "name": "/update-codemaps",
+          "how": ""
+        },
+        {
+          "kind": "agent",
+          "name": "doc-updater (haiku)",
+          "how": ""
+        }
+      ],
+      "avoid": ""
+    },
+    {
+      "task": "дизайн UI",
+      "use": [
+        {
+          "kind": "command",
+          "name": "/gan-design",
+          "how": "итерации до оценки"
+        },
+        {
+          "kind": "skill",
+          "name": "frontend-design-direction / design-system",
+          "how": ""
+        },
+        {
+          "kind": "auto",
+          "name": "hook post:edit:design-quality-check",
+          "how": "напоминания о «шаблонном» UI"
+        }
+      ],
+      "avoid": "дублирует taste-skill/ui-ux-pro-max владельца"
+    },
+    {
+      "task": "автономная работа",
+      "use": [
+        {
+          "kind": "command",
+          "name": "/loop-start",
+          "how": "runbook с условиями остановки"
+        },
+        {
+          "kind": "command",
+          "name": "/loop-status",
+          "how": ""
+        }
+      ],
+      "avoid": "режим fast и паттерн infinite без присмотра"
+    },
+    {
+      "task": "Jira / GitHub-эпики",
+      "use": [
+        {
+          "kind": "command",
+          "name": "/jira",
+          "how": "тикеты Jira"
+        },
+        {
+          "kind": "command",
+          "name": "/epic-*",
+          "how": "эпики в GitHub"
+        }
+      ],
+      "avoid": "без токенов Jira не работает"
+    },
+    {
+      "task": "стоимость и токены",
+      "use": [
+        {
+          "kind": "command",
+          "name": "/cost-report",
+          "how": "из costs.jsonl"
+        },
+        {
+          "kind": "command",
+          "name": "/token-card",
+          "how": "SVG-карточка (коммитит)"
+        },
+        {
+          "kind": "command",
+          "name": "/model-route",
+          "how": "совет по модели"
+        }
+      ],
+      "avoid": "/model-route вместо TypeSafe-триажа"
+    }
+  ],
+  "cheatsheet": [
+    {
+      "command": "/aside",
+      "what": "Быстрый ответ на побочный вопрос без потери текущей задачи; только чтение, затем возврат к работе.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/aside <your question>",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "",
+      "file": "commands/aside.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/aside.md",
+      "plugin_name": "/ecc:aside"
+    },
+    {
+      "command": "/astra-review",
+      "what": "Отправляет написанный Claude код во внешний GPT (через Codex CLI) на независимое ревью и чинит найденное.",
+      "auto_or_manual": "manual",
+      "args": "[--base <branch> | --commit <sha> | --files <paths> | --files-from-commit <sha>] [extra reviewer instructions]",
+      "example": "/astra-review --base main",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "Код уходит в OpenAI через Codex CLI; нужен установленный codex и аккаунт.",
+      "file": "commands/astra-review.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/astra-review.md",
+      "plugin_name": "/ecc:astra-review"
+    },
+    {
+      "command": "/auto-update",
+      "what": "git pull репозитория ECC и переустановка управляемых целей по сохранённому install-state.",
+      "auto_or_manual": "manual-only",
+      "args": "",
+      "example": "/auto-update (внутри — node scripts/auto-update.js --dry-run)",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "Меняет файлы в ~/.claude; сначала --dry-run. Модель сама не вызывает (disable-model-invocation).",
+      "file": "commands/auto-update.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/auto-update.md",
+      "plugin_name": "/ecc:auto-update"
+    },
+    {
+      "command": "/build-fix",
+      "what": "Определяет систему сборки и по шагам чинит ошибки сборки/типов минимальными правками.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/build-fix",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "Правит код; при плагине без агентов работает inline.",
+      "file": "commands/build-fix.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/build-fix.md",
+      "plugin_name": "/ecc:build-fix"
+    },
+    {
+      "command": "/checkpoint",
+      "what": "Создаёт/проверяет/перечисляет контрольные точки: прогон проверок + git stash или commit + запись в .claude/checkpoints.log.",
+      "auto_or_manual": "manual",
+      "args": "свободный текст ($ARGUMENTS)",
+      "example": "/checkpoint create before-auth-refactor",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "Делает git stash/commit — сверить с правилом веток владельца. Ссылается на /verify quick, а /verify — legacy-шим (legacy-command-shims/), плагином не загружается.",
+      "file": "commands/checkpoint.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/checkpoint.md",
+      "plugin_name": "/ecc:checkpoint"
+    },
+    {
+      "command": "/code-review",
+      "what": "Пошаговое ревью незакоммиченных изменений или PR (номер/URL) по чек-листу.",
+      "auto_or_manual": "manual",
+      "args": "[pr-number | pr-url | blank for local review]",
+      "example": "/code-review 142",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "В PR-режиме нужен gh и доступ к репозиторию.",
+      "file": "commands/code-review.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/code-review.md",
+      "plugin_name": "/ecc:code-review"
+    },
+    {
+      "command": "/cost-report",
+      "what": "Отчёт о расходах Claude Code из ~/.claude/metrics/costs.jsonl (терминал или CSV).",
+      "auto_or_manual": "manual",
+      "args": "[csv]",
+      "example": "/cost-report csv",
+      "agent_or_skill": "скил cost-tracking",
+      "caution": "Работает только если хук cost-tracker собирал данные.",
+      "file": "commands/cost-report.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/cost-report.md",
+      "plugin_name": "/ecc:cost-report"
+    },
+    {
+      "command": "/cpp-build",
+      "what": "Чинит ошибки сборки C++/CMake/линковки через агента cpp-build-resolver.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/cpp-build",
+      "agent_or_skill": "агент cpp-build-resolver, скил cpp-coding-standards, скил verification-loop",
+      "caution": "",
+      "file": "commands/cpp-build.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/cpp-build.md",
+      "plugin_name": "/ecc:cpp-build"
+    },
+    {
+      "command": "/cpp-review",
+      "what": "Ревью C++: память, современные идиомы, конкурентность, безопасность (агент cpp-reviewer).",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/cpp-review src/net/",
+      "agent_or_skill": "агент cpp-reviewer, скил cpp-coding-standards, скил cpp-testing",
+      "caution": "",
+      "file": "commands/cpp-review.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/cpp-review.md",
+      "plugin_name": "/ecc:cpp-review"
+    },
+    {
+      "command": "/cpp-test",
+      "what": "TDD для C++: сначала тесты GoogleTest, потом код, покрытие gcov/lcov.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/cpp-test parser module",
+      "agent_or_skill": "скил cpp-testing, скил tdd-workflow, скил verification-loop",
+      "caution": "",
+      "file": "commands/cpp-test.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/cpp-test.md",
+      "plugin_name": "/ecc:cpp-test"
+    },
+    {
+      "command": "/ecc-guide",
+      "what": "Навигатор по агентам, скилам, командам, хукам и профилям ECC по живому репозиторию.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/ecc-guide setup",
+      "agent_or_skill": "скил ecc-guide",
+      "caution": "",
+      "file": "commands/ecc-guide.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/ecc-guide.md",
+      "plugin_name": "/ecc:ecc-guide"
+    },
+    {
+      "command": "/epic-claim",
+      "what": "Взять эпик (GitHub issue) в работу: метки координации и локальный кэш владения.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/epic-claim 57",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "Пишет в GitHub issues через gh — это публичное действие.",
+      "file": "commands/epic-claim.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/epic-claim.md",
+      "plugin_name": "/ecc:epic-claim"
+    },
+    {
+      "command": "/epic-decompose",
+      "what": "Разбить эпик на дочерние задачи (issues) без создания веток.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/epic-decompose 57",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "Создаёт issues в GitHub.",
+      "file": "commands/epic-decompose.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/epic-decompose.md",
+      "plugin_name": "/ecc:epic-decompose"
+    },
+    {
+      "command": "/epic-publish",
+      "what": "Опубликовать проверенное обновление эпика в issue и локальный кэш.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/epic-publish 57",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "Пишет в GitHub.",
+      "file": "commands/epic-publish.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/epic-publish.md",
+      "plugin_name": "/ecc:epic-publish"
+    },
+    {
+      "command": "/epic-review",
+      "what": "Отметить эпик: запрошено ревью / одобрено / нужны правки.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/epic-review 57 approved",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "Меняет метки в GitHub.",
+      "file": "commands/epic-review.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/epic-review.md",
+      "plugin_name": "/ecc:epic-review"
+    },
+    {
+      "command": "/epic-sync",
+      "what": "Синхронизировать тела эпиков, метки и локальные снимки координации из GitHub.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/epic-sync",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "",
+      "file": "commands/epic-sync.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/epic-sync.md",
+      "plugin_name": "/ecc:epic-sync"
+    },
+    {
+      "command": "/epic-unblock",
+      "what": "Пройтись по заблокированным эпикам и переоткрыть те, чьи зависимости закрыты.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/epic-unblock",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "Массово меняет состояние issues.",
+      "file": "commands/epic-unblock.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/epic-unblock.md",
+      "plugin_name": "/ecc:epic-unblock"
+    },
+    {
+      "command": "/epic-validate",
+      "what": "Проверить готовность эпика, зависимости и политику координации.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/epic-validate 57",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "",
+      "file": "commands/epic-validate.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/epic-validate.md",
+      "plugin_name": "/ecc:epic-validate"
+    },
+    {
+      "command": "/evolve",
+      "what": "Анализ инстинктов и предложение/генерация «эволюционировавших» скилов, команд, агентов (--generate).",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/evolve --generate",
+      "agent_or_skill": "скил continuous-learning-v2",
+      "caution": "С --generate пишет новые файлы skills/commands/agents — проверять перед использованием.",
+      "file": "commands/evolve.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/evolve.md",
+      "plugin_name": "/ecc:evolve"
+    },
+    {
+      "command": "/fastapi-review",
+      "what": "Ревью FastAPI: архитектура, async, DI, Pydantic-схемы, безопасность, производительность.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/fastapi-review app/",
+      "agent_or_skill": "агент fastapi-reviewer, скил fastapi-patterns, скил security-scan",
+      "caution": "",
+      "file": "commands/fastapi-review.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/fastapi-review.md",
+      "plugin_name": "/ecc:fastapi-review"
+    },
+    {
+      "command": "/feature-dev",
+      "what": "Пошаговая разработка функции: изучение кода (code-explorer), архитектура (code-architect), ревью (code-reviewer).",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/feature-dev добавить экспорт отчёта в CSV",
+      "agent_or_skill": "агент code-architect, агент code-explorer, агент code-reviewer",
+      "caution": "",
+      "file": "commands/feature-dev.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/feature-dev.md",
+      "plugin_name": "/ecc:feature-dev"
+    },
+    {
+      "command": "/flutter-build",
+      "what": "Чинит ошибки Dart-анализатора и сборки Flutter через dart-build-resolver.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/flutter-build",
+      "agent_or_skill": "агент dart-build-resolver, скил flutter-dart-code-review, скил verification-loop",
+      "caution": "",
+      "file": "commands/flutter-build.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/flutter-build.md",
+      "plugin_name": "/ecc:flutter-build"
+    },
+    {
+      "command": "/flutter-review",
+      "what": "Ревью Flutter/Dart: виджеты, состояние, производительность, доступность (flutter-reviewer).",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/flutter-review lib/screens/",
+      "agent_or_skill": "агент flutter-reviewer, скил flutter-dart-code-review",
+      "caution": "",
+      "file": "commands/flutter-review.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/flutter-review.md",
+      "plugin_name": "/ecc:flutter-review"
+    },
+    {
+      "command": "/flutter-test",
+      "what": "Запуск тестов Flutter/Dart (unit, widget, golden, integration) и починка падений.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/flutter-test",
+      "agent_or_skill": "скил flutter-dart-code-review, скил tdd-workflow",
+      "caution": "",
+      "file": "commands/flutter-test.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/flutter-test.md",
+      "plugin_name": "/ecc:flutter-test"
+    },
+    {
+      "command": "/gan-build",
+      "what": "Цикл «генератор–оценщик» (gan-planner → gan-generator ↔ gan-evaluator) до порога оценки, до 15 итераций.",
+      "auto_or_manual": "manual",
+      "args": "свободный текст ($ARGUMENTS)",
+      "example": "/gan-build \"todo app with tags\" --max-iterations 5 --eval-mode code-only",
+      "agent_or_skill": "агент gan-evaluator, агент gan-generator, агент gan-planner",
+      "caution": "Долгий и дорогой: много вызовов агентов, коммиты на каждой итерации, Playwright по умолчанию.",
+      "file": "commands/gan-build.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/gan-build.md",
+      "plugin_name": "/ecc:gan-build"
+    },
+    {
+      "command": "/gan-design",
+      "what": "То же для фронтенд-дизайна: генератор и оценщик без планировщика, бриф = спецификация.",
+      "auto_or_manual": "manual",
+      "args": "свободный текст ($ARGUMENTS)",
+      "example": "/gan-design \"landing page for a CLI tool\"",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "Пишет gan-harness/ в проект; дорого по токенам.",
+      "file": "commands/gan-design.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/gan-design.md",
+      "plugin_name": "/ecc:gan-design"
+    },
+    {
+      "command": "/go-build",
+      "what": "Чинит ошибки go build / go vet / линтеров через go-build-resolver.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/go-build",
+      "agent_or_skill": "агент go-build-resolver, скил golang-patterns, скил verification-loop",
+      "caution": "",
+      "file": "commands/go-build.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/go-build.md",
+      "plugin_name": "/ecc:go-build"
+    },
+    {
+      "command": "/go-review",
+      "what": "Ревью Go: идиомы, конкурентность, обработка ошибок, безопасность (go-reviewer).",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/go-review ./internal/...",
+      "agent_or_skill": "агент go-reviewer, скил golang-patterns, скил golang-testing",
+      "caution": "",
+      "file": "commands/go-review.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/go-review.md",
+      "plugin_name": "/ecc:go-review"
+    },
+    {
+      "command": "/go-test",
+      "what": "TDD для Go: табличные тесты, затем код, покрытие 80%+ (go test -cover).",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/go-test rate limiter",
+      "agent_or_skill": "скил golang-testing, скил tdd-workflow, скил verification-loop",
+      "caution": "",
+      "file": "commands/go-test.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/go-test.md",
+      "plugin_name": "/ecc:go-test"
+    },
+    {
+      "command": "/gradle-build",
+      "what": "Чинит ошибки Gradle для Android и KMP.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/gradle-build",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "",
+      "file": "commands/gradle-build.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/gradle-build.md",
+      "plugin_name": "/ecc:gradle-build"
+    },
+    {
+      "command": "/harness-audit",
+      "what": "Детерминированный аудит «готовности» репозитория к агентной работе — оценочная карта с приоритетами.",
+      "auto_or_manual": "manual",
+      "args": "свободный текст ($ARGUMENTS)",
+      "example": "/harness-audit",
+      "agent_or_skill": "скил security-scan",
+      "caution": "Запускает node scripts/harness-audit.js — нужен Node.",
+      "file": "commands/harness-audit.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/harness-audit.md",
+      "plugin_name": "/ecc:harness-audit"
+    },
+    {
+      "command": "/hookify",
+      "what": "Создаёт правило-хук против нежелательного поведения по разговору или описанию (агент conversation-analyzer).",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/hookify не правь lock-файлы",
+      "agent_or_skill": "агент conversation-analyzer, скил hookify-rules",
+      "caution": "Правила начинают блокировать/предупреждать на событиях — проверить текст правила.",
+      "file": "commands/hookify.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/hookify.md",
+      "plugin_name": "/ecc:hookify"
+    },
+    {
+      "command": "/hookify-configure",
+      "what": "Включить/выключить правила Hookify интерактивно.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/hookify-configure",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "",
+      "file": "commands/hookify-configure.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/hookify-configure.md",
+      "plugin_name": "/ecc:hookify-configure"
+    },
+    {
+      "command": "/hookify-help",
+      "what": "Справка по системе Hookify.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/hookify-help",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "",
+      "file": "commands/hookify-help.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/hookify-help.md",
+      "plugin_name": "/ecc:hookify-help"
+    },
+    {
+      "command": "/hookify-list",
+      "what": "Список настроенных правил Hookify.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/hookify-list",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "",
+      "file": "commands/hookify-list.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/hookify-list.md",
+      "plugin_name": "/ecc:hookify-list"
+    },
+    {
+      "command": "/instinct-export",
+      "what": "Экспорт инстинктов (проект/глобально, фильтр по домену и уверенности) в файл.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/instinct-export --domain testing",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "",
+      "file": "commands/instinct-export.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/instinct-export.md",
+      "plugin_name": "/ecc:instinct-export"
+    },
+    {
+      "command": "/instinct-import",
+      "what": "Импорт инстинктов из файла или URL в проект/глобально.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/instinct-import team-instincts.yaml",
+      "agent_or_skill": "скил continuous-learning-v2",
+      "caution": "Импорт по URL = чужие инструкции, которые потом подмешиваются в контекст на старте сессии (риск prompt injection); используйте --dry-run.",
+      "file": "commands/instinct-import.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/instinct-import.md",
+      "plugin_name": "/ecc:instinct-import"
+    },
+    {
+      "command": "/instinct-status",
+      "what": "Показать выученные инстинкты (проект + глобальные) с уверенностью.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/instinct-status",
+      "agent_or_skill": "скил continuous-learning-v2",
+      "caution": "",
+      "file": "commands/instinct-status.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/instinct-status.md",
+      "plugin_name": "/ecc:instinct-status"
+    },
+    {
+      "command": "/jira",
+      "what": "Получить тикет Jira, разобрать требования, сменить статус или добавить комментарий (MCP или REST).",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/jira get PROJ-123",
+      "agent_or_skill": "скил jira-integration, скил tdd-workflow",
+      "caution": "Нужны JIRA_URL/JIRA_EMAIL/JIRA_API_TOKEN; пишет в Jira.",
+      "file": "commands/jira.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/jira.md",
+      "plugin_name": "/ecc:jira"
+    },
+    {
+      "command": "/kotlin-build",
+      "what": "Чинит ошибки Kotlin/Gradle через kotlin-build-resolver.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/kotlin-build",
+      "agent_or_skill": "агент kotlin-build-resolver, скил kotlin-patterns, скил verification-loop",
+      "caution": "",
+      "file": "commands/kotlin-build.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/kotlin-build.md",
+      "plugin_name": "/ecc:kotlin-build"
+    },
+    {
+      "command": "/kotlin-review",
+      "what": "Ревью Kotlin: null-safety, корутины, безопасность (kotlin-reviewer).",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/kotlin-review app/src/",
+      "agent_or_skill": "агент kotlin-reviewer, скил kotlin-patterns, скил kotlin-testing",
+      "caution": "",
+      "file": "commands/kotlin-review.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/kotlin-review.md",
+      "plugin_name": "/ecc:kotlin-review"
+    },
+    {
+      "command": "/kotlin-test",
+      "what": "TDD для Kotlin: Kotest, затем код, покрытие 80%+ (Kover).",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/kotlin-test UserRepository",
+      "agent_or_skill": "скил kotlin-testing, скил tdd-workflow, скил verification-loop",
+      "caution": "",
+      "file": "commands/kotlin-test.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/kotlin-test.md",
+      "plugin_name": "/ecc:kotlin-test"
+    },
+    {
+      "command": "/learn",
+      "what": "Извлекает повторяемые приёмы из текущей сессии и после одобрения сохраняет как скил в ~/.claude/skills/<имя>/.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/learn",
+      "agent_or_skill": "скил continuous-learning-v2",
+      "caution": "Пишет в ~/.claude/skills; спрашивает перед перезаписью.",
+      "file": "commands/learn.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/learn.md",
+      "plugin_name": "/ecc:learn"
+    },
+    {
+      "command": "/learn-eval",
+      "what": "Как /learn, но с самооценкой качества и выбором места сохранения (глобально/проект).",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/learn-eval",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "Пишет SKILL.md в ~/.claude/skills — растёт контекст.",
+      "file": "commands/learn-eval.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/learn-eval.md",
+      "plugin_name": "/ecc:learn-eval"
+    },
+    {
+      "command": "/loop-start",
+      "what": "Готовит управляемый автономный цикл (sequential, continuous-pr, rfc-dag, infinite) с остановкой и проверками; печатает команды запуска.",
+      "auto_or_manual": "manual",
+      "args": "свободный текст ($ARGUMENTS)",
+      "example": "/loop-start sequential --mode safe",
+      "agent_or_skill": "скил autonomous-loops, скил continuous-agent-loop",
+      "caution": "Сам цикл запускается вне чата; режим fast ослабляет проверки.",
+      "file": "commands/loop-start.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/loop-start.md",
+      "plugin_name": "/ecc:loop-start"
+    },
+    {
+      "command": "/loop-status",
+      "what": "Состояние активного цикла: прогресс, сигналы сбоев, рекомендации.",
+      "auto_or_manual": "manual",
+      "args": "свободный текст ($ARGUMENTS)",
+      "example": "/loop-status",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "",
+      "file": "commands/loop-status.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/loop-status.md",
+      "plugin_name": "/ecc:loop-status"
+    },
+    {
+      "command": "/marketing-campaign",
+      "what": "Полная маркетинговая кампания по брифу: позиционирование, лендинг, письма, посты, реклама, видео, календарь (marketing-agent).",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/marketing-campaign [product brief]",
+      "agent_or_skill": "агент marketing-agent, скил brand-voice, скил content-engine, скил crosspost, скил market-research, скил marketing-campaign",
+      "caution": "Использует WebSearch/WebFetch и пишет файлы; тексты на английском по умолчанию.",
+      "file": "commands/marketing-campaign.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/marketing-campaign.md",
+      "plugin_name": "/ecc:marketing-campaign"
+    },
+    {
+      "command": "/model-route",
+      "what": "Советует уровень модели (haiku/sonnet/opus) по сложности, риску и бюджету.",
+      "auto_or_manual": "manual",
+      "args": "свободный текст ($ARGUMENTS)",
+      "example": "/model-route migrate auth to OAuth --budget med",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "Дублирует TypeSafe-триаж владельца и советует haiku без подтверждения.",
+      "file": "commands/model-route.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/model-route.md",
+      "plugin_name": "/ecc:model-route"
+    },
+    {
+      "command": "/multi-backend",
+      "what": "Мультимодельный поток для бэкенда (исследование→план→код→ревью), ведущий — Codex.",
+      "auto_or_manual": "manual",
+      "args": "свободный текст ($ARGUMENTS)",
+      "example": "/multi-backend rate-limit API",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "Нужен внешний ccg-workflow (npx ccg-workflow); код уходит во внешние модели.",
+      "file": "commands/multi-backend.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/multi-backend.md",
+      "plugin_name": "/ecc:multi-backend"
+    },
+    {
+      "command": "/multi-execute",
+      "what": "Выполнение мультимодельного плана; писать в файлы может только Claude.",
+      "auto_or_manual": "manual",
+      "args": "свободный текст ($ARGUMENTS)",
+      "example": "/multi-execute .claude/plan/feature.md",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "Нужен ccg-workflow; внешние провайдеры.",
+      "file": "commands/multi-execute.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/multi-execute.md",
+      "plugin_name": "/ecc:multi-execute"
+    },
+    {
+      "command": "/multi-frontend",
+      "what": "Мультимодельный поток для фронтенда (компоненты, вёрстка, анимация).",
+      "auto_or_manual": "manual",
+      "args": "свободный текст ($ARGUMENTS)",
+      "example": "/multi-frontend settings page",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "Нужен ccg-workflow; внешние провайдеры.",
+      "file": "commands/multi-frontend.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/multi-frontend.md",
+      "plugin_name": "/ecc:multi-frontend"
+    },
+    {
+      "command": "/multi-plan",
+      "what": "План от двух моделей (Codex + Antigravity) без правки кода; пишет только .claude/plan/*.",
+      "auto_or_manual": "manual",
+      "args": "свободный текст ($ARGUMENTS)",
+      "example": "/multi-plan add billing webhooks",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "Нужен ccg-workflow (npx ccg-workflow ставит ~/.claude/bin/codeagent-wrapper).",
+      "file": "commands/multi-plan.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/multi-plan.md",
+      "plugin_name": "/ecc:multi-plan"
+    },
+    {
+      "command": "/multi-workflow",
+      "what": "Полный мультимодельный цикл: исследование, план, выполнение, оптимизация, ревью (worktrees).",
+      "auto_or_manual": "manual",
+      "args": "свободный текст ($ARGUMENTS)",
+      "example": "/multi-workflow add billing webhooks",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "Нужен ccg-workflow; внешние провайдеры; много git worktree.",
+      "file": "commands/multi-workflow.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/multi-workflow.md",
+      "plugin_name": "/ecc:multi-workflow"
+    },
+    {
+      "command": "/orch-add-feature",
+      "what": "Новая функция «под ключ»: исследование→план (ворота 1)→TDD→ревью→коммит (ворота 2).",
+      "auto_or_manual": "manual",
+      "args": "свободный текст ($ARGUMENTS)",
+      "example": "/orch-add-feature <what to add>",
+      "agent_or_skill": "агент code-reviewer, агент security-reviewer, скил orch-add-feature, скил orch-pipeline",
+      "caution": "Коммитит после подтверждения; сверить с правилом веток.",
+      "file": "commands/orch-add-feature.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/orch-add-feature.md",
+      "plugin_name": "/ecc:orch-add-feature"
+    },
+    {
+      "command": "/orch-build-mvp",
+      "what": "MVP по документу-спецификации: нарезка на срезы, каркас, TDD, ревью, коммит (использует gan-build).",
+      "auto_or_manual": "manual",
+      "args": "свободный текст ($ARGUMENTS)",
+      "example": "/orch-build-mvp <path to design/spec doc>",
+      "agent_or_skill": "агент code-reviewer, агент security-reviewer, скил orch-build-mvp, скил orch-pipeline",
+      "caution": "Долго и дорого.",
+      "file": "commands/orch-build-mvp.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/orch-build-mvp.md",
+      "plugin_name": "/ecc:orch-build-mvp"
+    },
+    {
+      "command": "/orch-change-feature",
+      "what": "Изменить поведение существующей функции: сначала тесты под новую спецификацию, потом код, ревью, коммит.",
+      "auto_or_manual": "manual",
+      "args": "свободный текст ($ARGUMENTS)",
+      "example": "/orch-change-feature <the new desired behavior>",
+      "agent_or_skill": "агент code-reviewer, агент security-reviewer, скил orch-change-feature, скил orch-pipeline",
+      "caution": "",
+      "file": "commands/orch-change-feature.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/orch-change-feature.md",
+      "plugin_name": "/ecc:orch-change-feature"
+    },
+    {
+      "command": "/orch-fix-defect",
+      "what": "Багфикс: падающий регрессионный тест → починка до зелёного → ревью → fix:-коммит.",
+      "auto_or_manual": "manual",
+      "args": "свободный текст ($ARGUMENTS)",
+      "example": "/orch-fix-defect <what is broken>",
+      "agent_or_skill": "агент code-explorer, агент code-reviewer, агент security-reviewer, скил orch-fix-defect, скил orch-pipeline",
+      "caution": "",
+      "file": "commands/orch-fix-defect.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/orch-fix-defect.md",
+      "plugin_name": "/ecc:orch-fix-defect"
+    },
+    {
+      "command": "/orch-refine-code",
+      "what": "Рефакторинг без изменения поведения: тесты зелёные до и после, ревью, коммит.",
+      "auto_or_manual": "manual",
+      "args": "свободный текст ($ARGUMENTS)",
+      "example": "/orch-refine-code <what to restructure>",
+      "agent_or_skill": "агент code-reviewer, агент refactor-cleaner, скил orch-pipeline, скил orch-refine-code",
+      "caution": "",
+      "file": "commands/orch-refine-code.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/orch-refine-code.md",
+      "plugin_name": "/ecc:orch-refine-code"
+    },
+    {
+      "command": "/orch-review",
+      "what": "Ревью диффа или PR нативным Workflow: веер измерений, перекрёстная проверка, блокирующие и советы.",
+      "auto_or_manual": "manual",
+      "args": "[pr-number | pr-url | blank for local uncommitted changes]",
+      "example": "/orch-review 142",
+      "agent_or_skill": "скил orch-pipeline",
+      "caution": "Требует поддержки Workflow в Claude Code; много подагентов.",
+      "file": "commands/orch-review.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/orch-review.md",
+      "plugin_name": "/ecc:orch-review"
+    },
+    {
+      "command": "/plan",
+      "what": "Пересказ требований, риски, пошаговый план; ждёт подтверждения до правки кода.",
+      "auto_or_manual": "manual",
+      "args": "[feature description | path/to/*.prd.md]",
+      "example": "/plan добавить вход по OAuth2",
+      "agent_or_skill": "агент planner, скил plan-canvas, скил tdd-workflow",
+      "caution": "",
+      "file": "commands/plan.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/plan.md",
+      "plugin_name": "/ecc:plan"
+    },
+    {
+      "command": "/plan-canvas",
+      "what": "Открывает план или HTML в браузерном Plan Canvas для пометок и одобрения.",
+      "auto_or_manual": "manual",
+      "args": "[path/to/artifact.plan.md | path/to/artifact.html]",
+      "example": "/plan-canvas docs/plans/auth.plan.md",
+      "agent_or_skill": "скил plan-canvas",
+      "caution": "Поднимает локальный веб-сервер (ecc-plan-canvas); нужен Node.",
+      "file": "commands/plan-canvas.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/plan-canvas.md",
+      "plugin_name": "/ecc:plan-canvas"
+    },
+    {
+      "command": "/plan-prd",
+      "what": "Короткий PRD «от проблемы» и передача в /plan.",
+      "auto_or_manual": "manual",
+      "args": "[product/feature idea] (blank = start with questions)",
+      "example": "/plan-prd экспорт данных для бухгалтерии",
+      "agent_or_skill": "скил tdd-workflow",
+      "caution": "",
+      "file": "commands/plan-prd.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/plan-prd.md",
+      "plugin_name": "/ecc:plan-prd"
+    },
+    {
+      "command": "/pm2",
+      "what": "Анализ проекта и генерация команд PM2 для фронтенда/бэкенда/БД; пишет .claude/commands и .claude/scripts.",
+      "auto_or_manual": "manual",
+      "args": "свободный текст ($ARGUMENTS)",
+      "example": "/pm2",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "Создаёт файлы в .claude/ проекта.",
+      "file": "commands/pm2.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/pm2.md",
+      "plugin_name": "/ecc:pm2"
+    },
+    {
+      "command": "/pr",
+      "what": "Создать GitHub PR из текущей ветки: шаблоны, анализ изменений, push.",
+      "auto_or_manual": "manual",
+      "args": "[base-branch] (default: main)",
+      "example": "/pr main",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "Делает git push и создаёт PR — публичное действие.",
+      "file": "commands/pr.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/pr.md",
+      "plugin_name": "/ecc:pr"
+    },
+    {
+      "command": "/project-init",
+      "what": "Определяет стек и выдаёт пробный (dry-run) план подключения ECC по манифестам.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/project-init --dry-run",
+      "agent_or_skill": "скил continuous-learning-v2, скил ecc-guide, скил security-review",
+      "caution": "Только план; применение — через ecc-install.",
+      "file": "commands/project-init.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/project-init.md",
+      "plugin_name": "/ecc:project-init"
+    },
+    {
+      "command": "/projects",
+      "what": "Список известных проектов и статистика их инстинктов.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/projects",
+      "agent_or_skill": "скил continuous-learning-v2",
+      "caution": "",
+      "file": "commands/projects.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/projects.md",
+      "plugin_name": "/ecc:projects"
+    },
+    {
+      "command": "/promote",
+      "what": "Перенос инстинктов из проекта в глобальные.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/promote --dry-run",
+      "agent_or_skill": "скил continuous-learning-v2",
+      "caution": "--force — без вопросов.",
+      "file": "commands/promote.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/promote.md",
+      "plugin_name": "/ecc:promote"
+    },
+    {
+      "command": "/prp-commit",
+      "what": "Быстрый коммит: какие файлы — описываете словами.",
+      "auto_or_manual": "manual",
+      "args": "[target description] (blank = all changes)",
+      "example": "/prp-commit только тесты парсера",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "Коммитит (и может пушить по запросу).",
+      "file": "commands/prp-commit.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/prp-commit.md",
+      "plugin_name": "/ecc:prp-commit"
+    },
+    {
+      "command": "/prp-implement",
+      "what": "Выполнение плана с жёсткими циклами проверки.",
+      "auto_or_manual": "manual",
+      "args": "<path/to/plan.md>",
+      "example": "/prp-implement docs/plans/export.plan.md",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "",
+      "file": "commands/prp-implement.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/prp-implement.md",
+      "plugin_name": "/ecc:prp-implement"
+    },
+    {
+      "command": "/prp-plan",
+      "what": "Подробный план реализации с анализом кода и извлечением паттернов.",
+      "auto_or_manual": "manual",
+      "args": "<feature description | path/to/prd.md>",
+      "example": "/prp-plan docs/prd/export.prd.md",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "",
+      "file": "commands/prp-plan.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/prp-plan.md",
+      "plugin_name": "/ecc:prp-plan"
+    },
+    {
+      "command": "/prp-pr",
+      "what": "Псевдоним /pr для серии PRP.",
+      "auto_or_manual": "manual",
+      "args": "[base-branch] (default: main)",
+      "example": "/prp-pr main",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "Push + PR.",
+      "file": "commands/prp-pr.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/prp-pr.md",
+      "plugin_name": "/ecc:prp-pr"
+    },
+    {
+      "command": "/prp-prd",
+      "what": "Интерактивный PRD с вопросами и гипотезами.",
+      "auto_or_manual": "manual",
+      "args": "[feature/product idea] (blank = start with questions)",
+      "example": "/prp-prd офлайн-режим",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "",
+      "file": "commands/prp-prd.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/prp-prd.md",
+      "plugin_name": "/ecc:prp-prd"
+    },
+    {
+      "command": "/prune",
+      "what": "Удалить неподтверждённые инстинкты старше 30 дней.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/prune --max-age 60",
+      "agent_or_skill": "скил continuous-learning-v2",
+      "caution": "Удаляет файлы; сначала --dry-run.",
+      "file": "commands/prune.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/prune.md",
+      "plugin_name": "/ecc:prune"
+    },
+    {
+      "command": "/python-review",
+      "what": "Ревью Python: PEP 8, типы, безопасность, идиомы (python-reviewer).",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/python-review src/",
+      "agent_or_skill": "агент python-reviewer, скил python-patterns, скил python-testing, скил tdd-workflow",
+      "caution": "",
+      "file": "commands/python-review.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/python-review.md",
+      "plugin_name": "/ecc:python-review"
+    },
+    {
+      "command": "/quality-gate",
+      "what": "Прогон форматтер-шлюза ECC для одного файла и шаги исправления.",
+      "auto_or_manual": "manual",
+      "args": "свободный текст ($ARGUMENTS)",
+      "example": "/quality-gate src/app.ts",
+      "agent_or_skill": "скил verification-loop",
+      "caution": "Нужен Node (scripts/hooks/quality-gate.js).",
+      "file": "commands/quality-gate.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/quality-gate.md",
+      "plugin_name": "/ecc:quality-gate"
+    },
+    {
+      "command": "/react-build",
+      "what": "Чинит сборку React (Vite, webpack, Next.js и др.) через react-build-resolver.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/react-build",
+      "agent_or_skill": "агент react-build-resolver, скил frontend-patterns, скил react-patterns, скил verification-loop",
+      "caution": "",
+      "file": "commands/react-build.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/react-build.md",
+      "plugin_name": "/ecc:react-build"
+    },
+    {
+      "command": "/react-review",
+      "what": "Ревью React/JSX: хуки, рендер, границы server/client, доступность (react-reviewer + typescript-reviewer).",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/react-review src/components/",
+      "agent_or_skill": "агент react-reviewer, агент security-reviewer, агент typescript-reviewer, скил accessibility, скил react-patterns, скил react-testing",
+      "caution": "",
+      "file": "commands/react-review.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/react-review.md",
+      "plugin_name": "/ecc:react-review"
+    },
+    {
+      "command": "/react-test",
+      "what": "TDD для React: React Testing Library, Vitest/Jest, покрытие.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/react-test LoginForm",
+      "agent_or_skill": "агент react-reviewer, агент tdd-guide, скил accessibility, скил e2e-testing, скил react-testing, скил tdd-workflow, скил verification-loop",
+      "caution": "",
+      "file": "commands/react-test.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/react-test.md",
+      "plugin_name": "/ecc:react-test"
+    },
+    {
+      "command": "/refactor-clean",
+      "what": "Находит и удаляет мёртвый код с проверкой после каждой правки (knip, ts-prune, vulture и т. п.).",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/refactor-clean",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "Удаляет код; запускает npx-утилиты — нужен Node.",
+      "file": "commands/refactor-clean.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/refactor-clean.md",
+      "plugin_name": "/ecc:refactor-clean"
+    },
+    {
+      "command": "/resume-session",
+      "what": "Загружает последнюю сводку из ~/.claude/session-data/ и продолжает работу.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/resume-session 2024-01-15",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "Дублирует TASKS.md владельца.",
+      "file": "commands/resume-session.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/resume-session.md",
+      "plugin_name": "/ecc:resume-session"
+    },
+    {
+      "command": "/review-pr",
+      "what": "Ревью PR командой агентов: code-reviewer, comment-analyzer, pr-test-analyzer, silent-failure-hunter, type-design-analyzer, code-simplifier.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/review-pr 142",
+      "agent_or_skill": "агент code-reviewer, агент code-simplifier, агент comment-analyzer, агент pr-test-analyzer, агент silent-failure-hunter, агент type-design-analyzer",
+      "caution": "Дорого: до 6 подагентов.",
+      "file": "commands/review-pr.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/review-pr.md",
+      "plugin_name": "/ecc:review-pr"
+    },
+    {
+      "command": "/rust-build",
+      "what": "Чинит сборку Rust, borrow checker и зависимости через rust-build-resolver.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/rust-build",
+      "agent_or_skill": "агент rust-build-resolver, скил rust-patterns, скил verification-loop",
+      "caution": "",
+      "file": "commands/rust-build.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/rust-build.md",
+      "plugin_name": "/ecc:rust-build"
+    },
+    {
+      "command": "/rust-review",
+      "what": "Ревью Rust: владение, времена жизни, unsafe, ошибки (rust-reviewer).",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/rust-review src/",
+      "agent_or_skill": "агент rust-reviewer, скил rust-patterns, скил rust-testing",
+      "caution": "",
+      "file": "commands/rust-review.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/rust-review.md",
+      "plugin_name": "/ecc:rust-review"
+    },
+    {
+      "command": "/rust-test",
+      "what": "TDD для Rust: тесты, затем код, покрытие cargo-llvm-cov 80%+.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/rust-test tokenizer",
+      "agent_or_skill": "скил rust-patterns, скил rust-testing, скил verification-loop",
+      "caution": "",
+      "file": "commands/rust-test.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/rust-test.md",
+      "plugin_name": "/ecc:rust-test"
+    },
+    {
+      "command": "/santa-loop",
+      "what": "Два независимых ревьюера (Claude Opus + внешний Codex/Gemini или Claude) должны оба одобрить; до 3 раундов правок с коммитами.",
+      "auto_or_manual": "manual",
+      "args": "свободный текст ($ARGUMENTS)",
+      "example": "/santa-loop [file-or-glob | description]",
+      "agent_or_skill": "агент code-reviewer, скил santa-method",
+      "caution": "При успехе сам делает git push -u origin HEAD; код уходит внешним провайдерам, если установлены codex/gemini.",
+      "file": "commands/santa-loop.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/santa-loop.md",
+      "plugin_name": "/ecc:santa-loop"
+    },
+    {
+      "command": "/save-session",
+      "what": "Сохраняет состояние сессии в датированный файл ~/.claude/session-data/ для продолжения.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/save-session",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "Дублирует TASKS.md «Где остановился».",
+      "file": "commands/save-session.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/save-session.md",
+      "plugin_name": "/ecc:save-session"
+    },
+    {
+      "command": "/security-scan",
+      "what": "Запускает AgentShield по агентам, хукам, MCP, правам и секретам (агент security-reviewer).",
+      "auto_or_manual": "manual",
+      "args": "свободный текст ($ARGUMENTS)",
+      "example": "/security-scan .claude/",
+      "agent_or_skill": "агент security-reviewer, скил security-scan",
+      "caution": "npx ecc-agentshield — скачивает пакет из npm (сеть); проверить версию.",
+      "file": "commands/security-scan.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/security-scan.md",
+      "plugin_name": "/ecc:security-scan"
+    },
+    {
+      "command": "/sessions",
+      "what": "Управление историей сессий: список, загрузка, псевдонимы, метаданные.",
+      "auto_or_manual": "manual",
+      "args": "свободный текст ($ARGUMENTS)",
+      "example": "/sessions list",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "",
+      "file": "commands/sessions.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/sessions.md",
+      "plugin_name": "/ecc:sessions"
+    },
+    {
+      "command": "/setup-pm",
+      "what": "Выбор менеджера пакетов (npm/pnpm/yarn/bun) — пишет .claude/package-manager.json или ~/.claude/package-manager.json.",
+      "auto_or_manual": "manual-only",
+      "args": "",
+      "example": "/setup-pm --global pnpm",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "Модель сама не вызывает (disable-model-invocation).",
+      "file": "commands/setup-pm.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/setup-pm.md",
+      "plugin_name": "/ecc:setup-pm"
+    },
+    {
+      "command": "/skill-create",
+      "what": "Анализ git-истории и генерация SKILL.md по паттернам репозитория.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/skill-create --commits 100",
+      "agent_or_skill": "скил continuous-learning-v2, скил skill-scout",
+      "caution": "Пишет новые скилы.",
+      "file": "commands/skill-create.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/skill-create.md",
+      "plugin_name": "/ecc:skill-create"
+    },
+    {
+      "command": "/skill-health",
+      "what": "Панель здоровья портфеля скилов: использование, успехи, сбои (scripts/skills-health.js).",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/skill-health --panel failures",
+      "agent_or_skill": "скил skill-stocktake",
+      "caution": "Нужен Node; данные — из ~/.claude/state/skill-runs.jsonl.",
+      "file": "commands/skill-health.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/skill-health.md",
+      "plugin_name": "/ecc:skill-health"
+    },
+    {
+      "command": "/skill-host-compat",
+      "what": "Линт скилов ECC на совместимость frontmatter с Codex/Cursor.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/skill-host-compat --inventory",
+      "agent_or_skill": "скил skill-host-compat",
+      "caution": "Для контрибьюторов ECC.",
+      "file": "commands/skill-host-compat.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/skill-host-compat.md",
+      "plugin_name": "/ecc:skill-host-compat"
+    },
+    {
+      "command": "/test-coverage",
+      "what": "Анализ покрытия, поиск пробелов и генерация недостающих тестов до порога.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/test-coverage",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "",
+      "file": "commands/test-coverage.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/test-coverage.md",
+      "plugin_name": "/ecc:test-coverage"
+    },
+    {
+      "command": "/token-card",
+      "what": "Рисует SVG-карточку расхода токенов из локальных логов сессий и коммитит её в репозиторий.",
+      "auto_or_manual": "manual",
+      "args": "[--out PATH] [--theme auto|light|dark] [--dry-run]",
+      "example": "/token-card --out docs/usage.svg",
+      "agent_or_skill": "скил token-card",
+      "caution": "Коммитит файл; читает логи Claude/Codex/Gemini/OpenCode.",
+      "file": "commands/token-card.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/token-card.md",
+      "plugin_name": "/ecc:token-card"
+    },
+    {
+      "command": "/update-codemaps",
+      "what": "Сканирует структуру проекта и пишет компактные «карты кода» архитектуры.",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/update-codemaps",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "Пишет файлы документации.",
+      "file": "commands/update-codemaps.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/update-codemaps.md",
+      "plugin_name": "/ecc:update-codemaps"
+    },
+    {
+      "command": "/update-docs",
+      "what": "Синхронизирует документацию с источниками истины (скрипты, схемы, маршруты, экспорты).",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/update-docs",
+      "agent_or_skill": "inline (без агента)",
+      "caution": "Правит документацию.",
+      "file": "commands/update-docs.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/update-docs.md",
+      "plugin_name": "/ecc:update-docs"
+    },
+    {
+      "command": "/vue-review",
+      "what": "Ревью Vue: Composition API, реактивность, composables, безопасность шаблонов (vue-reviewer + typescript-reviewer).",
+      "auto_or_manual": "manual",
+      "args": "",
+      "example": "/vue-review src/components/",
+      "agent_or_skill": "агент security-reviewer, агент typescript-reviewer, агент vue-reviewer, скил vue-patterns",
+      "caution": "",
+      "file": "commands/vue-review.md",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/vue-review.md",
+      "plugin_name": "/ecc:vue-review"
+    }
+  ],
+  "memory_and_learning": {
+    "how_it_works": "Три независимых слоя. (1) Сводки сессий: Stop-хук session-end после КАЖДОГО ответа механически обновляет ~/.claude/session-data/<дата>-<id>-session.tmp (запросы пользователя, использованные инструменты, изменённые файлы); если контекста осталось < 20% или число сообщений кратно 50 — заказывает LLM-сводку через вложенный `claude --model haiku -p` (ECC_LLM_SUMMARY_MODEL), передавая ему последние ходы транскрипта. PreCompact-хук (профили standard/strict) делает такую же LLM-сводку перед каждой компакцией. SessionStart-хук вставляет в новый контекст подходящую сводку (обёрнута как «историческая», общий лимит 8000 знаков, ECC_SESSION_START_MAX_CHARS). (2) «Инстинкты» (skills/continuous-learning-v2): хуки observe на PreToolUse/PostToolUse (standard/strict) пишут каждый вызов инструмента — вход и выход до 5000 знаков, после регулярной маскировки секретов — в ~/.local/share/ecc-homunculus/projects/<12-символьный хеш git remote>/observations.jsonl (ротация при 10 МБ, архивы старше 30 дней удаляются). Превращает наблюдения в инстинкты фоновый наблюдатель observer-loop.sh — он ВЫКЛЮЧЕН по умолчанию (config.json observer.enabled=false); при включении раз в 5 минут и от 20 наблюдений запускает `claude --model haiku --print`. Инстинкт — markdown с YAML-шапкой: trigger, action, confidence 0.3–0.9, domain, scope project|global, evidence. На старте сессии подмешиваются до 6 инстинктов с confidence ≥ 0.7 (ECC_INSTINCT_CONFIDENCE_THRESHOLD) и до 6 выученных скилов. Управление — /instinct-status, /evolve, /promote, /projects, /instinct-export, /instinct-import, /prune (все вызывают instinct-cli.py — стандартная библиотека Python). (3) Явное обучение: /learn и /learn-eval по запросу пишут SKILL.md в ~/.claude/skills/; Stop-хук evaluate-session (v1) только печатает подсказку «сессия длинная — можно извлечь приёмы», сам ничего не пишет. Рядом копятся метрики: ~/.claude/metrics/costs.jsonl, tool-usage.jsonl, ~/.claude/state/skill-runs.jsonl, ~/.claude/bash-commands.log и cost-tracker.log (журнал всех Bash-команд с частичной маскировкой токенов, без ротации).",
+    "commands": [
+      "/save-session",
+      "/resume-session",
+      "/sessions",
+      "/aside",
+      "/checkpoint",
+      "/learn",
+      "/learn-eval",
+      "/instinct-status",
+      "/evolve",
+      "/promote",
+      "/projects",
+      "/instinct-export",
+      "/instinct-import",
+      "/prune",
+      "/skill-create",
+      "/skill-health",
+      "/cost-report"
+    ],
+    "files": [
+      {
+        "path": "~/.claude/session-data/<YYYY-MM-DD>-<id>-session.tmp",
+        "writer": "hooks stop:session-end, pre:compact; /save-session",
+        "content": "сводка сессии, при LLM-сводке — пересказ решений и файлов",
+        "evidence": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/session-end.js#L242"
+      },
+      {
+        "path": "~/.claude/session-aliases.json",
+        "writer": "/sessions",
+        "content": "псевдонимы сессий",
+        "evidence": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/sessions.md#L337"
+      },
+      {
+        "path": "~/.local/share/ecc-homunculus/projects/<hash>/observations.jsonl",
+        "writer": "observe.sh (хуки observe)",
+        "content": "вход/выход инструментов до 5000 знаков, маскировка секретов",
+        "evidence": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/continuous-learning-v2/hooks/observe.sh#L200"
+      },
+      {
+        "path": "~/.local/share/ecc-homunculus/[projects/<hash>/]instincts/{personal,inherited}/",
+        "writer": "observer-loop.sh, /instinct-import",
+        "content": "инстинкты",
+        "evidence": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/continuous-learning-v2/SKILL.md"
+      },
+      {
+        "path": "~/.local/share/ecc-homunculus/[projects/<hash>/]evolved/{skills,commands,agents}/",
+        "writer": "/evolve --generate",
+        "content": "сгенерированные скилы/команды/агенты",
+        "evidence": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/evolve.md#L87"
+      },
+      {
+        "path": "~/.claude/skills/<имя>/SKILL.md",
+        "writer": "/learn, /learn-eval, /skill-create",
+        "content": "выученные скилы",
+        "evidence": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/learn.md#L40"
+      },
+      {
+        "path": "~/.claude/metrics/costs.jsonl",
+        "writer": "hook stop:cost-tracker",
+        "content": "токены и стоимость по сессиям",
+        "evidence": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/cost-tracker.js#L268"
+      },
+      {
+        "path": "~/.claude/metrics/tool-usage.jsonl",
+        "writer": "hook post:session-activity-tracker",
+        "content": "вызовы инструментов",
+        "evidence": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/session-activity-tracker.js#L619"
+      },
+      {
+        "path": "~/.claude/state/skill-runs.jsonl",
+        "writer": "hook post:skill:track",
+        "content": "имя/версия/исход скила (без текста промпта)",
+        "evidence": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/lib/skill-evolution/tracker.js#L29"
+      },
+      {
+        "path": "~/.claude/bash-commands.log, ~/.claude/cost-tracker.log",
+        "writer": "post:bash:command-log-*",
+        "content": "все Bash-команды с меткой времени, частичная маскировка",
+        "evidence": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/post-bash-command-log.js#L13"
+      },
+      {
+        "path": "~/.gateguard/",
+        "writer": "GateGuard",
+        "content": "какие файлы уже «проверены», метрики с кодами причин",
+        "evidence": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/gateguard-fact-force.js#L92"
+      }
+    ],
+    "risks": "Сводки и наблюдения содержат фрагменты кода, команд и вывода инструментов — маскировка регулярками, не гарантия. Для LLM-сводки куски транскрипта уходят во вложенный `claude -p` (в Anthropic — как и обычная работа), но этот вложенный сеанс запускает ВСЕ хуки владельца на UserPromptSubmit: TypeSafe-триаж отправит дайджест (до 4500 знаков, с маскировкой) этого промпта с транскриптом во внешний сервис TypeSafe, если задан TYPESAFE_API_KEY (вывод по коду обоих проектов; запуском не проверено). Модель haiku выбирается без подтверждения. Импорт инстинктов по URL и автоматическая вставка инстинктов/сводок в контекст — канал для prompt injection. bash-commands.log растёт без ротации. Два источника «где остановился» (TASKS.md и session-data) могут расходиться.",
+    "disable": "ECC_SKIP_LLM_SUMMARY=1 (нет вложенного claude -p), ECC_SKIP_OBSERVE=1 (нет наблюдений), ECC_SESSION_START_MAX_CHARS=0 (ничего не вставлять на старте), ECC_DISABLED_HOOKS=stop:session-end,pre:compact,..., или hooks_enabled=false в настройках плагина."
+  },
+  "install_advice": {
+    "minimal_safe_setup": [
+      {
+        "step": "0. Решить, нужен ли ECC целиком",
+        "how": "Для владельца выгоднее не ставить ECC, а перенести 3–5 идей в свои скилы (см. learn_ideas).",
+        "why": "311 скилов/71 агент/97 команд добавляют описания в контекст и пересекаются с 17 уже включёнными плагинами (superpowers, marketing, product-management, data, qa-skills)."
+      },
+      {
+        "step": "1. Если пробовать — закреплённая копия, не npx и не install.sh",
+        "how": "git clone https://github.com/affaan-m/ECC && git -C ECC checkout b92f181b3b748d1abbc2afd94af6aa7d8c8fca29; в Claude Code: /plugin marketplace add <путь к клону>; /plugin install ecc@ecc (локальный marketplace — по документации Claude Code, не проверено запуском).",
+        "why": "npx ecc-universal setup и install.sh пишут в ~/.claude/settings.json (в т. ч. includeCoAuthoredBy=false — убирает Co-Authored-By, который требует владелец) и копируют rules; закреплённый коммит не «уезжает»."
+      },
+      {
+        "step": "2. Сразу выключить хуки",
+        "how": "В настройках плагина ecc: hooks_enabled=false (или env ECC_HOOKS_ENABLED=false в ~/.claude/settings.json → env).",
+        "why": "Остаются только markdown-команды/агенты/скилы. Хуки требуют Node (в режиме Work его нет → ошибка на каждом вызове инструмента), GateGuard блокирует первую правку каждого файла, session-end/pre-compact запускают вложенный claude -p на haiku через хуки владельца."
+      },
+      {
+        "step": "3. Если хуки всё же нужны — профиль minimal и без LLM-сводок",
+        "how": "hook_profile=minimal; env ECC_SKIP_LLM_SUMMARY=1, ECC_SKIP_OBSERVE=1, ECC_DISABLED_HOOKS=stop:session-end,stop:evaluate-session,stop:cost-tracker,post:ecc-metrics-bridge (по вкусу).",
+        "why": "В minimal остаются hookify-runtime, block-no-verify, session-start, plan-canvas-pending, session-end, evaluate-session, cost-tracker, metrics-bridge, session-end-marker; GateGuard, observe, quality-gate, pre:compact выключены."
+      },
+      {
+        "step": "4. Не копировать rules/common в ~/.claude/rules",
+        "how": "Ничего из rules/ не ставить; при желании взять 1–2 мысли в свой CLAUDE.md.",
+        "why": "Правила всегда в контексте и спорят с CLAUDE.md владельца: «ALWAYS use parallel Task execution», 80% покрытия, иммутабельность, советы по моделям (Haiku «90% Sonnet»)."
+      },
+      {
+        "step": "5. Обезопасить TypeSafe-хук от вложенных вызовов",
+        "how": "В skills/typesafe-triage/scripts/typesafe_triage.py пропускать запрос, если os.environ.get('ECC_LLM_SUMMARY_SUBPROCESS')=='1' или ECC_SKIP_OBSERVE=='1' (метки, которые ECC ставит своим дочерним claude).",
+        "why": "Иначе транскрипт сессии в составе промпта сводки уйдёт дайджестом в TypeSafe и будет оценён как «задача»."
+      },
+      {
+        "step": "6. Пользоваться выборочно",
+        "how": "/plan, /orch-fix-defect, /orch-refine-code, /code-review, /build-fix, языковые *-review/*-build; всегда в своей ветке.",
+        "why": "Это чистые markdown-инструкции без побочных сетевых действий."
+      },
+      {
+        "step": "7. Откат",
+        "how": "/plugin uninstall ecc@ecc; /plugin marketplace remove ecc; удалить ~/.claude/session-data, ~/.claude/metrics, ~/.claude/state/skill-runs.jsonl, ~/.claude/bash-commands.log, ~/.claude/cost-tracker.log, ~/.local/share/ecc-homunculus, ~/.gateguard, ~/.claude/plan-canvas (если появились).",
+        "why": "Плагин удаляется штатно, но данные хуков остаются."
+      }
+    ],
+    "what_not_to_install": [
+      "npx ecc-universal setup / install --profile full / ./install.sh --profile full — меняют ~/.claude/settings.json и копируют правила",
+      "rules/common и языковые rules — всегда в контексте, спорят с CLAUDE.md владельца",
+      "observer continuous-learning-v2 (observer.enabled=true) — фоновый claude --model haiku каждые 5 минут",
+      "ccg-workflow (npx ccg-workflow) ради /multi-* — внешний рантайм, код уходит в Codex/Gemini/Antigravity",
+      "CLAUDE_CODE_SUBAGENT_MODEL=haiku из docs/token-optimization.md — ломает TypeSafe-триаж",
+      "MCP из mcp-configs/mcp-servers.json без разбора (34 сервера, многие удалённые и с ключами)",
+      "/santa-loop, /auto-update, /astra-review как привычные инструменты"
+    ],
+    "profile_recommendation": "Хуки выключены (hooks_enabled=false). Если нужны — minimal + ECC_SKIP_LLM_SUMMARY=1 + ECC_SKIP_OBSERVE=1. Профили standard (по умолчанию) и strict для владельца не подходят: GateGuard, observe, pre:compact с claude -p, форматтеры на Stop.",
+    "settings_to_check": [
+      "~/.claude/settings.json → enabledPlugins[\"ecc@ecc\"], extraKnownMarketplaces.ecc",
+      "~/.claude/settings.json → настройки плагина ecc: hooks_enabled, hook_profile",
+      "~/.claude/settings.json → env: ECC_HOOKS_ENABLED, ECC_HOOK_PROFILE, ECC_DISABLED_HOOKS, ECC_SKIP_LLM_SUMMARY, ECC_SKIP_OBSERVE, ECC_LLM_SUMMARY_MODEL, CLAUDE_CODE_SUBAGENT_MODEL (не должно быть haiku)",
+      "~/.claude/settings.json → includeCoAuthoredBy / attribution (ECC-установщик ставит false)",
+      "~/.claude/settings.json → hooks: нет ли продублированного observe.sh (дубль = двойной запуск)",
+      "~/.claude/settings.json → statusLine (ECC предлагает scripts/hooks/ecc-statusline.js)",
+      "~/.claude/rules/ecc/ — не должно быть, если правила не нужны",
+      "skills/continuous-learning-v2/config.json → observer.enabled=false"
+    ]
+  },
+  "compat_with_user_setup": [
+    {
+      "area": "Язык ответов",
+      "ecc": "Шаблоны команд, агентов и отчётов на английском",
+      "owner": "CLAUDE.md: ответы и вопросы — по-русски",
+      "verdict": "ok",
+      "advice": "CLAUDE.md владельца выше по приоритету; отчёты ECC-команд будут смешанными — просить русский явно."
+    },
+    {
+      "area": "Ветки git и вливание",
+      "ecc": "/pr, /prp-pr, /santa-loop делают git push; /checkpoint делает stash/commit; orch-* коммитят после ворот 2",
+      "owner": "Любая доработка — в отдельной ветке; вливание в main и push — сам в конце",
+      "verdict": "conflict",
+      "advice": "Не использовать /santa-loop (push при успехе); перед orch-* создать ветку; /pr — только если нужен PR."
+    },
+    {
+      "area": "TASKS.md и «Где остановился»",
+      "ecc": "session-data/*.tmp, /save-session, /resume-session, автосводки",
+      "owner": "TASKS.md с чек-листом и разделом «Где остановился»",
+      "verdict": "redundant",
+      "advice": "Оставить TASKS.md; ECC_SKIP_LLM_SUMMARY=1 или выключить stop:session-end."
+    },
+    {
+      "area": "Выбор модели (TypeSafe-триаж)",
+      "ecc": "Модели закреплены во frontmatter агентов: 61 sonnet, 4 opus, 6 haiku (comment-analyzer, conversation-analyzer, doc-updater, docs-lookup, opensource-forker, opensource-packager); /model-route; LLM-сводки и наблюдатель на haiku",
+      "owner": "Модель и effort выбирает TypeSafe; haiku — только после подтверждения",
+      "verdict": "conflict",
+      "advice": "Избегать команд, зовущих haiku-агентов (/review-pr → comment-analyzer, /hookify → conversation-analyzer); не ставить CLAUDE_CODE_SUBAGENT_MODEL=haiku; ECC_LLM_SUMMARY_MODEL=sonnet или ECC_SKIP_LLM_SUMMARY=1."
+    },
+    {
+      "area": "Хук UserPromptSubmit владельца",
+      "ecc": "Вложенный `claude -p` из pre-compact/session-end (и наблюдателя) — это новый сеанс со всеми хуками пользователя; ECC передаёт ему ECC_SKIP_LLM_SUMMARY=1, ECC_LLM_SUMMARY_SUBPROCESS=1, CLAUDECODE=''",
+      "owner": "typesafe-triage, site-qa-audit, android-qa-audit на UserPromptSubmit",
+      "verdict": "conflict",
+      "advice": "Добавить в typesafe_triage.py пропуск при ECC_LLM_SUMMARY_SUBPROCESS=1/ECC_SKIP_OBSERVE=1; или ECC_SKIP_LLM_SUMMARY=1. Срабатывание хуков во вложенном -p — вывод по документации Claude Code, запуском не проверено."
+    },
+    {
+      "area": "Режим Work (только stdlib Python)",
+      "ecc": "Все хуки и CLI — Node.js (node -e … в hooks.json); /harness-audit, /skill-health, /plan-canvas, /quality-gate, /refactor-clean зовут node/npx; instinct-cli.py — только stdlib",
+      "owner": "В режиме Work pip и Node недоступны",
+      "verdict": "conflict",
+      "advice": "В Work — hooks_enabled=false; пользоваться только markdown-командами; инстинкт-команды работают (Python stdlib)."
+    },
+    {
+      "area": "Параллельные агенты",
+      "ecc": "rules/common/agents.md: «ALWAYS use parallel Task execution»",
+      "owner": "Делегирование решает триаж (сам / Agent / спросить)",
+      "verdict": "conflict",
+      "advice": "Не ставить rules/common."
+    },
+    {
+      "area": "SessionStart",
+      "ecc": "session:start вставляет сводку, инстинкты, выученные скилы (до 8000 знаков) + plan-canvas-sessions",
+      "owner": "superpowers на SessionStart",
+      "verdict": "ok",
+      "advice": "Работают вместе, но контекст на старте растёт; ECC_SESSION_START_MAX_CHARS=0 отключает вставку."
+    },
+    {
+      "area": "Атрибуция коммитов",
+      "ecc": "Установщик ECC пишет includeCoAuthoredBy=false (claude-scope-migration.js)",
+      "owner": "Коммиты с Co-Authored-By исполнителя",
+      "verdict": "conflict",
+      "advice": "Ставить только как плагин (без npx setup) или вернуть includeCoAuthoredBy/attribution."
+    },
+    {
+      "area": "Правка файлов",
+      "ecc": "GateGuard (standard/strict) отклоняет первую Edit/Write каждого файла с вопросами; всегда — для секретов, CI, миграций, также в субагентах",
+      "owner": "Длинные задачи без остановок, субагенты",
+      "verdict": "conflict",
+      "advice": "ECC_DISABLED_HOOKS=pre:edit-write:gateguard-fact-force,pre:bash:gateguard-fact-force или профиль minimal."
+    },
+    {
+      "area": "Плагины-дубли",
+      "ecc": "Маркетинг, ревью, TDD, планирование, дизайн, SEO",
+      "owner": "superpowers, marketing, product-management, data, cro-kit, qa-skills, taste-skill, seo-*",
+      "verdict": "redundant",
+      "advice": "Брать только уникальное: orch-pipeline (ворота + классификатор размера), santa-method (идея), hookify, continuous-learning-v2 (идея)."
+    },
+    {
+      "area": "Своё хранилище данных",
+      "ecc": "~/.claude/metrics, ~/.claude/state, bash-commands.log, ~/.gateguard, ~/.local/share/ecc-homunculus",
+      "owner": "Журнал TypeSafe в своём каталоге",
+      "verdict": "ok",
+      "advice": "Пересечений путей нет; учитывать при очистке."
+    },
+    {
+      "area": "Сеть",
+      "ecc": "Хуки по умолчанию не ходят в сеть (кроме дочернего claude); сеть — в командах: npx ecc-agentshield, npx ccg-workflow, Codex/Gemini, Jira, WebSearch/WebFetch",
+      "owner": "Нет ограничений, но не публиковать без спроса",
+      "verdict": "ok",
+      "advice": "Сетевые команды запускать осознанно."
+    }
+  ],
+  "learn_ideas": [
+    {
+      "idea": "Классификатор размера + ровно двое ворот (план, коммит)",
+      "where_in_ecc": "skills/orch-pipeline/SKILL.md",
+      "how_to_port": "В product-strategy или новый скил «dev-pipeline»: шаг 0 — trivial/small/standard/large по 3 сигналам (файлы, новые зависимости/контракты, неясность), от размера зависит набор фаз; останавливаться только на плане и перед коммитом. Хорошо сочетается с TypeSafe-триажем (размер → effort)."
+    },
+    {
+      "idea": "Профили хуков + выключатель по id",
+      "where_in_ecc": "scripts/lib/hook-flags.js, hooks/hooks.json (run-with-flags.js <id> <script> <profiles>)",
+      "how_to_port": "Для своих хуков (typesafe-triage, site-qa-audit): общая обёртка с OWNER_HOOK_PROFILE=minimal|standard|strict и OWNER_DISABLED_HOOKS=id1,id2 — без правки hooks.json."
+    },
+    {
+      "idea": "Метки дочерних процессов против рекурсии",
+      "where_in_ecc": "scripts/lib/llm-summary.js (ECC_SKIP_LLM_SUMMARY, ECC_LLM_SUMMARY_SUBPROCESS)",
+      "how_to_port": "В typesafe_triage.py: проверять такие метки и не оценивать служебные промпты чужих плагинов; самим ставить TYPESAFE_TRIAGE=off при запуске --run-агентов."
+    },
+    {
+      "idea": "Диспетчер хуков в одном процессе",
+      "where_in_ecc": "scripts/hooks/posttooluse-dispatcher.js, bash-hook-dispatcher.js",
+      "how_to_port": "Если хуков у владельца станет много: один Python-процесс с таблицей {id, matcher, profiles, run} вместо N отдельных запусков — меньше задержки на каждый вызов инструмента."
+    },
+    {
+      "idea": "Двойное независимое ревью с объективной рубрикой",
+      "where_in_ecc": "commands/santa-loop.md, skills/santa-method/SKILL.md",
+      "how_to_port": "В site-qa-audit/android-qa-audit: два независимых проверяющих (разные промпты/модели, без общего контекста) по PASS/FAIL-рубрике; находка засчитывается, если её подтвердили оба — меньше ложных багов. Без авто-push."
+    },
+    {
+      "idea": "Генератор ↔ оценщик с порогом и детектором плато",
+      "where_in_ecc": "commands/gan-build.md, skills/gan-style-harness/SKILL.md",
+      "how_to_port": "Для дизайн-макетов в product-strategy: итерации до weighted score ≥ порога, стоп при отсутствии роста 2 итерации подряд, лимит итераций."
+    },
+    {
+      "idea": "Правила-хуки в markdown (Hookify)",
+      "where_in_ecc": "scripts/hooks/hookify-runtime.js, commands/hookify.md, skills/hookify-rules/SKILL.md",
+      "how_to_port": "Дать пользователю писать запреты («не трогай lock-файлы») простым markdown-файлом в проекте, который читает один хук; полезно для режима Work."
+    },
+    {
+      "idea": "Атомарные «инстинкты» с уверенностью и областью",
+      "where_in_ecc": "skills/continuous-learning-v2/SKILL.md, scripts/instinct-cli.py",
+      "how_to_port": "Калибровка TypeSafe-триажа «по фактам» уже есть; можно хранить выводы как инстинкты (trigger/action/confidence/scope project|global) и продвигать в глобальные при повторении в 2+ проектах."
+    },
+    {
+      "idea": "Ограниченная вставка контекста на старте с пометкой «историческое»",
+      "where_in_ecc": "scripts/hooks/session-start.js (STALE-REPLAY GUARD, лимит 8000)",
+      "how_to_port": "Если добавлять SessionStart-подсказку из TASKS.md — оборачивать как исторический контекст и ограничивать размер, чтобы не исполнялись старые указания."
+    },
+    {
+      "idea": "Fail-open и бюджеты времени в хуках",
+      "where_in_ecc": "scripts/hooks/run-with-flags.js, lifecycle-hook-bootstrap.js (ECC_HOOK_DEADLINE_MS)",
+      "how_to_port": "Свои хуки: жёсткий дедлайн и выход 0 при любой ошибке (уже частично есть — timeout 10), явный бюджет на сетевой вызов TypeSafe."
+    },
+    {
+      "idea": "Fact-forcing gate для чувствительных файлов",
+      "where_in_ecc": "scripts/hooks/gateguard-fact-force.js",
+      "how_to_port": "Узко: в android-qa-audit/site-qa-audit запрещать запись вне каталога отчёта и требовать подтверждения для секретов/CI — только для чувствительных путей, не для каждого файла."
+    },
+    {
+      "idea": "Санитизация журнала команд",
+      "where_in_ecc": "scripts/hooks/post-bash-command-log.js (sanitizeCommand)",
+      "how_to_port": "Если владелец ведёт журналы — маскировать токены и добавить ротацию (у ECC её нет)."
+    }
+  ]
+}
