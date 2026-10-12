@@ -1,0 +1,3000 @@
+{
+  "commit": "b92f181b3b748d1abbc2afd94af6aa7d8c8fca29",
+  "version": "2.2.3",
+  "checked": "2026-10-13",
+  "install": {
+    "methods": [
+      {
+        "id": "plugin",
+        "title": "Нативный плагин Claude Code (/plugin marketplace add + /plugin install)",
+        "command": "/plugin marketplace add https://github.com/affaan-m/ECC   затем   /plugin install ecc@ecc",
+        "what_it_does": [
+          "Сам Claude Code (не ECC) клонирует репозиторий GitHub affaan-m/ECC как маркетплейс и кладёт копию плагина в свой кэш плагинов (~/.claude/plugins/…) — сеть: GitHub.",
+          "Плагин даёт Claude Code: skills/ (~311 по plugin.json), commands/ (97 «shim»-команд), agents/ (71, автообнаружение каталога), hooks/hooks.json (27 записей, подхватывается автоматически, Claude Code 2.1+).",
+          "plugin.json содержит userConfig: hooks_enabled (по умолчанию true) и hook_profile (по умолчанию standard) — Claude Code спросит значения при установке; mcpServers: {} (README: MCP-каталог плагином намеренно не включается).",
+          "Правила (rules/) плагином НЕ ставятся — «Claude Code plugins cannot distribute rules» (README), их копируют вручную в ~/.claude/rules/ecc/.",
+          "В корне репозитория лежит .mcp.json с одним коннектором chrome-devtools (npx -y chrome-devtools-mcp@1.10.1); запускается ли он при включении плагина — не проверено (зависит от Claude Code; README называет его «единственным дефолтным коннектором»)."
+        ],
+        "writes": [
+          {
+            "path": "~/.claude/plugins/… (кэш и список маркетплейсов — пишет Claude Code)",
+            "what": "копия репозитория ECC (мелкая клонированная копия + кэш версии 2.2.3); структура создаётся самим Claude Code, не проверялась"
+          },
+          {
+            "path": "~/.claude/settings.json или .claude/settings(.local).json проекта (по выбранному scope)",
+            "what": "запись о включении плагина ecc@ecc и об источнике маркетплейса — делает Claude Code; не проверено (docs)"
+          }
+        ],
+        "modifies_settings": [
+          {
+            "file": "~/.claude/settings.json (scope user) / .claude/settings.json (project) / .claude/settings.local.json (local)",
+            "keys": [
+              "enabledPlugins[ecc@ecc]",
+              "extraKnownMarketplaces/ecc",
+              "pluginConfigs[ecc@ecc].options (hooks_enabled, hook_profile — при вводе userConfig)"
+            ],
+            "what": "стандартные ключи плагинной системы Claude Code; ECC сам settings.json в этом режиме не правит"
+          }
+        ],
+        "needs_node": true,
+        "reversible": "uninstall",
+        "notes": "Удаление: /plugin uninstall ecc@ecc (при желании --keep-data). Сетевые вызовы делает Claude Code/git. ВАЖНО (sandbox): в копии БЕЗ node_modules хук SessionStart падает с «Cannot find module 'js-yaml'» (rc=1) — session-start.js → lib/project-detect.js требует js-yaml. README и scripts/lib/missing-dependency.js прямо признают, что маркетплейс-клон «never runs npm install»; будет ли это видно у владельца — не проверено (в кэше плагина node_modules может отсутствовать). Остальные хуки в такой копии отработали (rc=0). Нельзя совмещать с install.sh --profile full (README: дублирование хуков).",
+        "evidence": [
+          {
+            "file": "README.md",
+            "line": 290,
+            "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/README.md#L290",
+            "snippet": "/plugin marketplace add https://github.com/affaan-m/ECC"
+          },
+          {
+            "file": ".claude-plugin/plugin.json",
+            "line": 25,
+            "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/.claude-plugin/plugin.json#L25",
+            "snippet": "\"userConfig\": hooks_enabled / hook_profile"
+          },
+          {
+            "file": "scripts/lib/missing-dependency.js",
+            "line": 12,
+            "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/lib/missing-dependency.js#L12",
+            "snippet": "TRACKED_DEPENDENCIES = ['ajv','sql.js','js-yaml','@iarna/toml']"
+          },
+          {
+            "file": "scripts/lib/project-detect.js",
+            "line": 12,
+            "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/lib/project-detect.js#L12",
+            "snippet": "const yaml = require('js-yaml');"
+          }
+        ],
+        "verified": "static+sandbox (падение SessionStart без node_modules); поведение самого Claude Code — docs/not-verified"
+      },
+      {
+        "id": "npx-setup",
+        "title": "Управляемая установка плагина через npx (ecc setup)",
+        "command": "npx ecc-universal@2.2.3 setup   (опции: --mode claude-plugin --scope user|project|local --hooks off|minimal|standard|strict --yes --dry-run --json)",
+        "what_it_does": [
+          "npx скачивает пакет ecc-universal@2.2.3 из реестра npm (сеть: registry.npmjs.org) и запускает scripts/ecc.js → setup.js. В package.json нет preinstall/install/postinstall/prepare — есть только prepack (сторона публикации); код исполняется только когда вы запускаете команду.",
+          "setup.js проверяет наличие git и claude в PATH, читает инвентарь (claude plugin list --json, claude plugin marketplace list --json), спрашивает scope (user/project/local) и режим хуков (off/minimal/standard/strict), просит подтверждение.",
+          "Затем выполняет через реальную CLI claude: claude plugin marketplace add https://github.com/affaan-m/ECC --scope <scope> (или marketplace update) и claude plugin install ecc@ecc --scope <scope> (или plugin update) — сеть/git-клон делает Claude Code.",
+          "Пишет в ~/.claude/settings.json pluginConfigs['ecc@ecc'].options = {hooks_enabled, hook_profile} (для 'off': hooks_enabled=false).",
+          "ПОБОЧНЫЙ ЭФФЕКТ: если в settings.json нет явной настройки подписи коммитов (ни includeCoAuthoredBy, ни attribution.commit/pr), ECC дописывает includeCoAuthoredBy=false — т.е. отключает строку Co-Authored-By у Claude Code. Если ключ уже задан, не трогает.",
+          "Отказывается работать при старом/конфликтующем плагине (ecc@… другой, everything-claude-code@…) и при ручной установке в ~/.claude — просит удалить их; при смене scope мигрирует установку (сначала ставит и проверяет новый, потом удаляет старый)."
+        ],
+        "writes": [
+          {
+            "path": "~/.claude/settings.json",
+            "what": "pluginConfigs['ecc@ecc'].options + (при отсутствии настройки) includeCoAuthoredBy:false; запись атомарная (writeFileAtomic)"
+          },
+          {
+            "path": "~/.claude/plugins/… (через claude CLI)",
+            "what": "маркетплейс и кэш плагина ecc@ecc"
+          },
+          {
+            "path": "$TMPDIR (при --dry-run)",
+            "what": "временный снимок ~/.claude.json и состояния Claude для сухого прогона (claude-dry-run-sandbox.js)"
+          }
+        ],
+        "modifies_settings": [
+          {
+            "file": "~/.claude/settings.json",
+            "keys": [
+              "pluginConfigs['ecc@ecc'].options.hooks_enabled",
+              "pluginConfigs['ecc@ecc'].options.hook_profile",
+              "includeCoAuthoredBy (=false, если не задано явно)"
+            ],
+            "what": "режим хуков плагина и отключение трейлера Co-Authored-By"
+          }
+        ],
+        "needs_node": true,
+        "reversible": "uninstall",
+        "notes": "Удаление: claude plugin uninstall ecc@ecc --scope <scope> --keep-data (рецепт печатает сам setup в ошибках) или /plugin uninstall; ключ includeCoAuthoredBy:false ECC при удалении НЕ откатывает — вернуть вручную. В этой выдаче setup НЕ запускался (реальный claude/сеть) — только статика.",
+        "evidence": [
+          {
+            "file": "scripts/lib/claude-plugin-setup.js",
+            "line": 384,
+            "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/lib/claude-plugin-setup.js#L384",
+            "snippet": "...withClaudeCommitAttributionPreference(settings),"
+          },
+          {
+            "file": "scripts/lib/claude-commit-attribution.js",
+            "line": 12,
+            "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/lib/claude-commit-attribution.js#L12",
+            "snippet": "COAUTHOR_SETTING_KEY = 'includeCoAuthoredBy'"
+          },
+          {
+            "file": "scripts/lib/claude-plugin-setup.js",
+            "line": 522,
+            "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/lib/claude-plugin-setup.js#L522",
+            "snippet": "'plugin', 'marketplace', 'add',"
+          },
+          {
+            "file": "package.json",
+            "line": 540,
+            "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/package.json#L540",
+            "snippet": "\"prepack\" — единственный lifecycle-скрипт; install/postinstall нет"
+          }
+        ],
+        "verified": "static (setup не запускался)"
+      },
+      {
+        "id": "install.sh",
+        "title": "Ручная установка из клона (install.sh / install-apply.js; install.ps1 — то же для Windows)",
+        "command": "git clone https://github.com/affaan-m/ECC && cd ECC && ./install.sh --profile <minimal|core|developer|security|research|full> [--target claude] [--with компонент] [--without компонент] [--enable-hooks | --no-hooks] [--dry-run] [--json]",
+        "what_it_does": [
+          "install.sh: если нет node_modules — выполняет npm install --ignore-scripts --no-audit --no-fund (сеть: registry.npmjs.org; ставятся и dependencies, и devDependencies по package-lock.json: eslint, typescript, c8, markdownlint-cli, @opencode-ai/plugin…; скрипты зависимостей отключены), затем node scripts/install-apply.js. install.ps1 делает то же через PowerShell.",
+          "install-apply.js читает manifests/{install-profiles,install-modules,install-components}.json, строит план (46 модулей, 92 компонента, 7 профилей), копирует файлы в цель: по умолчанию --target claude = ~/.claude/ (claude-project = ./.claude/). Другие цели: cursor, codex, copilot, gemini, opencode, qwen, zed, hermes, kimi и др. — в их каталоги.",
+          "Если выбран модуль hooks-runtime, требуется явное решение --enable-hooks или --no-hooks: без флага dry-run печатает «Applying this plan requires an explicit hook decision» (проверено в песочнице). Согласие записывается в install-state (hookConsent).",
+          "Hooks: hooks/hooks.json не копируется, а ВМЕРЖИВАЕТСЯ в ~/.claude/settings.json (раздел hooks): 27 записей добавляются с полями id и description; существующие хуки владельца сохраняются; пути ${CLAUDE_PLUGIN_ROOT} подменяются абсолютным путём ~/.claude (зашит в base64 внутри команды). Остальной каталог hooks/ копируется в ~/.claude/hooks/.",
+          "Правила: rules/ → ~/.claude/rules/ecc/ (122 файла); skills → ~/.claude/skills/<имя>/ (плоско); agents → ~/.claude/agents/ (71) + AGENTS.md; commands → ~/.claude/commands/ (97); скрипты → ~/.claude/scripts/ (+ scripts/package.json с типом commonjs); .claude-plugin/* → прямо в корень ~/.claude/ (plugin.json, marketplace.json, README.md, PLUGIN_SCHEMA_NOTES.md); mcp-configs/mcp-servers.json → ~/.claude/mcp-configs/; .pi/ → ~/.claude/.pi/.",
+          "Пишет журнал установки ~/.claude/ecc/install-state.json (режим 0600, ~590 КБ для core) и синхронизирует с SQLite ~/.claude/ecc/state.db (через sql.js).",
+          "Пример объёма (проверено dry-run в песочнице, target claude): minimal=431 файл (без хуков), core=699 (+1 слияние settings.json), developer=830, full=1207 (skills: 110/110/238/613)."
+        ],
+        "writes": [
+          {
+            "path": "~/.claude/rules/ecc/** (122 файла)",
+            "what": "правила по языкам/общие; НЕ загружаются сами «всегда» — зависит от того, как Claude Code читает ~/.claude/rules"
+          },
+          {
+            "path": "~/.claude/agents/*.md (71), ~/.claude/AGENTS.md",
+            "what": "определения субагентов и общий файл AGENTS.md"
+          },
+          {
+            "path": "~/.claude/commands/*.md (97)",
+            "what": "slash-команды"
+          },
+          {
+            "path": "~/.claude/skills/<skill>/… (110…613)",
+            "what": "навыки, плоско, по профилю"
+          },
+          {
+            "path": "~/.claude/scripts/** (22…286 файлов) + scripts/package.json",
+            "what": "скрипты хуков и библиотеки (scripts/lib/*)"
+          },
+          {
+            "path": "~/.claude/hooks/* (codex-hooks.json, qoder-hooks.json, hermes/, memory-persistence/, README.md)",
+            "what": "справочные описания хуков других харнессов"
+          },
+          {
+            "path": "~/.claude/plugin.json, marketplace.json, README.md, PLUGIN_SCHEMA_NOTES.md",
+            "what": "файлы .claude-plugin/ копируются в КОРЕНЬ ~/.claude (стратегия sync-root-children) — лишний мусор в корне ~/.claude (своё место для плагинов у ECC — ~/.claude/plugins/…)"
+          },
+          {
+            "path": "~/.claude/mcp-configs/mcp-servers.json, ~/.claude/.pi/**",
+            "what": "каталог MCP-серверов (34) и расширения для pi"
+          },
+          {
+            "path": "~/.claude/ecc/install-state.json",
+            "what": "журнал установки: профиль, модули, список операций (путь источника → назначение), согласие на хуки"
+          },
+          {
+            "path": "~/.claude/ecc/state.db",
+            "what": "SQLite (sql.js): состояние ECC (установки, сессии, work-items и т.д.)"
+          }
+        ],
+        "modifies_settings": [
+          {
+            "file": "~/.claude/settings.json",
+            "keys": [
+              "hooks.<Event>[*] (27 записей с id/description)"
+            ],
+            "what": "вмерживает хуки ECC по стабильным id; пользовательские ключи (permissions, includeCoAuthoredBy, theme, чужие hooks) сохраняются — проверено в песочнице; запись под блокировкой (claude-settings-lock)"
+          }
+        ],
+        "needs_node": true,
+        "reversible": "uninstall",
+        "notes": "Откат: node scripts/uninstall.js --target claude (или npx ecc-universal uninstall; --dry-run для просмотра) — удаляет файлы из install-state и ECC-хуки из settings.json. ПРОВЕРЕНО в песочнице: после установки профиля core и uninstall в HOME остался один settings.json, идентичный исходному (по JSON). Оговорка: без node_modules (sql.js) и install-apply, и uninstall завершились ошибкой «sql.js missing» в КОНЦЕ работы — файлы уже были записаны/удалены, ошибка касалась SQLite-синхронизации. install.sh обычно ставит зависимости сам (npm install), поэтому у владельца такой ситуации быть не должно, если не запускать install-apply.js напрямую. 'Согласие на хуки' текстом перечисляет 6 групп возможностей (см. hook-consent.js): авто-запись в исходники, переписывание команд и управление процессами, отправка текста транскрипта во внешнюю LLM, MCP-сеть/процессы, авто-блокировки Edit/Write/Bash/config, журналы сессий/наблюдений/стоимости.",
+        "evidence": [
+          {
+            "file": "install.sh",
+            "line": 30,
+            "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/install.sh#L30",
+            "snippet": "npm install --ignore-scripts --no-audit --no-fund"
+          },
+          {
+            "file": "scripts/install-apply.js",
+            "line": 37,
+            "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/install-apply.js#L37",
+            "snippet": "claude (default) - Install ECC into ~/.claude/"
+          },
+          {
+            "file": "scripts/lib/install-targets/helpers.js",
+            "line": 170,
+            "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/lib/install-targets/helpers.js#L170",
+            "snippet": "planClaudeHooksOperations -> update-claude-settings merge-hook-ids"
+          },
+          {
+            "file": "scripts/lib/install-targets/claude-home.js",
+            "line": 55,
+            "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/lib/install-targets/claude-home.js#L55",
+            "snippet": "installStatePathSegments: ['ecc','install-state.json']"
+          },
+          {
+            "file": "scripts/lib/install/hook-consent.js",
+            "line": 22,
+            "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/lib/install/hook-consent.js#L22",
+            "snippet": "id: 'transcript-derived-llm-egress'"
+          },
+          {
+            "file": "scripts/lib/state-store/index.js",
+            "line": 22,
+            "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/lib/state-store/index.js#L22",
+            "snippet": "DEFAULT_STATE_STORE_RELATIVE_PATH = .claude/ecc/state.db"
+          }
+        ],
+        "verified": "sandbox (dry-run 4 профилей; реальная установка core в изолированный HOME + uninstall) + static"
+      },
+      {
+        "id": "install.ps1",
+        "title": "Windows: install.ps1 (тонкая обёртка над install-apply.js)",
+        "command": ".\\install.ps1 --profile full --enable-hooks",
+        "what_it_does": [
+          "Проверяет Node ≥ 18, при отсутствии node_modules запускает npm install --ignore-scripts --no-audit --no-fund, затем вызывает scripts/install-apply.js с теми же аргументами. Поведение идентично install.sh."
+        ],
+        "writes": [
+          {
+            "path": "%USERPROFILE%\\.claude\\…",
+            "what": "то же, что у install.sh"
+          }
+        ],
+        "modifies_settings": [
+          {
+            "file": "%USERPROFILE%\\.claude\\settings.json",
+            "keys": [
+              "hooks"
+            ],
+            "what": "как у install.sh"
+          }
+        ],
+        "needs_node": true,
+        "reversible": "uninstall",
+        "notes": "Для владельца (macOS) неактуально. Не запускалось.",
+        "evidence": [
+          {
+            "file": "install.ps1",
+            "line": 1,
+            "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/install.ps1#L1",
+            "snippet": "PowerShell-обёртка вокруг scripts/install-apply.js"
+          }
+        ],
+        "verified": "static"
+      },
+      {
+        "id": "npx-install-guided",
+        "title": "Мастер установки для нескольких харнессов (ecc install --guided / ecc-install)",
+        "command": "npx ecc-universal@2.2.3 install --guided [--harness claude --harness codex --harness kimi] [--dry-run]",
+        "what_it_does": [
+          "Тот же install-apply.js, но с интерактивным выбором харнессов (Claude, Codex, Kimi и др.); для Codex/Kimi использует свои setup-модули (codex-plugin-setup.js, multi-harness-setup.js).",
+          "Для Claude делегирует в тот же путь, что и ecc setup / install.sh."
+        ],
+        "writes": [
+          {
+            "path": "по выбранным харнессам (~/.claude, ~/.codex, ./.kimi-code …)",
+            "what": "см. install.sh"
+          }
+        ],
+        "modifies_settings": [
+          {
+            "file": "~/.claude/settings.json; ~/.codex/config.toml (Codex)",
+            "keys": [
+              "hooks / pluginConfigs"
+            ],
+            "what": "по выбранной цели"
+          }
+        ],
+        "needs_node": true,
+        "reversible": "uninstall",
+        "notes": "Не запускалось (только --dry-run install-apply.js прогонялся).",
+        "evidence": [
+          {
+            "file": "scripts/ecc.js",
+            "line": 18,
+            "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/ecc.js#L18",
+            "snippet": "install: install-apply.js (guided multi-harness wizard)"
+          }
+        ],
+        "verified": "static"
+      },
+      {
+        "id": "manual",
+        "title": "Выборочная ручная установка (минимально-инвазивный путь)",
+        "command": "mkdir -p ~/.claude/rules/ecc && cp -R rules/common ~/.claude/rules/ecc/ && cp -R rules/<язык> ~/.claude/rules/ecc/;   или   ./install.sh --target claude --skills tdd-workflow,security-review;   или   ./install.sh --profile minimal --target claude",
+        "what_it_does": [
+          "Копирование отдельных каталогов правил/навыков без хуков и без правки settings.json. Профиль minimal (установщик) — это rules+agents+commands+platform+workflow-quality БЕЗ hooks-runtime (не путать с hook-профилем minimal).",
+          "Модуль hooks-runtime можно отключить явно: --no-hooks или --without baseline:hooks."
+        ],
+        "writes": [
+          {
+            "path": "~/.claude/rules/ecc/**, ~/.claude/skills/<выбранные>",
+            "what": "только выбранные файлы"
+          }
+        ],
+        "modifies_settings": [],
+        "needs_node": false,
+        "reversible": "manual",
+        "notes": "Файлы cp не попадают в install-state — удалять вручную. Через install.sh (--skills / profile minimal) попадают в install-state и удаляются uninstall.js.",
+        "evidence": [
+          {
+            "file": "README.md",
+            "line": 310,
+            "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/README.md#L310",
+            "snippet": "Start with rules/common plus one language or framework pack"
+          },
+          {
+            "file": "manifests/install-profiles.json",
+            "line": 4,
+            "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/manifests/install-profiles.json#L4",
+            "snippet": "\"minimal\": без hooks-runtime"
+          }
+        ],
+        "verified": "static + sandbox (dry-run profile minimal: 431 операция, hooks не затрагиваются)"
+      },
+      {
+        "id": "docker",
+        "title": "docker/ — тестовые стенды, а не способ установки",
+        "command": "docker/context-profiles, docker/gateguard-effectiveness, docker/plugin-setup",
+        "what_it_does": [
+          "Dockerfile и корпуса для проверки context-profiles, эффективности GateGuard и платформенных тестов ecc setup (npm run test:plugin-setup-platform). Не нужны для использования ECC."
+        ],
+        "writes": [],
+        "modifies_settings": [],
+        "needs_node": true,
+        "reversible": "no",
+        "notes": "Не запускалось. Для владельца неактуально.",
+        "evidence": [
+          {
+            "file": "package.json",
+            "line": 540,
+            "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/package.json#L540",
+            "snippet": "scripts: test:plugin-setup-platform -> docker/plugin-setup/run-platform-tests.js"
+          }
+        ],
+        "verified": "static"
+      },
+      {
+        "id": "auto-update",
+        "title": "ecc auto-update (ручная команда обновления клона)",
+        "command": "npx ecc-universal auto-update [--target …] [--repo-root <путь>] [--dry-run]",
+        "what_it_does": [
+          "Выполняет в клоне git fetch --all --prune и git pull --ff-only, затем повторно запускает установку по сохранённому install-state (с тем же hookConsent). Никакой хук, cron или планировщик его сам не вызывает (поиск по hooks/, scripts/hooks/, .claude-plugin/ — нет упоминаний)."
+        ],
+        "writes": [
+          {
+            "path": "клон репозитория + то, что пишет install.sh",
+            "what": "обновление файлов"
+          }
+        ],
+        "modifies_settings": [
+          {
+            "file": "~/.claude/settings.json",
+            "keys": [
+              "hooks"
+            ],
+            "what": "пересинхронизация ECC-хуков"
+          }
+        ],
+        "needs_node": true,
+        "reversible": "uninstall",
+        "notes": "Сеть: git fetch/pull (origin клона). Только вручную.",
+        "evidence": [
+          {
+            "file": "scripts/auto-update.js",
+            "line": 274,
+            "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/auto-update.js#L274",
+            "snippet": "execute('git', ['fetch','--all','--prune'])"
+          }
+        ],
+        "verified": "static"
+      }
+    ],
+    "profiles": [
+      {
+        "id": "minimal",
+        "kind": "hook-profile",
+        "hooks_enabled": [
+          "pre:bash:dispatcher (внутри только block-no-verify)",
+          "pre:hookify-runtime",
+          "prompt:hookify-runtime",
+          "session:start",
+          "post:dispatcher:sync (внутри: post:hookify-runtime, post:ecc-metrics-bridge)",
+          "post:dispatcher:async (пустой: все внутренние хуки требуют standard+)",
+          "stop:hookify-runtime",
+          "stop:plan-canvas-pending",
+          "stop:session-end",
+          "stop:evaluate-session",
+          "stop:cost-tracker",
+          "session:end:marker"
+        ],
+        "effect": "Минимум: блокировка git --no-verify, hookify-правила проекта (если есть), загрузка прошлой сессии при старте, запись сводки сессии (с редкими вызовами claude -p!), учёт стоимости. Проверено в песочнице: создаются session-data/*.tmp, metrics/costs.jsonl, metrics/cost-snapshots/*; НЕТ GateGuard, observe, журнала Bash-команд, уведомлений; claude -p при этом всё равно вызывается (периодическая сводка)."
+      },
+      {
+        "id": "standard",
+        "kind": "hook-profile",
+        "hooks_enabled": [
+          "все 27 записей hooks.json; внутри диспетчеров — все подхуки КРОМЕ strict-only (tmux-reminder, git-push-reminder, commit-quality)"
+        ],
+        "effect": "Значение по умолчанию (hook_profile=standard). Добавляет: GateGuard (блокирует ПЕРВУЮ правку каждого файла и первую Bash-команду сессии, пока агент не изложит факты), observe (журнал всех вызовов инструментов), журнал Bash-команд, tool-usage.jsonl, mcp-health-check, config-protection, форматирование/tsc на Stop, desktop-уведомления, pre-compact сводка через claude -p."
+      },
+      {
+        "id": "strict",
+        "kind": "hook-profile",
+        "hooks_enabled": [
+          "всё из standard + pre:bash:tmux-reminder, pre:bash:git-push-reminder, pre:bash:commit-quality"
+        ],
+        "effect": "Дополнительно: напоминания про tmux и git push, проверка перед git commit (блокирует коммит при debugger/секретах/ошибках линтера)."
+      },
+      {
+        "id": "off",
+        "kind": "setup-option",
+        "hooks_enabled": [],
+        "effect": "В ecc setup --hooks off: hooks_enabled=false в pluginConfigs — все хуки ECC выходят сразу (проверено: ECC_HOOKS_ENABLED=false → ни одного файла, ни одного вызова claude)."
+      },
+      {
+        "id": "minimal",
+        "kind": "installer-profile",
+        "hooks_enabled": [],
+        "effect": "install.sh --profile minimal: rules-core, agents-core, commands-core, platform-configs, workflow-quality (+skill-unified-memory, shared-script-utils по зависимостям) = 431 файл. Без hooks-runtime."
+      },
+      {
+        "id": "core",
+        "kind": "installer-profile",
+        "hooks_enabled": [
+          "все (hooks-runtime включён)"
+        ],
+        "effect": "minimal + hooks-runtime = 699 файлов + слияние hooks в settings.json."
+      },
+      {
+        "id": "developer",
+        "kind": "installer-profile",
+        "hooks_enabled": [
+          "все"
+        ],
+        "effect": "core + framework-language, database, orchestration = 830 файлов (238 skills). Рекомендуемый авторами для разработки."
+      },
+      {
+        "id": "security",
+        "kind": "installer-profile",
+        "hooks_enabled": [
+          "все"
+        ],
+        "effect": "core + security (22 skills)."
+      },
+      {
+        "id": "research",
+        "kind": "installer-profile",
+        "hooks_enabled": [
+          "все"
+        ],
+        "effect": "core + research-apis, business-content, social-distribution."
+      },
+      {
+        "id": "opencode",
+        "kind": "installer-profile",
+        "hooks_enabled": [],
+        "effect": "Профиль для OpenCode (commands-core, platform-configs, workflow-quality), без hooks-runtime."
+      },
+      {
+        "id": "full",
+        "kind": "installer-profile",
+        "hooks_enabled": [
+          "все"
+        ],
+        "effect": "33 модуля в профиле (32 для цели claude: hermes-hooks пропускается) = 1207 файлов (613 skills, 286 скриптов)."
+      }
+    ],
+    "modules": [
+      {
+        "id": "rules-core",
+        "what": "правила (rules/): общие + по языкам и фреймворкам",
+        "files": 122
+      },
+      {
+        "id": "agents-core",
+        "what": "определения агентов + AGENTS.md",
+        "files": 72
+      },
+      {
+        "id": "commands-core",
+        "what": "slash-команды + скрипты harness-audit/skills-health/astra-review",
+        "files": 103
+      },
+      {
+        "id": "hooks-runtime",
+        "what": "hooks/ + scripts/hooks + scripts/lib; вмерживает хуки в settings.json (нужно --enable-hooks)",
+        "files": 276
+      },
+      {
+        "id": "hermes-hooks",
+        "what": "хуки Hermes/OpenClaw (python) — для других харнессов",
+        "files": 0
+      },
+      {
+        "id": "platform-configs",
+        "what": "конфиги платформ: .claude-plugin, .codex, .cursor, .gemini, .opencode, .pi + mcp-configs",
+        "files": 11
+      },
+      {
+        "id": "framework-language",
+        "what": "навыки по фреймворкам/языкам (71 путь)",
+        "files": 119
+      },
+      {
+        "id": "database",
+        "what": "навыки по БД",
+        "files": 8
+      },
+      {
+        "id": "skill-unified-memory",
+        "what": "навык unified-memory (требует CLI ecc-universal)",
+        "files": 1
+      },
+      {
+        "id": "documentation-context",
+        "what": "доменный контекст и ADR (beta)",
+        "files": 2
+      },
+      {
+        "id": "workflow-quality",
+        "what": "оценки, TDD, verification, compaction, learning, memory (52 пути)",
+        "files": 109
+      },
+      {
+        "id": "documentation-governance",
+        "what": "аудит документации (beta)",
+        "files": 4
+      },
+      {
+        "id": "optimization-workflows",
+        "what": "параллелизм/бенчмарки/латентность (beta)",
+        "files": 8
+      },
+      {
+        "id": "security",
+        "what": "ревью безопасности и фреймворк-гайды (22)",
+        "files": 23
+      },
+      {
+        "id": "research-apis",
+        "what": "исследования и API (exa, deep-research…)",
+        "files": 11
+      },
+      {
+        "id": "business-content",
+        "what": "бизнес/контент/инвесторские материалы (14, heavy)",
+        "files": 27
+      },
+      {
+        "id": "operator-workflows",
+        "what": "оператор-процессы: биллинг, Google Workspace…",
+        "files": 21
+      },
+      {
+        "id": "prediction-market-skills",
+        "what": "прогнозные рынки (beta)",
+        "files": 5
+      },
+      {
+        "id": "operator-desk-patterns",
+        "what": "паттерны операторского стола (approval loop…)",
+        "files": 12
+      },
+      {
+        "id": "ito-compute",
+        "what": "Itô GPU: инвентарь/RFQ (аутентифицированные запросы к стороннему сервису)",
+        "files": 4
+      },
+      {
+        "id": "nasiko-control-plane",
+        "what": "мост Nasiko CLI (experimental)",
+        "files": 2
+      },
+      {
+        "id": "social-distribution",
+        "what": "кросспостинг/x-api/social-publisher",
+        "files": 3
+      },
+      {
+        "id": "media-generation",
+        "what": "генерация медиа (fal-ai, remotion, manim… heavy)",
+        "files": 161
+      },
+      {
+        "id": "orchestration",
+        "what": "worktree/tmux оркестрация (dmux)",
+        "files": 6
+      },
+      {
+        "id": "swift-apple",
+        "what": "Swift/Apple",
+        "files": 9
+      },
+      {
+        "id": "agentic-patterns",
+        "what": "агентные паттерны, автономные циклы (38 путей)",
+        "files": 46
+      },
+      {
+        "id": "devops-infra",
+        "what": "деплой/Docker/инфра",
+        "files": 19
+      },
+      {
+        "id": "machine-learning",
+        "what": "ML-процессы",
+        "files": 4
+      },
+      {
+        "id": "supply-chain-domain",
+        "what": "логистика/закупки (heavy)",
+        "files": 8
+      },
+      {
+        "id": "document-processing",
+        "what": "обработка документов",
+        "files": 3
+      },
+      {
+        "id": "documentation-change-impact",
+        "what": "анализ влияния изменений (beta)",
+        "files": 1
+      },
+      {
+        "id": "documentation-test-regression",
+        "what": "test-collaboration/module-regression (beta)",
+        "files": 4
+      },
+      {
+        "id": "shared-script-utils",
+        "what": "общие утилиты скриптов (utils.js, agent-data-home.js, path-safety.js)",
+        "files": 3
+      },
+      {
+        "id": "docs-<locale> (13 модулей: ja-jp, zh-cn, ko-kr, pt-br, ru, tr, vi-vn, zh-tw, bn, de-de, uk-ua, pl, ar)",
+        "what": "переводы документации в ~/.claude/docs/<locale>/ (только через --locale/--with locale:*)",
+        "files": 0
+      }
+    ],
+    "modules_note": "Всего 46 модулей в manifests/install-modules.json (33 перечислено поимённо + 13 локалей docs-*); файлы указаны для цели claude в профиле full (плановый dry-run); 0 = модуль не входит в full.",
+    "components_note": "92 пользовательских компонента (manifests/install-components.json): baseline:6, lang:14 (typescript, python, go, java, swift, cpp, c, kotlin, arkts, perl, ruby, rust…), framework:9, capability:22, agent:12, skill:16, locale:13; выбор: --with/--without, ecc catalog, ecc consult '<запрос>'.",
+    "install_state": {
+      "file": "~/.claude/ecc/install-state.json (+ SQLite ~/.claude/ecc/state.db)",
+      "what": "JSON (схема ecc.install.v1, права 0600) с запросом (profile/modules/hookConsent), разрешённым набором модулей и списком операций «источник → назначение» (в т.ч. managedHooks для отката слияния settings.json). По нему работают uninstall/repair/doctor/list-installed/auto-update. SQLite state.db хранит сводное состояние ECC (сессии, work-items, установки); читают ecc status/sessions/control-pane."
+    },
+    "claude_code_version_required": "Claude Code 2.1+ (README: плагинные hooks/hooks.json подхватываются автоматически с v2.1); Node.js ≥ 18; для ecc setup — git и claude в PATH; для observe.sh — bash и python3",
+    "scopes": "ecc setup: user (~/.claude/settings.json), project (.claude/settings.json, коммитится), local (.claude/settings.local.json); ручной установщик: claude (~/.claude) или claude-project (./.claude)."
+  },
+  "hooks": [
+    {
+      "id": "pre:bash:dispatcher",
+      "event": "PreToolUse",
+      "matcher": "Bash",
+      "profile_gate": "minimal|standard|strict (внутри у каждого подхука свой профиль)",
+      "script": "scripts/hooks/pre-bash-dispatcher.js",
+      "line": 9,
+      "timeout_s": 0,
+      "what": "Единая «предполётная проверка» каждой Bash-команды: 6 подхуков по очереди — block-no-verify [все профили], auto-tmux-dev [standard+], tmux-reminder [strict], git-push-reminder [strict], commit-quality [strict], GateGuard для Bash [standard+]. Первый ненулевой код прерывает цепочку.",
+      "sub_hooks": [
+        {
+          "id": "pre:bash:block-no-verify",
+          "profiles": "minimal,standard,strict",
+          "what": "блокирует git commit/push с --no-verify и обходом хуков через -c core.hooksPath / include.path (разбор shell-синтаксиса ~1100 строк); никаких обращений к диску/сети",
+          "blocks": true
+        },
+        {
+          "id": "pre:bash:auto-tmux-dev",
+          "profiles": "standard,strict",
+          "what": "если команда содержит `npm run dev`/`pnpm dev`/`yarn dev`/`bun dev` и есть tmux — ПЕРЕПИСЫВАЕТ команду на `tmux kill-session; tmux new-session -d …` (запускает dev-сервер в tmux). Выход хука — это изменённый JSON, а не hookSpecificOutput.updatedInput, поэтому реально ли Claude Code применяет подмену — не проверено",
+          "blocks": false
+        },
+        {
+          "id": "pre:bash:tmux-reminder",
+          "profiles": "strict",
+          "what": "добавляет подсказку «запустите в tmux» к npm/pnpm/yarn/bun install|test, cargo build, make, docker, pytest, vitest, playwright вне tmux",
+          "blocks": false
+        },
+        {
+          "id": "pre:bash:git-push-reminder",
+          "profiles": "strict",
+          "what": "подсказка «Review changes before push» при git push (не блокирует)",
+          "blocks": false
+        },
+        {
+          "id": "pre:bash:commit-quality",
+          "profiles": "strict",
+          "what": "перед git commit читает staged-файлы (git diff --cached --name-only, git show :file), ищет console.log/debugger/TODO/секреты (sk-ant-…, sk-…, ключи) и запускает локальный eslint (node_modules/.bin) и pylint; ОШИБКИ (debugger, секреты, падение линтера) блокируют коммит (exit 2)",
+          "blocks": true
+        },
+        {
+          "id": "pre:bash:gateguard-fact-force",
+          "profiles": "standard,strict",
+          "what": "GateGuard: «рутинную» Bash-команду сессии не пускает с первого раза (deny + просьба изложить факты, затем повтор проходит); деструктивные (rm -rf, git reset --hard, DROP/DELETE/TRUNCATE и т.п.) — тоже один deny на конкретную команду; read-only команды (ls, git status/log/diff, cat…) пропускает. Состояние — ~/.gateguard/state-<session>.json",
+          "blocks": true
+        }
+      ],
+      "reads": [
+        "stdin JSON события",
+        "~/.gateguard/state-<session>.json",
+        "транскрипт сессии (gateguard-turn-scan: ищет в текущем ходу поиски/чтение)",
+        "git index (commit-quality, strict)",
+        "node_modules/.bin/eslint, pylint в PATH (strict)"
+      ],
+      "writes": [
+        "~/.gateguard/state-<session>.json (список «проверено», окно простоя 30 мин / 8 ч по session-id)",
+        "~/.gateguard/metrics.jsonl (ТОЛЬКО при GATEGUARD_METRICS=1)"
+      ],
+      "spawns_other": [
+        "which tmux",
+        "tmux kill-session / new-session (через подмену команды)",
+        "git diff --cached / git show",
+        "eslint, pylint (strict)"
+      ],
+      "can_block": true,
+      "blocks_when": "--no-verify/обход хуков (всегда); ПЕРВАЯ нережим-read-only Bash-команда каждой сессии и первая деструктивная команда (standard+; в песочнице проверено: permissionDecision=deny при rc=0); коммит с ошибками (strict); stdin > 1 МБ — блок (fail-closed, exit 2)",
+      "risk": "medium",
+      "risk_why": "Выполняется перед КАЖДЫМ Bash. GateGuard добавляет принудительный лишний ход «изложите факты» на первую команду сессии — трение для автономных/пакетных сценариев и конфликт с рабочим процессом владельца; подмена dev-команд на tmux меняет поведение. Сети нет.",
+      "verified": "static + sandbox (deny первой Bash-команды воспроизведён)",
+      "disable": "ECC_DISABLED_HOOKS=pre:bash:dispatcher (весь диспетчер) или точечно pre:bash:gateguard-fact-force, pre:bash:auto-tmux-dev, pre:bash:block-no-verify…; GATEGUARD_BASH_ROUTINE_DISABLED=1 (оставит только деструктивные проверки); ECC_GATEGUARD=off",
+      "evidence": [
+        {
+          "file": "scripts/hooks/bash-hook-dispatcher.js",
+          "line": 22,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/bash-hook-dispatcher.js#L22",
+          "snippet": "const PRE_BASH_HOOKS = ["
+        },
+        {
+          "file": "scripts/hooks/gateguard-fact-force.js",
+          "line": 2539,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/gateguard-fact-force.js#L2539",
+          "snippet": "recordDecision('routine-deny', 'first-command')"
+        },
+        {
+          "file": "scripts/hooks/auto-tmux-dev.js",
+          "line": 81,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/auto-tmux-dev.js#L81",
+          "snippet": "tmux kill-session -t …"
+        },
+        {
+          "file": "scripts/hooks/pre-bash-dispatcher.js",
+          "line": 29,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/pre-bash-dispatcher.js#L29",
+          "snippet": "process.exitCode = 2 (stdin truncated)"
+        }
+      ],
+      "file": "hooks/hooks.json",
+      "network": false,
+      "network_detail": "",
+      "spawns_claude": false,
+      "async": false,
+      "metadata_id_note": "",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json#L9",
+      "wrapper": "Запуск: команда в hooks.json — это длинный `node -e \"…\"`, который находит корень плагина (CLAUDE_PLUGIN_ROOT или ~/.claude, ~/.claude/plugins/ecc… ) и подгружает scripts/hooks/plugin-hook-bootstrap.js; тот порождает дочерний `node` с нужным скриптом, передаёт ему stdin (JSON события), подменяет «эхо входа» на пустой stdout и всегда выходит с кодом дочернего процесса (ошибки самого бутстрапа — exit 0, т.е. fail-open)."
+    },
+    {
+      "id": "pre:powershell:gateguard-fact-force",
+      "event": "PreToolUse",
+      "matcher": "PowerShell",
+      "profile_gate": "standard|strict",
+      "script": "scripts/hooks/gateguard-fact-force.js",
+      "line": 18,
+      "timeout_s": 5,
+      "what": "То же GateGuard, но для инструмента PowerShell (Windows). На macOS инструмент PowerShell обычно не вызывается — хук без эффекта.",
+      "reads": [
+        "stdin",
+        "~/.gateguard/state-<session>.json"
+      ],
+      "writes": [
+        "~/.gateguard/state-<session>.json"
+      ],
+      "can_block": true,
+      "blocks_when": "первая PowerShell-команда сессии / деструктивная команда; усечённый stdin — fail-closed блок",
+      "risk": "low",
+      "risk_why": "Для владельца (macOS) неактуален.",
+      "disable": "ECC_DISABLED_HOOKS=pre:powershell:gateguard-fact-force",
+      "evidence": [
+        {
+          "file": "scripts/hooks/run-with-flags.js",
+          "line": 20,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/run-with-flags.js#L20",
+          "snippet": "FAIL_CLOSED_ON_TRUNCATION_HOOKS"
+        }
+      ],
+      "file": "hooks/hooks.json",
+      "verified": "static",
+      "network": false,
+      "network_detail": "",
+      "spawns_claude": false,
+      "spawns_other": [],
+      "async": false,
+      "metadata_id_note": "",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json#L18",
+      "wrapper": "Запуск: команда в hooks.json — это длинный `node -e \"…\"`, который находит корень плагина (CLAUDE_PLUGIN_ROOT или ~/.claude, ~/.claude/plugins/ecc… ) и подгружает scripts/hooks/plugin-hook-bootstrap.js; тот порождает дочерний `node` с нужным скриптом, передаёт ему stdin (JSON события), подменяет «эхо входа» на пустой stdout и всегда выходит с кодом дочернего процесса (ошибки самого бутстрапа — exit 0, т.е. fail-open)."
+    },
+    {
+      "id": "pre:write:doc-file-warning",
+      "event": "PreToolUse",
+      "matcher": "Write",
+      "profile_gate": "standard|strict",
+      "script": "scripts/hooks/doc-file-warning.js",
+      "line": 28,
+      "timeout_s": 0,
+      "what": "Предупреждает (не блокирует) при создании «ad-hoc» файлов NOTES/TODO/SCRATCH/TEMP/DRAFT/BRAINSTORM/SPIKE/DEBUG/WIP .md/.txt вне docs/, .claude/, skills/, commands/, memory/ и т.п. Добавляет additionalContext для модели.",
+      "reads": [
+        "stdin (путь файла)"
+      ],
+      "writes": [],
+      "can_block": false,
+      "risk": "low",
+      "risk_why": "Только подсказка модели. Тонкость: владелец ведёт TASKS.md — имя вне списка, не затронуто.",
+      "disable": "ECC_DISABLED_HOOKS=pre:write:doc-file-warning",
+      "evidence": [
+        {
+          "file": "scripts/hooks/doc-file-warning.js",
+          "line": 22,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/doc-file-warning.js#L22",
+          "snippet": "ADHOC_FILENAMES"
+        }
+      ],
+      "file": "hooks/hooks.json",
+      "verified": "static",
+      "network": false,
+      "network_detail": "",
+      "spawns_claude": false,
+      "spawns_other": [],
+      "blocks_when": "",
+      "async": false,
+      "metadata_id_note": "",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json#L28",
+      "wrapper": "Запуск: команда в hooks.json — это длинный `node -e \"…\"`, который находит корень плагина (CLAUDE_PLUGIN_ROOT или ~/.claude, ~/.claude/plugins/ecc… ) и подгружает scripts/hooks/plugin-hook-bootstrap.js; тот порождает дочерний `node` с нужным скриптом, передаёт ему stdin (JSON события), подменяет «эхо входа» на пустой stdout и всегда выходит с кодом дочернего процесса (ошибки самого бутстрапа — exit 0, т.е. fail-open)."
+    },
+    {
+      "id": "pre:edit-write:suggest-compact",
+      "event": "PreToolUse",
+      "matcher": "Edit|Write",
+      "profile_gate": "standard|strict",
+      "script": "scripts/hooks/suggest-compact.js",
+      "line": 37,
+      "timeout_s": 0,
+      "what": "Считает вызовы инструментов и размер контекста (по последней записи usage в транскрипте) и подсказывает модели /compact: после 50 вызовов, затем каждые 25; либо при контексте ≥160k токенов (250k при окне 1M), повтор каждые 60k.",
+      "reads": [
+        "stdin",
+        "транскрипт сессии (usage последнего ответа)"
+      ],
+      "writes": [
+        "$TMPDIR (macOS: /var/folders/…/T/)/claude-tool-count-<session>",
+        "$TMPDIR (macOS: /var/folders/…/T/)/claude-context-bucket-<session> (+ чистка старых счётчиков по TTL)"
+      ],
+      "can_block": false,
+      "risk": "low",
+      "risk_why": "Только временные счётчики и подсказка модели (additionalContext). Проверено в песочнице: выдаёт «[StrategicCompact] Context ~170k tokens…».",
+      "verified": "static + sandbox",
+      "disable": "ECC_DISABLED_HOOKS=pre:edit-write:suggest-compact; COMPACT_THRESHOLD, COMPACT_CONTEXT_THRESHOLD=0",
+      "evidence": [
+        {
+          "file": "scripts/hooks/suggest-compact.js",
+          "line": 44,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/suggest-compact.js#L44",
+          "snippet": "COUNTER_FILE_PREFIX = 'claude-tool-count-'"
+        },
+        {
+          "file": "scripts/hooks/suggest-compact.js",
+          "line": 227,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/suggest-compact.js#L227",
+          "snippet": "COMPACT_THRESHOLD || '50'"
+        }
+      ],
+      "file": "hooks/hooks.json",
+      "network": false,
+      "network_detail": "",
+      "spawns_claude": false,
+      "spawns_other": [],
+      "blocks_when": "",
+      "async": false,
+      "metadata_id_note": "",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json#L37",
+      "wrapper": "Запуск: команда в hooks.json — это длинный `node -e \"…\"`, который находит корень плагина (CLAUDE_PLUGIN_ROOT или ~/.claude, ~/.claude/plugins/ecc… ) и подгружает scripts/hooks/plugin-hook-bootstrap.js; тот порождает дочерний `node` с нужным скриптом, передаёт ему stdin (JSON события), подменяет «эхо входа» на пустой stdout и всегда выходит с кодом дочернего процесса (ошибки самого бутстрапа — exit 0, т.е. fail-open)."
+    },
+    {
+      "id": "pre:observe",
+      "event": "PreToolUse",
+      "matcher": ".*",
+      "profile_gate": "standard|strict",
+      "script": "scripts/hooks/observe-runner.js → skills/continuous-learning-v2/hooks/observe.sh pre",
+      "line": 46,
+      "timeout_s": 10,
+      "async": true,
+      "what": "«Наблюдение» для continuous-learning-v2: на КАЖДЫЙ вызов инструмента (любого) запускает bash-скрипт observe.sh, который через python3 разбирает событие и дописывает строку JSON в журнал проекта: время, инструмент, сессия, проект, ВХОД инструмента (до 5000 символов, секреты вычищаются regex-ом). Дополнительно: регистрирует проект в projects.json, раз в сутки чистит архивы observations-*.jsonl старше 30 дней, архивирует журнал при 10 МБ, считает вызовы и каждые 20 шлёт SIGUSR1 «наблюдателю», если он запущен.",
+      "reads": [
+        "stdin JSON (tool_name, tool_input, cwd, session_id)",
+        "git remote origin проекта (для идентификатора; креды из URL вырезаются)",
+        "skills/continuous-learning-v2/config.json (observer.enabled = false по умолчанию)"
+      ],
+      "writes": [
+        "~/.local/share/ecc-homunculus/projects/<id>/observations.jsonl (+ observations.archive/, .last-purge, .observer-*)",
+        "~/.local/share/ecc-homunculus/projects.json (реестр: id, имя, путь корня проекта, remote)",
+        "~/.local/share/ecc-homunculus/projects/<id>/{instincts,evolved}/ (пустые каталоги)"
+      ],
+      "spawns_other": [
+        "bash observe.sh",
+        "python3 (несколько запусков на событие)",
+        "git -C <cwd> rev-parse / remote get-url",
+        "ПО УМОЛЧАНИЮ ВЫКЛ: start-observer.sh → фоновый observer-loop.sh → `claude --model haiku --print --allowedTools Read,Write` (только если observer.enabled=true)"
+      ],
+      "spawns_claude": false,
+      "can_block": false,
+      "risk": "medium",
+      "risk_why": "Постоянный журнал ВСЕХ вызовов инструментов на диске (команды, пути файлов, фрагменты кода/текста; для Pre — входы, для Post — выходы до 5000 симв.). Очистка секретов — regex (api_key/token/secret/password/authorization/…), не гарантия. Права по умолчанию 0644 (umask). Наблюдатель с claude -p выключен по умолчанию; если включить — содержимое журнала уходит модели.",
+      "verified": "static + sandbox (запись observations.jsonl; маскировка Bearer/--token/api_key подтверждена)",
+      "disable": "ECC_DISABLED_HOOKS=pre:observe,post:observe:continuous-learning  (ВАЖНО: в hooks.json id = «pre:observe», а в hooks.metadata.json/README — «pre:observe:continuous-learning»; отключение по метаданному id НЕ работает для pre-хука — проверено в песочнице); файл-флаг ~/.local/share/ecc-homunculus/disabled; ECC_SKIP_OBSERVE=1; ECC_HOOK_PROFILE=minimal",
+      "evidence": [
+        {
+          "file": "skills/continuous-learning-v2/hooks/observe.sh",
+          "line": 200,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/continuous-learning-v2/hooks/observe.sh#L200",
+          "snippet": "OBSERVATIONS_FILE=\"${PROJECT_DIR}/observations.jsonl\""
+        },
+        {
+          "file": "skills/continuous-learning-v2/hooks/observe.sh",
+          "line": 238,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/continuous-learning-v2/hooks/observe.sh#L238",
+          "snippet": "tool_input_str = json.dumps(tool_input)[:5000]"
+        },
+        {
+          "file": "skills/continuous-learning-v2/config.json",
+          "line": 4,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/continuous-learning-v2/config.json#L4",
+          "snippet": "\"enabled\": false"
+        },
+        {
+          "file": "skills/continuous-learning-v2/agents/observer-loop.sh",
+          "line": 399,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/continuous-learning-v2/agents/observer-loop.sh#L399",
+          "snippet": "claude --model … --print --allowedTools \"Read,Write\""
+        }
+      ],
+      "file": "hooks/hooks.json",
+      "network": false,
+      "network_detail": "",
+      "blocks_when": "",
+      "metadata_id_note": "hooks.metadata.json называет этот хук pre:observe:continuous-learning, а реальный id в hooks.json = pre:observe",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json#L46",
+      "wrapper": "Запуск: команда в hooks.json — это длинный `node -e \"…\"`, который находит корень плагина (CLAUDE_PLUGIN_ROOT или ~/.claude, ~/.claude/plugins/ecc… ) и подгружает scripts/hooks/plugin-hook-bootstrap.js; тот порождает дочерний `node` с нужным скриптом, передаёт ему stdin (JSON события), подменяет «эхо входа» на пустой stdout и всегда выходит с кодом дочернего процесса (ошибки самого бутстрапа — exit 0, т.е. fail-open)."
+    },
+    {
+      "id": "pre:governance-capture",
+      "event": "PreToolUse",
+      "matcher": "Bash|PowerShell|Write|Edit|MultiEdit",
+      "profile_gate": "standard|strict (+ флаг ECC_GOVERNANCE_CAPTURE=1)",
+      "script": "scripts/hooks/governance-capture.js",
+      "line": 57,
+      "timeout_s": 10,
+      "what": "По умолчанию НИЧЕГО не делает (return rawInput, пока ECC_GOVERNANCE_CAPTURE != 1). Если включить: ищет секреты (AWS-ключи, JWT, ghp_…, приватные ключи) во входе/выходе инструмента, «требующие одобрения» команды (git push --force, reset --hard, rm -rf, DROP…) и чувствительные пути (.env, credentials, *.pem, id_rsa) и печатает события в stderr строкой [governance] {...}. Файлов не пишет.",
+      "reads": [
+        "stdin"
+      ],
+      "writes": [
+        "только stderr"
+      ],
+      "risk": "low",
+      "risk_why": "Выключен по умолчанию; в включённом виде только stderr.",
+      "disable": "по умолчанию выключен; ECC_DISABLED_HOOKS=pre:governance-capture,post:governance-capture",
+      "evidence": [
+        {
+          "file": "scripts/hooks/governance-capture.js",
+          "line": 294,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/governance-capture.js#L294",
+          "snippet": "ECC_GOVERNANCE_CAPTURE !== '1' → return rawInput"
+        },
+        {
+          "file": "scripts/hooks/governance-capture.js",
+          "line": 161,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/governance-capture.js#L161",
+          "snippet": "emitGovernanceEvent → stderr"
+        }
+      ],
+      "file": "hooks/hooks.json",
+      "verified": "static",
+      "network": false,
+      "network_detail": "",
+      "spawns_claude": false,
+      "spawns_other": [],
+      "can_block": false,
+      "blocks_when": "",
+      "async": false,
+      "metadata_id_note": "",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json#L57",
+      "wrapper": "Запуск: команда в hooks.json — это длинный `node -e \"…\"`, который находит корень плагина (CLAUDE_PLUGIN_ROOT или ~/.claude, ~/.claude/plugins/ecc… ) и подгружает scripts/hooks/plugin-hook-bootstrap.js; тот порождает дочерний `node` с нужным скриптом, передаёт ему stdin (JSON события), подменяет «эхо входа» на пустой stdout и всегда выходит с кодом дочернего процесса (ошибки самого бутстрапа — exit 0, т.е. fail-open)."
+    },
+    {
+      "id": "pre:config-protection",
+      "event": "PreToolUse",
+      "matcher": "Write|Edit|MultiEdit",
+      "profile_gate": "standard|strict",
+      "script": "scripts/hooks/config-protection.js",
+      "line": 67,
+      "timeout_s": 5,
+      "what": "Запрещает ИЗМЕНЯТЬ уже существующие конфиги линтеров/форматтеров, чтобы агент чинил код, а не ослаблял правила: .eslintrc*/eslint.config.*, .prettierrc*/prettier.config.*, biome.json(c), ruff.toml/.ruff.toml, .shellcheckrc, .stylelintrc*/stylelint.config.*, .markdownlint*(json/yaml/cjs/…), *.ignore-файлы (.eslintignore и др.). Создание нового файла разрешено. Сравнение имён без учёта регистра.",
+      "reads": [
+        "stdin (file_path)",
+        "lstat целевого файла"
+      ],
+      "writes": [],
+      "can_block": true,
+      "blocks_when": "правка существующего файла из списка (exit 2, сообщение «BLOCKED: Modifying <name> is not allowed…»); усечённый stdin — блок",
+      "risk": "medium",
+      "risk_why": "Блокирует легитимные правки конфигов (например, .markdownlint.json в репозиториях владельца); пакеты pyproject.toml/ruff в pyproject не защищены.",
+      "disable": "ECC_DISABLED_HOOKS=pre:config-protection",
+      "evidence": [
+        {
+          "file": "scripts/hooks/config-protection.js",
+          "line": 22,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/config-protection.js#L22",
+          "snippet": "const PROTECTED_FILES = new Set(["
+        },
+        {
+          "file": "scripts/hooks/config-protection.js",
+          "line": 202,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/config-protection.js#L202",
+          "snippet": "BLOCKED: Modifying … is not allowed"
+        }
+      ],
+      "file": "hooks/hooks.json",
+      "verified": "static",
+      "network": false,
+      "network_detail": "",
+      "spawns_claude": false,
+      "spawns_other": [],
+      "async": false,
+      "metadata_id_note": "",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json#L67",
+      "wrapper": "Запуск: команда в hooks.json — это длинный `node -e \"…\"`, который находит корень плагина (CLAUDE_PLUGIN_ROOT или ~/.claude, ~/.claude/plugins/ecc… ) и подгружает scripts/hooks/plugin-hook-bootstrap.js; тот порождает дочерний `node` с нужным скриптом, передаёт ему stdin (JSON события), подменяет «эхо входа» на пустой stdout и всегда выходит с кодом дочернего процесса (ошибки самого бутстрапа — exit 0, т.е. fail-open)."
+    },
+    {
+      "id": "pre:mcp-health-check",
+      "event": "PreToolUse",
+      "matcher": "^mcp__",
+      "profile_gate": "standard|strict",
+      "script": "scripts/hooks/mcp-health-check.js",
+      "line": 77,
+      "timeout_s": 0,
+      "what": "Перед вызовом любого MCP-инструмента проверяет «здоровье» сервера. Ищет определение сервера mcpServers[<имя>] в ./.claude.json, ./.claude/settings.json, ~/.claude.json, ~/.claude/settings.json. Для http-сервера делает GET на его URL с заголовками из конфига (до 5 с); для stdio-сервера САМ ЗАПУСКАЕТ его командой из конфига (второй экземпляр) и смотрит, жив ли процесс. Если сервер недоступен — БЛОКИРУЕТ вызов (exit 2) и помечает сервер unhealthy с экспоненциальной паузой. Если конфига не нашлось (плагинные и claude.ai-коннекторы) — пропускает.",
+      "reads": [
+        "stdin (имя mcp__сервер__инструмент)",
+        "~/.claude.json, ~/.claude/settings.json, ./.claude.json, ./.claude/settings.json (содержат команды, env и заголовки MCP-серверов — потенциально секреты)",
+        "~/.claude/mcp-health-cache.json"
+      ],
+      "writes": [
+        "~/.claude/mcp-health-cache.json (статус серверов, ошибки, время повторной попытки)"
+      ],
+      "network": true,
+      "network_detail": "GET на URL http-MCP-серверов из ВАШИХ конфигов (не на сторонние адреса ECC); для stdio — запуск процесса, который сам может ходить в сеть",
+      "spawns_other": [
+        "команда stdio-MCP-сервера из ~/.claude.json (например npx …) — как зонд",
+        "по опции ECC_MCP_RECONNECT_ALLOW=1 — команда из ECC_MCP_RECONNECT_<СЕРВЕР> (по умолчанию выключено)"
+      ],
+      "can_block": true,
+      "blocks_when": "проба сервера не удалась и/или он в паузе после сбоя (fail-closed; ECC_MCP_HEALTH_FAIL_OPEN=1 делает fail-open); усечённый stdin — блок",
+      "risk": "high",
+      "risk_why": "Запускает от вашего имени команды MCP-серверов из пользовательских конфигов и шлёт HTTP-запросы с заголовками из конфига; ложные срабатывания блокируют MCP-вызов. Конфиги рабочей директории по умолчанию не пробуются (защита от клонов), домашние — доверенные. Плагинные/коннекторные серверы Claude не затрагиваются (конфига нет → «skipping preflight probe»).",
+      "verified": "static (в песочнице не запускался с реальными конфигами)",
+      "disable": "ECC_DISABLED_HOOKS=pre:mcp-health-check,post:mcp-health-check; ECC_MCP_HEALTH_FAIL_OPEN=1 (не блокировать)",
+      "evidence": [
+        {
+          "file": "scripts/hooks/mcp-health-check.js",
+          "line": 90,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/mcp-health-check.js#L90",
+          "snippet": "path.join(home, '.claude.json')"
+        },
+        {
+          "file": "scripts/hooks/mcp-health-check.js",
+          "line": 445,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/mcp-health-check.js#L445",
+          "snippet": "child = spawn(tryCommand, args, …)"
+        },
+        {
+          "file": "scripts/hooks/mcp-health-check.js",
+          "line": 587,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/mcp-health-check.js#L587",
+          "snippet": "requestHttp(config.url, config.headers …)"
+        },
+        {
+          "file": "scripts/hooks/mcp-health-check.js",
+          "line": 741,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/mcp-health-check.js#L741",
+          "snippet": "exitCode: shouldFailOpen() ? 0 : 2"
+        }
+      ],
+      "file": "hooks/hooks.json",
+      "spawns_claude": false,
+      "async": false,
+      "metadata_id_note": "",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json#L77",
+      "wrapper": "Запуск: команда в hooks.json — это длинный `node -e \"…\"`, который находит корень плагина (CLAUDE_PLUGIN_ROOT или ~/.claude, ~/.claude/plugins/ecc… ) и подгружает scripts/hooks/plugin-hook-bootstrap.js; тот порождает дочерний `node` с нужным скриптом, передаёт ему stdin (JSON события), подменяет «эхо входа» на пустой stdout и всегда выходит с кодом дочернего процесса (ошибки самого бутстрапа — exit 0, т.е. fail-open)."
+    },
+    {
+      "id": "pre:edit-write:gateguard-fact-force",
+      "event": "PreToolUse",
+      "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+      "profile_gate": "standard|strict",
+      "script": "scripts/hooks/gateguard-fact-force.js",
+      "line": 86,
+      "timeout_s": 5,
+      "what": "GateGuard «заставь исследовать»: ПЕРВАЯ правка каждого файла в сессии отклоняется (permissionDecision=deny) с вопросами по классу файла (кто импортирует, публичное API, схемы данных, цитата просьбы пользователя и т.д.). Пропускает без отказа: если в текущем ходу уже был поиск/чтение с упоминанием файла (читает транскрипт), правка только комментариев/пробелов, соседний новый файл того же хода; чувствительные цели (секреты, ключи, auth/payment, миграции, CI-workflow) и hard-link-файлы гейтятся всегда, в т.ч. в субагентах. Исключения — GATEGUARD_EXEMPT_GLOBS, файлы настроек Claude.",
+      "reads": [
+        "stdin (file_path, содержимое правки)",
+        "транскрипт сессии (поиск доказательств исследования)",
+        "~/.gateguard/state-<session>.json",
+        "сам целевой файл (классификация, hard-link, ‘новый ли’)"
+      ],
+      "writes": [
+        "~/.gateguard/state-<session>.json",
+        "~/.gateguard/metrics.jsonl (только GATEGUARD_METRICS=1; хранит коды решений, без содержимого)"
+      ],
+      "can_block": true,
+      "blocks_when": "первая правка файла в сессии без доказательств изучения (проверено в песочнице: deny на Edit a.ts при rc=0); лимит отказов не задан по умолчанию (GATEGUARD_FACT_FORCE_MAX_DENIALS не установлен = без лимита)",
+      "risk": "medium",
+      "risk_why": "Не утечка, а поведенческое вмешательство: +1 ход на каждый файл; в автономных циклах и субагентах может зациклить/замедлить. Хуки владельца (TypeSafe-триаж и др.) этим не затрагиваются, но правило «не заканчивать, пока есть пункты TASKS.md» упрётся в лишние ходы.",
+      "verified": "static + sandbox",
+      "disable": "ECC_GATEGUARD=off | GATEGUARD_DISABLED=1 | ECC_DISABLED_HOOKS=pre:edit-write:gateguard-fact-force | GATEGUARD_EXEMPT_GLOBS='**/*.md,docs/**'",
+      "evidence": [
+        {
+          "file": "scripts/hooks/gateguard-fact-force.js",
+          "line": 2422,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/gateguard-fact-force.js#L2422",
+          "snippet": "return firstTouchDenial(…)"
+        },
+        {
+          "file": "scripts/hooks/gateguard-fact-force.js",
+          "line": 2088,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/gateguard-fact-force.js#L2088",
+          "snippet": "permissionDecision: 'deny'"
+        },
+        {
+          "file": "scripts/hooks/gateguard-fact-force.js",
+          "line": 92,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/gateguard-fact-force.js#L92",
+          "snippet": "STATE_DIR … '.gateguard'"
+        },
+        {
+          "file": "scripts/hooks/gateguard-fact-force.js",
+          "line": 2266,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/gateguard-fact-force.js#L2266",
+          "snippet": "isMetricsEnabled: GATEGUARD_METRICS"
+        }
+      ],
+      "file": "hooks/hooks.json",
+      "network": false,
+      "network_detail": "",
+      "spawns_claude": false,
+      "spawns_other": [],
+      "async": false,
+      "metadata_id_note": "",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json#L86",
+      "wrapper": "Запуск: команда в hooks.json — это длинный `node -e \"…\"`, который находит корень плагина (CLAUDE_PLUGIN_ROOT или ~/.claude, ~/.claude/plugins/ecc… ) и подгружает scripts/hooks/plugin-hook-bootstrap.js; тот порождает дочерний `node` с нужным скриптом, передаёт ему stdin (JSON события), подменяет «эхо входа» на пустой stdout и всегда выходит с кодом дочернего процесса (ошибки самого бутстрапа — exit 0, т.е. fail-open)."
+    },
+    {
+      "id": "pre:hookify-runtime",
+      "event": "PreToolUse",
+      "matcher": ".*",
+      "profile_gate": "minimal|standard|strict",
+      "script": "scripts/hooks/hookify-runtime.js",
+      "line": 96,
+      "timeout_s": 10,
+      "what": "«Hookify»: читает ПРОЕКТНЫЕ правила .claude/hookify.<имя>.local.md (YAML-фронтматтер: event bash|file|stop|prompt|all, action warn|block, regex/conditions) и применяет их к вызову инструмента. Правила под git-контролем игнорируются без ECC_HOOKIFY_ALLOW_TRACKED=1 (защита от чужих клонов), регулярки исполняются в vm с таймаутом 25 мс. Если файлов правил нет — ничего не делает.",
+      "reads": [
+        "stdin",
+        "<проект>/.claude/hookify.*.local.md",
+        "git ls-files (проверка «отслеживается ли правило»)"
+      ],
+      "writes": [],
+      "spawns_other": [
+        "git -C <проект> ls-files (таймаут 2 с)"
+      ],
+      "can_block": true,
+      "blocks_when": "только если пользователь сам создал правило с action: block",
+      "risk": "low",
+      "risk_why": "Без файлов hookify-правил — no-op. Работает во ВСЕХ профилях, включая minimal.",
+      "disable": "ECC_DISABLED_HOOKS=pre:hookify-runtime,prompt:hookify-runtime,post:hookify-runtime,stop:hookify-runtime",
+      "evidence": [
+        {
+          "file": "scripts/hooks/hookify-runtime.js",
+          "line": 300,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/hookify-runtime.js#L300",
+          "snippet": "hookify.*.local.md"
+        },
+        {
+          "file": "scripts/hooks/hookify-runtime.js",
+          "line": 339,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/hookify-runtime.js#L339",
+          "snippet": "git ls-files"
+        }
+      ],
+      "file": "hooks/hooks.json",
+      "verified": "static",
+      "network": false,
+      "network_detail": "",
+      "spawns_claude": false,
+      "async": false,
+      "metadata_id_note": "",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json#L96",
+      "wrapper": "Запуск: команда в hooks.json — это длинный `node -e \"…\"`, который находит корень плагина (CLAUDE_PLUGIN_ROOT или ~/.claude, ~/.claude/plugins/ecc… ) и подгружает scripts/hooks/plugin-hook-bootstrap.js; тот порождает дочерний `node` с нужным скриптом, передаёт ему stdin (JSON события), подменяет «эхо входа» на пустой stdout и всегда выходит с кодом дочернего процесса (ошибки самого бутстрапа — exit 0, т.е. fail-open)."
+    },
+    {
+      "id": "prompt:hookify-runtime",
+      "event": "UserPromptSubmit",
+      "matcher": "(нет)",
+      "profile_gate": "minimal|standard|strict",
+      "script": "scripts/hooks/hookify-runtime.js",
+      "line": 107,
+      "timeout_s": 10,
+      "what": "Тот же Hookify для событий prompt: проверяет текст вашего промпта правилами проекта. Единственный хук ECC на UserPromptSubmit — НЕ добавляет контекст и не вызывает модель; рядом с вашими UserPromptSubmit-хуками (typesafe-triage, site-qa-audit, android-qa-audit) конфликтов нет, кроме лишнего запуска node на каждый промпт.",
+      "reads": [
+        "stdin (промпт)",
+        "<проект>/.claude/hookify.*.local.md"
+      ],
+      "writes": [],
+      "can_block": true,
+      "blocks_when": "только по пользовательскому hookify-правилу event: prompt, action: block",
+      "risk": "low",
+      "risk_why": "Видит текст каждого промпта, но только в памяти процесса; ничего не сохраняет. Проверено: stdout пустой, rc=0.",
+      "verified": "static + sandbox",
+      "disable": "ECC_DISABLED_HOOKS=prompt:hookify-runtime",
+      "evidence": [
+        {
+          "file": "hooks/hooks.json",
+          "line": 107,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json#L107",
+          "snippet": "prompt:hookify-runtime"
+        }
+      ],
+      "file": "hooks/hooks.json",
+      "network": false,
+      "network_detail": "",
+      "spawns_claude": false,
+      "spawns_other": [],
+      "async": false,
+      "metadata_id_note": "",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json#L107",
+      "wrapper": "Запуск: команда в hooks.json — это длинный `node -e \"…\"`, который находит корень плагина (CLAUDE_PLUGIN_ROOT или ~/.claude, ~/.claude/plugins/ecc… ) и подгружает scripts/hooks/plugin-hook-bootstrap.js; тот порождает дочерний `node` с нужным скриптом, передаёт ему stdin (JSON события), подменяет «эхо входа» на пустой stdout и всегда выходит с кодом дочернего процесса (ошибки самого бутстрапа — exit 0, т.е. fail-open)."
+    },
+    {
+      "id": "pre:compact",
+      "event": "PreCompact",
+      "matcher": ".*",
+      "profile_gate": "standard|strict",
+      "script": "scripts/hooks/pre-compact.js",
+      "line": 119,
+      "timeout_s": 0,
+      "what": "Перед сжатием контекста: дописывает строку в compaction-log.txt; находит файл сессии (*-session.tmp) для текущей рабочей папки и вызывает `claude --model haiku -p` с последними ~25 репликами из транскрипта (пользователь ≤400 симв., Claude ≤600 симв., всего ≤7000 симв.), результат записывает в файл сессии между маркерами ECC:SUMMARY. Если файла сессии нет — только лог.",
+      "reads": [
+        "stdin (transcript_path)",
+        "транскрипт сессии (JSONL)",
+        "~/.claude/session-data/*-session.tmp"
+      ],
+      "writes": [
+        "~/.claude/session-data/compaction-log.txt",
+        "~/.claude/session-data/<дата>-<проект>-session.tmp (сводка)"
+      ],
+      "spawns_claude": true,
+      "spawns_other": [
+        "claude --model haiku -p  (промпт через stdin; env: CLAUDECODE='', ECC_SKIP_LLM_SUMMARY=1, ECC_LLM_SUMMARY_SUBPROCESS=1; остальное окружение наследуется)"
+      ],
+      "network": true,
+      "network_detail": "Косвенно: дочерний claude -p → Anthropic API с вашей авторизацией Claude Code (отдельный платный вызов haiku; ECC своих сетевых адресов не имеет)",
+      "risk": "high",
+      "risk_why": "Текст переписки (до 7000 симв.) уходит в отдельный вложенный сеанс claude -p БЕЗ вычистки секретов — проверено в песочнице: api_key=… и password=… из реплики пользователя попали в промпт целиком. Вложенный claude загружает ваши настройки и, вероятно, ваши хуки (UserPromptSubmit/SessionStart) — по докам; не проверено. Тот же провайдер, что и основной сеанс, но дополнительные токены и побочные эффекты. Лимит ~29 с (ECC_HOOK_DEADLINE_MS).",
+      "verified": "static + sandbox (с подставным claude: аргументы `--model haiku -p`, содержимое промпта и окружение зафиксированы)",
+      "disable": "ECC_SKIP_LLM_SUMMARY=1 (останется только запись «compaction occurred») или ECC_DISABLED_HOOKS=pre:compact; ECC_LLM_SUMMARY_MODEL=… меняет модель (по умолчанию haiku)",
+      "evidence": [
+        {
+          "file": "scripts/hooks/pre-compact.js",
+          "line": 156,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/pre-compact.js#L156",
+          "snippet": "const llmSummary = generateSessionSummary(transcriptPath)"
+        },
+        {
+          "file": "scripts/lib/llm-summary.js",
+          "line": 172,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/lib/llm-summary.js#L172",
+          "snippet": "spawnSync('claude', ['--model', getLLMModel(), '-p'], …)"
+        },
+        {
+          "file": "scripts/lib/llm-summary.js",
+          "line": 19,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/lib/llm-summary.js#L19",
+          "snippet": "MAX_TURNS = 25; MAX_TRANSCRIPT_CHARS = 7000"
+        }
+      ],
+      "file": "hooks/hooks.json",
+      "can_block": false,
+      "blocks_when": "",
+      "async": false,
+      "metadata_id_note": "",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json#L119",
+      "wrapper": "Запуск: команда в hooks.json — это длинный `node -e \"…\"`, который находит корень плагина (CLAUDE_PLUGIN_ROOT или ~/.claude, ~/.claude/plugins/ecc… ) и подгружает scripts/hooks/plugin-hook-bootstrap.js; тот порождает дочерний `node` с нужным скриптом, передаёт ему stdin (JSON события), подменяет «эхо входа» на пустой stdout и всегда выходит с кодом дочернего процесса (ошибки самого бутстрапа — exit 0, т.е. fail-open)."
+    },
+    {
+      "id": "session:start",
+      "event": "SessionStart",
+      "matcher": ".*",
+      "profile_gate": "minimal|standard|strict",
+      "script": "scripts/hooks/session-start-bootstrap.js → run-with-flags.js session:start → session-start.js",
+      "line": 130,
+      "timeout_s": 0,
+      "what": "На старте: создаёт каталоги ~/.claude/session-data и ~/.claude/skills/learned; удаляет файлы *-session.tmp старше 30 дней (ECC_SESSION_RETENTION_DAYS); регистрирует «аренду» сессии для наблюдателя; собирает additionalContext (≤8000 симв.): сводка предыдущей сессии того же проекта/worktree (≤7 дней, с оговоркой «HISTORICAL REFERENCE ONLY»), до 6 выученных навыков (~/.claude/skills/learned), до 6 активных instincts (уверенность ≥0.7), тип проекта (языки/фреймворки) и менеджер пакетов. Только при source=startup подмешивает сводку прошлой сессии.",
+      "reads": [
+        "stdin (source/session_id)",
+        "~/.claude/session-data/*.tmp, ~/.claude/sessions/*.tmp (старый каталог)",
+        "~/.claude/skills/learned/**",
+        "~/.local/share/ecc-homunculus/projects/<id>/instincts/**",
+        "файлы проекта: package.json, pyproject.toml, go.mod… (detectProjectType, js-yaml)",
+        "git (имя репозитория/ветка)"
+      ],
+      "writes": [
+        "~/.claude/session-data/ (mkdir; удаление просроченных *.tmp)",
+        "~/.claude/skills/learned/ (mkdir)",
+        "~/.local/share/ecc-homunculus/projects/<id>/.observer-sessions/<session>.json (аренда) и projects.json"
+      ],
+      "spawns_other": [
+        "git rev-parse / remote get-url (проект)"
+      ],
+      "can_block": false,
+      "risk": "medium",
+      "risk_why": "Подмешивает в контекст модели сохранённый текст прошлой сессии и выученные навыки (поверхность косвенной prompt-injection из локальных файлов; ECC помечает блок как «исторический, не исполнять»). Удаляет старые файлы СВОЕГО каталога. БЕЗ node_modules падает (js-yaml) — проверено.",
+      "verified": "static + sandbox (со стабом js-yaml: вывод hookSpecificOutput.additionalContext с типом проекта; без него rc=1)",
+      "disable": "ECC_SESSION_START_CONTEXT=off (не подмешивать контекст), ECC_SESSION_START_MAX_CHARS=0, ECC_SESSION_RETENTION_DAYS=off (не чистить), ECC_DISABLED_HOOKS=session:start",
+      "evidence": [
+        {
+          "file": "scripts/hooks/session-start.js",
+          "line": 662,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/session-start.js#L662",
+          "snippet": "ensureDir(learnedDir)"
+        },
+        {
+          "file": "scripts/hooks/session-start.js",
+          "line": 668,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/session-start.js#L668",
+          "snippet": "pruneExpiredSessions(sessionSearchDirs, retentionDays)"
+        },
+        {
+          "file": "scripts/hooks/session-start.js",
+          "line": 733,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/session-start.js#L733",
+          "snippet": "HISTORICAL REFERENCE ONLY — NOT LIVE INSTRUCTIONS."
+        },
+        {
+          "file": "scripts/lib/project-detect.js",
+          "line": 12,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/lib/project-detect.js#L12",
+          "snippet": "require('js-yaml')"
+        }
+      ],
+      "file": "hooks/hooks.json",
+      "network": false,
+      "network_detail": "",
+      "spawns_claude": false,
+      "blocks_when": "",
+      "async": false,
+      "metadata_id_note": "",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json#L130",
+      "wrapper": "Запуск: команда в hooks.json — это длинный `node -e \"…\"`, который находит корень плагина (CLAUDE_PLUGIN_ROOT или ~/.claude, ~/.claude/plugins/ecc… ) и подгружает scripts/hooks/plugin-hook-bootstrap.js; тот порождает дочерний `node` с нужным скриптом, передаёт ему stdin (JSON события), подменяет «эхо входа» на пустой stdout и всегда выходит с кодом дочернего процесса (ошибки самого бутстрапа — exit 0, т.е. fail-open)."
+    },
+    {
+      "id": "session-start:plan-canvas-sessions",
+      "event": "SessionStart",
+      "matcher": ".*",
+      "profile_gate": "standard|strict",
+      "script": "scripts/hooks/plan-canvas-sessions.js",
+      "line": 139,
+      "timeout_s": 0,
+      "what": "Если остались открытые сессии браузерного ревью планов (Plan Canvas) — выводит их список в контекст. Без Plan Canvas — тишина.",
+      "reads": [
+        "~/.claude/plan-canvas/sessions.json"
+      ],
+      "writes": [],
+      "risk": "low",
+      "risk_why": "Читает только собственный файл состояния; сеть не используется.",
+      "disable": "ECC_DISABLED_HOOKS=session-start:plan-canvas-sessions",
+      "evidence": [
+        {
+          "file": "scripts/hooks/plan-canvas-sessions.js",
+          "line": 46,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/plan-canvas-sessions.js#L46",
+          "snippet": "function openSessions()"
+        }
+      ],
+      "file": "hooks/hooks.json",
+      "verified": "static",
+      "network": false,
+      "network_detail": "",
+      "spawns_claude": false,
+      "spawns_other": [],
+      "can_block": false,
+      "blocks_when": "",
+      "async": false,
+      "metadata_id_note": "",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json#L139",
+      "wrapper": "Запуск: команда в hooks.json — это длинный `node -e \"…\"`, который находит корень плагина (CLAUDE_PLUGIN_ROOT или ~/.claude, ~/.claude/plugins/ecc… ) и подгружает scripts/hooks/plugin-hook-bootstrap.js; тот порождает дочерний `node` с нужным скриптом, передаёт ему stdin (JSON события), подменяет «эхо входа» на пустой stdout и всегда выходит с кодом дочернего процесса (ошибки самого бутстрапа — exit 0, т.е. fail-open)."
+    },
+    {
+      "id": "post:dispatcher:sync",
+      "event": "PostToolUse",
+      "matcher": ".*",
+      "profile_gate": "minimal|standard|strict (внутри — свои профили)",
+      "script": "scripts/hooks/posttooluse-dispatcher.js sync",
+      "line": 150,
+      "timeout_s": 30,
+      "what": "Синхронный диспетчер после КАЖДОГО инструмента: 8 подхуков в одном процессе — hookify (все профили), design-quality-check (frontend-файлы: подсказка про шаблонный дизайн), post-edit-accumulator (запоминает правленые .ts/.tsx/.js/.jsx для Stop), post-edit-console-warn (console.log в только что правленом файле), governance-capture (флаг), session-activity-tracker (журнал вызовов в metrics/tool-usage.jsonl), ecc-metrics-bridge (агрегат сессии для статуслайна) и ecc-context-monitor (внушает модели предупреждения об исчерпании контекста, расходах, «ползучем» числе файлов, зацикливании).",
+      "sub_hooks": [
+        {
+          "id": "post:hookify-runtime",
+          "profiles": "minimal,standard,strict",
+          "matcher": "*",
+          "what": "пользовательские hookify-правила (no-op без файлов)"
+        },
+        {
+          "id": "post:edit:design-quality-check",
+          "profiles": "standard,strict",
+          "matcher": "Edit|Write|MultiEdit",
+          "what": "для .astro/.css/.html/.jsx/.scss/.svelte/.tsx/.vue читает файл и печатает в stderr чек-лист «generic design» (Get started, grid-cols-3…)"
+        },
+        {
+          "id": "post:edit:accumulator",
+          "profiles": "standard,strict",
+          "matcher": "Edit|Write|MultiEdit",
+          "what": "дописывает путь правленого .ts/.tsx/.js/.jsx в $TMPDIR (macOS: /var/folders/…/T/)/ecc-edited-<session>.txt"
+        },
+        {
+          "id": "post:edit:console-warn",
+          "profiles": "standard,strict",
+          "matcher": "Edit",
+          "what": "читает правленый .ts/.js и предупреждает о console.log (до 5 строк)"
+        },
+        {
+          "id": "post:governance-capture",
+          "profiles": "standard,strict (+ECC_GOVERNANCE_CAPTURE=1)",
+          "matcher": "Bash|PowerShell|Write|Edit|MultiEdit",
+          "what": "см. pre:governance-capture"
+        },
+        {
+          "id": "post:session-activity-tracker",
+          "profiles": "standard,strict",
+          "matcher": "*",
+          "what": "ПИШЕТ ~/.claude/metrics/tool-usage.jsonl: на каждый вызов — инструмент, input_summary (≤220 симв., маска токенов), input_params_json (поля ≤160 симв.), output_summary, пути файлов и ПРЕВЬЮ ПАТЧЕЙ (diff-фрагменты до 6 строк); для git-проектов дёргает git (rev-parse/diff, таймаут 2,5 с)"
+        },
+        {
+          "id": "post:ecc-metrics-bridge",
+          "profiles": "minimal,standard,strict",
+          "matcher": "*",
+          "what": "поддерживает $TMPDIR (macOS: /var/folders/…/T/)/ecc-metrics-<session>.json (счётчики инструментов, файлов, стоимость из costs.jsonl, хеши последних вызовов для обнаружения зацикливания)"
+        },
+        {
+          "id": "post:ecc-context-monitor",
+          "profiles": "standard,strict",
+          "matcher": "*",
+          "what": "читает бридж и ВНУШАЕТ модели additionalContext при: контекст ≤35%/≤25%, стоимость сессии ≥$5/$10/$50, >20 правленых файлов, 5 одинаковых вызовов подряд; состояние в $TMPDIR (macOS: /var/folders/…/T/)/ecc-ctx-warn-<session>.json"
+        }
+      ],
+      "reads": [
+        "stdin (tool_input, tool_response)",
+        "правленые файлы (console-warn, design-check)",
+        "git (activity tracker)",
+        "~/.claude/metrics/costs.jsonl"
+      ],
+      "writes": [
+        "~/.claude/metrics/tool-usage.jsonl (standard+)",
+        "$TMPDIR (macOS: /var/folders/…/T/)/ecc-edited-<session>.txt",
+        "$TMPDIR (macOS: /var/folders/…/T/)/ecc-metrics-<session>.json",
+        "$TMPDIR (macOS: /var/folders/…/T/)/ecc-ctx-warn-<session>.json"
+      ],
+      "spawns_other": [
+        "git (только session-activity-tracker)"
+      ],
+      "can_block": false,
+      "risk": "medium",
+      "risk_why": "Постоянный локальный журнал tool-usage.jsonl содержит команды, пути и фрагменты патчей (маскируются лишь --token/Authorization/AKIA/ghp_/password=…); права по умолчанию 0644, ротации не найдено. Плюс инжекция текстов в контекст модели (context-monitor).",
+      "verified": "static + sandbox (tool-usage.jsonl, ecc-metrics-*.json созданы)",
+      "disable": "ECC_DISABLED_HOOKS=post:session-activity-tracker,post:ecc-context-monitor,post:ecc-metrics-bridge,post:edit:design-quality-check,post:edit:console-warn,post:edit:accumulator (по id); ECC_CONTEXT_MONITOR_COST_WARNINGS=off; весь диспетчер — post:dispatcher:sync",
+      "evidence": [
+        {
+          "file": "scripts/hooks/posttooluse-dispatcher.js",
+          "line": 34,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/posttooluse-dispatcher.js#L34",
+          "snippet": "const SYNC_HOOKS = ["
+        },
+        {
+          "file": "scripts/hooks/session-activity-tracker.js",
+          "line": 22,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/session-activity-tracker.js#L22",
+          "snippet": "tool-usage.jsonl"
+        },
+        {
+          "file": "scripts/hooks/session-activity-tracker.js",
+          "line": 618,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/session-activity-tracker.js#L618",
+          "snippet": "appendFile(… metrics … tool-usage.jsonl)"
+        },
+        {
+          "file": "scripts/hooks/ecc-context-monitor.js",
+          "line": 276,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/ecc-context-monitor.js#L276",
+          "snippet": "additionalContext: message"
+        }
+      ],
+      "file": "hooks/hooks.json",
+      "network": false,
+      "network_detail": "",
+      "spawns_claude": false,
+      "blocks_when": "",
+      "async": false,
+      "metadata_id_note": "",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json#L150",
+      "wrapper": "Запуск: команда в hooks.json — это длинный `node -e \"…\"`, который находит корень плагина (CLAUDE_PLUGIN_ROOT или ~/.claude, ~/.claude/plugins/ecc… ) и подгружает scripts/hooks/plugin-hook-bootstrap.js; тот порождает дочерний `node` с нужным скриптом, передаёт ему stdin (JSON события), подменяет «эхо входа» на пустой stdout и всегда выходит с кодом дочернего процесса (ошибки самого бутстрапа — exit 0, т.е. fail-open)."
+    },
+    {
+      "id": "post:dispatcher:async",
+      "event": "PostToolUse",
+      "matcher": ".*",
+      "profile_gate": "minimal|standard|strict (внутри — свои профили)",
+      "script": "scripts/hooks/posttooluse-dispatcher.js async",
+      "line": 160,
+      "timeout_s": 45,
+      "async": true,
+      "what": "Фоновый диспетчер после каждого инструмента (не задерживает ответ): post:bash:dispatcher (для Bash: журнал команд, подсказка после gh pr create, сообщение после npm run build), post:quality-gate (проверки форматирования правленого файла), post:observe:continuous-learning (выход инструмента → observations.jsonl, как pre:observe) и post:skill:track (запуск навыка → skill-runs.jsonl).",
+      "sub_hooks": [
+        {
+          "id": "post:bash:dispatcher",
+          "profiles": "minimal,standard,strict",
+          "matcher": "Bash",
+          "what": "внутри: post:bash:command-log-audit и post:bash:command-log-cost [standard+] — ДОПИСЫВАЮТ КАЖДУЮ Bash-команду в ~/.claude/bash-commands.log и ~/.claude/cost-tracker.log (с вычисткой --token, Authorization, AKIA/ASIA…, password=, ghp_/gho_/ghs_/github_pat_); post:bash:pr-created [standard+] — подсказка после `gh pr create`; post:bash:build-complete [standard+] — сообщение про `npm/pnpm/yarn build`"
+        },
+        {
+          "id": "post:quality-gate",
+          "profiles": "standard,strict",
+          "matcher": "Edit|Write|MultiEdit",
+          "what": "для .json/.md/.ts/.js: prettier --check (через node_modules/.bin или `npx prettier` — возможна загрузка из npm), biome check для не-JS; .go: gofmt (-w при ECC_QUALITY_GATE_FIX=true); .py: `ruff format --check` (если ruff в PATH). Правит файл ТОЛЬКО при ECC_QUALITY_GATE_FIX=true"
+        },
+        {
+          "id": "post:observe:continuous-learning",
+          "profiles": "standard,strict",
+          "matcher": "*",
+          "what": "observe.sh post: выход инструмента (≤5000 симв.) с маскировкой секретов → observations.jsonl"
+        },
+        {
+          "id": "post:skill:track",
+          "profiles": "standard,strict",
+          "matcher": "Skill",
+          "what": "пишет id навыка/версию/исход в ~/.claude/state/skill-runs.jsonl (идентификаторы ≤128 симв., без текста промптов)"
+        }
+      ],
+      "reads": [
+        "stdin",
+        "правленый файл (quality-gate)"
+      ],
+      "writes": [
+        "~/.claude/bash-commands.log",
+        "~/.claude/cost-tracker.log",
+        "~/.local/share/ecc-homunculus/projects/<id>/observations.jsonl",
+        "~/.claude/state/skill-runs.jsonl"
+      ],
+      "network": true,
+      "network_detail": "Косвенно и условно: `npx prettier` / `npx biome` в quality-gate могут скачать пакет из реестра npm, если форматтера нет в проекте (npx без --no-install). Собственных сетевых вызовов нет.",
+      "spawns_other": [
+        "prettier/biome/gofmt/ruff",
+        "bash+python3 (observe.sh)"
+      ],
+      "can_block": false,
+      "risk": "medium",
+      "risk_why": "Журнал ВСЕХ Bash-команд в открытом виде (дубль в двух файлах), без ротации, права 0644 — в команде могут быть пароли/ключи/URL с токенами вне шаблонов маскировки. Проверено в песочнице: Authorization/--token/password замаскированы, API-ключ вида sk-… в команде НЕ входит в шаблоны.",
+      "verified": "static + sandbox (bash-commands.log, cost-tracker.log, observations.jsonl, npx tsc→registry.npmjs.org в Stop)",
+      "disable": "ECC_DISABLED_HOOKS=post:bash:command-log-audit,post:bash:command-log-cost (журнал команд), post:observe:continuous-learning, post:quality-gate, post:skill:track; весь диспетчер — post:dispatcher:async",
+      "evidence": [
+        {
+          "file": "scripts/hooks/posttooluse-dispatcher.js",
+          "line": 54,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/posttooluse-dispatcher.js#L54",
+          "snippet": "const ASYNC_HOOKS = ["
+        },
+        {
+          "file": "scripts/hooks/bash-hook-dispatcher.js",
+          "line": 54,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/bash-hook-dispatcher.js#L54",
+          "snippet": "const POST_BASH_HOOKS = ["
+        },
+        {
+          "file": "scripts/hooks/post-bash-command-log.js",
+          "line": 13,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/post-bash-command-log.js#L13",
+          "snippet": "fileName: 'bash-commands.log'"
+        },
+        {
+          "file": "scripts/hooks/post-bash-command-log.js",
+          "line": 66,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/post-bash-command-log.js#L66",
+          "snippet": "appendLine(path.join(claudeConfigDir(), config.fileName), …)"
+        },
+        {
+          "file": "scripts/hooks/quality-gate.js",
+          "line": 131,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/quality-gate.js#L131",
+          "snippet": "exec('ruff', args)"
+        }
+      ],
+      "file": "hooks/hooks.json",
+      "spawns_claude": false,
+      "blocks_when": "",
+      "metadata_id_note": "",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json#L160",
+      "wrapper": "Запуск: команда в hooks.json — это длинный `node -e \"…\"`, который находит корень плагина (CLAUDE_PLUGIN_ROOT или ~/.claude, ~/.claude/plugins/ecc… ) и подгружает scripts/hooks/plugin-hook-bootstrap.js; тот порождает дочерний `node` с нужным скриптом, передаёт ему stdin (JSON события), подменяет «эхо входа» на пустой stdout и всегда выходит с кодом дочернего процесса (ошибки самого бутстрапа — exit 0, т.е. fail-open)."
+    },
+    {
+      "id": "post:mcp-health-check",
+      "event": "PostToolUseFailure",
+      "matcher": "^mcp__",
+      "profile_gate": "standard|strict",
+      "script": "scripts/hooks/mcp-health-check.js",
+      "line": 173,
+      "timeout_s": 0,
+      "what": "После ОШИБКИ MCP-вызова: по тексту ошибки (401/403/429/503/transport) помечает сервер unhealthy в ~/.claude/mcp-health-cache.json; при ECC_MCP_RECONNECT_ALLOW=1 пытается выполнить команду переподключения и повторно зондирует сервер (как pre:mcp-health-check).",
+      "reads": [
+        "stdin (текст ошибки)",
+        "MCP-конфиги (как выше)"
+      ],
+      "writes": [
+        "~/.claude/mcp-health-cache.json"
+      ],
+      "network": true,
+      "network_detail": "повторный HTTP GET/запуск сервера для известных из конфига MCP (как pre:mcp-health-check)",
+      "spawns_other": [
+        "команда переподключения из окружения (по умолчанию ВЫКЛ)"
+      ],
+      "risk": "medium",
+      "risk_why": "См. pre:mcp-health-check; срабатывает только при сбое MCP-вызова.",
+      "disable": "ECC_DISABLED_HOOKS=post:mcp-health-check",
+      "evidence": [
+        {
+          "file": "scripts/hooks/mcp-health-check.js",
+          "line": 598,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/mcp-health-check.js#L598",
+          "snippet": "probeCommandServer"
+        }
+      ],
+      "file": "hooks/hooks.json",
+      "verified": "static",
+      "spawns_claude": false,
+      "can_block": false,
+      "blocks_when": "",
+      "async": false,
+      "metadata_id_note": "",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json#L173",
+      "wrapper": "Запуск: команда в hooks.json — это длинный `node -e \"…\"`, который находит корень плагина (CLAUDE_PLUGIN_ROOT или ~/.claude, ~/.claude/plugins/ecc… ) и подгружает scripts/hooks/plugin-hook-bootstrap.js; тот порождает дочерний `node` с нужным скриптом, передаёт ему stdin (JSON события), подменяет «эхо входа» на пустой stdout и всегда выходит с кодом дочернего процесса (ошибки самого бутстрапа — exit 0, т.е. fail-open)."
+    },
+    {
+      "id": "post:skill:track",
+      "event": "PostToolUseFailure",
+      "matcher": "Skill",
+      "profile_gate": "standard|strict",
+      "script": "scripts/hooks/skill-run-tracker.js",
+      "line": 182,
+      "timeout_s": 0,
+      "what": "Фиксирует НЕУДАЧНЫЕ запуски навыков (Skill tool) для «здоровья навыков»: id, версия, исход — в ~/.claude/state/skill-runs.jsonl. (Успешные запуски пишет подхук post:skill:track в async-диспетчере.)",
+      "reads": [
+        "stdin"
+      ],
+      "writes": [
+        "~/.claude/state/skill-runs.jsonl (или SQLite state.db при наличии state-store)"
+      ],
+      "risk": "low",
+      "risk_why": "Только идентификаторы (charset-restricted, ≤128 симв.), текст промптов не сохраняется — по комментарию в коде; ваши собственные навыки (typesafe-triage и др.) тоже попадут в журнал.",
+      "disable": "ECC_DISABLED_HOOKS=post:skill:track",
+      "evidence": [
+        {
+          "file": "scripts/hooks/skill-run-tracker.js",
+          "line": 9,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/skill-run-tracker.js#L9",
+          "snippet": "recordSkillExecution … skill-runs.jsonl"
+        },
+        {
+          "file": "scripts/lib/skill-evolution/tracker.js",
+          "line": 29,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/lib/skill-evolution/tracker.js#L29",
+          "snippet": "'.claude','state','skill-runs.jsonl'"
+        }
+      ],
+      "file": "hooks/hooks.json",
+      "verified": "static",
+      "network": false,
+      "network_detail": "",
+      "spawns_claude": false,
+      "spawns_other": [],
+      "can_block": false,
+      "blocks_when": "",
+      "async": false,
+      "metadata_id_note": "",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json#L182",
+      "wrapper": "Запуск: команда в hooks.json — это длинный `node -e \"…\"`, который находит корень плагина (CLAUDE_PLUGIN_ROOT или ~/.claude, ~/.claude/plugins/ecc… ) и подгружает scripts/hooks/plugin-hook-bootstrap.js; тот порождает дочерний `node` с нужным скриптом, передаёт ему stdin (JSON события), подменяет «эхо входа» на пустой stdout и всегда выходит с кодом дочернего процесса (ошибки самого бутстрапа — exit 0, т.е. fail-open)."
+    },
+    {
+      "id": "stop:hookify-runtime",
+      "event": "Stop",
+      "matcher": ".*",
+      "profile_gate": "minimal|standard|strict",
+      "script": "scripts/hooks/hookify-runtime.js (через lifecycle-hook-bootstrap.js)",
+      "line": 193,
+      "timeout_s": 10,
+      "what": "Hookify для события Stop: правила проекта могут проверить последний ответ ассистента (last_assistant_message) и вернуть предупреждение/блок остановки.",
+      "reads": [
+        "stdin (last_assistant_message)",
+        "<проект>/.claude/hookify.*.local.md"
+      ],
+      "writes": [],
+      "can_block": true,
+      "blocks_when": "только пользовательское правило event: stop, action: block",
+      "risk": "low",
+      "risk_why": "no-op без правил.",
+      "disable": "ECC_DISABLED_HOOKS=stop:hookify-runtime",
+      "evidence": [
+        {
+          "file": "hooks/hooks.json",
+          "line": 193,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json#L193",
+          "snippet": "stop:hookify-runtime"
+        }
+      ],
+      "file": "hooks/hooks.json",
+      "verified": "static",
+      "network": false,
+      "network_detail": "",
+      "spawns_claude": false,
+      "spawns_other": [],
+      "async": false,
+      "metadata_id_note": "",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json#L193",
+      "wrapper": "Запуск: команда `node -e` находит корень плагина и грузит plugin-hook-bootstrap.js → lifecycle-hook-bootstrap.js <id> <скрипт> <профили> <таймаут_мс> → run-with-flags.js: проверка профиля/ECC_DISABLED_HOOKS → дочерний `node` со скриптом (дедлайн 30 с по умолчанию)."
+    },
+    {
+      "id": "stop:plan-canvas-pending",
+      "event": "Stop",
+      "matcher": ".*",
+      "profile_gate": "minimal|standard|strict",
+      "script": "scripts/hooks/plan-canvas-pending.js",
+      "line": 203,
+      "timeout_s": 0,
+      "what": "Если вы оставили отзыв в браузерном Plan Canvas, который агент ещё не получил, — блокирует остановку (decision: block) и подсовывает отзыв модели. Читает ~/.claude/plan-canvas/{sessions,server}.json и дергает ТОЛЬКО loopback 127.0.0.1:<порт> (таймаут 1 с). Без запущенного Plan Canvas сразу выходит.",
+      "reads": [
+        "~/.claude/plan-canvas/sessions.json, server.json"
+      ],
+      "writes": [
+        "~/.claude/plan-canvas/sessions.json (очистка доставленных отзывов, атомарно)"
+      ],
+      "network": true,
+      "network_detail": "только loopback 127.0.0.1 (локальный сервер Plan Canvas), внешних адресов нет",
+      "can_block": true,
+      "blocks_when": "есть недоставленный отзыв из Plan Canvas",
+      "risk": "low",
+      "risk_why": "Работает только при использовании Plan Canvas.",
+      "disable": "ECC_DISABLED_HOOKS=stop:plan-canvas-pending",
+      "evidence": [
+        {
+          "file": "scripts/hooks/plan-canvas-pending.js",
+          "line": 121,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/plan-canvas-pending.js#L121",
+          "snippet": "http.request({ host: LOOPBACK_HOST … })"
+        },
+        {
+          "file": "scripts/hooks/plan-canvas-pending.js",
+          "line": 262,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/plan-canvas-pending.js#L262",
+          "snippet": "decision: 'block'"
+        }
+      ],
+      "file": "hooks/hooks.json",
+      "verified": "static",
+      "spawns_claude": false,
+      "spawns_other": [],
+      "async": false,
+      "metadata_id_note": "",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json#L203",
+      "wrapper": "Запуск: команда `node -e` находит корень плагина и грузит plugin-hook-bootstrap.js → lifecycle-hook-bootstrap.js <id> <скрипт> <профили> <таймаут_мс> → run-with-flags.js: проверка профиля/ECC_DISABLED_HOOKS → дочерний `node` со скриптом (дедлайн 30 с по умолчанию)."
+    },
+    {
+      "id": "stop:format-typecheck",
+      "event": "Stop",
+      "matcher": ".*",
+      "profile_gate": "standard|strict",
+      "script": "scripts/hooks/stop-format-typecheck.js",
+      "line": 212,
+      "timeout_s": 300,
+      "what": "После ответа обрабатывает список .ts/.tsx/.js/.jsx, правленых за этот ответ (из ecc-edited-<session>.txt): ПЕРЕФОРМАТИРУЕТ их Biome/Prettier (`--write`, если в проекте найден конфиг форматтера) и запускает `npx tsc --noEmit` в каталоге с tsconfig.json; ошибки по правленым файлам печатает в stderr. Общий бюджет 270 с.",
+      "reads": [
+        "$TMPDIR/ecc-edited-<session>.txt",
+        "файлы проекта, tsconfig.json, конфиги prettier/biome"
+      ],
+      "writes": [
+        "ПРАВИТ исходные файлы проекта (форматтер --write)",
+        "удаляет ecc-edited-<session>.txt"
+      ],
+      "network": true,
+      "network_detail": "`npx prettier|biome|tsc`: если пакета нет локально, npx (в неинтерактивном режиме автоподтверждает) идёт в registry.npmjs.org. Проверено в песочнице: в проекте с tsconfig.json без typescript Stop-хук выполнил `npm exec tsc` и сделал GET https://registry.npmjs.org/tsc (заблокирован песочницей, ENOTFOUND, 3 попытки)",
+      "spawns_other": [
+        "biome|prettier --write",
+        "npx tsc --noEmit"
+      ],
+      "can_block": false,
+      "risk": "high",
+      "risk_why": "Автоматически ИЗМЕНЯЕТ файлы проекта без запроса и может скачивать/исполнять пакеты из npm; до 270 с задержки в конце ответа. Для проектов владельца (Python/Markdown/HTML) срабатывает только при JS/TS-правках.",
+      "verified": "static + sandbox (попытка обращения к registry.npmjs.org зафиксирована)",
+      "disable": "ECC_DISABLED_HOOKS=stop:format-typecheck; ECC_STOP_FORMAT_TYPECHECK_BUDGET_MS=…",
+      "evidence": [
+        {
+          "file": "scripts/hooks/stop-format-typecheck.js",
+          "line": 100,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/stop-format-typecheck.js#L100",
+          "snippet": "'check','--write' / '--write'"
+        },
+        {
+          "file": "scripts/hooks/stop-format-typecheck.js",
+          "line": 142,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/stop-format-typecheck.js#L142",
+          "snippet": "['tsc','--noEmit','--pretty','false']"
+        },
+        {
+          "file": "scripts/lib/resolve-formatter.js",
+          "line": 171,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/lib/resolve-formatter.js#L171",
+          "snippet": "prefix: […runner.prefix, pkg.pkgName] (npx <pkg>)"
+        }
+      ],
+      "file": "hooks/hooks.json",
+      "spawns_claude": false,
+      "blocks_when": "",
+      "async": false,
+      "metadata_id_note": "",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json#L212",
+      "wrapper": "Запуск: команда `node -e` находит корень плагина и грузит plugin-hook-bootstrap.js → lifecycle-hook-bootstrap.js <id> <скрипт> <профили> <таймаут_мс> → run-with-flags.js: проверка профиля/ECC_DISABLED_HOOKS → дочерний `node` со скриптом (дедлайн 30 с по умолчанию)."
+    },
+    {
+      "id": "stop:check-console-log",
+      "event": "Stop",
+      "matcher": ".*",
+      "profile_gate": "standard|strict",
+      "script": "scripts/hooks/check-console-log.js",
+      "line": 222,
+      "timeout_s": 0,
+      "what": "После ответа проверяет git-изменённые .js/.jsx/.ts/.tsx (кроме тестов, *.config.*, scripts/, __mocks__) на console.log и предупреждает в stderr.",
+      "reads": [
+        "git diff (список изменённых файлов)",
+        "содержимое этих файлов"
+      ],
+      "writes": [],
+      "spawns_other": [
+        "git (diff --name-only)"
+      ],
+      "risk": "low",
+      "risk_why": "Только предупреждение.",
+      "disable": "ECC_DISABLED_HOOKS=stop:check-console-log",
+      "evidence": [
+        {
+          "file": "scripts/hooks/check-console-log.js",
+          "line": 17,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/check-console-log.js#L17",
+          "snippet": "getGitModifiedFiles"
+        }
+      ],
+      "file": "hooks/hooks.json",
+      "verified": "static",
+      "network": false,
+      "network_detail": "",
+      "spawns_claude": false,
+      "can_block": false,
+      "blocks_when": "",
+      "async": false,
+      "metadata_id_note": "",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json#L222",
+      "wrapper": "Запуск: команда `node -e` находит корень плагина и грузит plugin-hook-bootstrap.js → lifecycle-hook-bootstrap.js <id> <скрипт> <профили> <таймаут_мс> → run-with-flags.js: проверка профиля/ECC_DISABLED_HOOKS → дочерний `node` со скриптом (дедлайн 30 с по умолчанию)."
+    },
+    {
+      "id": "stop:session-end",
+      "event": "Stop",
+      "matcher": ".*",
+      "profile_gate": "minimal|standard|strict",
+      "script": "scripts/hooks/session-end.js (через lifecycle-hook-bootstrap.js)",
+      "line": 231,
+      "timeout_s": 10,
+      "async": true,
+      "what": "После КАЖДОГО ответа сохраняет «снимок» сессии в ~/.claude/session-data/<дата>-<проект>-session.tmp: заголовок (проект, ветка, рабочая папка, репозиторий) + механическая сводка из транскрипта (последние ≤10 реплик пользователя по ≤200 симв., ≤20 использованных инструментов, ≤30 изменённых файлов). Если контекст почти исчерпан (<20% осталось) ИЛИ число пользовательских реплик кратно 50 (ECC_LLM_SUMMARY_INTERVAL) — дополнительно вызывает `claude --model haiku -p` и кладёт ответ как сводку (до ~90 с, но под дедлайном хука).",
+      "reads": [
+        "stdin (transcript_path)",
+        "транскрипт сессии (JSONL)",
+        "git (ветка/ремоут)"
+      ],
+      "writes": [
+        "~/.claude/session-data/<дата>-<проект>-session.tmp"
+      ],
+      "spawns_claude": true,
+      "spawns_other": [
+        "claude --model haiku -p (при низком контексте или каждой 50-й реплике; промпт через stdin)",
+        "git rev-parse"
+      ],
+      "network": true,
+      "network_detail": "Косвенно: вложенный claude -p → Anthropic API (токены вашего аккаунта)",
+      "risk": "high",
+      "risk_why": "ВКЛЮЧЁН ВО ВСЕХ ПРОФИЛЯХ, включая minimal. Текст переписки (до 7000 симв.: 25 последних реплик, без вычистки секретов) отправляется во вложенный сеанс claude -p; вложенный сеанс видит ваши ~/.claude настройки/хуки (по докам). Локальный файл-сводка хранит до 10 реплик пользователя (до 200 симв.) в открытом виде, права 0644, удаление >30 дней — при следующем SessionStart. Заявлен async+timeout 10 с: успеет ли claude -p за 10 с при реальном харнессе — не проверено.",
+      "verified": "static + sandbox (подставной claude: вызов при 50 репликах/контексте 15%; в промпте найдены api_key=… и password=… из реплики)",
+      "disable": "ECC_SKIP_LLM_SUMMARY=1 (только LLM-часть) или ECC_DISABLED_HOOKS=stop:session-end; ECC_LLM_SUMMARY_INTERVAL=100000; ECC_LLM_SUMMARY_MODEL=…",
+      "evidence": [
+        {
+          "file": "scripts/hooks/session-end.js",
+          "line": 253,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/session-end.js#L253",
+          "snippet": "getContextRemainingPct(transcriptPath)"
+        },
+        {
+          "file": "scripts/hooks/session-end.js",
+          "line": 255,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/session-end.js#L255",
+          "snippet": "ECC_LLM_SUMMARY_INTERVAL || '50'"
+        },
+        {
+          "file": "scripts/hooks/session-end.js",
+          "line": 261,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/session-end.js#L261",
+          "snippet": "llmSummary = generateSessionSummary(…)"
+        },
+        {
+          "file": "scripts/hooks/session-end.js",
+          "line": 242,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/session-end.js#L242",
+          "snippet": "…-session.tmp"
+        },
+        {
+          "file": "scripts/lib/llm-summary.js",
+          "line": 172,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/lib/llm-summary.js#L172",
+          "snippet": "spawnSync('claude', …)"
+        }
+      ],
+      "file": "hooks/hooks.json",
+      "can_block": false,
+      "blocks_when": "",
+      "metadata_id_note": "",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json#L231",
+      "wrapper": "Запуск: команда `node -e` находит корень плагина и грузит plugin-hook-bootstrap.js → lifecycle-hook-bootstrap.js <id> <скрипт> <профили> <таймаут_мс> → run-with-flags.js: проверка профиля/ECC_DISABLED_HOOKS → дочерний `node` со скриптом (дедлайн 30 с по умолчанию)."
+    },
+    {
+      "id": "stop:evaluate-session",
+      "event": "Stop",
+      "matcher": ".*",
+      "profile_gate": "minimal|standard|strict",
+      "script": "scripts/hooks/evaluate-session.js",
+      "line": 242,
+      "timeout_s": 10,
+      "async": true,
+      "what": "«Continuous learning v1»: считает пользовательские реплики в транскрипте и при ≥10 пишет в stderr «Session has N messages - evaluate for extractable patterns». САМ ничего не извлекает и не пишет (кроме mkdir ~/.claude/skills/learned) — это лишь напоминание.",
+      "reads": [
+        "транскрипт (подсчёт)",
+        "skills/continuous-learning/config.json"
+      ],
+      "writes": [
+        "~/.claude/skills/learned/ (mkdir)"
+      ],
+      "risk": "low",
+      "risk_why": "Фактически заглушка/логгер.",
+      "verified": "static + sandbox",
+      "disable": "ECC_DISABLED_HOOKS=stop:evaluate-session",
+      "evidence": [
+        {
+          "file": "scripts/hooks/evaluate-session.js",
+          "line": 96,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/evaluate-session.js#L96",
+          "snippet": "log('[ContinuousLearning] Session has … messages')"
+        }
+      ],
+      "file": "hooks/hooks.json",
+      "network": false,
+      "network_detail": "",
+      "spawns_claude": false,
+      "spawns_other": [],
+      "can_block": false,
+      "blocks_when": "",
+      "metadata_id_note": "",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json#L242",
+      "wrapper": "Запуск: команда `node -e` находит корень плагина и грузит plugin-hook-bootstrap.js → lifecycle-hook-bootstrap.js <id> <скрипт> <профили> <таймаут_мс> → run-with-flags.js: проверка профиля/ECC_DISABLED_HOOKS → дочерний `node` со скриптом (дедлайн 30 с по умолчанию)."
+    },
+    {
+      "id": "stop:cost-tracker",
+      "event": "Stop",
+      "matcher": ".*",
+      "profile_gate": "minimal|standard|strict",
+      "script": "scripts/hooks/cost-tracker.js",
+      "line": 253,
+      "timeout_s": 10,
+      "async": true,
+      "what": "Считает токены и оценочную стоимость сессии по usage в транскрипте (таблица тарифов в коде) и ДОПИСЫВАЕТ строку в ~/.claude/metrics/costs.jsonl + снимок cost-snapshots/session-<id>.json (хранится 30 дней, ≤512 снимков). Использует ТОЛЬКО локальные данные.",
+      "reads": [
+        "транскрипт сессии",
+        "$TMPDIR/harness-cost-<session>.json (если есть)"
+      ],
+      "writes": [
+        "~/.claude/metrics/costs.jsonl",
+        "~/.claude/metrics/cost-snapshots/session-<id>.json"
+      ],
+      "risk": "low",
+      "risk_why": "Хранит id сессии, путь к транскрипту, модель, токены и $-оценку; секретов нет. Тарифы зашиты в код (могут устареть).",
+      "verified": "static + sandbox",
+      "disable": "ECC_DISABLED_HOOKS=stop:cost-tracker",
+      "evidence": [
+        {
+          "file": "scripts/hooks/cost-tracker.js",
+          "line": 268,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/cost-tracker.js#L268",
+          "snippet": "metricsDir = path.join(getClaudeDir(), 'metrics')"
+        },
+        {
+          "file": "scripts/hooks/cost-tracker.js",
+          "line": 284,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/cost-tracker.js#L284",
+          "snippet": "appendSessionCostRow(…)"
+        }
+      ],
+      "file": "hooks/hooks.json",
+      "network": false,
+      "network_detail": "",
+      "spawns_claude": false,
+      "spawns_other": [],
+      "can_block": false,
+      "blocks_when": "",
+      "metadata_id_note": "",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json#L253",
+      "wrapper": "Запуск: команда `node -e` находит корень плагина и грузит plugin-hook-bootstrap.js → lifecycle-hook-bootstrap.js <id> <скрипт> <профили> <таймаут_мс> → run-with-flags.js: проверка профиля/ECC_DISABLED_HOOKS → дочерний `node` со скриптом (дедлайн 30 с по умолчанию)."
+    },
+    {
+      "id": "stop:desktop-notify",
+      "event": "Stop",
+      "matcher": ".*",
+      "profile_gate": "standard|strict",
+      "script": "scripts/hooks/desktop-notify.js",
+      "line": 264,
+      "timeout_s": 10,
+      "async": true,
+      "what": "После ответа показывает уведомление macOS (osascript display notification «Claude Code», либо OSC-9 в iTerm2/Ghostty) с ПЕРВОЙ СТРОКОЙ (≤100 симв.) последнего сообщения ассистента; на WSL — Windows-тост через BurntToast.",
+      "reads": [
+        "stdin (last_assistant_message)",
+        "ps/tty (для iTerm)"
+      ],
+      "writes": [
+        "запись управляющей последовательности в /dev/ttysNNN терминала (iTerm2/Ghostty)"
+      ],
+      "spawns_other": [
+        "osascript -e 'display notification …'",
+        "ps -o ppid=,tty= (поиск tty)"
+      ],
+      "risk": "low",
+      "risk_why": "Фрагмент ответа показывается в центре уведомлений ОС (виден на экране/в записях); вложенные сеансы claude -p (session-end) тоже вызовут Stop-хуки, т.е. возможны лишние уведомления — по коду, не проверено.",
+      "verified": "static + sandbox (подставной osascript вызван с первой строкой ответа)",
+      "disable": "ECC_DISABLED_HOOKS=stop:desktop-notify",
+      "evidence": [
+        {
+          "file": "scripts/hooks/desktop-notify.js",
+          "line": 192,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/desktop-notify.js#L192",
+          "snippet": "spawnSync('osascript', ['-e', script])"
+        }
+      ],
+      "file": "hooks/hooks.json",
+      "network": false,
+      "network_detail": "",
+      "spawns_claude": false,
+      "can_block": false,
+      "blocks_when": "",
+      "metadata_id_note": "",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json#L264",
+      "wrapper": "Запуск: команда `node -e` находит корень плагина и грузит plugin-hook-bootstrap.js → lifecycle-hook-bootstrap.js <id> <скрипт> <профили> <таймаут_мс> → run-with-flags.js: проверка профиля/ECC_DISABLED_HOOKS → дочерний `node` со скриптом (дедлайн 30 с по умолчанию)."
+    },
+    {
+      "id": "session:end:marker",
+      "event": "SessionEnd",
+      "matcher": ".*",
+      "profile_gate": "minimal|standard|strict",
+      "script": "scripts/hooks/session-end-marker.js",
+      "line": 277,
+      "timeout_s": 10,
+      "async": true,
+      "what": "Снимает «аренду» сессии у наблюдателя continuous-learning; если арендаторов не осталось — останавливает фоновый наблюдатель (kill по PID). Без включённого наблюдателя — просто удаляет маленький файл аренды.",
+      "reads": [
+        "~/.local/share/ecc-homunculus/projects/<id>/.observer-sessions/*.json, .observer.pid"
+      ],
+      "writes": [
+        "~/.local/share/ecc-homunculus/projects/<id>/.observer-sessions/<session>.json (удаление)"
+      ],
+      "spawns_other": [
+        "kill <pid наблюдателя> (если был запущен)"
+      ],
+      "risk": "low",
+      "risk_why": "Служебное.",
+      "verified": "static + sandbox",
+      "disable": "ECC_DISABLED_HOOKS=session:end:marker",
+      "evidence": [
+        {
+          "file": "scripts/hooks/session-end-marker.js",
+          "line": 33,
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/session-end-marker.js#L33",
+          "snippet": "removeSessionLease(observerContext, sessionId)"
+        }
+      ],
+      "file": "hooks/hooks.json",
+      "network": false,
+      "network_detail": "",
+      "spawns_claude": false,
+      "can_block": false,
+      "blocks_when": "",
+      "metadata_id_note": "",
+      "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json#L277",
+      "wrapper": "Запуск: команда `node -e` находит корень плагина и грузит plugin-hook-bootstrap.js → lifecycle-hook-bootstrap.js <id> <скрипт> <профили> <таймаут_мс> → run-with-flags.js: проверка профиля/ECC_DISABLED_HOOKS → дочерний `node` со скриптом (дедлайн 30 с по умолчанию)."
+    }
+  ],
+  "events": [
+    {
+      "event": "SessionStart",
+      "hooks_count": 2,
+      "what_happens": "1) session:start — каталоги, чистка старых сессий, контекст (прошлая сессия, навыки, instincts, тип проекта); 2) plan-canvas-sessions — список открытых ревью. Обе записи — на матчер .*. Порядок в hooks.json: session:start, затем plan-canvas."
+    },
+    {
+      "event": "UserPromptSubmit",
+      "hooks_count": 1,
+      "what_happens": "Только prompt:hookify-runtime (no-op без hookify-правил). Ничего не добавляет к вашему промпту. Ваши typesafe-triage/site-qa-audit/android-qa-audit — отдельные записи в вашем settings.json, ECC их не меняет."
+    },
+    {
+      "event": "PreToolUse",
+      "hooks_count": 10,
+      "what_happens": "Перед каждым инструментом по матчерам: Bash → pre:bash:dispatcher (block-no-verify, auto-tmux, GateGuard Bash…); Write → doc-file-warning; Edit|Write → suggest-compact; ВСЕ → pre:observe (async) и pre:hookify-runtime; Bash|Write|Edit… → governance-capture (флаг); Write|Edit|MultiEdit → config-protection; mcp__* → mcp-health-check; Edit|Write|MultiEdit|NotebookEdit → GateGuard (первая правка файла = deny); PowerShell → GateGuard-PS. Любой exit 2 (или permissionDecision=deny) отменяет вызов."
+    },
+    {
+      "event": "PostToolUse",
+      "hooks_count": 2,
+      "what_happens": "Два диспетчера на каждый инструмент: sync (30 с: hookify, design-check, accumulator, console-warn, governance, activity-tracker, metrics-bridge, context-monitor) и async (45 с: журнал Bash, quality-gate, observe, skill-track). Выводы нескольких подхуков сливаются в один additionalContext/решение."
+    },
+    {
+      "event": "PostToolUseFailure",
+      "hooks_count": 2,
+      "what_happens": "mcp__* → post:mcp-health-check (пометка сервера unhealthy, опц. переподключение); Skill → post:skill:track (неудачный запуск навыка)."
+    },
+    {
+      "event": "PreCompact",
+      "hooks_count": 1,
+      "what_happens": "pre:compact: лог + (при наличии файла сессии и транскрипта) вызов claude -p haiku для сводки перед сжатием контекста."
+    },
+    {
+      "event": "Stop",
+      "hooks_count": 8,
+      "what_happens": "После каждого ответа: hookify-stop, plan-canvas-pending (может заблокировать остановку), format-typecheck (форматирует и tsc по JS/TS, до 270 с), check-console-log, session-end (снимок сессии, иногда claude -p) [async], evaluate-session [async], cost-tracker [async], desktop-notify [async]."
+    },
+    {
+      "event": "SessionEnd",
+      "hooks_count": 1,
+      "what_happens": "session:end:marker: снять аренду сессии, остановить наблюдателя, если арендаторов не осталось."
+    },
+    {
+      "event": "SubagentStop / SubagentStart / Notification / PermissionRequest / InstructionsLoaded",
+      "hooks_count": 0,
+      "what_happens": "В hooks/hooks.json НЕ используются (хотя установщик умеет вмерживать эти события)."
+    }
+  ],
+  "auto_vs_manual": {
+    "automatic": [
+      {
+        "what": "Загрузка контекста прошлой сессии, выученных навыков и instincts в начало нового сеанса",
+        "trigger": "SessionStart (startup)",
+        "component": "session:start → scripts/hooks/session-start.js"
+      },
+      {
+        "what": "Блокировка git --no-verify и обхода git-хуков",
+        "trigger": "PreToolUse Bash (все профили)",
+        "component": "pre:bash:dispatcher → block-no-verify"
+      },
+      {
+        "what": "GateGuard: отказ в первой правке каждого файла и первой Bash-команде сессии, пока агент не изложит факты",
+        "trigger": "PreToolUse Edit/Write/MultiEdit/NotebookEdit и Bash (standard+)",
+        "component": "gateguard-fact-force.js"
+      },
+      {
+        "what": "Запрет менять существующие конфиги линтеров/форматтеров",
+        "trigger": "PreToolUse Write/Edit/MultiEdit (standard+)",
+        "component": "pre:config-protection"
+      },
+      {
+        "what": "Проверка здоровья MCP-сервера из ~/.claude.json перед вызовом (с запуском/пингом сервера), блок при сбое",
+        "trigger": "PreToolUse mcp__* (standard+)",
+        "component": "pre:mcp-health-check"
+      },
+      {
+        "what": "Журнал всех вызовов инструментов (observations.jsonl) для continuous-learning",
+        "trigger": "PreToolUse и PostToolUse, любой инструмент (standard+)",
+        "component": "pre:observe / post:observe:continuous-learning → observe.sh"
+      },
+      {
+        "what": "Журнал каждой Bash-команды в ~/.claude/bash-commands.log и cost-tracker.log",
+        "trigger": "PostToolUse Bash (standard+)",
+        "component": "post:bash:command-log-*"
+      },
+      {
+        "what": "Журнал каждого вызова инструмента в metrics/tool-usage.jsonl (с превью патчей)",
+        "trigger": "PostToolUse (standard+)",
+        "component": "post:session-activity-tracker"
+      },
+      {
+        "what": "Подсказки модели: /compact, предупреждения о контексте/стоимости/зацикливании",
+        "trigger": "PreToolUse Edit|Write и PostToolUse (standard+)",
+        "component": "suggest-compact, ecc-context-monitor"
+      },
+      {
+        "what": "Проверка форматирования правленых файлов (prettier/biome/gofmt/ruff — только check, пока не включён FIX)",
+        "trigger": "PostToolUse Edit|Write|MultiEdit (standard+, async)",
+        "component": "post:quality-gate"
+      },
+      {
+        "what": "Сводка перед сжатием контекста через claude -p (haiku)",
+        "trigger": "PreCompact (standard+)",
+        "component": "pre:compact"
+      },
+      {
+        "what": "Автоформатирование (prettier/biome --write) и npx tsc --noEmit по правленым JS/TS",
+        "trigger": "Stop (standard+)",
+        "component": "stop:format-typecheck"
+      },
+      {
+        "what": "Снимок сессии в ~/.claude/session-data; раз в 50 реплик или при контексте <20% — LLM-сводка через claude -p (haiku)",
+        "trigger": "Stop, КАЖДЫЙ ответ (ВСЕ профили, async)",
+        "component": "stop:session-end"
+      },
+      {
+        "what": "Учёт токенов и стоимости в metrics/costs.jsonl",
+        "trigger": "Stop (все профили, async)",
+        "component": "stop:cost-tracker"
+      },
+      {
+        "what": "Уведомление macOS с первой строкой ответа",
+        "trigger": "Stop (standard+, async)",
+        "component": "stop:desktop-notify"
+      },
+      {
+        "what": "Остановка фонового наблюдателя при закрытии последней сессии проекта",
+        "trigger": "SessionEnd",
+        "component": "session:end:marker"
+      },
+      {
+        "what": "Удаление файлов сессий ECC старше 30 дней",
+        "trigger": "SessionStart",
+        "component": "session-start.js: pruneExpiredSessions"
+      },
+      {
+        "what": "Правила проекта .claude/hookify.*.local.md (если вы их создадите)",
+        "trigger": "UserPromptSubmit / PreToolUse / PostToolUse / Stop (все профили)",
+        "component": "hookify-runtime"
+      }
+    ],
+    "manual": [
+      {
+        "what": "Slash-команды ecc (97 «shim»-команд: /plan, /tdd, /code-review …), навыки и агенты",
+        "how": "вызываются пользователем (/команда) или моделью по описанию навыка/агента; НИ ОДИН хук ECC их сам не запускает",
+        "component": "commands/, skills/, agents/ (подробности — в inventory.json)"
+      },
+      {
+        "what": "Установка/обновление/удаление/диагностика ECC",
+        "how": "npx ecc-universal setup | install | doctor | repair | list-installed | uninstall | auto-update",
+        "component": "scripts/ecc.js и подскрипты"
+      },
+      {
+        "what": "Фоновый «наблюдатель» continuous-learning (claude -p haiku анализирует observations.jsonl и пишет instincts)",
+        "how": "по умолчанию ВЫКЛ: нужно поставить observer.enabled=true в config.json и запустить start-observer.sh (или он стартует лениво из observe.sh при enabled=true)",
+        "component": "skills/continuous-learning-v2/agents/*.sh"
+      },
+      {
+        "what": "Plan Canvas — браузерное ревью планов (локальный сервер 127.0.0.1 + открытие браузера)",
+        "how": "ecc-plan-canvas open|await|end|stop <файл>",
+        "component": "scripts/plan-canvas.js"
+      },
+      {
+        "what": "Панели: control-pane (127.0.0.1:8765), dashboard-web (127.0.0.1:3456), tkinter ecc_dashboard.py, Rust ecc2 (alpha)",
+        "how": "ecc control-pane / node scripts/dashboard-web.js / python3 ecc_dashboard.py / cargo build в ecc2/",
+        "component": "scripts/control-pane.js, dashboard-web.js, ecc2/"
+      },
+      {
+        "what": "Общая память между харнессами (vault ~/.ecc/memory и <repo>/.ecc/memory) и MCP-сервер к ней",
+        "how": "ecc memory … ; ecc-memory-mcp (stdio MCP, прописывается вручную в mcp.json)",
+        "component": "scripts/memory.js, scripts/memory-mcp.mjs"
+      },
+      {
+        "what": "Автономные циклы: gan-harness.sh (planner/generator/evaluator на claude -p, до 15 итераций), claw.js (REPL вокруг claude -p), orchestrate-worktrees.js (tmux+worktree), orchestrate-codex-worker.sh",
+        "how": "ручной запуск скрипта или команды /gan-*, /orch-* (см. usage.json)",
+        "component": "scripts/gan-harness.sh, claw.js, orchestrate-*.js"
+      },
+      {
+        "what": "Опциональные интеграции: InsAIts-монитор (pip insa-its), AURA trust-check (GET agent.auraopenprotocol.org), Itô (RFQ GPU), Nasiko (скачивание CLI с registry.nasiko.dev), /astra-review (отправка диффа в OpenAI через Codex CLI)",
+        "how": "только по явной команде/настройке; ни один не подключён в hooks.json",
+        "component": "scripts/hooks/insaits-*, integrations/aura/, scripts/ito.js, nasiko.js, astra-review.js"
+      },
+      {
+        "what": "Статуслайн ECC (ecc-statusline.js) и hookify-правила",
+        "how": "прописать statusLine в settings.json вручную / создать .claude/hookify.<имя>.local.md",
+        "component": "scripts/hooks/ecc-statusline.js, hookify-runtime.js"
+      },
+      {
+        "what": "Обновление ECC",
+        "how": "в режиме плагина — механизм маркетплейсов Claude Code (`/plugin marketplace update`; авто-обновление маркетплейсов — настройка Claude Code, не ECC); в ручном — ecc auto-update (git pull)",
+        "component": "scripts/auto-update.js"
+      }
+    ]
+  },
+  "cli": [
+    {
+      "bin": "ecc (= ecc-universal)",
+      "file": "scripts/ecc.js",
+      "what": "Единая точка входа: диспетчер подкоманд.",
+      "commands": [
+        "setup (мастер плагина Claude; сеть через claude/git)",
+        "welcome",
+        "install (install-apply.js, мастер --guided)",
+        "plan / install-plan (чтение манифестов)",
+        "catalog",
+        "consult '<запрос>' (подбор компонентов, локально)",
+        "profile",
+        "control-pane (локальный веб-сервер 127.0.0.1:8765)",
+        "ito (вызов отдельной CLI Itô; может слать RFQ — сеть)",
+        "nasiko (скачать/проверить CLI с registry.nasiko.dev, SHA-256)",
+        "memory (vault ~/.ecc/memory)",
+        "list-installed",
+        "doctor",
+        "feedback (печатает ссылки, ничего не отправляет)",
+        "repair",
+        "auto-update (git fetch/pull)",
+        "status / sessions / work-items / session-inspect / loop-status (читают SQLite/транскрипты)",
+        "platform-audit (gh/git: очереди GitHub — сеть через gh)",
+        "security-ioc-scan (скан зависимостей на IOC)",
+        "uninstall"
+      ],
+      "network": true
+    },
+    {
+      "bin": "ecc-install",
+      "file": "scripts/install-apply.js",
+      "what": "Установщик по манифестам (то, что вызывает install.sh).",
+      "commands": [
+        "--profile/--modules/--with/--without/--skills/--locale/--config/--target/--enable-hooks/--no-hooks/--dry-run/--json"
+      ],
+      "network": false
+    },
+    {
+      "bin": "ecc-control-pane",
+      "file": "scripts/control-pane.js",
+      "what": "Локальная веб-панель ECC2 (loopback-guard: принимает только Host 127.0.0.1/localhost).",
+      "commands": [
+        "--host 127.0.0.1 --port 8765 --db <ecc2.db> --state-db <state.db>"
+      ],
+      "network": false
+    },
+    {
+      "bin": "ecc-memory-mcp",
+      "file": "scripts/memory-mcp.mjs",
+      "what": "stdio-MCP-сервер к vault памяти (сохранить/найти/прочитать память; vault: <repo>/.ecc/memory, ~/.ecc/memory). Запускается как MCP-сервер, если вы пропишете его в mcp.json (каталог mcp-configs: ecc-memory-vault).",
+      "commands": [
+        "JSON-RPC по stdio: save/search/read/doctor"
+      ],
+      "network": false
+    },
+    {
+      "bin": "ecc-plan-canvas",
+      "file": "scripts/plan-canvas.js",
+      "what": "Открывает артефакт плана в браузере (локальный отсоединённый сервер на 127.0.0.1) и ждёт отзыв человека.",
+      "commands": [
+        "open <файл>",
+        "await <файл> [--reply текст]",
+        "end <файл>",
+        "stop"
+      ],
+      "network": false
+    },
+    {
+      "bin": "(скрипт) scripts/gan-harness.sh",
+      "file": "scripts/gan-harness.sh",
+      "what": "GAN-подобный цикл planner→generator→evaluator: НЕСКОЛЬКО вызовов claude -p (модель sonnet по умолчанию, до 15 итераций, инструменты через --allowedTools), запуск dev-сервера (npm run dev) и оценка через Playwright MCP.",
+      "commands": [
+        "./scripts/gan-harness.sh \"описание\""
+      ],
+      "network": true
+    },
+    {
+      "bin": "(скрипт) scripts/claw.js",
+      "file": "scripts/claw.js",
+      "what": "REPL-обёртка над claude -p; хранит сессии в ~/.claude/claw/<имя>.md.",
+      "commands": [
+        "node scripts/claw.js"
+      ],
+      "network": true
+    },
+    {
+      "bin": "(скрипт) scripts/dashboard-web.js / ecc_dashboard.py",
+      "file": "scripts/dashboard-web.js",
+      "what": "Веб-/GUI-панель состояния (loopback 127.0.0.1:3456; ECC_DASHBOARD_HOST только loopback).",
+      "commands": [
+        "npm run dashboard:web",
+        "npm run dashboard"
+      ],
+      "network": false
+    },
+    {
+      "bin": "(Rust) ecc2",
+      "file": "ecc2/",
+      "what": "ECC 2.0 alpha: TUI/демон управления сессиями агентов (SQLite, git2, ureq). Собирается cargo вручную; может слать вебхуки уведомлений (Slack/Discord/…) на URL из ВАШЕГО конфига и запускать harness-CLI (claude, codex, gemini, opencode) как сессии.",
+      "commands": [
+        "cargo build",
+        "ecc2 …"
+      ],
+      "network": true
+    }
+  ],
+  "files_created": [
+    {
+      "path": "~/.claude/session-data/<YYYY-MM-DD>-<проект>-session.tmp",
+      "created_by": "stop:session-end (после каждого ответа), pre:compact",
+      "content": "Заголовок (проект, ветка, рабочая папка, репозиторий, время) + блок «Session Summary»: последние ≤10 реплик пользователя (по ≤200 симв.), инструменты (≤20), изменённые файлы (≤30), число реплик; либо LLM-сводка от claude -p; шаблон «Notes for Next Session». Подмешивается в следующий сеанс того же проекта.",
+      "sensitive": true,
+      "retention": "удаляется при SessionStart, если старше 30 дней (ECC_SESSION_RETENTION_DAYS=off отключает); права 0644 (umask)"
+    },
+    {
+      "path": "~/.claude/session-data/compaction-log.txt",
+      "created_by": "pre:compact",
+      "content": "строки «[время] Context compaction triggered»",
+      "sensitive": false,
+      "retention": "без ротации (растёт)"
+    },
+    {
+      "path": "~/.claude/metrics/costs.jsonl",
+      "created_by": "stop:cost-tracker",
+      "content": "по строке на ответ/сессию: время, session_id, путь транскрипта, модель, токены, estimated_cost_usd",
+      "sensitive": false,
+      "retention": "без ротации"
+    },
+    {
+      "path": "~/.claude/metrics/cost-snapshots/session-<id>.json",
+      "created_by": "stop:cost-tracker",
+      "content": "накопленная стоимость сессии (для статуслайна/монитора)",
+      "sensitive": false,
+      "retention": "чистка: старше 30 дней, не более 512 файлов"
+    },
+    {
+      "path": "~/.claude/metrics/tool-usage.jsonl",
+      "created_by": "post:session-activity-tracker (PostToolUse, standard+)",
+      "content": "по строке на КАЖДЫЙ вызов инструмента: инструмент, input_summary (≤220 симв.), input_params_json, output_summary, пути файлов, file_events с превью патчей (diff до 6 строк); частично маскируются --token, Authorization, AKIA/ASIA, password=, ghp_/gho_/ghs_/github_pat_",
+      "sensitive": true,
+      "retention": "без ротации (бесконечно растёт); права 0644"
+    },
+    {
+      "path": "~/.claude/bash-commands.log и ~/.claude/cost-tracker.log",
+      "created_by": "post:bash:command-log-audit / -cost (PostToolUse Bash, standard+)",
+      "content": "[время] <полная Bash-команда> (одна строка, переводы строк заменены); маскировка теми же шаблонами; cost-tracker.log дублирует с префиксом tool=Bash",
+      "sensitive": true,
+      "retention": "без ротации; права 0644"
+    },
+    {
+      "path": "~/.claude/mcp-health-cache.json",
+      "created_by": "pre/post:mcp-health-check",
+      "content": "статус MCP-серверов (healthy/unhealthy, время, текст ошибки ≤500 симв., источник конфига)",
+      "sensitive": false,
+      "retention": "перезаписывается"
+    },
+    {
+      "path": "~/.claude/state/skill-runs.jsonl",
+      "created_by": "post:skill:track",
+      "content": "id навыка, версия, исход, время (без текста промптов — по коду)",
+      "sensitive": false,
+      "retention": "без ротации"
+    },
+    {
+      "path": "~/.claude/skills/learned/ (каталог)",
+      "created_by": "session-start.js, evaluate-session.js (mkdir)",
+      "content": "пустой каталог для выученных навыков; их краткие описания подмешиваются в контекст при старте",
+      "sensitive": false,
+      "retention": "постоянно"
+    },
+    {
+      "path": "~/.claude/plan-canvas/{sessions,server}.json",
+      "created_by": "ecc-plan-canvas (только если используете)",
+      "content": "состояние браузерных ревью планов и порт сервера",
+      "sensitive": false,
+      "retention": "до команды end/stop"
+    },
+    {
+      "path": "~/.gateguard/state-<session>.json",
+      "created_by": "GateGuard (pre:bash dispatcher, pre:edit-write)",
+      "content": "список «уже проверенных» ключей (пути файлов, хеши деструктивных команд), счётчики",
+      "sensitive": false,
+      "retention": "удаляется при загрузке, если простой >30 мин (или >8 ч для явного session_id); до 50 ключей сессий"
+    },
+    {
+      "path": "~/.gateguard/metrics.jsonl (+ .1)",
+      "created_by": "GateGuard при GATEGUARD_METRICS=1",
+      "content": "коды решений (deny/credit/pass), класс файла, 12-символьный хеш сессии — без путей и содержимого",
+      "sensitive": false,
+      "retention": "ротация при 1 МБ; по умолчанию НЕ создаётся"
+    },
+    {
+      "path": "~/.local/share/ecc-homunculus/projects/<id>/observations.jsonl",
+      "created_by": "observe.sh (pre:observe, post:observe:continuous-learning)",
+      "content": "по строке на событие: время, tool_start/tool_complete, инструмент, сессия, проект; ВХОД (≤5000 симв.) или ВЫХОД (≤5000 симв.) инструмента с regex-маскировкой секретов; parse_error-запись хранит первые 2000 симв. сырого ввода (тоже с маскировкой)",
+      "sensitive": true,
+      "retention": "активный файл не истекает; при ≥10 МБ уезжает в observations.archive/, архивы observations-*.jsonl старше 30 дней удаляются (раз в сутки); права 0644"
+    },
+    {
+      "path": "~/.local/share/ecc-homunculus/projects.json и projects/<id>/{project.json,.observer-*,.last-purge,instincts/,evolved/}",
+      "created_by": "detect-project.sh / observer-sessions.js",
+      "content": "реестр проектов (id=хеш remote URL, имя, абсолютный путь корня, remote без кредов), аренды сессий, счётчики; каталоги instincts/ evolved/",
+      "sensitive": true,
+      "retention": "постоянно (путь и имя репозитория раскрывают структуру ваших проектов)"
+    },
+    {
+      "path": "$TMPDIR (macOS: /var/folders/…/T/)/claude-tool-count-<sid>, claude-context-bucket-<sid>, ecc-edited-<sid>.txt, ecc-metrics-<sid>.json, ecc-ctx-warn-<sid>.json, ecc-metrics-cost-warnings-*.json",
+      "created_by": "suggest-compact, post-edit-accumulator, ecc-metrics-bridge, ecc-context-monitor",
+      "content": "счётчики вызовов, список правленых JS/TS файлов, агрегаты сессии",
+      "sensitive": false,
+      "retention": "ОС чистит $TMPDIR; accumulator удаляется на Stop; счётчики — по COMPACT_STATE_TTL_DAYS"
+    },
+    {
+      "path": "~/.claude/settings.json (режим ручной установки)",
+      "created_by": "install-apply.js (update-claude-settings)",
+      "content": "27 записей hooks с id/description, абсолютные пути ~/.claude/… внутри команд",
+      "sensitive": false,
+      "retention": "до uninstall"
+    },
+    {
+      "path": "~/.claude/settings.json (ecc setup)",
+      "created_by": "setup.js / claude-plugin-setup.js",
+      "content": "pluginConfigs['ecc@ecc'].options{hooks_enabled,hook_profile}; includeCoAuthoredBy:false (если не было явной настройки)",
+      "sensitive": false,
+      "retention": "includeCoAuthoredBy НЕ откатывается при uninstall"
+    },
+    {
+      "path": "~/.claude/{rules/ecc,agents,commands,skills,scripts,hooks,mcp-configs,.pi,ecc}/** + AGENTS.md, plugin.json, marketplace.json, README.md, PLUGIN_SCHEMA_NOTES.md",
+      "created_by": "install.sh / install-apply.js (ручная установка)",
+      "content": "содержимое ECC (431…1207 файлов, до ~7–10 МБ) + install-state.json (0600) + ecc/state.db",
+      "sensitive": false,
+      "retention": "до uninstall; файлы вне install-state (созданные cp) не удаляются"
+    },
+    {
+      "path": "~/.claude/plugins/** (режим плагина)",
+      "created_by": "Claude Code (маркетплейс/кэш)",
+      "content": "клон репозитория и версия плагина",
+      "sensitive": false,
+      "retention": "до /plugin uninstall (и очистки кэша Claude Code)"
+    },
+    {
+      "path": "~/.ecc/memory/** и <repo>/.ecc/memory/** (создаёт .gitignore)",
+      "created_by": "ecc memory / ecc-memory-mcp / навык unified-memory (ручной запуск)",
+      "content": "markdown-записи памяти (project/team/user)",
+      "sensitive": true,
+      "retention": "постоянно"
+    },
+    {
+      "path": "~/.claude/claw/<имя>.md",
+      "created_by": "scripts/claw.js (ручной запуск)",
+      "content": "транскрипты сессий claw",
+      "sensitive": true,
+      "retention": "постоянно"
+    },
+    {
+      "path": "<cwd>/.insaits_audit_session.jsonl",
+      "created_by": "InsAIts-монитор (опционально, pip insa-its + ручная регистрация хука)",
+      "content": "аудит-события безопасности",
+      "sensitive": true,
+      "retention": "постоянно"
+    }
+  ],
+  "env_vars": [
+    {
+      "name": "ECC_HOOKS_ENABLED",
+      "effect": "false/0/off — отключает ВСЕ хуки ECC (проверено)",
+      "default": "true (также CLAUDE_PLUGIN_OPTION_HOOKS_ENABLED / ecc/setup.json → hooks.enabled)"
+    },
+    {
+      "name": "ECC_HOOK_PROFILE",
+      "effect": "minimal | standard | strict — какие хуки активны",
+      "default": "standard (также CLAUDE_PLUGIN_OPTION_HOOK_PROFILE)"
+    },
+    {
+      "name": "ECC_DISABLED_HOOKS",
+      "effect": "список id через запятую, которые пропускаются (id — как в аргументе run-with-flags, см. поле id; для pre:observe — именно «pre:observe»)",
+      "default": "пусто"
+    },
+    {
+      "name": "ECC_DRY_RUN",
+      "effect": "1 — хуки лишь печатают [DryRun] «выполнил бы…» в stderr (а repair/uninstall работают в режиме просмотра)",
+      "default": "0"
+    },
+    {
+      "name": "ECC_HOOK_CONFIG",
+      "effect": "путь к JSON с настройками хуков (иначе ecc/setup.json в корне плагина)",
+      "default": "—"
+    },
+    {
+      "name": "ECC_HOOK_INPUT_MAX_BYTES",
+      "effect": "лимит размера входа хука; при превышении GateGuard/mcp-health блокируют (fail-closed)",
+      "default": "1048576"
+    },
+    {
+      "name": "ECC_SKIP_LLM_SUMMARY",
+      "effect": "любое значение — отключает вызовы claude -p в session-end и pre-compact (остаётся механическая сводка)",
+      "default": "не задана"
+    },
+    {
+      "name": "ECC_LLM_SUMMARY_MODEL",
+      "effect": "модель для claude -p в сводках",
+      "default": "haiku"
+    },
+    {
+      "name": "ECC_LLM_SUMMARY_INTERVAL",
+      "effect": "каждые N пользовательских реплик делать LLM-сводку в Stop",
+      "default": "50"
+    },
+    {
+      "name": "ECC_LLM_SUMMARY_CONTEXT_THRESHOLD",
+      "effect": "% оставшегося контекста, ниже которого делается LLM-сводка",
+      "default": "20"
+    },
+    {
+      "name": "ECC_SESSION_RETENTION_DAYS",
+      "effect": "срок хранения *-session.tmp; off/0 — не чистить",
+      "default": "30"
+    },
+    {
+      "name": "ECC_SESSION_START_CONTEXT / ECC_SESSION_START_MAX_CHARS",
+      "effect": "off / 0 — не подмешивать контекст в начале сессии; лимит символов",
+      "default": "включено / 8000"
+    },
+    {
+      "name": "ECC_INSTINCT_CONFIDENCE_THRESHOLD / ECC_MAX_INJECTED_INSTINCTS",
+      "effect": "порог уверенности и число instincts, подмешиваемых при старте",
+      "default": "0.7 / 6"
+    },
+    {
+      "name": "ECC_GATEGUARD / GATEGUARD_DISABLED",
+      "effect": "off|0|false / 1 — отключить GateGuard целиком",
+      "default": "включён (standard+)"
+    },
+    {
+      "name": "GATEGUARD_BASH_ROUTINE_DISABLED",
+      "effect": "1 — не гейтить «рутинную» первую Bash-команду (деструктивные остаются)",
+      "default": "0"
+    },
+    {
+      "name": "GATEGUARD_EXEMPT_GLOBS",
+      "effect": "glob-пути, правки которых не гейтятся",
+      "default": "пусто"
+    },
+    {
+      "name": "GATEGUARD_FACT_FORCE_MAX_DENIALS",
+      "effect": "максимум отказов подряд, после чего пропускать",
+      "default": "не задан (без лимита)"
+    },
+    {
+      "name": "GATEGUARD_METRICS / GATEGUARD_STATE_DIR",
+      "effect": "1 — писать ~/.gateguard/metrics.jsonl; каталог состояния",
+      "default": "выкл / ~/.gateguard"
+    },
+    {
+      "name": "GATEGUARD_BASH_EXTRA_DESTRUCTIVE",
+      "effect": "доп. regex «деструктивных» команд",
+      "default": "—"
+    },
+    {
+      "name": "ECC_GOVERNANCE_CAPTURE",
+      "effect": "1 — включить governance-capture (события в stderr)",
+      "default": "выкл"
+    },
+    {
+      "name": "ECC_MCP_HEALTH_FAIL_OPEN",
+      "effect": "1 — не блокировать MCP-вызов при сбое пробы",
+      "default": "выкл (fail-closed)"
+    },
+    {
+      "name": "ECC_MCP_HEALTH_TIMEOUT_MS / ECC_MCP_HEALTH_STATE_PATH / ECC_MCP_CONFIG_PATH",
+      "effect": "таймаут пробы / файл кэша / пути конфигов MCP (список через :)",
+      "default": "5000 / ~/.claude/mcp-health-cache.json / 4 стандартных файла"
+    },
+    {
+      "name": "ECC_MCP_ALLOW_WORKSPACE_PROBE",
+      "effect": "1 — разрешить пробу MCP из .claude.json/.claude/settings.json РАБОЧЕЙ директории (иначе пропуск)",
+      "default": "выкл"
+    },
+    {
+      "name": "ECC_MCP_RECONNECT_ALLOW / ECC_MCP_RECONNECT_COMMAND / ECC_MCP_RECONNECT_<SERVER>",
+      "effect": "разрешить и задать команду переподключения MCP (исполняется без shell)",
+      "default": "выкл"
+    },
+    {
+      "name": "ECC_QUALITY_GATE_FIX / ECC_QUALITY_GATE_STRICT",
+      "effect": "true — quality-gate ПРАВИТ файлы (--write, gofmt -w, ruff format) / логирует провалы",
+      "default": "false / false"
+    },
+    {
+      "name": "ECC_STOP_FORMAT_TYPECHECK_BUDGET_MS",
+      "effect": "бюджет Stop-хука форматирования и tsc",
+      "default": "270000"
+    },
+    {
+      "name": "ECC_CONTEXT_MONITOR_COST_WARNINGS",
+      "effect": "off — не предупреждать о стоимости",
+      "default": "on"
+    },
+    {
+      "name": "COMPACT_THRESHOLD / COMPACT_CONTEXT_THRESHOLD / COMPACT_CONTEXT_INTERVAL / COMPACT_STATE_TTL_DAYS",
+      "effect": "пороги подсказки /compact (0 у контекстного — отключить)",
+      "default": "50 вызовов / 160k токенов (на окно 200k) / 60k / —"
+    },
+    {
+      "name": "ECC_PLAN_CANVAS_STATE_DIR / ECC_PLAN_CANVAS_STOP_SCOPE",
+      "effect": "каталог состояния Plan Canvas; scope=all — доставлять отзывы всех проектов",
+      "default": "~/.claude/plan-canvas / по cwd"
+    },
+    {
+      "name": "ECC_HOOKIFY_ALLOW_TRACKED",
+      "effect": "1 — разрешить hookify-правила, которые отслеживаются git",
+      "default": "выкл"
+    },
+    {
+      "name": "ECC_SKIP_OBSERVE",
+      "effect": "1 — observe.sh ничего не пишет",
+      "default": "0"
+    },
+    {
+      "name": "ECC_OBSERVE_SKIP_PATHS",
+      "effect": "подстроки cwd, в которых не наблюдаем",
+      "default": "observer-sessions,.claude-mem"
+    },
+    {
+      "name": "CLV2_HOMUNCULUS_DIR / XDG_DATA_HOME",
+      "effect": "каталог данных continuous-learning-v2",
+      "default": "~/.local/share/ecc-homunculus"
+    },
+    {
+      "name": "CLV2_CONFIG",
+      "effect": "путь к config.json наблюдателя (observer.enabled)",
+      "default": "config.json навыка (enabled=false)"
+    },
+    {
+      "name": "ECC_OBSERVER_MODEL / ECC_OBSERVER_MAX_TURNS / ECC_OBSERVER_TIMEOUT_SECONDS / ECC_OBSERVER_SIGNAL_EVERY_N",
+      "effect": "модель и лимиты фонового наблюдателя (если включён)",
+      "default": "haiku / 20–100 по объёму / 120 / 20"
+    },
+    {
+      "name": "ECC_AGENT_DATA_HOME / CLAUDE_CONFIG_DIR",
+      "effect": "корень данных ECC (session-data, metrics…) и конфиг-каталог Claude",
+      "default": "~/.claude"
+    },
+    {
+      "name": "ECC_DISABLED_MCPS",
+      "effect": "список MCP-серверов ECC, которые установка/синхронизация не добавляет (напр. chrome-devtools); это фильтр установки, не переключатель Claude",
+      "default": "пусто"
+    },
+    {
+      "name": "ECC_ENABLE_INSAITS",
+      "effect": "1 — включить InsAIts-монитор (если зарегистрирован вручную)",
+      "default": "выкл"
+    },
+    {
+      "name": "ECC_DASHBOARD_HOST",
+      "effect": "хост dashboard-web (принимается только loopback)",
+      "default": "127.0.0.1"
+    }
+  ],
+  "uninstall": {
+    "how": "Режим плагина: /plugin uninstall ecc@ecc (или claude plugin uninstall ecc@ecc --scope <scope> --keep-data); вручную удалить includeCoAuthoredBy:false из ~/.claude/settings.json, если его добавил ecc setup, и pluginConfigs['ecc@ecc'], если остались. Ручная установка: node scripts/uninstall.js --target claude [--dry-run] (или npx ecc-universal uninstall) — удаляет файлы из install-state.json и вынимает ECC-записи из hooks в settings.json по id; ваши хуки остаются (проверено в песочнице: settings.json после uninstall совпал с исходным). Откат на ходу: ECC_HOOKS_ENABLED=false (все хуки молча выходят), либо ECC_HOOK_PROFILE=minimal, либо точечно ECC_DISABLED_HOOKS=<id,…>, либо ecc setup --hooks off (плагин).",
+    "leaves_behind": [
+      "~/.claude/session-data/**, ~/.claude/metrics/**, ~/.claude/bash-commands.log, ~/.claude/cost-tracker.log, ~/.claude/mcp-health-cache.json, ~/.claude/state/skill-runs.jsonl, ~/.claude/skills/learned/ — данные, накопленные хуками (в install-state не значатся)",
+      "~/.gateguard/ (состояние GateGuard)",
+      "~/.local/share/ecc-homunculus/ (observations.jsonl, projects.json, instincts) — единственное место, где лежит журнал ВСЕХ вызовов инструментов; удалять вручную",
+      "~/.ecc/memory, <repo>/.ecc/memory, ~/.claude/claw (если пользовались)",
+      "$TMPDIR/ecc-*, claude-tool-count-* (чистит ОС)",
+      "includeCoAuthoredBy:false в ~/.claude/settings.json (если добавил ecc setup)",
+      "файлы, скопированные вручную cp (rules/ecc) и каталог ~/.claude/ecc/state.db (если создан) — проверьте после uninstall"
+    ]
+  },
+  "sandbox_runs": [
+    {
+      "what": "Сухой прогон установщика для четырёх профилей Claude-цели (+ без флага хуков)",
+      "command": "HOME=<tmp>/home TMPDIR=<tmp>/tmp sandbox-exec -f profile.sb node scripts/install-apply.js --target claude --profile minimal|core|developer|full [--enable-hooks] --dry-run --json  (профиль: (allow default)(deny network*)(deny file-write* вне песочницы))",
+      "result": "Планы построены: minimal=431 операция, core=699, developer=830, full=1207; в core/developer/full одна операция update-claude-settings (merge-hook-ids). Без флага хуков: предупреждение «Applying this plan requires an explicit hook decision: --enable-hooks or --no-hooks». Файлы НЕ записаны.",
+      "observed_writes": [
+        "(ничего)"
+      ],
+      "observed_network": "нет попыток (песочница deny network*)"
+    },
+    {
+      "what": "Реальная установка профиля core в изолированный пустой HOME с предварительным settings.json (permissions, includeCoAuthoredBy:true, theme, пользовательский UserPromptSubmit-хук)",
+      "command": "то же, но без --dry-run: --profile core --enable-hooks",
+      "result": "Записано 700 файлов (~6,8 МБ). settings.json: пользовательские ключи сохранены (permissions, includeCoAuthoredBy:true, theme, ваш UserPromptSubmit-хук), добавлено 27 ECC-хуков с id/description и абсолютным путём в base64 внутри команды. В конце установщик упал с «Missing dependency 'sql.js'» (в песочнице нет node_modules) — после копирования файлов и записи install-state.json, на этапе SQLite-синхронизации.",
+      "observed_writes": [
+        "~/.claude/{rules/ecc,agents,commands,skills,scripts,hooks,mcp-configs,.pi,ecc/install-state.json}",
+        "~/.claude/{AGENTS.md,plugin.json,marketplace.json,README.md,PLUGIN_SCHEMA_NOTES.md}",
+        "~/.claude/settings.json (слияние hooks)"
+      ],
+      "observed_network": "нет"
+    },
+    {
+      "what": "Удаление установки",
+      "command": "node scripts/uninstall.js --target claude (песочница)",
+      "result": "Все ECC-файлы и ecc/install-state.json удалены; settings.json идентичен исходному (diff по JSON пуст). В конце тоже ошибка «Cannot find module sql.js» (синхронизация SQLite), файлы к тому моменту уже были убраны.",
+      "observed_writes": [
+        "(удаления в ~/.claude песочницы)"
+      ],
+      "observed_network": "нет"
+    },
+    {
+      "what": "Прогон всех 27 команд из hooks/hooks.json с синтетическими событиями (SessionStart, UserPromptSubmit, PreToolUse Bash/Edit/mcp__, PostToolUse Bash/Edit, PostToolUseFailure, PreCompact, Stop, SessionEnd), профиль standard; в PATH подставлены ФЕЙКОВЫЕ claude и osascript (пишут аргументы и stdin в лог)",
+      "command": "scratchpad/run_hooks.py <sandbox> standard  (sandbox-exec; HOME и TMPDIR в песочнице; CLAUDE_PLUGIN_ROOT=копия ECC)",
+      "result": "SessionStart без node_modules: rc=1 «Cannot find module 'js-yaml'»; со стабом js-yaml — отработал. Первая Bash-команда и первая правка файла получили permissionDecision=deny (GateGuard). Stop: claude --model haiku -p вызван ОДИН раз (50 реплик, контекст 15%): в stdin ушли 25 последних реплик, включая строку пользователя с «api_key=sk-live-… password=hunter2…» без маскировки; osascript вызван с первой строкой ответа; npm exec tsc в проекте с tsconfig.json пытался GET https://registry.npmjs.org/tsc.",
+      "observed_writes": [
+        "~/.claude/bash-commands.log, cost-tracker.log",
+        "~/.claude/metrics/{costs.jsonl,tool-usage.jsonl,cost-snapshots/…}",
+        "~/.claude/session-data/<date>-proj-session.tmp, compaction-log.txt",
+        "~/.gateguard/state-<sid>.json",
+        "~/.local/share/ecc-homunculus/{projects.json, projects/<id>/observations.jsonl,…}",
+        "~/.npm/_logs/… (от npx)",
+        "$TMPDIR/{claude-tool-count-*,claude-context-bucket-*,ecc-metrics-*.json}"
+      ],
+      "observed_network": "попытка GET https://registry.npmjs.org/tsc (и /npm) от `npm exec tsc` из stop:format-typecheck — заблокирована песочницей (ENOTFOUND); иных попыток нет"
+    },
+    {
+      "what": "Тот же прогон, профиль minimal",
+      "command": "run_hooks.py <sandbox> minimal",
+      "result": "claude -p всё равно вызван 1 раз (session-end); osascript НЕ вызван; GateGuard и observe не сработали.",
+      "observed_writes": [
+        "~/.claude/metrics/costs.jsonl + cost-snapshots",
+        "~/.claude/session-data/*-session.tmp",
+        "$TMPDIR/ecc-metrics-*.json"
+      ],
+      "observed_network": "нет попыток"
+    },
+    {
+      "what": "PreCompact при наличии файла сессии",
+      "command": "pre:compact из hooks.json (sandbox)",
+      "result": "claude --model haiku -p вызван (1), результат записан в сессию между маркерами; в compaction-log.txt — строка.",
+      "observed_writes": [
+        "session-data/compaction-log.txt",
+        "session-data/*-session.tmp"
+      ],
+      "observed_network": "—"
+    },
+    {
+      "what": "Переключатели",
+      "command": "ECC_HOOKS_ENABLED=false; ECC_SKIP_LLM_SUMMARY=1; ECC_DISABLED_HOOKS с двумя вариантами id для observe",
+      "result": "ECC_HOOKS_ENABLED=false → ни файлов, ни вызовов claude/osascript; ECC_SKIP_LLM_SUMMARY=1 → 0 вызовов claude (остальное работает); ECC_DISABLED_HOOKS=pre:observe:continuous-learning,post:observe:continuous-learning → pre-запись наблюдений ПРОДОЛЖАЕТ работать (3 tool_start), а =pre:observe,post:observe:continuous-learning → журнала нет вообще.",
+      "observed_writes": [
+        "(см. выше)"
+      ],
+      "observed_network": "нет"
+    }
+  ],
+  "other_hook_surfaces": [
+    {
+      "path": ".claude-plugin/plugin.json",
+      "what": "манифест плагина: skills ./skills/, commands ./commands/, mcpServers {}, userConfig hooks_enabled/hook_profile; секции hooks в манифесте нет (hooks/hooks.json подхватывается по умолчанию)"
+    },
+    {
+      "path": ".mcp.json",
+      "what": "один MCP-коннектор chrome-devtools (npx -y chrome-devtools-mcp@1.10.1); запускается ли при включении плагина — не проверено"
+    },
+    {
+      "path": "hooks/codex-hooks.json, hooks/qoder-hooks.json",
+      "what": "по одному хуку SessionStart для Codex/Qoder (вызывают тот же scripts/hooks/session-start)"
+    },
+    {
+      "path": ".cursor/hooks.json + .cursor/hooks/*.js",
+      "what": "15 событий Cursor через adapter.js, переиспользуют scripts/hooks (для Claude Code не используются)"
+    },
+    {
+      "path": ".opencode/plugins/ecc-hooks.ts, .pi/extensions/hook-runtime.js, hooks/hermes/*.py",
+      "what": "аналоги хуков для OpenCode, pi, Hermes (config-protection, console-log); сетевых вызовов не найдено (grep fetch/http)"
+    },
+    {
+      "path": "hooks/memory-persistence/hooks.json",
+      "what": "справочное описание 6 событий памяти; боевой граф — hooks/hooks.json (в ссылке на него id отличаются: session:end vs stop:session-end)"
+    },
+    {
+      "path": "scripts/hooks/insaits-security-{monitor.py,wrapper.js}",
+      "what": "опциональный монитор InsAIts (pip insa-its, ECC_ENABLE_INSAITS=1) — НЕ подключён в hooks.json, регистрируется вручную; пишет .insaits_audit_session.jsonl; блокирует при критических находках"
+    },
+    {
+      "path": "scripts/hooks/ecc-statusline.js",
+      "what": "статуслайн (регистрируется вручную в settings.json → statusLine); читает мосты ecc-metrics-*.json"
+    },
+    {
+      "path": "scripts/hooks/{post-edit-format,post-edit-typecheck,pre-bash-dev-server-block,pre-write-doc-warn,context-prompt-suggestions,context-routing-index,cursor-session-env}.js",
+      "what": "скрипты есть в репозитории, но в hooks/hooks.json НЕ зарегистрированы (устаревшие/для других харнессов); после установки лежат в ~/.claude/scripts/hooks, но не вызываются"
+    },
+    {
+      "path": "integrations/aura/",
+      "what": "opt-in Python-адаптер проверки репутации контрагента: один GET на https://agent.auraopenprotocol.org/check?did=…; нигде не вызывается автоматически"
+    },
+    {
+      "path": "ecc2/",
+      "what": "Rust alpha (см. cli)"
+    }
+  ],
+  "owner_compat_notes": [
+    {
+      "owner_rule": "Режим Work: только стандартная библиотека Python, без pip/Node",
+      "ecc": "Хуки — Node.js ≥18 (node -e …); часть библиотек требует npm-пакеты (js-yaml, ajv, sql.js, @iarna/toml); observe.sh — bash+python3 (стандартная библиотека); форматирование/tsc — npx/npm",
+      "severity": "conflict",
+      "note": "В режиме Work без Node ни один хук не заработает (молча или с ошибкой); без node_modules падает SessionStart."
+    },
+    {
+      "owner_rule": "Co-Authored-By в коммитах (атрибуция Claude Code)",
+      "ecc": "ecc setup пишет includeCoAuthoredBy:false, если нет явной настройки; ручная установка этого ключа не трогает",
+      "severity": "medium",
+      "note": "Если в settings.json владельца нет ни includeCoAuthoredBy, ни attribution.*, строка Co-Authored-By будет выключена; при явном ключе ECC не перезапишет."
+    },
+    {
+      "owner_rule": "UserPromptSubmit-хуки typesafe-triage / site-qa-audit / android-qa-audit; SessionStart — superpowers",
+      "ecc": "ECC добавляет на UserPromptSubmit только prompt:hookify-runtime (no-op); на SessionStart — session:start и plan-canvas-sessions",
+      "severity": "ok",
+      "note": "Прямого конфликта нет; но вложенные claude -p ECC (session-end, pre-compact, наблюдатель) стартуют как отдельные сеансы и, по документации Claude Code, подтянут ваши хуки из settings.json (в т.ч. триаж-хук) — не проверено."
+    },
+    {
+      "owner_rule": "Haiku/fable только после подтверждения; Agent-модель по триажу",
+      "ecc": "claude -p --model haiku для сводок (ECC_LLM_SUMMARY_MODEL) и наблюдателя без вопросов; gan-harness — sonnet",
+      "severity": "medium",
+      "note": "Вызовы идут не через ваш триаж; отключаются ECC_SKIP_LLM_SUMMARY=1."
+    },
+    {
+      "owner_rule": "Любая доработка — в ветке; TASKS.md в корне проекта",
+      "ecc": "Файлы сессий пишутся в ~/.claude/session-data, а не в проект; doc-file-warning предупреждает про NOTES/TODO/… (TASKS.md не в списке)",
+      "severity": "ok",
+      "note": "TASKS.md не конфликтует; session-data — отдельная память ECC."
+    },
+    {
+      "owner_rule": "Не заканчивать, пока есть открытые пункты (автономная работа без лишних вопросов)",
+      "ecc": "GateGuard отклоняет первую правку каждого файла и первую Bash-команду сессии (deny + просьба изложить факты)",
+      "severity": "conflict",
+      "note": "Лишний круг на каждый файл; отключается ECC_GATEGUARD=off или GATEGUARD_EXEMPT_GLOBS."
+    }
+  ],
+  "key_findings": [
+    "В минимальном профиле тоже работают: загрузка прошлой сессии, запись снимка сессии после КАЖДОГО ответа и периодический вызов claude -p (haiku) с кусками переписки — отключается только ECC_SKIP_LLM_SUMMARY=1 или ECC_DISABLED_HOOKS=stop:session-end,pre:compact.",
+    "Текст переписки в промпт claude -p уходит без вычистки секретов (проверено подставным claude); журнал вызовов инструментов (observations.jsonl) и Bash-команд (bash-commands.log) копится на диске без ротации и с правами 0644; маскировка — regex-ами, неполная.",
+    "Собственных адресов в сеть у хуков нет (grep по scripts/hooks и scripts/lib); сеть возможна: 1) вложенный claude -p → Anthropic; 2) npx tsc/prettier/biome → registry.npmjs.org (проверено попыткой); 3) mcp-health-check → URL/процессы ваших MCP из ~/.claude.json; 4) loopback Plan Canvas.",
+    "Stop-хук stop:format-typecheck сам переформатирует JS/TS файлы (prettier/biome --write) и может скачивать пакеты; GateGuard блокирует первую правку каждого файла и первую Bash-команду сессии (проверено).",
+    "ecc setup пишет в settings.json includeCoAuthoredBy:false (если нет явной настройки); ручной install.sh вмерживает 27 хуков в settings.json (обратимо: uninstall проверен в песочнице).",
+    "Конфигурационная ошибка id: hooks.metadata.json называет хук pre:observe:continuous-learning, а в hooks.json — pre:observe; отключение по метаданному id не работает (проверено).",
+    "Marketplace-копия без npm install: SessionStart падает (js-yaml) — проверено на копии без node_modules; у установщика (sql.js) тоже; ECC об этом знает (missing-dependency.js)."
+  ],
+  "hooks_json_stats": {
+    "events": 8,
+    "entries": 27,
+    "async_entries": 6,
+    "inner_subhooks": {
+      "pre_bash": 6,
+      "post_sync": 8,
+      "post_async": 4,
+      "post_bash_inner": 4
+    },
+    "note": "27 записей hooks.json; реальных исполняемых «подхуков» — около 45 (с учётом диспетчеров); id в metadata.json совпадают по порядку с записями hooks.json, но не всегда с id в команде (pre:observe)"
+  },
+  "method_note": "Прочитан исходный код (статически) + запуски только в песочнице macOS (sandbox-exec: deny network*, запись только в временную папку, HOME/TMPDIR во временной папке; подставные claude/osascript для перехвата). Реальный ~/.claude не затрагивался. Ссылки пинованы на коммит b92f181. js-yaml в одном из прогонов подменён заглушкой (отмечено)."
+}
