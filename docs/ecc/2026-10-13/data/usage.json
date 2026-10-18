@@ -2372,7 +2372,7 @@
       },
       {
         "step": "5. Обезопасить TypeSafe-хук от вложенных вызовов",
-        "how": "В skills/typesafe-triage/scripts/typesafe_triage.py пропускать запрос, если os.environ.get('ECC_LLM_SUMMARY_SUBPROCESS')=='1' или ECC_SKIP_OBSERVE=='1' (метки, которые ECC ставит своим дочерним claude).",
+        "how": "В skills/typesafe-triage/scripts/typesafe_triage.py пропускать запрос, если os.environ.get('ECC_LLM_SUMMARY_SUBPROCESS')=='1' (метка, которую ECC ставит своему дочернему claude; ECC_SKIP_OBSERVE и ECC_SKIP_LLM_SUMMARY как метки не годятся — их ставят глобально, и триаж замолчал бы везде).",
         "why": "Иначе транскрипт сессии в составе промпта сводки уйдёт дайджестом в TypeSafe и будет оценён как «задача»."
       },
       {
@@ -2441,7 +2441,7 @@
       "ecc": "Вложенный `claude -p` из pre-compact/session-end (и наблюдателя) — это новый сеанс со всеми хуками пользователя; ECC передаёт ему ECC_SKIP_LLM_SUMMARY=1, ECC_LLM_SUMMARY_SUBPROCESS=1, CLAUDECODE=''",
       "owner": "typesafe-triage, site-qa-audit, android-qa-audit на UserPromptSubmit",
       "verdict": "conflict",
-      "advice": "Добавить в typesafe_triage.py пропуск при ECC_LLM_SUMMARY_SUBPROCESS=1/ECC_SKIP_OBSERVE=1; или ECC_SKIP_LLM_SUMMARY=1. Срабатывание хуков во вложенном -p — вывод по документации Claude Code, запуском не проверено."
+      "advice": "Добавить в typesafe_triage.py пропуск при ECC_LLM_SUMMARY_SUBPROCESS=1 (не по ECC_SKIP_OBSERVE — он глобальный); или ECC_SKIP_LLM_SUMMARY=1. Срабатывание хуков во вложенном -p — вывод по документации Claude Code, запуском не проверено."
     },
     {
       "area": "Режим Work (только stdlib Python)",

@@ -25,7 +25,7 @@ def main(argv=None):
     a = ap.parse_args(argv)
     data, out = Path(a.data), Path(a.out)
     rep = {"meta": {"title": "Разбор ECC (everything-claude-code)", "date": "2026-10-13", "commit": "b92f181b3b748d1abbc2afd94af6aa7d8c8fca29", "repo": "https://github.com/affaan-m/ECC"}}
-    for k in ("inventory", "runtime", "security", "graph", "usage", "web", "overview"):
+    for k in ("inventory", "runtime", "security", "graph", "usage", "web", "overview", "setup", "mechanics", "integration"):
         rep[k] = load(data / (k + ".json"), None)
     (out / "assets").mkdir(parents=True, exist_ok=True)
     datajs = "window.ECC = " + json.dumps(rep, ensure_ascii=False) + ";\n"
