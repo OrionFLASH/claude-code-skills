@@ -1,0 +1,1047 @@
+{
+  "date": "2026-10-18",
+  "ecc_commit": "b92f181b3b748d1abbc2afd94af6aa7d8c8fca29",
+  "ecc_version": "2.2.3",
+  "claude_code_version": "2.1.302",
+  "method_note": "Код ECC — копия коммита b92f181 (архив GitHub, совпадает файл-в-файл с копией координатора), установлены только 4 runtime-зависимости (npm ci --omit=dev --ignore-scripts) в КОПИЮ в песочнице. Хуки владельца — копии из репозитория (typesafe-triage совпадает с кэшем 2.9.3) и кэша плагинов (site-qa-audit 1.7.1, android-qa-audit 1.5.1, superpowers 6.4.2 synced). Все запуски — sandbox-exec ((deny network*), запись только во временную папку; проверено: curl → «Could not resolve host», touch вне папки → «Operation not permitted»), HOME/TMPDIR во временной папке, подменённые claude/npx/npm/osascript. Реальные ~/.claude, ~/.claude.json, settings.json не менялись; из ~/.claude.json прочитаны только имена и типы MCP-серверов, из журнала триажа — только поле ms (агрегаты скриптом). Документация — WebFetch code.claude.com/docs.",
+  "hook_interplay": [
+    {
+      "event": "UserPromptSubmit",
+      "owner_hooks": [
+        {
+          "source": "typesafe-triage 2.9.3 (python3 scripts/typesafe_triage.py --hook, timeout 10 с)",
+          "what": "заметка «ДЕЙСТВИЕ: сам | Agent(model, effort) | спросить» в additionalContext; дайджест запроса ≥40 знаков уходит в api.typesafe.ai",
+          "latency_note": "песочница без сети и без ключа (локальная эвристика): 72.0 мс медиана / 73.0 мс p95 (песочница); в реальной работе с TypeSafe — 845 мс медиана, 1612 мс p95 (журнал владельца ~/.claude/typesafe-triage/log.jsonl, n=355 заметок с source=typesafe, 2026-10-03…2026-10-18; посчитано скриптом по полю ms)"
+        },
+        {
+          "source": "site-qa-audit 1.7.1 (qa_force.py --hook, timeout 5 с)",
+          "what": "метка «!qa…» → строка «ЯВНЫЙ ВЫЗОВ»; без сети",
+          "latency_note": "20.9 мс медиана / 21.1 мс p95 (песочница)"
+        },
+        {
+          "source": "android-qa-audit 1.5.1 (qa_force.py --hook, timeout 5 с)",
+          "what": "то же для android-qa-audit; без сети",
+          "latency_note": "20.1 мс медиана / 20.4 мс p95 (песочница)"
+        }
+      ],
+      "ecc_hooks": [
+        {
+          "id": "prompt:hookify-runtime",
+          "profile": "minimal|standard|strict",
+          "what": "правила .claude/hookify.*.local.md проекта к тексту промпта; без правил — ничего не выводит (51.5 мс медиана / 52.7 мс p95 (песочница))"
+        }
+      ],
+      "order_and_output": "По документации все совпавшие хуки события запускаются параллельно; additionalContext каждого хука вставляется отдельным system reminder, который начинается с имени хука, значения нескольких хуков Claude получает все; промпт хук заменить не может (https://code.claude.com/docs/en/hooks). Порядок между источниками (плагин владельца / ECC) документацией не задан. ECC на этом событии контекст не добавляет, поэтому заметка триажа и строка qa_force попадают в контекст как раньше. Замер: 3 хука владельца параллельно 78.9 мс, вместе с ECC 80.5 мс (медианы, без сети) — критический путь задаёт триаж (в реальности ≈0,85 с из-за запроса в TypeSafe), node-хук ECC (≈51 мс) идёт параллельно.",
+      "conflicts": [
+        "Прямых конфликтов нет: ECC не меняет промпт и не пишет additionalContext.",
+        "Лишний процесс node на каждый промпт (CPU ≈51 мс) — в любом профиле, даже при ECC_HOOKS_ENABLED=false (хук всё равно запускается и выходит)."
+      ],
+      "verdict": "ok",
+      "advice": "Ничего не менять. Если hookify-правил в проектах нет — можно не обращать внимания."
+    },
+    {
+      "event": "SessionStart",
+      "owner_hooks": [
+        {
+          "source": "superpowers 6.4.2 (synced; hooks/run-hook.cmd session-start, matcher startup|clear|compact)",
+          "what": "вставляет весь SKILL.md using-superpowers (3192 символа) в обёртке EXTREMELY_IMPORTANT",
+          "latency_note": "53.9 мс медиана / 54.5 мс p95 (песочница)"
+        }
+      ],
+      "ecc_hooks": [
+        {
+          "id": "session:start",
+          "profile": "minimal|standard|strict",
+          "what": "каталоги ~/.claude/session-data, skills/learned; additionalContext до 8000 символов: сводка прошлой сессии проекта (≤7 дней), до 6 learned skills и instincts, тип проекта (126.1 мс медиана / 132.3 мс p95 (песочница))"
+        },
+        {
+          "id": "session-start:plan-canvas-sessions",
+          "profile": "standard|strict",
+          "what": "список открытых ревью Plan Canvas; без них — тишина"
+        }
+      ],
+      "order_and_output": "Параллельный запуск; оба additionalContext попадают в контекст (https://code.claude.com/docs/en/hooks). Замер старта: только superpowers 76.7 мс, с ECC standard 182.9 мс (медианы). Объём: 3192 символа superpowers + до 8000 символов ECC на каждый старт/clear/compact.",
+      "conflicts": [
+        "Две «вводные» на старте: superpowers требует проверять скилы перед любым ответом, ECC подмешивает память прошлой сессии и instincts — больше контекста и конкурирующие указания (оценка).",
+        "В копии плагина без node_modules SessionStart ECC падает с «Cannot find module 'js-yaml'» (runtime.json, проверено ранее); в этом замере зависимости установлены в копию, ошибок нет."
+      ],
+      "verdict": "needs-config",
+      "advice": "Если память сессий ECC не нужна — ECC_SESSION_START_CONTEXT=off (или ECC_DISABLED_HOOKS=session:start); superpowers оставить."
+    },
+    {
+      "event": "PreToolUse",
+      "owner_hooks": [],
+      "ecc_hooks": [
+        {
+          "id": "pre:bash:dispatcher",
+          "profile": "все (подхуки по профилям)",
+          "what": "block-no-verify, auto-tmux-dev, GateGuard для Bash и др."
+        },
+        {
+          "id": "pre:write:doc-file-warning",
+          "profile": "standard|strict",
+          "what": "подсказка про ad-hoc NOTES/TODO.md"
+        },
+        {
+          "id": "pre:edit-write:suggest-compact",
+          "profile": "standard|strict",
+          "what": "подсказка /compact по счётчику вызовов"
+        },
+        {
+          "id": "pre:observe",
+          "profile": "standard|strict",
+          "what": "async: вход инструмента → observations.jsonl (195.5 мс медиана / 198.3 мс p95 (песочница), в фоне)"
+        },
+        {
+          "id": "pre:governance-capture",
+          "profile": "standard|strict (+ECC_GOVERNANCE_CAPTURE=1)",
+          "what": "по умолчанию no-op"
+        },
+        {
+          "id": "pre:config-protection",
+          "profile": "standard|strict",
+          "what": "запрет правки существующих конфигов линтеров"
+        },
+        {
+          "id": "pre:mcp-health-check",
+          "profile": "standard|strict",
+          "what": "перед mcp__*: GET на URL http-сервера или запуск копии stdio-сервера; недоступен → блок"
+        },
+        {
+          "id": "pre:edit-write:gateguard-fact-force",
+          "profile": "standard|strict",
+          "what": "первая правка каждого файла сессии → deny с вопросами"
+        },
+        {
+          "id": "pre:hookify-runtime",
+          "profile": "все",
+          "what": "hookify-правила проекта"
+        },
+        {
+          "id": "pre:powershell:gateguard-fact-force",
+          "profile": "standard|strict",
+          "what": "Windows, на macOS не срабатывает"
+        }
+      ],
+      "order_and_output": "Хуков владельца на этом событии нет. Совпавшие хуки ECC идут параллельно; при разных решениях приоритет deny > defer > ask > allow, правила deny/ask из settings проверяются независимо от хука (https://code.claude.com/docs/en/hooks). Решение deny GateGuard отменяет вызов, модель получает причину.",
+      "conflicts": [
+        "GateGuard отклоняет первую правку каждого файла и первую Bash-команду сессии — лишний круг, противоречит автономной работе по CLAUDE.md владельца и режиму auto (runtime.json, проверено ранее).",
+        "mcp-health-check у владельца: user-level серверы figma, notion, hf-mcp-server (http) и TestSprite (stdio через npx …@latest) — перед их вызовом ECC сделает GET на их URL или запустит вторую копию TestSprite (npx может пойти в registry.npmjs.org); TestSprite сейчас не подключается — ECC пометит его unhealthy и будет блокировать вызовы (fail-closed, ECC_MCP_HEALTH_FAIL_OPEN не задан). Плагинные MCP (context7, playwright, marketing/pm) в этих файлах не найдутся — проверка пропускается (static)."
+      ],
+      "verdict": "needs-config",
+      "advice": "ECC_GATEGUARD=off (или GATEGUARD_EXEMPT_GLOBS); ECC_MCP_HEALTH_FAIL_OPEN=1 или ECC_DISABLED_HOOKS=pre:mcp-health-check,post:mcp-health-check."
+    },
+    {
+      "event": "PostToolUse",
+      "owner_hooks": [
+        {
+          "source": "typesafe-triage (triage_autofact.py, matcher Agent|Task, timeout 10 с)",
+          "what": "автозапись факта о субагенте в журнал проекта; без TYPESAFE_TRIAGE_AUTO_FACT=on сразу выходит; без сети",
+          "latency_note": "25.7 мс медиана / 27.3 мс p95 (песочница)"
+        }
+      ],
+      "ecc_hooks": [
+        {
+          "id": "post:dispatcher:sync",
+          "profile": "все (подхуки по профилям)",
+          "what": "8 подхуков в одном node: hookify, design-quality-check, accumulator, console-warn, governance, activity-tracker (tool-usage.jsonl), metrics-bridge, context-monitor"
+        },
+        {
+          "id": "post:dispatcher:async",
+          "profile": "все (подхуки по профилям)",
+          "what": "async: журнал Bash, quality-gate, observe, skill-track (183.9 мс медиана / 184.9 мс p95 (песочница), в фоне)"
+        }
+      ],
+      "order_and_output": "На Agent срабатывают оба (параллельно); ECC sync и autofact владельца пишут в разные места, выводы не пересекаются. Для остальных инструментов — только ECC.",
+      "conflicts": [
+        "Дублирование учёта: ECC session-activity-tracker тоже пишет каждый вызов Agent в ~/.claude/metrics/tool-usage.jsonl — разные хранилища, вреда нет."
+      ],
+      "verdict": "ok",
+      "advice": "Оставить; при желании тишины — ECC_HOOK_PROFILE=minimal (observe/activity в minimal не работают)."
+    },
+    {
+      "event": "SubagentStop",
+      "owner_hooks": [
+        {
+          "source": "typesafe-triage (triage_autofact.py)",
+          "what": "то же, что на PostToolUse Agent",
+          "latency_note": "26.0 мс медиана / 26.4 мс p95 (песочница)"
+        }
+      ],
+      "ecc_hooks": [],
+      "order_and_output": "ECC это событие не использует (hooks/hooks.json).",
+      "conflicts": [],
+      "verdict": "ok",
+      "advice": "—"
+    },
+    {
+      "event": "Stop",
+      "owner_hooks": [],
+      "ecc_hooks": [
+        {
+          "id": "stop:hookify-runtime",
+          "profile": "все",
+          "what": "hookify-правила для Stop"
+        },
+        {
+          "id": "stop:plan-canvas-pending",
+          "profile": "все",
+          "what": "может заблокировать остановку отзывом Plan Canvas (только loopback)"
+        },
+        {
+          "id": "stop:format-typecheck",
+          "profile": "standard|strict",
+          "what": "prettier/biome --write и npx tsc по правленым JS/TS (до 270 с)"
+        },
+        {
+          "id": "stop:check-console-log",
+          "profile": "standard|strict",
+          "what": "console.log в git-изменённых JS/TS"
+        },
+        {
+          "id": "stop:session-end",
+          "profile": "все",
+          "what": "async: снимок сессии в session-data; при <20% контекста или каждой 50-й реплике — claude --model haiku -p"
+        },
+        {
+          "id": "stop:evaluate-session",
+          "profile": "все",
+          "what": "async: напоминание в stderr"
+        },
+        {
+          "id": "stop:cost-tracker",
+          "profile": "все",
+          "what": "async: costs.jsonl"
+        },
+        {
+          "id": "stop:desktop-notify",
+          "profile": "standard|strict",
+          "what": "async: уведомление macOS с первой строкой ответа"
+        }
+      ],
+      "order_and_output": "Хуков владельца нет. Синхронные 4 хука ECC задерживают конец хода на 89.3 мс (медиана, standard, без JS/TS-правок); async — в фоне.",
+      "conflicts": [
+        "stop:format-typecheck сам переписывает JS/TS файлы форматтером — правки вне ветки/без ведома (runtime.json).",
+        "stop:session-end периодически запускает вложенный claude -p — в нём сработают хуки владельца (см. nested_claude)."
+      ],
+      "verdict": "needs-config",
+      "advice": "ECC_SKIP_LLM_SUMMARY=1; при нежелании автоформатирования — ECC_DISABLED_HOOKS=stop:format-typecheck; уведомления — stop:desktop-notify."
+    },
+    {
+      "event": "PreCompact",
+      "owner_hooks": [],
+      "ecc_hooks": [
+        {
+          "id": "pre:compact",
+          "profile": "standard|strict",
+          "what": "лог + claude --model haiku -p с последними ~25 репликами (≤7000 символов) перед сжатием"
+        }
+      ],
+      "order_and_output": "Синхронный хук без timeout в hooks.json (по документации — 600 с по умолчанию для command); вложенный claude -p — отдельная сессия со всеми хуками владельца.",
+      "conflicts": [
+        "Каждая компакция = вложенный claude -p → UserPromptSubmit-хук триажа владельца отправляет дайджест сводки в TypeSafe и добавляет заметку ДЕЙСТВИЕ в контекст haiku-сводчика (проверено в песочнице, см. nested_claude)."
+      ],
+      "verdict": "conflict",
+      "advice": "ECC_SKIP_LLM_SUMMARY=1 (или ECC_DISABLED_HOOKS=pre:compact,stop:session-end); и/или защита в typesafe_triage.py по ECC_LLM_SUMMARY_SUBPROCESS."
+    },
+    {
+      "event": "SessionEnd / PostToolUseFailure",
+      "owner_hooks": [],
+      "ecc_hooks": [
+        {
+          "id": "session:end:marker",
+          "profile": "все",
+          "what": "async: снять аренду наблюдателя"
+        },
+        {
+          "id": "post:mcp-health-check",
+          "profile": "standard|strict",
+          "what": "после ошибки mcp__* — пометка unhealthy"
+        },
+        {
+          "id": "post:skill:track",
+          "profile": "standard|strict",
+          "what": "неудачный запуск Skill → skill-runs.jsonl"
+        }
+      ],
+      "order_and_output": "Только ECC.",
+      "conflicts": [],
+      "verdict": "ok",
+      "advice": "—"
+    }
+  ],
+  "latency_measurements": {
+    "method": "sandbox-exec ((deny network*), запись только во временную папку), Apple M4 Max, Node v22.23.3, Python 3.14; каждая команда хука взята из hooks/hooks.json (подстановка ${CLAUDE_PLUGIN_ROOT}, запуск через /bin/bash -c, как shell-form) и получала синтетический JSON события на stdin (transcript из 24 строк, cwd — пустой проект с src/app.py). Сопоставление matcher как в Claude Code (список имён через | или regex). Повторов: 15 на сценарий после 1 прогрева (состояние сессии «устоявшееся»). ms_median/ms_p95 — стеночное время одновременного запуска всех СИНХРОННЫХ хуков события (Claude Code запускает совпавшие хуки параллельно, async не ждёт), для сценариев из двух событий — сумма. cpu_ms — суммарное CPU всех хуков, включая async. processes_spawned — нижняя граница: оболочка каждого хука + запуски node/python3/bash/git/osascript/claude/npx через PATH (шимы-счётчики, отдельный прогон N=1); утилиты coreutils не считались. Задержка самого Claude Code на запуск процесса хука не входит. Шум: у Edit standard/strict медианы 159/210 мс при одинаковом p95 ≈211 мс — двухмодальное распределение планировщика, разница профилей тут не значима.",
+    "runs": [
+      {
+        "scenario": "один вызов Bash: PreToolUse+PostToolUse",
+        "profile": "minimal",
+        "hooks_fired": 6,
+        "sync_hooks": 4,
+        "async_hooks": 2,
+        "ms_median": 116.5,
+        "ms_p95": 154.0,
+        "cpu_ms_all_hooks_median": 270.9,
+        "processes_spawned": 12
+      },
+      {
+        "scenario": "один вызов Bash: PreToolUse+PostToolUse",
+        "profile": "standard",
+        "hooks_fired": 6,
+        "sync_hooks": 4,
+        "async_hooks": 2,
+        "ms_median": 118.1,
+        "ms_p95": 152.5,
+        "cpu_ms_all_hooks_median": 541.5,
+        "processes_spawned": 32
+      },
+      {
+        "scenario": "один вызов Bash: PreToolUse+PostToolUse",
+        "profile": "strict",
+        "hooks_fired": 6,
+        "sync_hooks": 4,
+        "async_hooks": 2,
+        "ms_median": 117.7,
+        "ms_p95": 152.9,
+        "cpu_ms_all_hooks_median": 545.5,
+        "processes_spawned": 32
+      },
+      {
+        "scenario": "один вызов Bash: PreToolUse+PostToolUse",
+        "profile": "standard + ECC_HOOKS_ENABLED=false",
+        "hooks_fired": 6,
+        "sync_hooks": 4,
+        "async_hooks": 2,
+        "ms_median": 117.6,
+        "ms_p95": 119.6,
+        "cpu_ms_all_hooks_median": 266.8,
+        "processes_spawned": null
+      },
+      {
+        "scenario": "один вызов Bash: PreToolUse+PostToolUse",
+        "profile": "standard + хуки владельца",
+        "hooks_fired": 6,
+        "sync_hooks": 4,
+        "async_hooks": 2,
+        "ms_median": 119.4,
+        "ms_p95": 153.2,
+        "cpu_ms_all_hooks_median": 553.2,
+        "processes_spawned": null
+      },
+      {
+        "scenario": "один вызов Edit: PreToolUse+PostToolUse",
+        "profile": "minimal",
+        "hooks_fired": 8,
+        "sync_hooks": 6,
+        "async_hooks": 2,
+        "ms_median": 121.3,
+        "ms_p95": 153.2,
+        "cpu_ms_all_hooks_median": 364.5,
+        "processes_spawned": 16
+      },
+      {
+        "scenario": "один вызов Edit: PreToolUse+PostToolUse",
+        "profile": "standard",
+        "hooks_fired": 8,
+        "sync_hooks": 6,
+        "async_hooks": 2,
+        "ms_median": 159.0,
+        "ms_p95": 211.4,
+        "cpu_ms_all_hooks_median": 670.6,
+        "processes_spawned": 37
+      },
+      {
+        "scenario": "один вызов Edit: PreToolUse+PostToolUse",
+        "profile": "strict",
+        "hooks_fired": 8,
+        "sync_hooks": 6,
+        "async_hooks": 2,
+        "ms_median": 210.2,
+        "ms_p95": 211.4,
+        "cpu_ms_all_hooks_median": 680.1,
+        "processes_spawned": 37
+      },
+      {
+        "scenario": "один вызов Edit: PreToolUse+PostToolUse",
+        "profile": "standard + ECC_HOOKS_ENABLED=false",
+        "hooks_fired": 8,
+        "sync_hooks": 6,
+        "async_hooks": 2,
+        "ms_median": 121.7,
+        "ms_p95": 122.1,
+        "cpu_ms_all_hooks_median": 360.8,
+        "processes_spawned": null
+      },
+      {
+        "scenario": "один вызов Edit: PreToolUse+PostToolUse",
+        "profile": "standard + хуки владельца",
+        "hooks_fired": 8,
+        "sync_hooks": 6,
+        "async_hooks": 2,
+        "ms_median": 207.9,
+        "ms_p95": 212.3,
+        "cpu_ms_all_hooks_median": 683.2,
+        "processes_spawned": null
+      },
+      {
+        "scenario": "один вызов Read: PreToolUse+PostToolUse",
+        "profile": "minimal",
+        "hooks_fired": 4,
+        "sync_hooks": 2,
+        "async_hooks": 2,
+        "ms_median": 115.5,
+        "ms_p95": 149.3,
+        "cpu_ms_all_hooks_median": 172.6,
+        "processes_spawned": 8
+      },
+      {
+        "scenario": "один вызов Read: PreToolUse+PostToolUse",
+        "profile": "standard",
+        "hooks_fired": 4,
+        "sync_hooks": 2,
+        "async_hooks": 2,
+        "ms_median": 154.2,
+        "ms_p95": 154.4,
+        "cpu_ms_all_hooks_median": 448.4,
+        "processes_spawned": 29
+      },
+      {
+        "scenario": "один вызов Read: PreToolUse+PostToolUse",
+        "profile": "strict",
+        "hooks_fired": 4,
+        "sync_hooks": 2,
+        "async_hooks": 2,
+        "ms_median": 154.2,
+        "ms_p95": 154.5,
+        "cpu_ms_all_hooks_median": 451.3,
+        "processes_spawned": 29
+      },
+      {
+        "scenario": "один вызов Read: PreToolUse+PostToolUse",
+        "profile": "standard + ECC_HOOKS_ENABLED=false",
+        "hooks_fired": 4,
+        "sync_hooks": 2,
+        "async_hooks": 2,
+        "ms_median": 117.1,
+        "ms_p95": 117.2,
+        "cpu_ms_all_hooks_median": 167.0,
+        "processes_spawned": null
+      },
+      {
+        "scenario": "один вызов Read: PreToolUse+PostToolUse",
+        "profile": "standard + хуки владельца",
+        "hooks_fired": 4,
+        "sync_hooks": 2,
+        "async_hooks": 2,
+        "ms_median": 154.1,
+        "ms_p95": 154.3,
+        "cpu_ms_all_hooks_median": 453.3,
+        "processes_spawned": null
+      },
+      {
+        "scenario": "один вызов Agent (субагент): PostToolUse (+SubagentStop у владельца)",
+        "profile": "owner-only (без ECC)",
+        "hooks_fired": 2,
+        "sync_hooks": 2,
+        "async_hooks": 0,
+        "ms_median": 79.7,
+        "ms_p95": 80.0,
+        "cpu_ms_all_hooks_median": 45.5,
+        "processes_spawned": 4
+      },
+      {
+        "scenario": "один вызов Agent (субагент): PostToolUse (+SubagentStop у владельца)",
+        "profile": "minimal",
+        "hooks_fired": 2,
+        "sync_hooks": 1,
+        "async_hooks": 1,
+        "ms_median": 40.1,
+        "ms_p95": 73.2,
+        "cpu_ms_all_hooks_median": 72.6,
+        "processes_spawned": 4
+      },
+      {
+        "scenario": "один вызов Agent (субагент): PostToolUse (+SubagentStop у владельца)",
+        "profile": "standard",
+        "hooks_fired": 2,
+        "sync_hooks": 1,
+        "async_hooks": 1,
+        "ms_median": 40.2,
+        "ms_p95": 75.1,
+        "cpu_ms_all_hooks_median": 206.2,
+        "processes_spawned": 14
+      },
+      {
+        "scenario": "один вызов Agent (субагент): PostToolUse (+SubagentStop у владельца)",
+        "profile": "strict",
+        "hooks_fired": 2,
+        "sync_hooks": 1,
+        "async_hooks": 1,
+        "ms_median": 40.3,
+        "ms_p95": 74.5,
+        "cpu_ms_all_hooks_median": 210.4,
+        "processes_spawned": 14
+      },
+      {
+        "scenario": "один вызов Agent (субагент): PostToolUse (+SubagentStop у владельца)",
+        "profile": "standard + ECC_HOOKS_ENABLED=false",
+        "hooks_fired": 2,
+        "sync_hooks": 1,
+        "async_hooks": 1,
+        "ms_median": 40.1,
+        "ms_p95": 40.1,
+        "cpu_ms_all_hooks_median": 69.9,
+        "processes_spawned": null
+      },
+      {
+        "scenario": "один вызов Agent (субагент): PostToolUse (+SubagentStop у владельца)",
+        "profile": "standard + хуки владельца",
+        "hooks_fired": 4,
+        "sync_hooks": 3,
+        "async_hooks": 1,
+        "ms_median": 80.8,
+        "ms_p95": 114.0,
+        "cpu_ms_all_hooks_median": 255.4,
+        "processes_spawned": null
+      },
+      {
+        "scenario": "один запрос пользователя: UserPromptSubmit",
+        "profile": "owner-only (без ECC)",
+        "hooks_fired": 3,
+        "sync_hooks": 3,
+        "async_hooks": 0,
+        "ms_median": 78.9,
+        "ms_p95": 79.5,
+        "cpu_ms_all_hooks_median": 103.0,
+        "processes_spawned": 6
+      },
+      {
+        "scenario": "один запрос пользователя: UserPromptSubmit",
+        "profile": "minimal",
+        "hooks_fired": 1,
+        "sync_hooks": 1,
+        "async_hooks": 0,
+        "ms_median": 76.2,
+        "ms_p95": 77.0,
+        "cpu_ms_all_hooks_median": 50.4,
+        "processes_spawned": 2
+      },
+      {
+        "scenario": "один запрос пользователя: UserPromptSubmit",
+        "profile": "standard",
+        "hooks_fired": 1,
+        "sync_hooks": 1,
+        "async_hooks": 0,
+        "ms_median": 77.0,
+        "ms_p95": 77.1,
+        "cpu_ms_all_hooks_median": 51.0,
+        "processes_spawned": 2
+      },
+      {
+        "scenario": "один запрос пользователя: UserPromptSubmit",
+        "profile": "strict",
+        "hooks_fired": 1,
+        "sync_hooks": 1,
+        "async_hooks": 0,
+        "ms_median": 77.0,
+        "ms_p95": 77.1,
+        "cpu_ms_all_hooks_median": 51.3,
+        "processes_spawned": 2
+      },
+      {
+        "scenario": "один запрос пользователя: UserPromptSubmit",
+        "profile": "standard + ECC_HOOKS_ENABLED=false",
+        "hooks_fired": 1,
+        "sync_hooks": 1,
+        "async_hooks": 0,
+        "ms_median": 76.9,
+        "ms_p95": 77.2,
+        "cpu_ms_all_hooks_median": 49.8,
+        "processes_spawned": null
+      },
+      {
+        "scenario": "один запрос пользователя: UserPromptSubmit",
+        "profile": "standard + хуки владельца",
+        "hooks_fired": 4,
+        "sync_hooks": 4,
+        "async_hooks": 0,
+        "ms_median": 80.5,
+        "ms_p95": 81.9,
+        "cpu_ms_all_hooks_median": 157.3,
+        "processes_spawned": null
+      },
+      {
+        "scenario": "старт сессии: SessionStart",
+        "profile": "owner-only (без ECC)",
+        "hooks_fired": 1,
+        "sync_hooks": 1,
+        "async_hooks": 0,
+        "ms_median": 76.7,
+        "ms_p95": 76.9,
+        "cpu_ms_all_hooks_median": 47.4,
+        "processes_spawned": 2
+      },
+      {
+        "scenario": "старт сессии: SessionStart",
+        "profile": "minimal",
+        "hooks_fired": 2,
+        "sync_hooks": 2,
+        "async_hooks": 0,
+        "ms_median": 182.0,
+        "ms_p95": 184.2,
+        "cpu_ms_all_hooks_median": 178.6,
+        "processes_spawned": 5
+      },
+      {
+        "scenario": "старт сессии: SessionStart",
+        "profile": "standard",
+        "hooks_fired": 2,
+        "sync_hooks": 2,
+        "async_hooks": 0,
+        "ms_median": 133.3,
+        "ms_p95": 182.1,
+        "cpu_ms_all_hooks_median": 171.1,
+        "processes_spawned": 7
+      },
+      {
+        "scenario": "старт сессии: SessionStart",
+        "profile": "strict",
+        "hooks_fired": 2,
+        "sync_hooks": 2,
+        "async_hooks": 0,
+        "ms_median": 179.6,
+        "ms_p95": 184.7,
+        "cpu_ms_all_hooks_median": 175.8,
+        "processes_spawned": 7
+      },
+      {
+        "scenario": "старт сессии: SessionStart",
+        "profile": "standard + ECC_HOOKS_ENABLED=false",
+        "hooks_fired": 2,
+        "sync_hooks": 2,
+        "async_hooks": 0,
+        "ms_median": 78.2,
+        "ms_p95": 129.4,
+        "cpu_ms_all_hooks_median": 118.6,
+        "processes_spawned": null
+      },
+      {
+        "scenario": "старт сессии: SessionStart",
+        "profile": "standard + хуки владельца",
+        "hooks_fired": 3,
+        "sync_hooks": 3,
+        "async_hooks": 0,
+        "ms_median": 182.9,
+        "ms_p95": 184.6,
+        "cpu_ms_all_hooks_median": 223.6,
+        "processes_spawned": null
+      },
+      {
+        "scenario": "конец ответа: Stop",
+        "profile": "minimal",
+        "hooks_fired": 8,
+        "sync_hooks": 4,
+        "async_hooks": 4,
+        "ms_median": 78.3,
+        "ms_p95": 80.5,
+        "cpu_ms_all_hooks_median": 473.8,
+        "processes_spawned": 20
+      },
+      {
+        "scenario": "конец ответа: Stop",
+        "profile": "standard",
+        "hooks_fired": 8,
+        "sync_hooks": 4,
+        "async_hooks": 4,
+        "ms_median": 89.3,
+        "ms_p95": 95.0,
+        "cpu_ms_all_hooks_median": 518.7,
+        "processes_spawned": 22
+      },
+      {
+        "scenario": "конец ответа: Stop",
+        "profile": "strict",
+        "hooks_fired": 8,
+        "sync_hooks": 4,
+        "async_hooks": 4,
+        "ms_median": 95.4,
+        "ms_p95": 96.8,
+        "cpu_ms_all_hooks_median": 521.7,
+        "processes_spawned": 22
+      },
+      {
+        "scenario": "конец ответа: Stop",
+        "profile": "standard + ECC_HOOKS_ENABLED=false",
+        "hooks_fired": 8,
+        "sync_hooks": 4,
+        "async_hooks": 4,
+        "ms_median": 80.2,
+        "ms_p95": 80.7,
+        "cpu_ms_all_hooks_median": 375.5,
+        "processes_spawned": null
+      },
+      {
+        "scenario": "конец ответа: Stop",
+        "profile": "standard + хуки владельца",
+        "hooks_fired": 8,
+        "sync_hooks": 4,
+        "async_hooks": 4,
+        "ms_median": 94.4,
+        "ms_p95": 96.3,
+        "cpu_ms_all_hooks_median": 526.1,
+        "processes_spawned": null
+      }
+    ],
+    "owner_hooks_runs": [
+      {
+        "hook": "typesafe-triage UserPromptSubmit (песочница, без ключа: локальная эвристика)",
+        "ms_median": 72.0,
+        "ms_p95": 73.0,
+        "note": "запуск python3 + эвристика, без сети",
+        "verified": "sandbox"
+      },
+      {
+        "hook": "typesafe-triage UserPromptSubmit (реальная работа, запрос в TypeSafe)",
+        "ms_median": 845,
+        "ms_p95": 1612,
+        "note": "из журнала владельца, поле ms, n=355, 2026-10-03…2026-10-18; при пропуске (служебные сообщения, короткие реплики) — медиана 0.0 мс, n=742",
+        "verified": "static"
+      },
+      {
+        "hook": "site-qa-audit qa_force UserPromptSubmit",
+        "ms_median": 20.9,
+        "ms_p95": 21.1,
+        "note": "без сети",
+        "verified": "sandbox"
+      },
+      {
+        "hook": "android-qa-audit qa_force UserPromptSubmit",
+        "ms_median": 20.1,
+        "ms_p95": 20.4,
+        "note": "без сети",
+        "verified": "sandbox"
+      },
+      {
+        "hook": "superpowers SessionStart",
+        "ms_median": 53.9,
+        "ms_p95": 54.5,
+        "note": "bash + чтение SKILL.md",
+        "verified": "sandbox"
+      },
+      {
+        "hook": "typesafe-triage triage_autofact PostToolUse(Agent)",
+        "ms_median": 25.7,
+        "ms_p95": 27.3,
+        "note": "AUTO_FACT выключен — ранний выход",
+        "verified": "sandbox"
+      },
+      {
+        "hook": "typesafe-triage triage_autofact SubagentStop",
+        "ms_median": 26.0,
+        "ms_p95": 26.4,
+        "note": "AUTO_FACT выключен — ранний выход",
+        "verified": "sandbox"
+      }
+    ],
+    "conclusion": "Каждый вызов инструмента с ECC получает ≈115–210 мс синхронных хуков (Bash 118.1 мс, Read 154.2 мс, Edit 159.0–210.2 мс медиана в standard) и 4–6 процессов node; в standard/strict дополнительно фоновый observe (bash+python3, ≈185–200 мс CPU на событие) — до ≈30–37 процессов на вызов. Профиль minimal почти не снижает задержку (Bash 116.5 мс, Read 115.5 мс), только CPU и число процессов. ECC_HOOKS_ENABLED=false (и, по коду, userConfig hooks_enabled=false — тот же флаг CLAUDE_PLUGIN_OPTION_HOOKS_ENABLED внутри node) задержку НЕ убирает: Claude Code всё равно запускает все 27 команд, node стартует и выходит (Bash 117.6 мс). Полностью убрать задержку можно только отключением плагина или disableAllHooks. На запрос пользователя ECC почти ничего не добавляет (хуки параллельны, триаж владельца ≈0,85 с остаётся самым долгим); старт сессии +≈100 мс; конец хода +≈90 мс. Порядок величины на сессию из 200 вызовов инструментов: ≈25–40 с суммарного ожидания (оценка: 200 × 0,12–0,2 с).",
+    "verified": "sandbox"
+  },
+  "nested_claude": {
+    "ecc_spawns": [
+      {
+        "hook": "stop:session-end (Stop, async)",
+        "command": "claude --model haiku -p  (промпт через stdin: последние 25 реплик, ≤7000 символов)",
+        "when": "контекста осталось < ECC_LLM_SUMMARY_CONTEXT_THRESHOLD (20%) или число реплик кратно ECC_LLM_SUMMARY_INTERVAL (50); профиль любой, включая minimal",
+        "env_markers": [
+          "ECC_LLM_SUMMARY_SUBPROCESS=1",
+          "ECC_SKIP_LLM_SUMMARY=1",
+          "CLAUDECODE= (пусто)"
+        ],
+        "evidence": [
+          "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/session-end.js#L249-L261",
+          "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/lib/llm-summary.js#L172-L180"
+        ]
+      },
+      {
+        "hook": "pre:compact (PreCompact, sync)",
+        "command": "claude --model haiku -p (тот же generateSessionSummary)",
+        "when": "каждая компакция при наличии файла сессии и транскрипта; профиль standard|strict",
+        "env_markers": [
+          "ECC_LLM_SUMMARY_SUBPROCESS=1",
+          "ECC_SKIP_LLM_SUMMARY=1",
+          "CLAUDECODE= (пусто)"
+        ],
+        "evidence": [
+          "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/pre-compact.js#L156",
+          "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/lib/llm-summary.js#L172-L180"
+        ]
+      },
+      {
+        "hook": "continuous-learning-v2 observer-loop.sh (не хук; фоновый процесс, по умолчанию выключен config.json enabled=false)",
+        "command": "claude --model haiku --max-turns N --print --allowedTools Read,Write -p <промпт с наблюдениями>",
+        "when": "только если включён наблюдатель: каждые ~5 минут при ≥20 наблюдениях",
+        "env_markers": [
+          "ECC_SKIP_OBSERVE=1",
+          "ECC_HOOK_PROFILE=minimal"
+        ],
+        "evidence": [
+          "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/continuous-learning-v2/agents/observer-loop.sh#L399-L401",
+          "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/continuous-learning-v2/config.json#L4"
+        ]
+      }
+    ],
+    "owner_hooks_in_nested_session": "СРАБОТАЮТ. Документация: без --bare «claude -p discovers and loads them as an interactive session would» — хуки, скилы, плагины, MCP, CLAUDE.md из ~/.claude (https://code.claude.com/docs/en/headless); в -p/SDK-сессии папка считается доверенной и хуки запускаются без диалога (https://code.claude.com/docs/en/hooks). ECC вызывает claude без --bare и без --settings '{\"disableAllHooks\":true}', поэтому во вложенной сессии отработают: superpowers SessionStart (+3192 символа), session:start самого ECC (+до 8000 символов: ECC_LLM_SUMMARY_SUBPROCESS проверяет только session-end.js), и UserPromptSubmit владельца — typesafe-triage, site-qa-audit, android-qa-audit. Это совпадает с собственной проверкой владельца: references/superpowers.md — «Хук в дочернем claude -p … срабатывал бы (проверено)». Что делает typesafe_triage.py: защита от рекурсии есть только для своего --run (TYPESAFE_TRIAGE_CHILD=1, строка L1613), плюс выключатели TYPESAFE_TRIAGE=off и файл .typesafe-triage-off (L1240) и пропуск служебных сообщений по префиксам [SYSTEM/[Subagent/… (L1251), коротких (<40 знаков), команд /… (L1287). Промпт ECC («Below is a conversation log from a Claude Code coding session…») ни под одно правило не попадает (skip_reason = None, проверено). Маркеры ECC (ECC_LLM_SUMMARY_SUBPROCESS, ECC_SKIP_OBSERVE) код не знает; CLAUDECODE ECC обнуляет. Песочница: хук на этом промпте попытался обратиться к TypeSafe (в журнале «TypeSafe недоступен (URLError)» — сеть запрещена песочницей), замаскировал перед отправкой пароль ×1 и ключ API ×1 (в дайджест 2185 знаков подставной ключ и пароль не попали), записал решение в свой журнал (первые 200 символов) и вернул в контекст haiku-сводчика заметку на 946 символов «ДЕЙСТВИЕ: Agent(model=opus, effort=xhigh)…». В реальности: +1 запрос в api.typesafe.ai (≈0,85 с, токены TypeSafe) на каждую LLM-сводку ECC, лишняя запись в журнал триажа, искажение статистики (--report), и чужая инструкция внутри сводчика; при permissions.defaultMode=auto владельца сводчик теоретически может попытаться вызвать Agent на opus (не проверено: claude был подменён). С TYPESAFE_TRIAGE_CHILD=1 хук молчит (проверено: 0 байт вывода). Как поправить в коде владельца: в run_hook() сразу после проверки CHILD_ENV выходить, если задан ECC_LLM_SUMMARY_SUBPROCESS=1 или ECC_SKIP_OBSERVE=1, а лучше — общий список переменных-маркеров служебных запусков (например, TYPESAFE_TRIAGE_SKIP_ENV) и пропуск, если вход хука не из интерактивной сессии; добавить в skip_reason префикс «Below is a conversation log from a Claude Code» как служебный. Через ECC: ECC_SKIP_LLM_SUMMARY=1 (в env settings.json) полностью убирает вложенные claude -p сводок (проверено ранее, runtime.json); наблюдатель не включать. Через Claude Code: ECC не даёт задать флаги вызова (--bare/--settings), поэтому только правкой ECC — не рекомендуется.",
+    "evidence": [
+      "https://code.claude.com/docs/en/headless",
+      "https://code.claude.com/docs/en/hooks",
+      "skills/typesafe-triage/scripts/typesafe_triage.py#L1613 (CHILD_ENV — единственная защита от вложенного запуска)",
+      "skills/typesafe-triage/scripts/typesafe_triage.py#L1240 (switched_off: TYPESAFE_TRIAGE=off / .typesafe-triage-off)",
+      "skills/typesafe-triage/scripts/typesafe_triage.py#L1251 (HARNESS_PREFIXES) и #L1287 (skip_reason)",
+      "skills/typesafe-triage/scripts/typesafe_triage.py#L119 (API_URL https://api.typesafe.ai/v1/systemone) и #L475 (ask_typesafe: POST с Bearer-ключом)",
+      "skills/typesafe-triage/references/superpowers.md#L20 (владелец проверял: хук срабатывает в дочернем claude -p)",
+      "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/lib/llm-summary.js#L172-L180",
+      "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/hooks/session-end.js#L196-L203",
+      "песочница: typesafe_triage.py --hook на промпте сводки ECC (2221 знак, с подставными password/api_key) → note opus/xhigh, source=heuristic, reason «TypeSafe недоступен (URLError)», secrets {token:1,password:1, withheld:false}; с TYPESAFE_TRIAGE_CHILD=1 — пустой вывод"
+    ],
+    "verified": "sandbox + static + docs"
+  },
+  "claude_code_mechanics": [
+    {
+      "topic": "как отключить отдельные скилы/агенты/команды плагина",
+      "answer": "Плагин включается/выключается целиком (enabledPlugins, /plugin, claude plugin disable). skillOverrides («off»/«name-only») на скилы плагинов НЕ действует: «Plugin skills are not affected by skillOverrides» — управлять через /plugin. Отдельный агент можно запретить правилом permissions.deny Agent(<имя>) (работает для встроенных и пользовательских; для плагинных — scoped-имя ecc:<агент>, явного примера для плагинов в документации нет). Отдельный скил — правило permissions.deny Skill(<имя>) (документирован синтаксис; что оно покрывает плагинные скилы — явно не сказано). Ключей вида disabledSkills/pluginComponentOverrides в справочнике настроек нет.",
+      "doc_url": "https://code.claude.com/docs/en/skills ; https://code.claude.com/docs/en/sub-agents ; https://code.claude.com/docs/en/settings-reference",
+      "exact_setting": "{\"permissions\":{\"deny\":[\"Agent(ecc:planner)\",\"Skill(ecc:tdd-workflow *)\"]}}  — синтаксис Agent()/Skill() по документации; применимость к плагинным именам не проверена",
+      "verified": "docs"
+    },
+    {
+      "topic": "как отключить хуки плагина целиком и по одному",
+      "answer": "Средствами Claude Code по одному — нельзя: «There is no way to disable an individual hook while keeping it in the configuration». Целиком — только выключив плагин или disableAllHooks (выключит и хуки владельца). Средствами ECC: userConfig hooks_enabled=false или ECC_HOOKS_ENABLED=false — хуки ничего не делают, но процессы node всё равно запускаются (замер: Bash-вызов 117,6 мс против 118,1 мс в standard); по одному — ECC_DISABLED_HOOKS=<id,…> (id как в run-with-flags; у наблюдателя именно pre:observe), профили ECC_HOOK_PROFILE=minimal|standard|strict.",
+      "doc_url": "https://code.claude.com/docs/en/hooks",
+      "exact_setting": "{\"env\":{\"ECC_HOOK_PROFILE\":\"minimal\",\"ECC_DISABLED_HOOKS\":\"pre:edit-write:gateguard-fact-force,pre:mcp-health-check,stop:format-typecheck\",\"ECC_SKIP_LLM_SUMMARY\":\"1\"}}",
+      "verified": "docs + sandbox"
+    },
+    {
+      "topic": "приоритет выбора модели субагента (Agent(model) vs frontmatter model vs CLAUDE_CODE_SUBAGENT_MODEL vs наследование)",
+      "answer": "Порядок: 1) параметр model при вызове Agent; 2) model во frontmatter агента (inherit = модель основной сессии); 3) CLAUDE_CODE_SUBAGENT_MODEL; 4) модель основной сессии. Исключения: model из хука agent.spawn мода заменяет параметр вызова; до v2.1.251 переменная стояла первой. CLAUDE_CODE_SUBAGENT_MODEL + CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1 (v2.1.257+) навязывает одну модель всем. effort: параметр effort вызова (v2.1.292+) > frontmatter effort > сессия; CLAUDE_CODE_EFFORT_LEVEL перекрывает всё.",
+      "doc_url": "https://code.claude.com/docs/en/sub-agents ; https://code.claude.com/docs/en/env-vars",
+      "exact_setting": "{\"env\":{\"CLAUDE_CODE_SUBAGENT_MODEL\":\"sonnet\"}}  (без _FORCE параметр Agent(model) и frontmatter сильнее)",
+      "verified": "docs"
+    },
+    {
+      "topic": "влияет ли frontmatter model агентов ECC на TypeSafe-триаж владельца",
+      "answer": "Если Claude выполняет заметку триажа и передаёт Agent(model=…) — побеждает параметр вызова, frontmatter ECC игнорируется. Если вызывает агента ECC без model (например, по описанию агента или из команды ECC) — берётся frontmatter: из 71 агента ECC 61 sonnet, 6 haiku (comment-analyzer, conversation-analyzer, docs-lookup, doc-updater, opensource-forker, opensource-packager), 4 opus (architect, healthcare-reviewer, planner, spec-miner); effort во frontmatter не задан ни у одного (посчитано скриптом). Значит, haiku может запуститься без подтверждения, вопреки правилу CLAUDE.md «haiku только после подтверждения». Сам хук триажа frontmatter не читает. Защита: CLAUDE_CODE_SUBAGENT_MODEL на frontmatter не действует (он ниже по приоритету) — только _FORCE=1 (тогда и триаж перестанет управлять моделью) или правило в CLAUDE.md «всегда указывать model у Agent».",
+      "doc_url": "https://code.claude.com/docs/en/sub-agents",
+      "exact_setting": "правило CLAUDE.md: для любого Agent, включая ecc:*, всегда передавать model по заметке триажа",
+      "verified": "docs + static"
+    },
+    {
+      "topic": "опции плагина userConfig (hooks_enabled, hook_profile у ecc@ecc) и где хранятся",
+      "answer": "Claude Code спрашивает userConfig при включении плагина; несекретные значения — в pluginConfigs пользовательского settings.json (scope User или managed), sensitive — в системном хранилище секретов. В хуки попадают переменными CLAUDE_PLUGIN_OPTION_<KEY> (CLAUDE_PLUGIN_OPTION_HOOKS_ENABLED, CLAUDE_PLUGIN_OPTION_HOOK_PROFILE), их и читает ECC (scripts/lib/hook-flags.js L69, L80). Менять позже — /plugin → Installed → Configure options или строки в /config (v2.1.269+). У ECC оба поля несекретные: hooks_enabled (boolean, true), hook_profile (string, standard; неверное значение → standard).",
+      "doc_url": "https://code.claude.com/docs/en/plugins-reference ; https://code.claude.com/docs/en/discover-plugins ; https://code.claude.com/docs/en/settings-reference",
+      "exact_setting": "{\"pluginConfigs\":{\"ecc@ecc\":{\"options\":{\"hooks_enabled\":true,\"hook_profile\":\"minimal\"}}}}  (точная вложенность ключа pluginConfigs — по runtime.json, в документации увидено только название ключа)",
+      "verified": "docs + static"
+    },
+    {
+      "topic": "изолированная пробная установка: CLAUDE_CONFIG_DIR, отдельный профиль, --plugin-dir, project-scope вместо user",
+      "answer": "1) CLAUDE_CONFIG_DIR=~/.claude-ecc claude — отдельный каталог настроек, истории и плагинов (пример алиаса есть в документации); туда же ECC пишет свои данные (ECC_AGENT_DATA_HOME/CLAUDE_CONFIG_DIR по коду), но ~/.local/share/ecc-homunculus и ~/.gateguard остаются общими. 2) claude --plugin-dir <путь к копии ECC> — плагин только на эту сессию (<name>@inline), без записи в enabledPlugins; хуки владельца при этом тоже работают. 3) claude plugin install ecc@ecc --scope project или --scope local — включение только в одном репозитории (.claude/settings.json или .claude/settings.local.json). Приоритет при нескольких scope: local > project > user.",
+      "doc_url": "https://code.claude.com/docs/en/env-vars ; https://code.claude.com/docs/en/plugins/cli-reference ; https://code.claude.com/docs/en/discover-plugins",
+      "exact_setting": "CLAUDE_CONFIG_DIR=~/.claude-ecc claude   |   claude --plugin-dir ./ECC   |   claude plugin install ecc@ecc --scope local",
+      "verified": "docs"
+    },
+    {
+      "topic": "бюджет списка скилов в контексте (лимит символов, усечение описаний)",
+      "answer": "Список имён и описаний скилов занимает 1% окна контекста (резерв 8000 символов); при переполнении Claude Code выкидывает описания, начиная с реже всего вызываемых скилов (имена остаются). Каждое описание+when_to_use режется до 1536 символов (skillListingMaxDescChars). Поднять бюджет — skillListingBudgetFraction (например 0.02) или SLASH_COMMAND_TOOL_CHAR_BUDGET; освободить — skillOverrides «name-only» (но не для скилов плагинов). Оценка стоимости — /doctor, /context, claude plugin details <plugin>.",
+      "doc_url": "https://code.claude.com/docs/en/skills ; https://code.claude.com/docs/en/env-vars ; https://code.claude.com/docs/en/settings-reference",
+      "exact_setting": "{\"skillListingBudgetFraction\":0.02}",
+      "verified": "docs"
+    },
+    {
+      "topic": "порядок/слияние хуков нескольких плагинов и settings",
+      "answer": "Хуки из всех источников складываются, а не заменяют друг друга; все совпавшие хуки события идут параллельно; одинаковый обработчик в нескольких settings-файлах запускается один раз, а копии в плагине или скиле — отдельно. Порядок между источниками не документирован. additionalContext всех хуков доставляется полностью (каждый — до 10 000 символов, больше — в файл с превью 2000). PreToolUse: deny > defer > ask > allow. Таймаут по умолчанию 600 с для command (на UserPromptSubmit — 30 с); async-хуки не ждутся и таймаут к ним не применяется. Списки в settings (permissions.allow и т. п.) сливаются между scope.",
+      "doc_url": "https://code.claude.com/docs/en/hooks ; https://code.claude.com/docs/en/settings",
+      "exact_setting": "—",
+      "verified": "docs"
+    },
+    {
+      "topic": "как временно запретить хуки: disableAllHooks и др.",
+      "answer": "disableAllHooks: true выключает хуки (и кастомную статус-строку) — действует итоговое значение по приоритету settings; на одну сессию — claude --settings '{\"disableAllHooks\": true}'. Управляемые (managed) хуки так не выключить; allowManagedHooksOnly — только managed. Полностью без хуков, плагинов, скилов, MCP и CLAUDE.md — claude --bare (или CLAUDE_CODE_SIMPLE=1), но тогда нужен ANTHROPIC_API_KEY, подписка не читается. Только ECC: ECC_HOOKS_ENABLED=false (процессы всё равно стартуют) или claude plugin disable ecc@ecc.",
+      "doc_url": "https://code.claude.com/docs/en/hooks ; https://code.claude.com/docs/en/headless ; https://code.claude.com/docs/en/env-vars",
+      "exact_setting": "claude --settings '{\"disableAllHooks\": true}'   |   claude plugin disable ecc@ecc",
+      "verified": "docs"
+    },
+    {
+      "topic": "работают ли плагины и хуки в claude -p",
+      "answer": "Да: без --bare -p загружает хуки, скилы, плагины, MCP и CLAUDE.md как интерактивная сессия; /plugin в -p недоступен, но установленные плагины грузятся; диалога доверия нет. Хук-процесс наследует окружение родителя — поэтому маркеры ECC (ECC_LLM_SUMMARY_SUBPROCESS=1) видны хукам вложенной сессии и ими можно фильтровать.",
+      "doc_url": "https://code.claude.com/docs/en/headless ; https://code.claude.com/docs/en/discover-plugins ; https://code.claude.com/docs/en/hooks",
+      "exact_setting": "claude --bare -p …  (единственный документированный способ без хуков владельца)",
+      "verified": "docs"
+    }
+  ],
+  "data_egress": [
+    {
+      "data": "Дайджест текста каждого запроса пользователя ≥40 знаков (до 4500 знаков, секреты/ПДн → «[скрыто]», critical не отправляется); для коротких продолжений + 1 строка из TASKS.md",
+      "collected_by": "typesafe-triage UserPromptSubmit (владелец)",
+      "stored_at": "~/.claude/typesafe-triage/log.jsonl (первые 200 символов, 0600)",
+      "leaves_machine": "да: api.typesafe.ai (TypeSafe/Jev), POST с ключом TYPESAFE_API_KEY",
+      "condition": "всегда, когда задан ключ и запрос не пропущен; уже сейчас, без ECC",
+      "covered_by_owner_hooks": "это и есть хук владельца",
+      "evidence": "skills/typesafe-triage/scripts/typesafe_triage.py#L119, #L475; references/privacy.md"
+    },
+    {
+      "data": "НОВОЕ с ECC: дайджест промпта LLM-сводки ECC (кусок переписки: последние реплики пользователя ≤400 и Claude ≤600 символов), с маской секретов триажа",
+      "collected_by": "typesafe-triage UserPromptSubmit во вложенном claude -p, запущенном stop:session-end / pre:compact ECC",
+      "stored_at": "~/.claude/typesafe-triage/log.jsonl (+ запись решения)",
+      "leaves_machine": "да: api.typesafe.ai",
+      "condition": "при каждой LLM-сводке ECC (компакция; <20% контекста; каждая 50-я реплика), пока не задан ECC_SKIP_LLM_SUMMARY=1 и в триаже нет фильтра",
+      "covered_by_owner_hooks": "да — именно хук владельца отправляет; маскирует пароль/ключ (проверено в песочнице)",
+      "evidence": "песочница: reason «TypeSafe недоступен (URLError)» = попытка сети; https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/lib/llm-summary.js#L172-L180"
+    },
+    {
+      "data": "Последние 25 реплик пользователя и ассистента (≤7000 символов) БЕЗ вычистки секретов",
+      "collected_by": "ECC stop:session-end, pre:compact → claude --model haiku -p",
+      "stored_at": "ответ — ~/.claude/session-data/<дата>-<проект>-session.tmp",
+      "leaves_machine": "да: Anthropic через ваш claude (подписка/ключ владельца)",
+      "condition": "по умолчанию (любой профиль; pre:compact — standard|strict); выкл. ECC_SKIP_LLM_SUMMARY=1",
+      "covered_by_owner_hooks": "вложенная сессия получит ещё SessionStart superpowers и ECC и заметку триажа",
+      "evidence": "security.json DF-04; https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/scripts/lib/llm-summary.js#L172"
+    },
+    {
+      "data": "Вход и выход каждого инструмента (до 5000 символов, regex-маскировка)",
+      "collected_by": "ECC pre:observe / post:observe (continuous-learning-v2)",
+      "stored_at": "~/.local/share/ecc-homunculus/observations.jsonl (в песочнице создан с правами 0644)",
+      "leaves_machine": "нет (уходит в Anthropic только если включить observer — по умолчанию выкл.)",
+      "condition": "профиль standard|strict",
+      "covered_by_owner_hooks": "—",
+      "evidence": "security.json DF-01, DF-06; песочница: файл создан, содержит tool_input"
+    },
+    {
+      "data": "Полный текст каждой команды Bash",
+      "collected_by": "ECC post:bash dispatcher",
+      "stored_at": "~/.claude/bash-commands.log, ~/.claude/cost-tracker.log",
+      "leaves_machine": "нет",
+      "condition": "по умолчанию",
+      "covered_by_owner_hooks": "—",
+      "evidence": "security.json DF-02; песочница: строки «ls -la src»"
+    },
+    {
+      "data": "Сводка каждого вызова (имя, первые 160–220 символов параметров, пути файлов)",
+      "collected_by": "ECC session-activity-tracker (post sync)",
+      "stored_at": "~/.claude/metrics/tool-usage.jsonl",
+      "leaves_machine": "нет",
+      "condition": "standard|strict",
+      "covered_by_owner_hooks": "—",
+      "evidence": "security.json DF-03; песочница"
+    },
+    {
+      "data": "Снимок сессии: последние 10 реплик пользователя по 200 символов, файлы, ветка; потом — в контекст следующей сессии",
+      "collected_by": "ECC stop:session-end → session:start",
+      "stored_at": "~/.claude/session-data/*-session.tmp (30 дней)",
+      "leaves_machine": "в Anthropic — только как часть контекста следующих сессий",
+      "condition": "по умолчанию",
+      "covered_by_owner_hooks": "—",
+      "evidence": "security.json DF-05, DF-09; песочница: 2026-10-18-proj-session.tmp"
+    },
+    {
+      "data": "Токены и оценка стоимости сессии",
+      "collected_by": "ECC stop:cost-tracker, metrics-bridge",
+      "stored_at": "~/.claude/metrics/costs.jsonl, cost-snapshots/, $TMPDIR/ecc-metrics-*.json",
+      "leaves_machine": "нет",
+      "condition": "по умолчанию",
+      "covered_by_owner_hooks": "—",
+      "evidence": "security.json DF-11; песочница"
+    },
+    {
+      "data": "Состояние GateGuard (какие файлы «исследованы»)",
+      "collected_by": "ECC gateguard-fact-force",
+      "stored_at": "~/.gateguard/state-<session>.json",
+      "leaves_machine": "нет",
+      "condition": "standard|strict",
+      "covered_by_owner_hooks": "—",
+      "evidence": "песочница: файл создан"
+    },
+    {
+      "data": "Первая строка последнего ответа (≤100 символов)",
+      "collected_by": "ECC stop:desktop-notify",
+      "stored_at": "Центр уведомлений macOS",
+      "leaves_machine": "нет",
+      "condition": "standard|strict",
+      "covered_by_owner_hooks": "—",
+      "evidence": "песочница: osascript вызван с текстом ответа"
+    },
+    {
+      "data": "Проба MCP: GET с заголовками из конфига / запуск копии stdio-сервера",
+      "collected_by": "ECC pre:mcp-health-check",
+      "stored_at": "~/.claude/mcp-health-cache.json",
+      "leaves_machine": "да: хосты ваших MCP из ~/.claude.json (figma, notion, hf-mcp-server — http), npm registry для npx-копии TestSprite",
+      "condition": "standard|strict, перед вызовом mcp__* этих серверов",
+      "covered_by_owner_hooks": "—",
+      "evidence": "security.json DF-07; имена/типы серверов из ~/.claude.json (значения не читались)"
+    },
+    {
+      "data": "Пути правленых JS/TS → npx prettier/biome/tsc",
+      "collected_by": "ECC stop:format-typecheck, post:quality-gate",
+      "stored_at": "правит файлы проекта",
+      "leaves_machine": "да: registry.npmjs.org, если нет локального бинарника",
+      "condition": "standard|strict, проекты с конфигом форматтера/tsconfig",
+      "covered_by_owner_hooks": "—",
+      "evidence": "security.json DF-08"
+    },
+    {
+      "data": "Флаги ЯВНОГО ВЫЗОВА по меткам «!qa…»",
+      "collected_by": "site-qa-audit / android-qa-audit qa_force UserPromptSubmit",
+      "stored_at": "только контекст сессии",
+      "leaves_machine": "нет",
+      "condition": "всегда",
+      "covered_by_owner_hooks": "—",
+      "evidence": "hooks.json плагинов: «хук без сети»; песочница: без попыток сети"
+    },
+    {
+      "data": "Текст using-superpowers (3192 символа)",
+      "collected_by": "superpowers SessionStart",
+      "stored_at": "контекст сессии",
+      "leaves_machine": "в Anthropic как часть контекста (и во вложенных claude -p ECC)",
+      "condition": "startup|clear|compact",
+      "covered_by_owner_hooks": "—",
+      "evidence": "hooks/session-start плагина"
+    },
+    {
+      "data": "Факты о субагентах (числа, id)",
+      "collected_by": "typesafe-triage triage_autofact",
+      "stored_at": "журнал проекта",
+      "leaves_machine": "нет",
+      "condition": "только TYPESAFE_TRIAGE_AUTO_FACT=on",
+      "covered_by_owner_hooks": "—",
+      "evidence": "references/privacy.md"
+    }
+  ],
+  "data_egress_summary": {
+    "local_only": [
+      "observations.jsonl (ECC observe)",
+      "bash-commands.log / cost-tracker.log",
+      "metrics/tool-usage.jsonl, costs.jsonl, cost-snapshots",
+      "session-data/*.tmp",
+      "~/.gateguard/state-*.json",
+      "mcp-health-cache.json",
+      "уведомления macOS",
+      "журнал триажа ~/.claude/typesafe-triage/log.jsonl",
+      "qa_force (site/android)",
+      "autofact"
+    ],
+    "to_anthropic_via_user_claude": [
+      "LLM-сводки ECC: последние 25 реплик без маскировки через вложенный claude --model haiku -p (Stop/PreCompact)",
+      "в каждой такой вложенной сессии — ещё контекст superpowers (3192 симв.), session:start ECC (до 8000 симв.) и заметка триажа (≈946 симв.)",
+      "снимки прошлых сессий и instincts как контекст новых сессий",
+      "observer continuous-learning (если включить)"
+    ],
+    "to_typesafe": [
+      "дайджест каждого запроса владельца (как и сейчас)",
+      "НОВОЕ: дайджест каждого промпта LLM-сводки ECC (с маской секретов триажа)"
+    ],
+    "to_other_services": [
+      "URL ваших http-MCP (figma, notion, Hugging Face) — проба mcp-health-check",
+      "registry.npmjs.org — npx форматтеров/tsc и npx-копия TestSprite",
+      "github.com — установка/обновление маркетплейса ECC (делает Claude Code)"
+    ],
+    "notes": "Собственных серверов и телеметрии у ECC нет (security.json). Главная новая утечка — переписка в LLM-сводках ECC (без маскировки, в Anthropic) и её повторная отправка в TypeSafe хуком владельца. Закрывается одной переменной ECC_SKIP_LLM_SUMMARY=1; вторая линия — фильтр по ECC_LLM_SUMMARY_SUBPROCESS в typesafe_triage.py."
+  }
+}

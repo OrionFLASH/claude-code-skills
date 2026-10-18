@@ -1,0 +1,2722 @@
+{
+  "date": "2026-10-18",
+  "claude_code_version": "2.1.302",
+  "method_note": "Только чтение: ~/.claude/plugins (installed_plugins.json, кэш, synced), ~/.claude/skills, ~/.claude/commands, ~/.claude/settings.json (значения env не читались — только имена ключей), ~/.claude.json (только mcpServers без env/args и счётчики skillUsage). Скрипты python3 -I в scratchpad. Исходники ECC: исходная копия в scratchpad оказалась пустой (только каталоги, 0 файлов) — скачан tarball коммита b92f181b3b748d1abbc2afd94af6aa7d8c8fca29 с codeload.github.com в отдельную папку (без git), использован только для чтения. Код ECC и хуки не запускались. Документация: https://code.claude.com/docs/en/skills, https://code.claude.com/docs/en/sub-agents (WebFetch).",
+  "plugins": [
+    {
+      "name": "frontend-design",
+      "marketplace": "claude-plugins-official",
+      "version": "ea10b213686c",
+      "enabled": true,
+      "origin": "official",
+      "skills": 1,
+      "agents": 0,
+      "commands": 0,
+      "hooks": [],
+      "mcp": [],
+      "desc_chars": 219,
+      "desc_tokens_est": 55,
+      "summary": "Один скил frontend-design: направление визуального дизайна при создании интерфейсов (Anthropic)."
+    },
+    {
+      "name": "playwright",
+      "marketplace": "claude-plugins-official",
+      "version": "ea10b213686c",
+      "enabled": true,
+      "origin": "official",
+      "skills": 0,
+      "agents": 0,
+      "commands": 0,
+      "hooks": [],
+      "mcp": [
+        "playwright"
+      ],
+      "desc_chars": 0,
+      "desc_tokens_est": 0,
+      "summary": "Только MCP-сервер Playwright (npx @playwright/mcp@latest): управление браузером из Claude."
+    },
+    {
+      "name": "claude-md-management",
+      "marketplace": "claude-plugins-official",
+      "version": "1.0.0",
+      "enabled": true,
+      "origin": "official",
+      "skills": 1,
+      "agents": 0,
+      "commands": 1,
+      "hooks": [],
+      "mcp": [],
+      "desc_chars": 421,
+      "desc_tokens_est": 105,
+      "summary": "Скил claude-md-improver и команда revise-claude-md: аудит и дополнение CLAUDE.md выводами сессии."
+    },
+    {
+      "name": "context7",
+      "marketplace": "claude-plugins-official",
+      "version": "ea10b213686c",
+      "enabled": true,
+      "origin": "official",
+      "skills": 0,
+      "agents": 0,
+      "commands": 0,
+      "hooks": [],
+      "mcp": [
+        "context7"
+      ],
+      "desc_chars": 0,
+      "desc_tokens_est": 0,
+      "summary": "Только MCP Context7 (HTTP): актуальная документация библиотек."
+    },
+    {
+      "name": "typesafe",
+      "marketplace": "typesafe-ai",
+      "version": "0.5.7",
+      "enabled": true,
+      "origin": "third-party",
+      "skills": 1,
+      "agents": 0,
+      "commands": 0,
+      "hooks": [],
+      "mcp": [],
+      "desc_chars": 671,
+      "desc_tokens_est": 168,
+      "summary": "Скил typesafe-ai: как строить ИИ-функции на примитивах TypeSafe (Jev); хуков нет."
+    },
+    {
+      "name": "taste-skill",
+      "marketplace": "taste-skill",
+      "version": "1.0.0",
+      "enabled": true,
+      "origin": "third-party",
+      "skills": 13,
+      "agents": 0,
+      "commands": 0,
+      "hooks": [],
+      "mcp": [],
+      "desc_chars": 4749,
+      "desc_tokens_est": 1187,
+      "summary": "13 скилов эстетики фронтенда: brutalist, minimalist, high-end, redesign, image-to-code, генерация макетов."
+    },
+    {
+      "name": "qa-skills",
+      "marketplace": "neonwatty-qa",
+      "version": "1.13.3",
+      "enabled": true,
+      "origin": "third-party",
+      "skills": 14,
+      "agents": 7,
+      "commands": 2,
+      "hooks": [],
+      "mcp": [],
+      "desc_chars": 8061,
+      "desc_tokens_est": 2015,
+      "summary": "14 скилов + 7 агентов QA (workflow-генераторы, Playwright-раннер, adversarial/resilience-аудиты, профили) + 2 команды."
+    },
+    {
+      "name": "browser-devtools-mcp",
+      "marketplace": "browser-devtools",
+      "version": "0.4.0",
+      "enabled": false,
+      "origin": "third-party",
+      "skills": 7,
+      "agents": 6,
+      "commands": 39,
+      "hooks": [],
+      "mcp": [
+        "browser-devtools",
+        "node-devtools"
+      ],
+      "desc_chars": 4382,
+      "desc_tokens_est": 1096,
+      "summary": "ВЫКЛЮЧЕН. 7 скилов, 6 агентов, 39 команд browser:/node: и 2 MCP (npx browser-devtools-mcp@latest)."
+    },
+    {
+      "name": "android-qa-audit",
+      "marketplace": "claude-code-skills",
+      "version": "1.5.1",
+      "enabled": true,
+      "origin": "own",
+      "skills": 1,
+      "agents": 0,
+      "commands": 0,
+      "hooks": [
+        {
+          "event": "UserPromptSubmit",
+          "matcher": "",
+          "what": "qa_force.py --skill android-qa-audit: при метке «!qa …» или фразе «запусти скилл android-qa-audit» добавляет строку «ЯВНЫЙ ВЫЗОВ»; без сети, не блокирует"
+        }
+      ],
+      "mcp": [],
+      "desc_chars": 996,
+      "desc_tokens_est": 249,
+      "summary": "Собственный скил QA Android по APK/AAB через adb; хук UserPromptSubmit qa_force (метка «!qa»)."
+    },
+    {
+      "name": "site-qa-audit",
+      "marketplace": "claude-code-skills",
+      "version": "1.7.1",
+      "enabled": true,
+      "origin": "own",
+      "skills": 1,
+      "agents": 0,
+      "commands": 0,
+      "hooks": [
+        {
+          "event": "UserPromptSubmit",
+          "matcher": "",
+          "what": "qa_force.py --skill site-qa-audit: то же для site-qa-audit («!qa», «!site-qa»); без сети, не блокирует"
+        }
+      ],
+      "mcp": [],
+      "desc_chars": 1034,
+      "desc_tokens_est": 258,
+      "summary": "Собственный скил QA-аудита сайтов через браузер со сверкой issues; хук UserPromptSubmit qa_force."
+    },
+    {
+      "name": "typesafe-triage",
+      "marketplace": "claude-code-skills",
+      "version": "2.9.3",
+      "enabled": true,
+      "origin": "own",
+      "skills": 1,
+      "agents": 0,
+      "commands": 0,
+      "hooks": [
+        {
+          "event": "UserPromptSubmit",
+          "matcher": "",
+          "what": "typesafe_triage.py --hook: дайджест запроса (секреты маскируются) → TypeSafe/Jev + локальные эвристики → заметка «ДЕЙСТВИЕ: сам | Agent(model, effort) | спросить»"
+        },
+        {
+          "event": "PostToolUse",
+          "matcher": "Agent|Task",
+          "what": "triage_autofact.py: автозапись факта (модель/usage субагента) в журнал проекта — только при TYPESAFE_TRIAGE_AUTO_FACT=on, иначе сразу выход"
+        },
+        {
+          "event": "SubagentStop",
+          "matcher": "",
+          "what": "triage_autofact.py: то же на завершение субагента (по умолчанию выключено)"
+        }
+      ],
+      "mcp": [],
+      "desc_chars": 1018,
+      "desc_tokens_est": 254,
+      "summary": "Собственный триаж модели/effort через TypeSafe (Jev): хук UserPromptSubmit (заметка «ДЕЙСТВИЕ»), autofact на PostToolUse(Agent|Task) и SubagentStop (по умолчанию выключен)."
+    },
+    {
+      "name": "marketing",
+      "marketplace": "knowledge-work-plugins",
+      "version": "1.2.0",
+      "enabled": true,
+      "origin": "official",
+      "skills": 8,
+      "agents": 0,
+      "commands": 0,
+      "hooks": [],
+      "mcp": [
+        "slack",
+        "canva",
+        "figma",
+        "hubspot",
+        "amplitude",
+        "amplitude-eu",
+        "notion",
+        "ahrefs",
+        "similarweb",
+        "klaviyo",
+        "supermetrics",
+        "google calendar",
+        "gmail"
+      ],
+      "desc_chars": 2688,
+      "desc_tokens_est": 672,
+      "summary": "8 маркетинговых скилов (campaign-plan, draft-content, email-sequence, seo-audit…) + 13 HTTP-MCP (slack, canva, hubspot, ahrefs…), почти все ждут авторизации."
+    },
+    {
+      "name": "product-management",
+      "marketplace": "knowledge-work-plugins",
+      "version": "1.2.0",
+      "enabled": true,
+      "origin": "official",
+      "skills": 8,
+      "agents": 0,
+      "commands": 1,
+      "hooks": [],
+      "mcp": [
+        "slack",
+        "linear",
+        "asana",
+        "monday",
+        "clickup",
+        "atlassian",
+        "notion",
+        "figma",
+        "amplitude",
+        "amplitude-eu",
+        "pendo",
+        "intercom",
+        "fireflies",
+        "google calendar",
+        "gmail",
+        "similarweb"
+      ],
+      "desc_chars": 2493,
+      "desc_tokens_est": 623,
+      "summary": "8 продуктовых скилов (write-spec, roadmap-update, metrics-review…), команда brainstorm + 16 HTTP-MCP (linear, asana, atlassian…), ждут авторизации."
+    },
+    {
+      "name": "marketing-ideas-kit",
+      "marketplace": "anthropic-plugin-directory",
+      "version": "0.1.0-887b162a5756",
+      "enabled": true,
+      "origin": "third-party",
+      "skills": 5,
+      "agents": 0,
+      "commands": 0,
+      "hooks": [],
+      "mcp": [],
+      "desc_chars": 3937,
+      "desc_tokens_est": 984,
+      "summary": "5 скилов окупаемости идей (idea-payback-check, idea-ranking, idea-test-card…); в списке скилов — префикс marketing-ideas:."
+    },
+    {
+      "name": "cro-audit-and-test-kit",
+      "marketplace": "anthropic-plugin-directory",
+      "version": "0.1.0-d87faa217a76",
+      "enabled": true,
+      "origin": "third-party",
+      "skills": 5,
+      "agents": 0,
+      "commands": 0,
+      "hooks": [],
+      "mcp": [],
+      "desc_chars": 5032,
+      "desc_tokens_est": 1258,
+      "summary": "5 скилов CRO и A/B (page-audit, funnel-leaks, ab-test-plan/verdict); префикс cro-kit:."
+    },
+    {
+      "name": "churn-prevention-kit",
+      "marketplace": "anthropic-plugin-directory",
+      "version": "0.1.0-887b162a5756",
+      "enabled": true,
+      "origin": "third-party",
+      "skills": 5,
+      "agents": 0,
+      "commands": 0,
+      "hooks": [],
+      "mcp": [],
+      "desc_chars": 4408,
+      "desc_tokens_est": 1102,
+      "summary": "5 скилов оттока (churn-signals, dunning-plan, win-back-plan…); префикс churn-prevention:."
+    },
+    {
+      "name": "product-strategy",
+      "marketplace": "claude-code-skills",
+      "version": "1.4.0",
+      "enabled": true,
+      "origin": "own",
+      "skills": 2,
+      "agents": 0,
+      "commands": 1,
+      "hooks": [],
+      "mcp": [],
+      "desc_chars": 2370,
+      "desc_tokens_est": 592,
+      "summary": "Собственные скилы product-strategy и product-concept + команда /product-strategy:concept."
+    },
+    {
+      "name": "telegram",
+      "marketplace": "anthropic-plugin-directory (синхронизация claude.ai)",
+      "version": "0.0.7",
+      "enabled": true,
+      "origin": "synced",
+      "skills": 2,
+      "agents": 0,
+      "commands": 0,
+      "hooks": [],
+      "mcp": [
+        "telegram"
+      ],
+      "desc_chars": 450,
+      "desc_tokens_est": 112,
+      "summary": "Синхронизирован с claude.ai: канал Telegram (MCP на bun, сейчас с ошибкой) + 2 скила access/configure."
+    },
+    {
+      "name": "superpowers",
+      "marketplace": "anthropic-plugin-directory (синхронизация claude.ai)",
+      "version": "6.4.2",
+      "enabled": true,
+      "origin": "synced",
+      "skills": 15,
+      "agents": 0,
+      "commands": 0,
+      "hooks": [
+        {
+          "event": "SessionStart",
+          "matcher": "startup|clear|compact",
+          "what": "run-hook.cmd session-start: читает skills/using-superpowers/SKILL.md (3180 симв.) и вставляет его в additionalContext"
+        }
+      ],
+      "mcp": [],
+      "desc_chars": 2615,
+      "desc_tokens_est": 654,
+      "summary": "Синхронизирован с claude.ai: 15 скилов процесса разработки (brainstorming → writing-plans → subagent-driven → ревью → finishing) + хук SessionStart, вставляющий using-superpowers."
+    },
+    {
+      "name": "data",
+      "marketplace": "anthropic-plugin-directory (синхронизация claude.ai)",
+      "version": "1.1.0",
+      "enabled": true,
+      "origin": "synced",
+      "skills": 10,
+      "agents": 0,
+      "commands": 0,
+      "hooks": [],
+      "mcp": [
+        "snowflake",
+        "databricks",
+        "bigquery",
+        "hex",
+        "amplitude",
+        "amplitude-eu",
+        "atlassian",
+        "definite"
+      ],
+      "desc_chars": 3432,
+      "desc_tokens_est": 858,
+      "summary": "Синхронизирован с claude.ai: 10 скилов аналитики (analyze, sql-queries, statistical-analysis, build-dashboard…) + 8 HTTP-MCP (bigquery, hex, definite…)."
+    }
+  ],
+  "own_skills_dir": {
+    "count": 48,
+    "groups": [
+      {
+        "name": "seo-*",
+        "count": 26,
+        "desc_chars": 7951,
+        "desc_tokens_est": 1988
+      },
+      {
+        "name": "дизайн/UI/UX (design, ui-*, ux-*, slides, brand, banner-design…)",
+        "count": 14,
+        "desc_chars": 6965,
+        "desc_tokens_est": 1741
+      },
+      {
+        "name": "инженерная дисциплина (investigate-first, lean-build, migration, safe-refactor, surgical-patch, verify-and-stop)",
+        "count": 6,
+        "desc_chars": 1077,
+        "desc_tokens_est": 269
+      },
+      {
+        "name": "прочее (e2e-test, github-issue-structuring)",
+        "count": 2,
+        "desc_chars": 1108,
+        "desc_tokens_est": 277
+      },
+      {
+        "name": "synced/ (anthropic-skills: docs, docx, google-workspace, import-memory, morning, pdf, pptx, skill-creator, xlsx)",
+        "count": 9,
+        "desc_chars": 6096,
+        "desc_tokens_est": 1524
+      }
+    ],
+    "notes": "~/.claude/skills: 50 записей = 48 папок-скилов + папка synced/ (9 скилов anthropic-skills из claude.ai) + одиночный файл typesafe.md (копия описания typesafe-ai вне папки — как скил не загружается; тот же скил даёт плагин typesafe). ~/.claude/commands: 1 файл ux-audit.md (одноимённый со скилом ~/.claude/skills/ux-audit). ~/.claude/agents и ~/.claude/rules отсутствуют. Имена, совпадающие с ECC: design-system и seo (у ECC — ecc:design-system, ecc:seo)."
+  },
+  "owner_skills_detail": [
+    {
+      "name": "typesafe-triage",
+      "kind": "plugin-skill",
+      "source": "typesafe-triage@claude-code-skills 2.9.3",
+      "description_chars": 1003,
+      "triggers": "хук UserPromptSubmit на каждый запрос; слова «триаж», «какую модель взять», «effort», «TypeSafe»; --check/--batch",
+      "summary": "выбор уровня модели haiku<sonnet<opus<fable, effort low…max и одного действия (сам / Agent / спросить); журнал фактов"
+    },
+    {
+      "name": "site-qa-audit",
+      "kind": "plugin-skill",
+      "source": "site-qa-audit@claude-code-skills 1.7.1",
+      "description_chars": 1021,
+      "triggers": "«протестируй сайт», «проверь https://…», «найди баги», «QA сайта»; без /site-qa-audit или !qa — сначала подтверждение",
+      "summary": "QA сайта через браузер: функциональность, UX/UI, адаптив, WCAG 2.2, скорость, SEO, пассивная безопасность; сверка с issues, строгие запреты"
+    },
+    {
+      "name": "android-qa-audit",
+      "kind": "plugin-skill",
+      "source": "android-qa-audit@claude-code-skills 1.5.1",
+      "description_chars": 980,
+      "triggers": "«протестируй APK», «проверь приложение на Android 10 и 14», путь к .apk; без /android-qa-audit или !qa — подтверждение",
+      "summary": "QA Android через adb на эмуляторах: матрица стендов, конфигурации, жизненный цикл, доступность; черновики issues"
+    },
+    {
+      "name": "product-strategy",
+      "kind": "plugin-skill",
+      "source": "product-strategy@claude-code-skills 1.4.0",
+      "description_chars": 1022,
+      "triggers": "«стратегия развития», «roadmap на год», «100 предложений», «отследи выполнение стратегии»; без /product-strategy или !strategy — подтверждение",
+      "summary": "стратегия продукта по репозиторию: рынок, конкуренты, реестр 50–200 предложений (RICE/ICE/WSJF/Кано/TypeSafe), Гант, Kanban, веб-страница, XLSX/PPTX/PDF"
+    },
+    {
+      "name": "product-concept",
+      "kind": "plugin-skill",
+      "source": "product-strategy@claude-code-skills 1.4.0",
+      "description_chars": 1194,
+      "triggers": "«у меня идея продукта…», «оцени идею», /product-strategy:concept, !concept",
+      "summary": "концепция продукта по идее: 15+ вопросов, рынок, SWOT, MVP, предпроверка go/no-go, макеты"
+    },
+    {
+      "name": "typesafe-ai",
+      "kind": "plugin-skill",
+      "source": "typesafe@typesafe-ai 0.5.7",
+      "description_chars": 660,
+      "triggers": "построение ИИ-функций, «programmable common sense», маршрутизация/ранжирование/извлечение",
+      "summary": "документация и рецепты TypeSafe/Jev для кода приложений"
+    },
+    {
+      "name": "brainstorming",
+      "kind": "plugin-skill",
+      "source": "superpowers 6.4.2 (синхронизация claude.ai)",
+      "description_chars": 198,
+      "triggers": "перед любой творческой работой: новая функция, компонент, изменение поведения («You MUST use this…»)",
+      "summary": "диалог о намерении и требованиях → дизайн-док до кода"
+    },
+    {
+      "name": "writing-plans",
+      "kind": "plugin-skill",
+      "source": "superpowers 6.4.2 (синхронизация claude.ai)",
+      "description_chars": 84,
+      "triggers": "есть спецификация/требования к многошаговой задаче, до кода",
+      "summary": "план реализации по задачам с Model Selection для субагентов"
+    },
+    {
+      "name": "executing-plans",
+      "kind": "plugin-skill",
+      "source": "superpowers 6.4.2 (синхронизация claude.ai)",
+      "description_chars": 170,
+      "triggers": "исполнение плана в текущей сессии самим агентом (inline)",
+      "summary": "пошаговое исполнение плана с контрольными точками"
+    },
+    {
+      "name": "subagent-driven-development",
+      "kind": "plugin-skill",
+      "source": "superpowers 6.4.2 (синхронизация claude.ai)",
+      "description_chars": 85,
+      "triggers": "исполнение плана с независимыми задачами через субагентов",
+      "summary": "исполнитель-субагент на задачу + ревью спецификации и качества"
+    },
+    {
+      "name": "dispatching-parallel-agents",
+      "kind": "plugin-skill",
+      "source": "superpowers 6.4.2 (синхронизация claude.ai)",
+      "description_chars": 106,
+      "triggers": "2+ независимых задач без общего состояния",
+      "summary": "параллельный запуск агентов"
+    },
+    {
+      "name": "test-driven-development",
+      "kind": "plugin-skill",
+      "source": "superpowers 6.4.2 (синхронизация claude.ai)",
+      "description_chars": 79,
+      "triggers": "любая функция или багфикс, до кода реализации",
+      "summary": "красный → зелёный → рефакторинг, тест сначала"
+    },
+    {
+      "name": "systematic-debugging",
+      "kind": "plugin-skill",
+      "source": "superpowers 6.4.2 (синхронизация claude.ai)",
+      "description_chars": 91,
+      "triggers": "любой баг, падение теста, неожиданное поведение — до исправления",
+      "summary": "четырёхфазная отладка: причина до фикса"
+    },
+    {
+      "name": "verification-before-completion",
+      "kind": "plugin-skill",
+      "source": "superpowers 6.4.2 (синхронизация claude.ai)",
+      "description_chars": 225,
+      "triggers": "перед заявлением «готово/исправлено», коммитом или PR",
+      "summary": "доказательство командами, а не словами"
+    },
+    {
+      "name": "requesting-code-review",
+      "kind": "plugin-skill",
+      "source": "superpowers 6.4.2 (синхронизация claude.ai)",
+      "description_chars": 107,
+      "triggers": "после крупного шага/перед слиянием",
+      "summary": "запуск ревьюера-субагента по шаблону"
+    },
+    {
+      "name": "receiving-code-review",
+      "kind": "plugin-skill",
+      "source": "superpowers 6.4.2 (синхронизация claude.ai)",
+      "description_chars": 234,
+      "triggers": "получены замечания ревью",
+      "summary": "техническая проверка замечаний вместо слепого согласия"
+    },
+    {
+      "name": "using-git-worktrees",
+      "kind": "plugin-skill",
+      "source": "superpowers 6.4.2 (синхронизация claude.ai)",
+      "description_chars": 196,
+      "triggers": "начало изолированной работы над функцией",
+      "summary": "git worktree или нативная изоляция"
+    },
+    {
+      "name": "finishing-a-development-branch",
+      "kind": "plugin-skill",
+      "source": "superpowers 6.4.2 (синхронизация claude.ai)",
+      "description_chars": 101,
+      "triggers": "реализация готова, тесты зелёные",
+      "summary": "выбор: merge / PR / оставить / удалить ветку"
+    },
+    {
+      "name": "writing-skills",
+      "kind": "plugin-skill",
+      "source": "superpowers 6.4.2 (синхронизация claude.ai)",
+      "description_chars": 97,
+      "triggers": "создание/правка скилов",
+      "summary": "TDD для скилов: проверка на субагентах"
+    },
+    {
+      "name": "using-superpowers",
+      "kind": "plugin-skill",
+      "source": "superpowers 6.4.2 (синхронизация claude.ai)",
+      "description_chars": 154,
+      "triggers": "вставляется хуком SessionStart в каждую сессию",
+      "summary": "мета-правило: искать и применять скилы до ответа"
+    },
+    {
+      "name": "diagnosing-superpowers",
+      "kind": "plugin-skill",
+      "source": "superpowers 6.4.2 (синхронизация claude.ai)",
+      "description_chars": 375,
+      "triggers": "проблемы с работой самих Superpowers",
+      "summary": "диагностика установки Superpowers"
+    },
+    {
+      "name": "investigate-first",
+      "kind": "user-skill",
+      "source": "~/.claude/skills/investigate-first",
+      "description_chars": 169,
+      "triggers": "неясная причина сбоя, плавающее поведение, регрессия скорости",
+      "summary": "диагностика с ранжированием гипотез до правок"
+    },
+    {
+      "name": "lean-build",
+      "kind": "user-skill",
+      "source": "~/.claude/skills/lean-build",
+      "description_chars": 178,
+      "triggers": "новая функциональность с риском переусложнения",
+      "summary": "жёсткие рамки, переиспользование, явное условие остановки"
+    },
+    {
+      "name": "migration",
+      "kind": "user-skill",
+      "source": "~/.claude/skills/migration",
+      "description_chars": 172,
+      "triggers": "миграции схем, данных, API, зависимостей",
+      "summary": "обратимые переходы с откатом и доказательством сохранности"
+    },
+    {
+      "name": "safe-refactor",
+      "kind": "user-skill",
+      "source": "~/.claude/skills/safe-refactor",
+      "description_chars": 156,
+      "triggers": "выделение, объединение, перенос кода",
+      "summary": "рефакторинг с проверками до и после"
+    },
+    {
+      "name": "surgical-patch",
+      "kind": "user-skill",
+      "source": "~/.claude/skills/surgical-patch",
+      "description_chars": 162,
+      "triggers": "баги и мелкие изменения поведения",
+      "summary": "правка в самом узком слое с регрессионным тестом"
+    },
+    {
+      "name": "verify-and-stop",
+      "kind": "user-skill",
+      "source": "~/.claude/skills/verify-and-stop",
+      "description_chars": 162,
+      "triggers": "проверка готовности без расширения рамок",
+      "summary": "только доказательство критериев приёмки"
+    },
+    {
+      "name": "e2e-test",
+      "kind": "user-skill",
+      "source": "~/.claude/skills/e2e-test",
+      "description_chars": 519,
+      "triggers": "«test my web app», «generate Playwright tests», POM, URL приложения",
+      "summary": "краулинг UI и генерация Playwright-тестов"
+    },
+    {
+      "name": "github-issue-structuring",
+      "kind": "user-skill",
+      "source": "~/.claude/skills/github-issue-structuring",
+      "description_chars": 557,
+      "triggers": "«создай issue», «разбей на подзадачи», неструктурированные issues",
+      "summary": "структурирование issues в эпики и подзадачи через gh, классификация через TypeSafe"
+    },
+    {
+      "name": "design-system",
+      "kind": "user-skill",
+      "source": "~/.claude/skills/design-system",
+      "description_chars": 276,
+      "triggers": "дизайн-токены, систематический дизайн, презентации по бренду",
+      "summary": "трёхслойные токены, спецификации компонентов, слайды. Одноимённый ecc:design-system"
+    },
+    {
+      "name": "seo",
+      "kind": "user-skill",
+      "source": "~/.claude/skills/seo (+25 seo-*)",
+      "description_chars": 628,
+      "triggers": "SEO, audit, schema, Core Web Vitals, sitemap, E-E-A-T, GEO",
+      "summary": "хаб 26 SEO-скилов. Одноимённый ecc:seo"
+    },
+    {
+      "name": "ux-audit",
+      "kind": "command",
+      "source": "~/.claude/commands/ux-audit.md (+ скил ux-audit)",
+      "description_chars": 953,
+      "triggers": "ручной вызов /ux-audit; аудит живого веб-приложения «как пользователь»",
+      "summary": "интерактивный UX-аудит с жёсткими воротами и вердиктом"
+    },
+    {
+      "name": "ui-ux-pro-max",
+      "kind": "user-skill",
+      "source": "~/.claude/skills/ui-ux-pro-max",
+      "description_chars": 495,
+      "triggers": "проектирование/ревью интерфейсов, стили, палитры, шрифты",
+      "summary": "база UI/UX-знаний (стили, палитры, гайдлайны); 2-й по частоте вызовов скил владельца"
+    },
+    {
+      "name": "frontend-design",
+      "kind": "plugin-skill",
+      "source": "frontend-design@claude-plugins-official",
+      "description_chars": 204,
+      "triggers": "новый UI или переработка",
+      "summary": "направление визуального дизайна"
+    },
+    {
+      "name": "claude-md-improver",
+      "kind": "plugin-skill",
+      "source": "claude-md-management@claude-plugins-official",
+      "description_chars": 338,
+      "triggers": "аудит CLAUDE.md",
+      "summary": "проверка и улучшение CLAUDE.md"
+    },
+    {
+      "name": "qa-skills (14 скилов, 7 агентов)",
+      "kind": "plugin-skill",
+      "source": "qa-skills@neonwatty-qa 1.13.3",
+      "description_chars": 6086,
+      "triggers": "генерация workflow-тестов, Playwright, adversarial/resilience-аудиты, агенты smoke/ux/security/performance",
+      "summary": "QA-набор с агентами-аудиторами"
+    },
+    {
+      "name": "marketing / product-management / marketing-ideas / cro-kit / churn-prevention / data",
+      "kind": "plugin-skill",
+      "source": "6 плагинов, 41 скил",
+      "description_chars": 21304,
+      "triggers": "по CLAUDE.md применяются сразу для продукта, маркетинга, аналитики",
+      "summary": "кампании, спеки, метрики, CRO, отток, статистика, SQL, дашборды"
+    },
+    {
+      "name": "anthropic-skills (9)",
+      "kind": "user-skill",
+      "source": "~/.claude/skills/synced",
+      "description_chars": 6096,
+      "triggers": "файлы .docx/.pptx/.xlsx/.pdf, Google Workspace, создание скилов",
+      "summary": "офисные форматы и skill-creator из claude.ai"
+    }
+  ],
+  "hooks_all": [
+    {
+      "event": "UserPromptSubmit",
+      "source": "typesafe-triage@claude-code-skills (hooks/hooks.json)",
+      "matcher": "",
+      "what": "typesafe_triage.py --hook: заметка «TypeSafe-триаж / ДЕЙСТВИЕ …» в контекст; короткие продолжения — без заметки; таймаут 10 с",
+      "reads": "текст запроса (stdin), стенограмма сессии (для истории/эскалации effort), ~/.claude/typesafe-triage/{config,state,log}.json*, переменные TYPESAFE_*",
+      "writes": "~/.claude/typesafe-triage/log.jsonl, state.json, dedup/ (локально)",
+      "network": "да: https://api.typesafe.ai/v1/systemone — дайджест запроса (секреты маскируются, critical не отправляется; TYPESAFE_TRIAGE_SECRETS); без ключа — локальная эвристика",
+      "blocks": false,
+      "ecc_note": "Защита от вложенных сессий только через TYPESAFE_TRIAGE_CHILD (ставит сам --run); маркеров ECC (ECC_LLM_SUMMARY_SUBPROCESS, ECC_SKIP_LLM_SUMMARY) код не проверяет (grep, static) — во вложенном claude -p от ECC хук, вероятно, сработает (не проверено, см. mechanics.json)."
+    },
+    {
+      "event": "PostToolUse",
+      "source": "typesafe-triage@claude-code-skills",
+      "matcher": "Agent|Task",
+      "what": "triage_autofact.py: автозапись факта после субагента",
+      "reads": "stdin хука, стенограмма субагента (usage)",
+      "writes": "журнал проекта — только при TYPESAFE_TRIAGE_AUTO_FACT=on (в settings.env не задан, в config.json ключа нет → выключено)",
+      "network": "нет",
+      "blocks": false
+    },
+    {
+      "event": "SubagentStop",
+      "source": "typesafe-triage@claude-code-skills",
+      "matcher": "",
+      "what": "triage_autofact.py (то же)",
+      "reads": "stdin хука",
+      "writes": "то же, по умолчанию ничего",
+      "network": "нет",
+      "blocks": false
+    },
+    {
+      "event": "UserPromptSubmit",
+      "source": "site-qa-audit@claude-code-skills",
+      "matcher": "",
+      "what": "qa_force.py --skill site-qa-audit: строка «ЯВНЫЙ ВЫЗОВ» при «!qa …»/«!site-qa …»",
+      "reads": "текст запроса (stdin)",
+      "writes": "только stdout",
+      "network": "нет",
+      "blocks": false
+    },
+    {
+      "event": "UserPromptSubmit",
+      "source": "android-qa-audit@claude-code-skills",
+      "matcher": "",
+      "what": "qa_force.py --skill android-qa-audit (то же для Android)",
+      "reads": "текст запроса (stdin)",
+      "writes": "только stdout",
+      "network": "нет",
+      "blocks": false
+    },
+    {
+      "event": "SessionStart",
+      "source": "superpowers (синхронизация claude.ai)",
+      "matcher": "startup|clear|compact",
+      "what": "session-start: вставляет полный текст using-superpowers (3180 симв. ≈ 795 токенов, оценка /4) в additionalContext",
+      "reads": "skills/using-superpowers/SKILL.md плагина",
+      "writes": "только stdout",
+      "network": "нет",
+      "blocks": false
+    }
+  ],
+  "hooks_note": "Собственных hooks в ~/.claude/settings.json нет; disableAllHooks не задан. Все 6 хуков приходят из плагинов (проверено чтением hooks.json в кэше плагинов).",
+  "mcp_servers": [
+    {
+      "name": "Claude Docs",
+      "source": "коннектор claude.ai",
+      "transport": "http (claude.ai)",
+      "status": "connected",
+      "data_goes_to": "Anthropic (claude.ai)",
+      "used_for": "живые документы Claude Docs"
+    },
+    {
+      "name": "figma",
+      "source": "~/.claude.json (user) + объявлен в плагинах marketing и product-management",
+      "transport": "http https://mcp.figma.com/mcp",
+      "status": "connected",
+      "data_goes_to": "Figma",
+      "used_for": "дизайн ↔ код",
+      "ecc_note": "объявлен в ~/.claude.json → хук ECC pre:mcp-health-check будет делать GET на URL перед каждым mcp__figma__* (standard/strict)"
+    },
+    {
+      "name": "notion",
+      "source": "~/.claude.json (user) + плагины marketing, product-management",
+      "transport": "http https://mcp.notion.com/mcp",
+      "status": "connected",
+      "data_goes_to": "Notion",
+      "used_for": "страницы, базы, память Notion",
+      "ecc_note": "то же: проба GET перед вызовом"
+    },
+    {
+      "name": "hf-mcp-server",
+      "source": "~/.claude.json (user)",
+      "transport": "http https://huggingface.co/mcp?login",
+      "status": "connected",
+      "data_goes_to": "Hugging Face",
+      "used_for": "модели, датасеты, Spaces",
+      "ecc_note": "то же: проба GET перед вызовом"
+    },
+    {
+      "name": "TestSprite",
+      "source": "~/.claude.json (user)",
+      "transport": "stdio (npx)",
+      "status": "failed",
+      "data_goes_to": "TestSprite (по назначению сервиса; не проверено)",
+      "used_for": "генерация/запуск тестов",
+      "ecc_note": "stdio-сервер из ~/.claude.json: pre:mcp-health-check запустит ВТОРОЙ экземпляр командой из конфига как зонд и при неудаче заблокирует вызов (exit 2) с паузой (runtime.json, static)"
+    },
+    {
+      "name": "playwright",
+      "source": "плагин playwright@claude-plugins-official",
+      "transport": "stdio npx @playwright/mcp@latest",
+      "status": "connected",
+      "data_goes_to": "локально (браузер); пакет из npm при запуске",
+      "used_for": "браузерные проверки (site-qa-audit, qa-skills, e2e-test)",
+      "ecc_note": "плагинный сервер — хук ECC его не находит в конфигах и пропускает"
+    },
+    {
+      "name": "context7",
+      "source": "плагин context7@claude-plugins-official",
+      "transport": "http https://mcp.context7.com/mcp",
+      "status": "connected",
+      "data_goes_to": "Context7 (Upstash)",
+      "used_for": "документация библиотек; на него же опираются ECC documentation-lookup и агент docs-lookup"
+    },
+    {
+      "name": "claude-in-chrome",
+      "source": "встроенный Claude Code (расширение Chrome)",
+      "transport": "локальный мост",
+      "status": "connected",
+      "data_goes_to": "локальный браузер",
+      "used_for": "управление Chrome"
+    },
+    {
+      "name": "claude-vscode",
+      "source": "интеграция IDE",
+      "transport": "локальный",
+      "status": "connected",
+      "data_goes_to": "локально",
+      "used_for": "диагностика редактора"
+    },
+    {
+      "name": "slack, canva, hubspot, amplitude, amplitude-eu, ahrefs, similarweb, klaviyo, supermetrics",
+      "source": "плагин marketing (часть дублируется в product-management/data)",
+      "transport": "http",
+      "status": "needs-auth",
+      "data_goes_to": "соответствующие SaaS после авторизации",
+      "used_for": "маркетинговые данные и публикация"
+    },
+    {
+      "name": "linear, asana, monday, clickup, atlassian, pendo, intercom, fireflies, similarweb",
+      "source": "плагин product-management",
+      "transport": "http",
+      "status": "needs-auth",
+      "data_goes_to": "соответствующие SaaS",
+      "used_for": "задачи, обратная связь, встречи"
+    },
+    {
+      "name": "hex",
+      "source": "плагин data",
+      "transport": "http https://app.hex.tech/mcp",
+      "status": "needs-auth",
+      "data_goes_to": "Hex",
+      "used_for": "аналитика"
+    },
+    {
+      "name": "definite",
+      "source": "плагин data",
+      "transport": "http https://api.definite.app/v3/mcp/http",
+      "status": "failed",
+      "data_goes_to": "Definite",
+      "used_for": "аналитика (ENDPOINT_NOT_FOUND)"
+    },
+    {
+      "name": "bigquery",
+      "source": "плагин data",
+      "transport": "http https://bigquery.googleapis.com/mcp",
+      "status": "not-verified",
+      "data_goes_to": "Google Cloud",
+      "used_for": "SQL; в списках needs-auth/failed этой сессии не значится, инструментов нет"
+    },
+    {
+      "name": "snowflake, databricks, google calendar, gmail",
+      "source": "плагины data / marketing / product-management",
+      "transport": "http без URL",
+      "status": "not-configured",
+      "data_goes_to": "—",
+      "used_for": "заглушки без адреса"
+    },
+    {
+      "name": "telegram",
+      "source": "плагин telegram (синхронизация claude.ai)",
+      "transport": "stdio (bun)",
+      "status": "failed",
+      "data_goes_to": "Telegram Bot API",
+      "used_for": "канал сообщений"
+    },
+    {
+      "name": "browser-devtools, node-devtools",
+      "source": "плагин browser-devtools-mcp (выключен)",
+      "transport": "stdio npx",
+      "status": "not-configured",
+      "data_goes_to": "—",
+      "used_for": "плагин выключен"
+    },
+    {
+      "name": "ECC",
+      "source": "ecc@ecc (если установить)",
+      "transport": "—",
+      "status": "not-configured",
+      "data_goes_to": "—",
+      "used_for": "плагин ECC MCP не добавляет: в .claude-plugin/plugin.json \"mcpServers\": {} (inventory.json → mcp.in_plugin_note); каталог из 34 серверов mcp-configs/mcp-servers.json — только для ручного копирования"
+    }
+  ],
+  "settings_relevant": [
+    {
+      "key": "model",
+      "value_summary": "sonnet",
+      "impact_on_ecc": "основная сессия на Sonnet; агенты ECC без параметра model у вызова берут frontmatter (61 sonnet, 4 opus, 6 haiku) — приоритет выше модели сессии (docs: https://code.claude.com/docs/en/sub-agents)"
+    },
+    {
+      "key": "modelSettings",
+      "value_summary": "claude-sonnet-5-5 → effort medium; claude-opus-5-5 → xhigh; claude-fable-5-1 → high",
+      "impact_on_ecc": "4 агента ECC с model: opus (architect, planner и др.) пойдут на effort xhigh — дороже; haiku-вызовы ECC (claude --model haiku -p) не покрыты modelSettings"
+    },
+    {
+      "key": "permissions.defaultMode",
+      "value_summary": "auto (allow/deny-правил нет)",
+      "impact_on_ecc": "запретов Agent(...)/Skill(...) сейчас нет: агенты и скилы ECC будут доступны все; deny-правила — основной способ выключить отдельные части плагина. Хуки ECC (GateGuard, config-protection) работают поверх auto-режима и могут отклонять правки"
+    },
+    {
+      "key": "env",
+      "value_summary": "заданы 2 переменные: TYPESAFE_API_KEY (значение не читалось) и SITE_QA_OUTPUT_DIR",
+      "impact_on_ecc": "переменных ECC_* нет → по умолчанию hook_profile=standard и все хуки включены; ключ TypeSafe наследуется вложенными claude -p, которые запускает ECC (pre:compact, session-end) — хук триажа там может обратиться к TypeSafe (не проверено)"
+    },
+    {
+      "key": "hooks",
+      "value_summary": "отсутствует",
+      "impact_on_ecc": "конфликтов с хуками settings нет; все хуки — из плагинов, хуки ECC добавятся к ним"
+    },
+    {
+      "key": "disableAllHooks",
+      "value_summary": "не задан",
+      "impact_on_ecc": "аварийный выключатель всех хуков (включая триаж) — не трогать; для ECC точечно ECC_HOOKS_ENABLED=false / ECC_DISABLED_HOOKS"
+    },
+    {
+      "key": "skillOverrides / skillListingBudgetFraction / skillListingMaxDescChars",
+      "value_summary": "не заданы",
+      "impact_on_ecc": "бюджет списка скилов — по умолчанию 1% окна контекста; skillOverrides на плагинные скилы не действует (docs: https://code.claude.com/docs/en/skills), поэтому скилы ECC прятать придётся через /plugin или deny Skill(ecc:…)"
+    },
+    {
+      "key": "includeCoAuthoredBy / attribution",
+      "value_summary": "не заданы (атрибуция по умолчанию включена)",
+      "impact_on_ecc": "установщик ECC (npx ecc setup / install.sh) пишет includeCoAuthoredBy=false (runtime.json) — противоречит правилу Co-Authored-By исполнителя; плагинная установка этого не делает"
+    },
+    {
+      "key": "enabledPlugins",
+      "value_summary": "17 ключей, 16 включено (browser-devtools-mcp выключен) + 3 синхронизированных из claude.ai",
+      "impact_on_ecc": "ECC станет 21-м активным источником скилов"
+    },
+    {
+      "key": "extraKnownMarketplaces",
+      "value_summary": "6 GitHub-маркетплейсов (typesafe-ai, taste-skill, claude-code-skills, neonwatty-qa, browser-devtools, knowledge-work-plugins)",
+      "impact_on_ecc": "для ECC добавится маркетплейс affaan-m/ECC"
+    },
+    {
+      "key": "autoMode.environment",
+      "value_summary": "текстовое описание окружения для классификатора auto-режима (публичный репозиторий = публикация, нет защищённых веток)",
+      "impact_on_ecc": "команды ECC с git push (/pr, /prp-pr, /santa-loop) классификатор будет оценивать как публикацию"
+    },
+    {
+      "key": "inputNeededNotifEnabled / agentPushNotifEnabled",
+      "value_summary": "true / true",
+      "impact_on_ecc": "дублируются с хуком ECC stop:desktop-notify (уведомление macOS после каждого ответа, standard)"
+    }
+  ],
+  "claude_md_rules": [
+    {
+      "rule": "Ответы и вопросы — по-русски; размышления, пояснения команд, коммиты — по-английски",
+      "where_applies": "все сессии",
+      "ecc_conflict_risk": "low",
+      "why": "шаблоны и отчёты ECC на английском; CLAUDE.md выше по приоритету, но отчёты команд будут смешанными"
+    },
+    {
+      "rule": "Режим «Work»: только стандартная библиотека Python, pip недоступен",
+      "where_applies": "рабочая машина/режим",
+      "ecc_conflict_risk": "high",
+      "why": "все хуки ECC — Node.js ≥18, часть команд — npx/npm; в Work ECC-хуки нужно выключать (hooks_enabled=false / ECC_HOOKS_ENABLED=false)"
+    },
+    {
+      "rule": "Любая доработка — в отдельной ветке; слияние в main и push — сам в конце; ветки не удалять без «да»",
+      "where_applies": "все репозитории",
+      "ecc_conflict_risk": "medium",
+      "why": "/pr, /prp-pr, /santa-loop пушат; orch-* коммитят после ворот; /checkpoint делает stash/commit; Superpowers finishing-a-development-branch предлагает удалить ветку"
+    },
+    {
+      "rule": "Длинные задачи — чек-лист в TASKS.md и раздел «Где остановился»",
+      "where_applies": "многошаговые задачи",
+      "ecc_conflict_risk": "medium",
+      "why": "ECC ведёт параллельную память: session-data/*.tmp, /save-session, /resume-session и вставку прошлой сессии на SessionStart — два источника «где остановился»"
+    },
+    {
+      "rule": "TypeSafe-триаж: заметку «ДЕЙСТВИЕ» выполнять всегда; haiku/fable и effort low/max — только после подтверждения",
+      "where_applies": "каждый запрос",
+      "ecc_conflict_risk": "high",
+      "why": "6 агентов ECC с model: haiku (comment-analyzer, conversation-analyzer, doc-updater, docs-lookup, opensource-forker, opensource-packager) и вложенные claude --model haiku -p в хуках — haiku без подтверждения; /model-route — второй советчик по модели"
+    },
+    {
+      "rule": "Субагентам скилл typesafe-triage не применять; Co-Authored-By у исполнителя — его модель",
+      "where_applies": "делегирование",
+      "ecc_conflict_risk": "medium",
+      "why": "агенты ECC с «Use PROACTIVELY / MUST BE USED» (28 проактивных) могут запускаться основной моделью без триажа; установщик ECC отключает includeCoAuthoredBy"
+    },
+    {
+      "rule": "Продуктовые, маркетинговые, аналитические скилы (marketing:*, product-management:*, data:*, CRO, churn, idea-*) применять сразу",
+      "where_applies": "продукт, маркетинг, аналитика",
+      "ecc_conflict_risk": "medium",
+      "why": "у ECC дублирующие marketing-campaign, content-engine, market-research, product-lens, seo — правило CLAUDE.md называет конкретные скилы владельца, поэтому они должны выигрывать, но описания ECC будут в том же списке"
+    },
+    {
+      "rule": "Гипотезы: метрика, MDE, период, выборка, критерий; финметрики с формулой и допущениями",
+      "where_applies": "аналитика",
+      "ecc_conflict_risk": "low",
+      "why": "ECC это не регулирует; скилы ECC (market-research, investor-materials) не требуют расчёта выборки"
+    },
+    {
+      "rule": "Останавливаться только если без владельца нельзя или перед необратимым",
+      "where_applies": "автономная работа",
+      "ecc_conflict_risk": "high",
+      "why": "GateGuard (standard) отклоняет ПЕРВУЮ правку каждого файла с вопросами; stop:plan-canvas-pending может блокировать остановку; /plan ждёт «да» до кода"
+    }
+  ],
+  "context_budget": {
+    "method": "Скрипт python3 -I (scratchpad/setup-inv/inv.py + budget.py): разбор frontmatter всех SKILL.md, agents/*.md, commands/*.md включённых плагинов (installed_plugins.json + enabledPlugins), синхронизированных плагинов (~/.claude/plugins/synced), ~/.claude/skills (+synced), ~/.claude/commands. Запись списка = len(name) + min(len(description + when_to_use), 1536). Команды считаются, если нет disable-model-invocation: true. Агенты — отдельно (name + description; их описания идут в описание инструмента Agent, не в бюджет списка скилов). Токены = символы / 4 (допущение; для кириллицы токенов на символ больше). ECC — по inventory.json и сверено с исходниками коммита b92f181 (tarball codeload, 311/71/97 файлов совпали; символы: скилы 100956 vs 100954, команды 14842 vs 14939 — расхождение в разборе многострочного YAML).",
+    "now": {
+      "skills": 150,
+      "agents": 7,
+      "commands": 6,
+      "chars": 66785,
+      "tokens_est": 16696,
+      "agent_chars": 1490,
+      "agent_tokens_est": 372,
+      "entries_name_chars": 4059,
+      "largest_sources": [
+        {
+          "source": "~/.claude/skills (+synced)",
+          "listing_chars": 23197
+        },
+        {
+          "source": "qa-skills",
+          "listing_chars": 6571
+        },
+        {
+          "source": "cro-audit-and-test-kit",
+          "listing_chars": 5032
+        },
+        {
+          "source": "taste-skill",
+          "listing_chars": 4749
+        },
+        {
+          "source": "churn-prevention-kit",
+          "listing_chars": 4408
+        },
+        {
+          "source": "marketing-ideas-kit",
+          "listing_chars": 3937
+        }
+      ]
+    },
+    "ecc_adds": {
+      "skills": 311,
+      "agents": 71,
+      "commands": 97,
+      "commands_model_invocable": 95,
+      "chars": 115642,
+      "tokens_est": 28910,
+      "agent_chars": 15915,
+      "agent_tokens_est": 3979,
+      "entries_name_chars": 9333,
+      "max_skill_desc_chars": 590
+    },
+    "combined": {
+      "chars": 182427,
+      "tokens_est": 45607,
+      "entries": 562,
+      "agent_chars": 17405,
+      "agent_tokens_est": 4351,
+      "vs_budget_200k_window": {
+        "budget_chars_est": 8000,
+        "now_x": 8.35,
+        "combined_x": 22.8
+      },
+      "vs_budget_1m_window": {
+        "budget_chars_est": 40000,
+        "now_x": 1.67,
+        "combined_x": 4.56
+      },
+      "budget_note": "бюджет в символах = 1% окна × 4 симв./токен — оценка; какое окно у Sonnet владельца (200K или 1M), не проверено"
+    },
+    "listing_budget_note": "Документация (https://code.claude.com/docs/en/skills, раздел «Skill descriptions are cut short»): список всегда содержит ВСЕ имена, но при переполнении Claude Code выбрасывает описания, начиная с реже всего вызываемых скилов; бюджет = 1% окна контекста модели; поднять — skillListingBudgetFraction или SLASH_COMMAND_TOOL_CHAR_BUDGET; description+when_to_use режутся до 1536 симв. (skillListingMaxDescChars); skillOverrides \"name-only\" освобождает бюджет, но на плагинные скилы не действует; disable-model-invocation: true убирает описание из контекста. Агенты (https://code.claude.com/docs/en/sub-agents): описания не усекаются, при сумме > 15 000 токенов — только предупреждение на старте; ECC добавит ≈3 979 токенов (оценка), итого ≈4 351.",
+    "effect": "Уже сейчас список владельца (≈66.8 тыс. симв.) превышает бюджет: в 8.3 раза при окне 200K или в 1.7 раза при 1M (оценка). Наблюдение в этой сессии (2.1.302): у большинства скилов описания уже нет (все seo-* кроме seo/seo-agentic…, marketing-ideas/cro-kit/churn-prevention, qa-skills, taste-skill кроме redesign, data кроме statistical-analysis — подсчёт по системному списку вручную, ≈100 из 156, оценка); описания остались у часто вызываемых (по ~/.claude.json skillUsage: superpowers:brainstorming 22, ui-ux-pro-max 19, frontend-design 16, typesafe-triage 16+7, writing-plans 15, subagent-driven 15, site-qa-audit 10+4). С ECC (+406 записей) одни только ИМЕНА займут ≈13.4 тыс. симв. (4 059 + 9 333) — больше всего бюджета при окне 200K, т.е. описания исчезнут почти у всех, кроме самых используемых; при 1M на описания останется ≈26.6 тыс. симв. на 562 записи. Новые скилы ECC стартуют с нулём вызовов, поэтому их описания выпадут первыми, а следом — редко вызываемые скилы владельца: CLAUDE.md-набор marketing/product/data/CRO/churn/idea-*, seo-*, qa-skills, taste-skill, anthropic-skills. Скилы, оставшиеся без описания, модель не сможет выбрать по смыслу запроса — только по имени или явному /вызову."
+  },
+  "overlap_matrix": [
+    {
+      "area": "планирование (идея → дизайн → план)",
+      "ecc": [
+        {
+          "kind": "command",
+          "name": "/plan",
+          "file": "commands/plan.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/plan.md"
+        },
+        {
+          "kind": "agent",
+          "name": "planner",
+          "file": "agents/planner.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/agents/planner.md"
+        },
+        {
+          "kind": "agent",
+          "name": "architect",
+          "file": "agents/architect.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/agents/architect.md"
+        },
+        {
+          "kind": "skill",
+          "name": "blueprint",
+          "file": "skills/blueprint/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/blueprint/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "intent-driven-development",
+          "file": "skills/intent-driven-development/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/intent-driven-development/SKILL.md"
+        },
+        {
+          "kind": "command",
+          "name": "/feature-dev",
+          "file": "commands/feature-dev.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/feature-dev.md"
+        }
+      ],
+      "owner": [
+        {
+          "source": "superpowers",
+          "name": "brainstorming",
+          "kind": "skill"
+        },
+        {
+          "source": "superpowers",
+          "name": "writing-plans",
+          "kind": "skill"
+        },
+        {
+          "source": "product-management",
+          "name": "write-spec",
+          "kind": "skill"
+        },
+        {
+          "source": "~/.claude/skills",
+          "name": "lean-build",
+          "kind": "user-skill"
+        }
+      ],
+      "overlap": "conflict",
+      "who_wins_when_both": "Superpowers: его using-superpowers вставляется хуком в каждую сессию и требует «You MUST use» brainstorming до творческой работы; brainstorming и writing-plans — самые вызываемые скилы владельца (22 и 15), их описания останутся в списке. Агенты ECC planner/architect (model: opus, «Use PROACTIVELY», planner «Automatically activated for planning») может запустить основная модель через Agent — тогда план пишет второй планировщик на Opus+xhigh без триажа.",
+      "verdict": "keep-owner",
+      "advice": "Процесс оставить Superpowers. Если ставить ECC — deny Agent(ecc:planner), Agent(ecc:architect) и Skill(ecc:plan); blueprint — только вручную для многосессионных проектов (идея: шаги размером с PR с самодостаточными брифами).",
+      "risk": "medium"
+    },
+    {
+      "area": "исполнение плана и субагенты",
+      "ecc": [
+        {
+          "kind": "skill",
+          "name": "orch-pipeline",
+          "file": "skills/orch-pipeline/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/orch-pipeline/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "orch-add-feature",
+          "file": "skills/orch-add-feature/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/orch-add-feature/SKILL.md"
+        },
+        {
+          "kind": "command",
+          "name": "/orch-add-feature",
+          "file": "commands/orch-add-feature.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/orch-add-feature.md"
+        },
+        {
+          "kind": "skill",
+          "name": "plan-orchestrate",
+          "file": "skills/plan-orchestrate/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/plan-orchestrate/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "dev-team",
+          "file": "skills/dev-team/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/dev-team/SKILL.md"
+        }
+      ],
+      "owner": [
+        {
+          "source": "superpowers",
+          "name": "executing-plans",
+          "kind": "skill"
+        },
+        {
+          "source": "superpowers",
+          "name": "subagent-driven-development",
+          "kind": "skill"
+        },
+        {
+          "source": "typesafe-triage",
+          "name": "--batch (модель/effort по задачам плана)",
+          "kind": "script"
+        }
+      ],
+      "overlap": "duplicate",
+      "who_wins_when_both": "По описаниям оба подходят к «реализуй функцию»; Superpowers выигрывает через вводный контекст и историю вызовов, orch-* срабатывают при явной команде /orch-*. При запуске orch-* модели ролей берутся из frontmatter агентов ECC, а не из Model Selection/триажа.",
+      "verdict": "port-idea",
+      "advice": "Оставить subagent-driven-development + триаж. Перенести из orch-pipeline классификатор размера (trivial/small/standard/large по 3 сигналам) и ровно двое ворот (план, коммит) в writing-plans-процесс или новый скил.",
+      "risk": "medium"
+    },
+    {
+      "area": "параллельные агенты и циклы",
+      "ecc": [
+        {
+          "kind": "command",
+          "name": "/multi-plan",
+          "file": "commands/multi-plan.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/multi-plan.md"
+        },
+        {
+          "kind": "command",
+          "name": "/multi-execute",
+          "file": "commands/multi-execute.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/multi-execute.md"
+        },
+        {
+          "kind": "command",
+          "name": "/santa-loop",
+          "file": "commands/santa-loop.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/santa-loop.md"
+        },
+        {
+          "kind": "skill",
+          "name": "santa-method",
+          "file": "skills/santa-method/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/santa-method/SKILL.md"
+        },
+        {
+          "kind": "command",
+          "name": "/gan-build",
+          "file": "commands/gan-build.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/gan-build.md"
+        },
+        {
+          "kind": "agent",
+          "name": "loop-operator",
+          "file": "agents/loop-operator.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/agents/loop-operator.md"
+        },
+        {
+          "kind": "skill",
+          "name": "council",
+          "file": "skills/council/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/council/SKILL.md"
+        }
+      ],
+      "owner": [
+        {
+          "source": "superpowers",
+          "name": "dispatching-parallel-agents",
+          "kind": "skill"
+        },
+        {
+          "source": "typesafe-triage",
+          "name": "правило ревьюера (модель не ниже исполнителя, effort ≥ high)",
+          "kind": "rule"
+        }
+      ],
+      "overlap": "complement",
+      "who_wins_when_both": "Только по явной команде: команды ECC вызываются человеком; /multi-* требуют внешний ccg-workflow (нет у владельца). dispatching-parallel-agents срабатывает сам по описанию.",
+      "verdict": "port-idea",
+      "advice": "Не использовать /multi-* и /santa-loop (пушит при успехе). Идею santa-method (два независимых ревьюера с одной рубрикой) и council (4 голоса для go/no-go) перенести в ревью-шаг Superpowers и в product-concept.",
+      "risk": "low"
+    },
+    {
+      "area": "TDD",
+      "ecc": [
+        {
+          "kind": "skill",
+          "name": "tdd-workflow",
+          "file": "skills/tdd-workflow/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/tdd-workflow/SKILL.md"
+        },
+        {
+          "kind": "agent",
+          "name": "tdd-guide",
+          "file": "agents/tdd-guide.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/agents/tdd-guide.md"
+        },
+        {
+          "kind": "command",
+          "name": "/test-coverage",
+          "file": "commands/test-coverage.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/test-coverage.md"
+        },
+        {
+          "kind": "skill",
+          "name": "python-testing",
+          "file": "skills/python-testing/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/python-testing/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "django-tdd",
+          "file": "skills/django-tdd/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/django-tdd/SKILL.md"
+        }
+      ],
+      "owner": [
+        {
+          "source": "superpowers",
+          "name": "test-driven-development",
+          "kind": "skill"
+        }
+      ],
+      "overlap": "duplicate",
+      "who_wins_when_both": "Обе формулировки «Use when writing a new feature, fixing a bug» почти совпадают; superpowers:test-driven-development вызывался 5 раз — описание сохранится, у tdd-workflow — выпадет. Агент tdd-guide (PROACTIVE, sonnet) может быть запущен параллельно и требовать 80% покрытия.",
+      "verdict": "keep-owner",
+      "advice": "Оставить Superpowers TDD; deny Agent(ecc:tdd-guide) и Skill(ecc:tdd-workflow). Языковые *-testing скилы ECC полезны как справочник (python-testing) — но только при выборочной установке.",
+      "risk": "medium"
+    },
+    {
+      "area": "отладка",
+      "ecc": [
+        {
+          "kind": "skill",
+          "name": "agent-introspection-debugging",
+          "file": "skills/agent-introspection-debugging/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/agent-introspection-debugging/SKILL.md"
+        },
+        {
+          "kind": "agent",
+          "name": "build-error-resolver",
+          "file": "agents/build-error-resolver.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/agents/build-error-resolver.md"
+        },
+        {
+          "kind": "command",
+          "name": "/build-fix",
+          "file": "commands/build-fix.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/build-fix.md"
+        },
+        {
+          "kind": "skill",
+          "name": "click-path-audit",
+          "file": "skills/click-path-audit/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/click-path-audit/SKILL.md"
+        }
+      ],
+      "owner": [
+        {
+          "source": "superpowers",
+          "name": "systematic-debugging",
+          "kind": "skill"
+        },
+        {
+          "source": "~/.claude/skills",
+          "name": "investigate-first",
+          "kind": "user-skill"
+        },
+        {
+          "source": "~/.claude/skills",
+          "name": "surgical-patch",
+          "kind": "user-skill"
+        }
+      ],
+      "overlap": "complement",
+      "who_wins_when_both": "systematic-debugging («любой баг… до исправления») и investigate-first шире; build-error-resolver (PROACTIVE) перехватит «сборка упала» в JS/TS-проектах; click-path-audit уникален: цепочки состояний кнопок, где функции по отдельности работают, а вместе ломают UI.",
+      "verdict": "port-idea",
+      "advice": "Оставить systematic-debugging/investigate-first. Метод click-path-audit перенести в чек-листы site-qa-audit (функциональность → цепочки состояний).",
+      "risk": "low"
+    },
+    {
+      "area": "верификация перед «готово»",
+      "ecc": [
+        {
+          "kind": "skill",
+          "name": "verification-loop",
+          "file": "skills/verification-loop/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/verification-loop/SKILL.md"
+        },
+        {
+          "kind": "command",
+          "name": "/quality-gate",
+          "file": "commands/quality-gate.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/quality-gate.md"
+        },
+        {
+          "kind": "command",
+          "name": "/checkpoint",
+          "file": "commands/checkpoint.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/checkpoint.md"
+        },
+        {
+          "kind": "skill",
+          "name": "delivery-gate",
+          "file": "skills/delivery-gate/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/delivery-gate/SKILL.md"
+        },
+        {
+          "kind": "hook",
+          "name": "stop:format-typecheck",
+          "file": "hooks/hooks.json",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json"
+        }
+      ],
+      "owner": [
+        {
+          "source": "superpowers",
+          "name": "verification-before-completion",
+          "kind": "skill"
+        },
+        {
+          "source": "~/.claude/skills",
+          "name": "verify-and-stop",
+          "kind": "user-skill"
+        }
+      ],
+      "overlap": "conflict",
+      "who_wins_when_both": "Модельные скилы дублируются (Superpowers выигрывает по истории вызовов). Конфликт — в хуке stop:format-typecheck (standard): после ответа сам ПЕРЕФОРМАТИРУЕТ правленые .ts/.js и вызывает npx tsc (может качать из npm), до 270 с; delivery-gate блокирует остановку.",
+      "verdict": "disable-ecc-part",
+      "advice": "ECC_DISABLED_HOOKS=stop:format-typecheck (или профиль minimal). Из verification-loop можно взять формат отчёта PASS/FAIL по 6 фазам для verify-and-stop.",
+      "risk": "medium"
+    },
+    {
+      "area": "код-ревью",
+      "ecc": [
+        {
+          "kind": "agent",
+          "name": "code-reviewer",
+          "file": "agents/code-reviewer.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/agents/code-reviewer.md"
+        },
+        {
+          "kind": "command",
+          "name": "/code-review",
+          "file": "commands/code-review.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/code-review.md"
+        },
+        {
+          "kind": "command",
+          "name": "/review-pr",
+          "file": "commands/review-pr.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/review-pr.md"
+        },
+        {
+          "kind": "agent",
+          "name": "silent-failure-hunter",
+          "file": "agents/silent-failure-hunter.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/agents/silent-failure-hunter.md"
+        },
+        {
+          "kind": "agent",
+          "name": "code-simplifier",
+          "file": "agents/code-simplifier.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/agents/code-simplifier.md"
+        }
+      ],
+      "owner": [
+        {
+          "source": "superpowers",
+          "name": "requesting-code-review",
+          "kind": "skill"
+        },
+        {
+          "source": "superpowers",
+          "name": "receiving-code-review",
+          "kind": "skill"
+        },
+        {
+          "source": "Claude Code (встроенный)",
+          "name": "code-review / simplify",
+          "kind": "skill"
+        }
+      ],
+      "overlap": "conflict",
+      "who_wins_when_both": "code-reviewer ECC: «MUST BE USED for all code changes», «Use immediately after writing» — основная модель склонна запускать его после КАЖДОЙ правки (sonnet из frontmatter, без триажа). Имя /code-review совпадает со встроенным скилом Claude Code code-review; у плагина оно будет ecc:code-review — какой сработает на «/code-review», не проверено.",
+      "verdict": "disable-ecc-part",
+      "advice": "deny Agent(ecc:code-reviewer) или не ставить ECC целиком; ревью по Superpowers + правило триажа. /review-pr (6 специализированных ревьюеров) — полезная идея для крупных PR: вызывать вручную, указывая model.",
+      "risk": "high"
+    },
+    {
+      "area": "ревью безопасности",
+      "ecc": [
+        {
+          "kind": "skill",
+          "name": "security-review",
+          "file": "skills/security-review/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/security-review/SKILL.md"
+        },
+        {
+          "kind": "agent",
+          "name": "security-reviewer",
+          "file": "agents/security-reviewer.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/agents/security-reviewer.md"
+        },
+        {
+          "kind": "skill",
+          "name": "security-scan",
+          "file": "skills/security-scan/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/security-scan/SKILL.md"
+        },
+        {
+          "kind": "command",
+          "name": "/security-scan",
+          "file": "commands/security-scan.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/security-scan.md"
+        },
+        {
+          "kind": "skill",
+          "name": "safety-guard",
+          "file": "skills/safety-guard/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/safety-guard/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "gateguard",
+          "file": "skills/gateguard/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/gateguard/SKILL.md"
+        }
+      ],
+      "owner": [
+        {
+          "source": "Claude Code (встроенный)",
+          "name": "security-review",
+          "kind": "skill"
+        },
+        {
+          "source": "qa-skills",
+          "name": "security-auditor",
+          "kind": "agent"
+        },
+        {
+          "source": "site-qa-audit",
+          "name": "пассивная безопасность",
+          "kind": "plugin-skill"
+        }
+      ],
+      "overlap": "complement",
+      "who_wins_when_both": "Имя security-review совпадает со встроенным скилом Claude Code (у ECC — ecc:security-review). security-reviewer (PROACTIVE) будет запускаться на код с вводом/авторизацией. security-scan (AgentShield, npx — сеть) уникален: аудит ~/.claude (CLAUDE.md, settings, хуки, MCP).",
+      "verdict": "use-both",
+      "advice": "Встроенный security-review для диффов; AgentShield — разово и вручную для аудита ~/.claude (помнить про npx и сеть); safety-guard (careful/freeze) — по желанию для прод-работ.",
+      "risk": "medium"
+    },
+    {
+      "area": "E2E и браузерное QA сайтов",
+      "ecc": [
+        {
+          "kind": "skill",
+          "name": "browser-qa",
+          "file": "skills/browser-qa/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/browser-qa/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "e2e-testing",
+          "file": "skills/e2e-testing/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/e2e-testing/SKILL.md"
+        },
+        {
+          "kind": "agent",
+          "name": "e2e-runner",
+          "file": "agents/e2e-runner.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/agents/e2e-runner.md"
+        },
+        {
+          "kind": "skill",
+          "name": "click-path-audit",
+          "file": "skills/click-path-audit/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/click-path-audit/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "ai-regression-testing",
+          "file": "skills/ai-regression-testing/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/ai-regression-testing/SKILL.md"
+        }
+      ],
+      "owner": [
+        {
+          "source": "site-qa-audit",
+          "name": "site-qa-audit",
+          "kind": "plugin-skill"
+        },
+        {
+          "source": "qa-skills",
+          "name": "14 скилов + 7 агентов",
+          "kind": "plugin"
+        },
+        {
+          "source": "~/.claude/skills",
+          "name": "e2e-test",
+          "kind": "user-skill"
+        },
+        {
+          "source": "~/.claude/commands",
+          "name": "ux-audit",
+          "kind": "command"
+        },
+        {
+          "source": "playwright",
+          "name": "MCP",
+          "kind": "mcp"
+        }
+      ],
+      "overlap": "conflict",
+      "who_wins_when_both": "С меткой «!qa» — site-qa-audit: хук qa_force добавляет «ЯВНЫЙ ВЫЗОВ». Без метки: site-qa-audit сам просит подтверждение, а browser-qa («post-deploy UI verification») и агент e2e-runner («Use PROACTIVELY», предпочитает Vercel Agent Browser, которого у владельца нет) отвечают на «протестируй сайт» без вопросов — модель может выбрать их и обойти запреты site-qa-audit (покупки, OAuth, формы).",
+      "verdict": "keep-owner",
+      "advice": "Оставить site-qa-audit + qa-skills; deny Agent(ecc:e2e-runner), Skill(ecc:browser-qa). Перенести click-path-audit как чек-лист. Для QA всегда пользоваться «!qa».",
+      "risk": "high"
+    },
+    {
+      "area": "мобильная разработка и Android QA",
+      "ecc": [
+        {
+          "kind": "skill",
+          "name": "android-clean-architecture",
+          "file": "skills/android-clean-architecture/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/android-clean-architecture/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "compose-multiplatform-patterns",
+          "file": "skills/compose-multiplatform-patterns/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/compose-multiplatform-patterns/SKILL.md"
+        },
+        {
+          "kind": "agent",
+          "name": "flutter-reviewer",
+          "file": "agents/flutter-reviewer.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/agents/flutter-reviewer.md"
+        },
+        {
+          "kind": "command",
+          "name": "/flutter-test",
+          "file": "commands/flutter-test.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/flutter-test.md"
+        }
+      ],
+      "owner": [
+        {
+          "source": "android-qa-audit",
+          "name": "android-qa-audit",
+          "kind": "plugin-skill"
+        }
+      ],
+      "overlap": "none",
+      "who_wins_when_both": "Не пересекаются: у ECC — паттерны кода Android/Kotlin/Flutter/Swift, у владельца — QA готового APK через adb без исходников. Триггеры разные («протестируй APK» vs «напиши экран Compose»).",
+      "verdict": "use-both",
+      "advice": "Ничего не отключать; android-qa-audit остаётся единственным QA по APK. Паттерны ECC полезны только при разработке мобильного кода.",
+      "risk": "low"
+    },
+    {
+      "area": "фронтенд и дизайн",
+      "ecc": [
+        {
+          "kind": "skill",
+          "name": "frontend-design-direction",
+          "file": "skills/frontend-design-direction/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/frontend-design-direction/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "design-system",
+          "file": "skills/design-system/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/design-system/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "make-interfaces-feel-better",
+          "file": "skills/make-interfaces-feel-better/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/make-interfaces-feel-better/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "motion-foundations",
+          "file": "skills/motion-foundations/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/motion-foundations/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "accessibility",
+          "file": "skills/accessibility/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/accessibility/SKILL.md"
+        },
+        {
+          "kind": "agent",
+          "name": "a11y-architect",
+          "file": "agents/a11y-architect.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/agents/a11y-architect.md"
+        },
+        {
+          "kind": "hook",
+          "name": "post:edit:design-quality-check",
+          "file": "hooks/hooks.json",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json"
+        }
+      ],
+      "owner": [
+        {
+          "source": "frontend-design",
+          "name": "frontend-design",
+          "kind": "plugin-skill"
+        },
+        {
+          "source": "taste-skill",
+          "name": "13 скилов",
+          "kind": "plugin"
+        },
+        {
+          "source": "~/.claude/skills",
+          "name": "ui-ux-pro-max, design-system, design-motion-principles, ui-styling, laws-of-ux, ux-*",
+          "kind": "user-skill"
+        }
+      ],
+      "overlap": "duplicate",
+      "who_wins_when_both": "Одноимённые design-system (личный) и ecc:design-system с разной задачей (у владельца — токены и слайды, у ECC — извлечь систему из кода/аудит). Часто вызываемые ui-ux-pro-max (19) и frontend-design (16) сохранят описания и выиграют; a11y-architect (PROACTIVE) будет вмешиваться при дизайне компонентов; хук design-quality-check печатает чек-лист «generic design» после правок .html/.css/.tsx.",
+      "verdict": "keep-owner",
+      "advice": "Оставить свой набор; deny Skill(ecc:design-system), Skill(ecc:frontend-design-direction), Agent(ecc:a11y-architect). make-interfaces-feel-better — можно взять как идею для taste-набора.",
+      "risk": "medium"
+    },
+    {
+      "area": "SEO",
+      "ecc": [
+        {
+          "kind": "skill",
+          "name": "seo",
+          "file": "skills/seo/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/seo/SKILL.md"
+        },
+        {
+          "kind": "agent",
+          "name": "seo-specialist",
+          "file": "agents/seo-specialist.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/agents/seo-specialist.md"
+        }
+      ],
+      "owner": [
+        {
+          "source": "~/.claude/skills",
+          "name": "seo + 25 seo-*",
+          "kind": "user-skill"
+        },
+        {
+          "source": "marketing",
+          "name": "seo-audit",
+          "kind": "plugin-skill"
+        },
+        {
+          "source": "site-qa-audit",
+          "name": "SEO-проверки",
+          "kind": "plugin-skill"
+        }
+      ],
+      "overlap": "duplicate",
+      "who_wins_when_both": "Одноимённые seo (личный хаб) и ecc:seo; личные seo-* глубже (26 узких скилов). На «SEO-аудит» модель выберет любой из трёх; описания всех seo-* уже частично выпали из бюджета.",
+      "verdict": "keep-owner",
+      "advice": "deny Skill(ecc:seo), Agent(ecc:seo-specialist).",
+      "risk": "low"
+    },
+    {
+      "area": "маркетинг и контент",
+      "ecc": [
+        {
+          "kind": "skill",
+          "name": "marketing-campaign",
+          "file": "skills/marketing-campaign/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/marketing-campaign/SKILL.md"
+        },
+        {
+          "kind": "command",
+          "name": "/marketing-campaign",
+          "file": "commands/marketing-campaign.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/marketing-campaign.md"
+        },
+        {
+          "kind": "agent",
+          "name": "marketing-agent",
+          "file": "agents/marketing-agent.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/agents/marketing-agent.md"
+        },
+        {
+          "kind": "skill",
+          "name": "content-engine",
+          "file": "skills/content-engine/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/content-engine/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "article-writing",
+          "file": "skills/article-writing/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/article-writing/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "brand-voice",
+          "file": "skills/brand-voice/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/brand-voice/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "crosspost",
+          "file": "skills/crosspost/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/crosspost/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "x-api",
+          "file": "skills/x-api/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/x-api/SKILL.md"
+        }
+      ],
+      "owner": [
+        {
+          "source": "marketing",
+          "name": "campaign-plan, draft-content, content-creation, email-sequence, brand-review…",
+          "kind": "plugin-skill"
+        },
+        {
+          "source": "marketing-ideas-kit / cro-kit / churn-prevention",
+          "name": "15 скилов",
+          "kind": "plugin-skill"
+        },
+        {
+          "source": "~/.claude/skills",
+          "name": "brand",
+          "kind": "user-skill"
+        }
+      ],
+      "overlap": "duplicate",
+      "who_wins_when_both": "CLAUDE.md прямо велит применять marketing:campaign-plan, draft-content и др. — они должны выигрывать; но их описания уже выпадают из бюджета (не вызывались), а у ECC marketing-campaign длинное описание «orchestration layer» — при выпадении обоих выбор будет по имени.",
+      "verdict": "keep-owner",
+      "advice": "deny Skill(ecc:marketing-campaign), Agent(ecc:marketing-agent). Уникально у ECC: brand-voice (профиль стиля по реальным текстам) и content-engine (адаптация под платформы) — можно перенести идею; crosspost/x-api публикуют в сеть — не использовать без явного решения.",
+      "risk": "medium"
+    },
+    {
+      "area": "продукт / PRD / стратегия",
+      "ecc": [
+        {
+          "kind": "skill",
+          "name": "product-lens",
+          "file": "skills/product-lens/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/product-lens/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "product-capability",
+          "file": "skills/product-capability/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/product-capability/SKILL.md"
+        },
+        {
+          "kind": "command",
+          "name": "/plan-prd",
+          "file": "commands/plan-prd.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/plan-prd.md"
+        },
+        {
+          "kind": "command",
+          "name": "/prp-prd",
+          "file": "commands/prp-prd.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/prp-prd.md"
+        },
+        {
+          "kind": "skill",
+          "name": "market-research",
+          "file": "skills/market-research/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/market-research/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "competitive-platform-analysis",
+          "file": "skills/competitive-platform-analysis/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/competitive-platform-analysis/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "council",
+          "file": "skills/council/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/council/SKILL.md"
+        }
+      ],
+      "owner": [
+        {
+          "source": "product-strategy",
+          "name": "product-strategy",
+          "kind": "plugin-skill"
+        },
+        {
+          "source": "product-strategy",
+          "name": "product-concept",
+          "kind": "plugin-skill"
+        },
+        {
+          "source": "product-management",
+          "name": "write-spec, roadmap-update, competitive-brief…",
+          "kind": "plugin-skill"
+        },
+        {
+          "source": "marketing",
+          "name": "competitive-brief",
+          "kind": "plugin-skill"
+        }
+      ],
+      "overlap": "duplicate",
+      "who_wins_when_both": "product-lens (go/no-go, PRODUCT-BRIEF.md) пересекается с предпроверкой жизнеспособности product-concept; market-research — с этапом рынка product-strategy. Скилы владельца требуют явного вызова или подтверждения, а product-lens/market-research — нет, поэтому на «оцени идею» без метки модель может взять ECC.",
+      "verdict": "keep-owner",
+      "advice": "Запускать свои через /product-strategy:concept или !concept/!strategy. Перенести: tier-фильтр конкурентов из competitive-platform-analysis в references/competitors.md; council (4 голоса) — в go/no-go product-concept. deny Skill(ecc:product-lens), Skill(ecc:market-research).",
+      "risk": "medium"
+    },
+    {
+      "area": "поиск документации и исследование",
+      "ecc": [
+        {
+          "kind": "skill",
+          "name": "documentation-lookup",
+          "file": "skills/documentation-lookup/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/documentation-lookup/SKILL.md"
+        },
+        {
+          "kind": "agent",
+          "name": "docs-lookup",
+          "file": "agents/docs-lookup.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/agents/docs-lookup.md"
+        },
+        {
+          "kind": "skill",
+          "name": "search-first",
+          "file": "skills/search-first/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/search-first/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "deep-research",
+          "file": "skills/deep-research/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/deep-research/SKILL.md"
+        }
+      ],
+      "owner": [
+        {
+          "source": "context7",
+          "name": "MCP Context7",
+          "kind": "mcp"
+        },
+        {
+          "source": "Claude Code (встроенный)",
+          "name": "claude-code-guide",
+          "kind": "agent"
+        }
+      ],
+      "overlap": "conflict",
+      "who_wins_when_both": "documentation-lookup и docs-lookup используют тот же Context7, что уже подключён; агент docs-lookup имеет model: haiku во frontmatter — при вызове без параметра model уйдёт на Haiku без подтверждения (нарушение правила CLAUDE.md). deep-research требует firecrawl/exa MCP (их нет).",
+      "verdict": "disable-ecc-part",
+      "advice": "deny Agent(ecc:docs-lookup); Context7 использовать напрямую. search-first («сначала поищи готовое») — хорошая идея для lean-build.",
+      "risk": "medium"
+    },
+    {
+      "area": "git-процесс, ветки, PR",
+      "ecc": [
+        {
+          "kind": "skill",
+          "name": "git-workflow",
+          "file": "skills/git-workflow/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/git-workflow/SKILL.md"
+        },
+        {
+          "kind": "command",
+          "name": "/pr",
+          "file": "commands/pr.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/pr.md"
+        },
+        {
+          "kind": "command",
+          "name": "/prp-pr",
+          "file": "commands/prp-pr.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/prp-pr.md"
+        },
+        {
+          "kind": "command",
+          "name": "/prp-commit",
+          "file": "commands/prp-commit.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/prp-commit.md"
+        },
+        {
+          "kind": "agent",
+          "name": "commit-reviewer",
+          "file": "agents/commit-reviewer.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/agents/commit-reviewer.md"
+        },
+        {
+          "kind": "hook",
+          "name": "pre:bash:dispatcher",
+          "file": "hooks/hooks.json",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json"
+        }
+      ],
+      "owner": [
+        {
+          "source": "superpowers",
+          "name": "using-git-worktrees",
+          "kind": "skill"
+        },
+        {
+          "source": "superpowers",
+          "name": "finishing-a-development-branch",
+          "kind": "skill"
+        },
+        {
+          "source": "CLAUDE.md",
+          "name": "ветка на доработку, merge+push в конце, ветки не удалять",
+          "kind": "rule"
+        }
+      ],
+      "overlap": "complement",
+      "who_wins_when_both": "Правила CLAUDE.md выше по приоритету; /pr и /prp-pr пушат и создают PR — только по явной команде. Подхук block-no-verify (все профили) блокирует git commit/push с --no-verify — совместим с правилами владельца.",
+      "verdict": "use-both",
+      "advice": "Оставить процесс CLAUDE.md + Superpowers; block-no-verify ECC безвреден. Не ставить ECC через npx setup (выключает Co-Authored-By).",
+      "risk": "low"
+    },
+    {
+      "area": "GitHub issues и эпики",
+      "ecc": [
+        {
+          "kind": "command",
+          "name": "/epic-decompose",
+          "file": "commands/epic-decompose.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/epic-decompose.md"
+        },
+        {
+          "kind": "command",
+          "name": "/epic-publish",
+          "file": "commands/epic-publish.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/epic-publish.md"
+        },
+        {
+          "kind": "command",
+          "name": "/epic-sync",
+          "file": "commands/epic-sync.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/epic-sync.md"
+        },
+        {
+          "kind": "command",
+          "name": "/jira",
+          "file": "commands/jira.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/jira.md"
+        }
+      ],
+      "owner": [
+        {
+          "source": "~/.claude/skills",
+          "name": "github-issue-structuring",
+          "kind": "user-skill"
+        },
+        {
+          "source": "product-strategy",
+          "name": "файл задач (эпики и issues)",
+          "kind": "plugin-skill"
+        }
+      ],
+      "overlap": "duplicate",
+      "who_wins_when_both": "github-issue-structuring срабатывает по описанию («создай issue», «разбей на подзадачи») и вызывался 8 раз; epic-* — только командами. Оба пишут в issues — риск двойной структуры эпиков.",
+      "verdict": "keep-owner",
+      "advice": "Не пользоваться /epic-* в репозиториях владельца.",
+      "risk": "low"
+    },
+    {
+      "area": "память сессий и «где остановился»",
+      "ecc": [
+        {
+          "kind": "hook",
+          "name": "session:start",
+          "file": "hooks/hooks.json",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json"
+        },
+        {
+          "kind": "hook",
+          "name": "stop:session-end",
+          "file": "hooks/hooks.json",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json"
+        },
+        {
+          "kind": "hook",
+          "name": "pre:compact",
+          "file": "hooks/hooks.json",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json"
+        },
+        {
+          "kind": "command",
+          "name": "/save-session",
+          "file": "commands/save-session.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/save-session.md"
+        },
+        {
+          "kind": "command",
+          "name": "/resume-session",
+          "file": "commands/resume-session.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/resume-session.md"
+        },
+        {
+          "kind": "skill",
+          "name": "ck",
+          "file": "skills/ck/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/ck/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "strategic-compact",
+          "file": "skills/strategic-compact/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/strategic-compact/SKILL.md"
+        }
+      ],
+      "owner": [
+        {
+          "source": "CLAUDE.md",
+          "name": "TASKS.md + «Где остановился»",
+          "kind": "rule"
+        },
+        {
+          "source": "claude-md-management",
+          "name": "revise-claude-md",
+          "kind": "command"
+        },
+        {
+          "source": "anthropic-skills",
+          "name": "import-memory",
+          "kind": "skill"
+        }
+      ],
+      "overlap": "conflict",
+      "who_wins_when_both": "Хуки ECC срабатывают всегда (session-end — даже в minimal): снимок сессии после каждого ответа, вставка прошлой сессии на старте (≤8000 симв.), вызовы claude --model haiku -p с репликами без вычистки секретов (runtime.json, sandbox). TASKS.md владельца — второй, ручной источник.",
+      "verdict": "disable-ecc-part",
+      "advice": "ECC_SKIP_LLM_SUMMARY=1 и ECC_SESSION_START_MAX_CHARS=0 (или ECC_DISABLED_HOOKS=stop:session-end,pre:compact); оставить TASKS.md.",
+      "risk": "high"
+    },
+    {
+      "area": "маршрутизация моделей и расход",
+      "ecc": [
+        {
+          "kind": "command",
+          "name": "/model-route",
+          "file": "commands/model-route.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/model-route.md"
+        },
+        {
+          "kind": "skill",
+          "name": "cost-tracking",
+          "file": "skills/cost-tracking/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/cost-tracking/SKILL.md"
+        },
+        {
+          "kind": "command",
+          "name": "/cost-report",
+          "file": "commands/cost-report.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/cost-report.md"
+        },
+        {
+          "kind": "hook",
+          "name": "stop:cost-tracker",
+          "file": "hooks/hooks.json",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json"
+        },
+        {
+          "kind": "skill",
+          "name": "context-budget",
+          "file": "skills/context-budget/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/context-budget/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "token-budget-advisor",
+          "file": "skills/token-budget-advisor/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/token-budget-advisor/SKILL.md"
+        }
+      ],
+      "owner": [
+        {
+          "source": "typesafe-triage",
+          "name": "хук UserPromptSubmit + скил",
+          "kind": "plugin-skill"
+        },
+        {
+          "source": "settings",
+          "name": "modelSettings (effort по модели)",
+          "kind": "setting"
+        }
+      ],
+      "overlap": "conflict",
+      "who_wins_when_both": "Триаж решает на каждом запросе; Agent(model=…) из заметки имеет приоритет 1 над frontmatter агентов ECC (docs sub-agents). Но там, где модель не передана (агенты ECC, вызванные по PROACTIVE-описанию, orch-*/review-pr), действует frontmatter ECC: 6 агентов на haiku, 4 на opus. /model-route — второй советчик с другой логикой. stop:cost-tracker — локальный журнал расходов (~/.claude/metrics/costs.jsonl), у триажа такого нет.",
+      "verdict": "keep-owner",
+      "advice": "Триаж — единственный выбор модели; deny Skill(ecc:model-route). Вариант: CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1 не подходит (сломает и триаж). cost-tracker можно оставить (локальный, без сети) как вход для калибровки триажа.",
+      "risk": "high"
+    },
+    {
+      "area": "вводный контекст и мета-правила",
+      "ecc": [
+        {
+          "kind": "hook",
+          "name": "session:start",
+          "file": "hooks/hooks.json",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json"
+        },
+        {
+          "kind": "skill",
+          "name": "ecc-guide",
+          "file": "skills/ecc-guide/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/ecc-guide/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "configure-ecc",
+          "file": "skills/configure-ecc/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/configure-ecc/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "agent-sort",
+          "file": "skills/agent-sort/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/agent-sort/SKILL.md"
+        }
+      ],
+      "owner": [
+        {
+          "source": "superpowers",
+          "name": "using-superpowers",
+          "kind": "skill"
+        },
+        {
+          "source": "superpowers",
+          "name": "diagnosing-superpowers",
+          "kind": "skill"
+        },
+        {
+          "source": "CLAUDE.md",
+          "name": "глобальные правила",
+          "kind": "rule"
+        }
+      ],
+      "overlap": "complement",
+      "who_wins_when_both": "Оба хука SessionStart добавляют контекст независимо (Superpowers — правило «ищи скилы», ECC — прошлая сессия/инстинкты/тип проекта); прямого конфликта нет, растёт стартовый контекст. agent-sort ECC строит план установки DAILY/LIBRARY — полезен, чтобы урезать ECC.",
+      "verdict": "use-both",
+      "advice": "Если ставить — ECC_SESSION_START_MAX_CHARS ограничить или 0; agent-sort использовать до установки, чтобы выбрать модули ручным установщиком.",
+      "risk": "low"
+    },
+    {
+      "area": "оркестрация хуков и ограждения",
+      "ecc": [
+        {
+          "kind": "skill",
+          "name": "hookify-rules",
+          "file": "skills/hookify-rules/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/hookify-rules/SKILL.md"
+        },
+        {
+          "kind": "command",
+          "name": "/hookify",
+          "file": "commands/hookify.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/hookify.md"
+        },
+        {
+          "kind": "hook",
+          "name": "pre:hookify-runtime",
+          "file": "hooks/hooks.json",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json"
+        },
+        {
+          "kind": "hook",
+          "name": "pre:edit-write:gateguard-fact-force",
+          "file": "hooks/hooks.json",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json"
+        },
+        {
+          "kind": "hook",
+          "name": "pre:config-protection",
+          "file": "hooks/hooks.json",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json"
+        },
+        {
+          "kind": "hook",
+          "name": "pre:write:doc-file-warning",
+          "file": "hooks/hooks.json",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json"
+        }
+      ],
+      "owner": [
+        {
+          "source": "typesafe-triage",
+          "name": "guard (typesafe_guard.py)",
+          "kind": "script"
+        },
+        {
+          "source": "settings",
+          "name": "permissions auto, без deny",
+          "kind": "setting"
+        }
+      ],
+      "overlap": "conflict",
+      "who_wins_when_both": "Hookify — no-op без файлов .claude/hookify.*.local.md (безвреден). GateGuard (standard) отклоняет первую Edit/Write каждого файла и в субагентах — ломает длинные автономные задачи и subagent-driven-development; config-protection запрещает менять существующие конфиги линтеров.",
+      "verdict": "disable-ecc-part",
+      "advice": "ECC_DISABLED_HOOKS=pre:edit-write:gateguard-fact-force,pre:bash:gateguard-fact-force (или профиль minimal). Hookify оставить — идея markdown-правил полезна.",
+      "risk": "high"
+    },
+    {
+      "area": "управление MCP",
+      "ecc": [
+        {
+          "kind": "hook",
+          "name": "pre:mcp-health-check",
+          "file": "hooks/hooks.json",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json"
+        },
+        {
+          "kind": "hook",
+          "name": "post:mcp-health-check",
+          "file": "hooks/hooks.json",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json"
+        },
+        {
+          "kind": "skill",
+          "name": "mcp-server-patterns",
+          "file": "skills/mcp-server-patterns/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/mcp-server-patterns/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "mcp-dependency-review",
+          "file": "skills/mcp-dependency-review/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/mcp-dependency-review/SKILL.md"
+        }
+      ],
+      "owner": [
+        {
+          "source": "~/.claude.json",
+          "name": "figma, notion, hf-mcp-server, TestSprite",
+          "kind": "mcp"
+        },
+        {
+          "source": "плагины",
+          "name": "≈20 HTTP-MCP marketing/product-management/data",
+          "kind": "mcp"
+        }
+      ],
+      "overlap": "conflict",
+      "who_wins_when_both": "Хук ECC проверяет только серверы из ~/.claude.json/settings: для figma/notion/hf — GET перед каждым вызовом (+ до 5 с), для TestSprite (stdio, сейчас падает) — запуск второго экземпляра через npx и блокировка вызова; плагинные и claude.ai-коннекторы пропускает.",
+      "verdict": "disable-ecc-part",
+      "advice": "ECC_DISABLED_HOOKS=pre:mcp-health-check,post:mcp-health-check или починить/удалить TestSprite.",
+      "risk": "medium"
+    },
+    {
+      "area": "языковые ревьюеры и сборка",
+      "ecc": [
+        {
+          "kind": "agent",
+          "name": "python-reviewer",
+          "file": "agents/python-reviewer.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/agents/python-reviewer.md"
+        },
+        {
+          "kind": "agent",
+          "name": "typescript-reviewer",
+          "file": "agents/typescript-reviewer.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/agents/typescript-reviewer.md"
+        },
+        {
+          "kind": "agent",
+          "name": "database-reviewer",
+          "file": "agents/database-reviewer.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/agents/database-reviewer.md"
+        },
+        {
+          "kind": "skill",
+          "name": "python-patterns",
+          "file": "skills/python-patterns/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/python-patterns/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "postgres-patterns",
+          "file": "skills/postgres-patterns/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/postgres-patterns/SKILL.md"
+        },
+        {
+          "kind": "command",
+          "name": "/python-review",
+          "file": "commands/python-review.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/python-review.md"
+        }
+      ],
+      "owner": [],
+      "overlap": "none",
+      "who_wins_when_both": "У владельца языковых ревьюеров нет — пересечения нет. Многие из них PROACTIVE и будут запускаться на sonnet из frontmatter.",
+      "verdict": "use-ecc",
+      "advice": "Ценность ECC для Python/JS-проектов владельца: python-reviewer, typescript-reviewer, database-reviewer. Брать выборочно (ручная установка модулей или копия .md в ~/.claude/agents), а не весь плагин.",
+      "risk": "low"
+    },
+    {
+      "area": "память и обучение, создание скилов",
+      "ecc": [
+        {
+          "kind": "skill",
+          "name": "continuous-learning-v2",
+          "file": "skills/continuous-learning-v2/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/continuous-learning-v2/SKILL.md"
+        },
+        {
+          "kind": "hook",
+          "name": "pre:observe",
+          "file": "hooks/hooks.json",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json"
+        },
+        {
+          "kind": "command",
+          "name": "/learn",
+          "file": "commands/learn.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/learn.md"
+        },
+        {
+          "kind": "command",
+          "name": "/evolve",
+          "file": "commands/evolve.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/evolve.md"
+        },
+        {
+          "kind": "command",
+          "name": "/skill-create",
+          "file": "commands/skill-create.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/skill-create.md"
+        },
+        {
+          "kind": "skill",
+          "name": "skill-stocktake",
+          "file": "skills/skill-stocktake/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/skill-stocktake/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "rules-distill",
+          "file": "skills/rules-distill/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/rules-distill/SKILL.md"
+        }
+      ],
+      "owner": [
+        {
+          "source": "superpowers",
+          "name": "writing-skills",
+          "kind": "skill"
+        },
+        {
+          "source": "anthropic-skills",
+          "name": "skill-creator",
+          "kind": "skill"
+        },
+        {
+          "source": "claude-md-management",
+          "name": "claude-md-improver / revise-claude-md",
+          "kind": "plugin-skill"
+        },
+        {
+          "source": "typesafe-triage",
+          "name": "журнал фактов для калибровки",
+          "kind": "script"
+        }
+      ],
+      "overlap": "complement",
+      "who_wins_when_both": "Создание скилов — у владельца (writing-skills, skill-creator). pre:observe (standard) пишет ВХОД каждого инструмента (до 5000 симв.) в ~/.local/share/ecc-homunculus — локально, но объёмно; инстинкты появляются только при включённом наблюдателе (по умолчанию выкл.).",
+      "verdict": "port-idea",
+      "advice": "Профиль minimal или ECC_DISABLED_HOOKS=pre:observe. Идея атомарных «инстинктов» с уверенностью и областью проекта — для журнала триажа/CLAUDE.md.",
+      "risk": "medium"
+    },
+    {
+      "area": "уведомления и статус",
+      "ecc": [
+        {
+          "kind": "hook",
+          "name": "stop:desktop-notify",
+          "file": "hooks/hooks.json",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json"
+        },
+        {
+          "kind": "hook",
+          "name": "post:dispatcher:sync",
+          "file": "hooks/hooks.json",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/hooks/hooks.json"
+        }
+      ],
+      "owner": [
+        {
+          "source": "settings",
+          "name": "inputNeededNotifEnabled, agentPushNotifEnabled",
+          "kind": "setting"
+        }
+      ],
+      "overlap": "duplicate",
+      "who_wins_when_both": "Встроенные уведомления Claude Code уже включены; ECC добавит osascript-уведомление с первой строкой ответа после каждого ответа (и во вложенных claude -p — по коду, не проверено). ecc-context-monitor внушает модели предупреждения о контексте/расходах.",
+      "verdict": "disable-ecc-part",
+      "advice": "ECC_DISABLED_HOOKS=stop:desktop-notify.",
+      "risk": "low"
+    },
+    {
+      "area": "документы и офисные форматы",
+      "ecc": [
+        {
+          "kind": "skill",
+          "name": "frontend-slides",
+          "file": "skills/frontend-slides/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/frontend-slides/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "nutrient-document-processing",
+          "file": "skills/nutrient-document-processing/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/nutrient-document-processing/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "investor-materials",
+          "file": "skills/investor-materials/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/investor-materials/SKILL.md"
+        }
+      ],
+      "owner": [
+        {
+          "source": "anthropic-skills",
+          "name": "pptx, docx, xlsx, pdf, docs",
+          "kind": "skill"
+        },
+        {
+          "source": "~/.claude/skills",
+          "name": "slides",
+          "kind": "user-skill"
+        },
+        {
+          "source": "Claude Docs",
+          "name": "MCP",
+          "kind": "mcp"
+        }
+      ],
+      "overlap": "duplicate",
+      "who_wins_when_both": "Скилы Anthropic срабатывают по расширению файла (.pptx/.docx); у ECC — HTML-слайды и внешний API Nutrient.",
+      "verdict": "keep-owner",
+      "advice": "Ничего не брать.",
+      "risk": "low"
+    },
+    {
+      "area": "аналитика данных и дашборды",
+      "ecc": [
+        {
+          "kind": "skill",
+          "name": "dashboard-builder",
+          "file": "skills/dashboard-builder/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/dashboard-builder/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "clickhouse-io",
+          "file": "skills/clickhouse-io/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/clickhouse-io/SKILL.md"
+        },
+        {
+          "kind": "skill",
+          "name": "postgres-patterns",
+          "file": "skills/postgres-patterns/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/postgres-patterns/SKILL.md"
+        },
+        {
+          "kind": "agent",
+          "name": "database-reviewer",
+          "file": "agents/database-reviewer.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/agents/database-reviewer.md"
+        }
+      ],
+      "owner": [
+        {
+          "source": "data",
+          "name": "analyze, sql-queries, statistical-analysis, build-dashboard…",
+          "kind": "plugin-skill"
+        },
+        {
+          "source": "Claude Code",
+          "name": "dataviz",
+          "kind": "skill"
+        }
+      ],
+      "overlap": "complement",
+      "who_wins_when_both": "Разные задачи: у ECC — операторские дашборды Grafana/SigNoz и паттерны БД для кода, у владельца — продуктовая аналитика и статистика (по CLAUDE.md применяется сразу).",
+      "verdict": "keep-owner",
+      "advice": "Для продуктовой аналитики — data:*; паттерны БД ECC — только при разработке.",
+      "risk": "low"
+    },
+    {
+      "area": "настройка харнесса и CLAUDE.md",
+      "ecc": [
+        {
+          "kind": "command",
+          "name": "/project-init",
+          "file": "commands/project-init.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/project-init.md"
+        },
+        {
+          "kind": "skill",
+          "name": "codebase-onboarding",
+          "file": "skills/codebase-onboarding/SKILL.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/codebase-onboarding/SKILL.md"
+        },
+        {
+          "kind": "command",
+          "name": "/harness-audit",
+          "file": "commands/harness-audit.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/harness-audit.md"
+        },
+        {
+          "kind": "command",
+          "name": "/skill-health",
+          "file": "commands/skill-health.md",
+          "url": "https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/commands/skill-health.md"
+        }
+      ],
+      "owner": [
+        {
+          "source": "claude-md-management",
+          "name": "claude-md-improver, revise-claude-md",
+          "kind": "plugin-skill"
+        },
+        {
+          "source": "Claude Code",
+          "name": "/init, fewer-permission-prompts, /skill-doctor",
+          "kind": "built-in"
+        }
+      ],
+      "overlap": "duplicate",
+      "who_wins_when_both": "codebase-onboarding генерирует стартовый CLAUDE.md — пересекается с /init и claude-md-improver; /harness-audit, /skill-health требуют node.",
+      "verdict": "keep-owner",
+      "advice": "Для оценки стоимости скилов — встроенный /skill-doctor и /doctor (docs skills).",
+      "risk": "low"
+    }
+  ],
+  "summary": {
+    "duplicates": 10,
+    "complements": 7,
+    "conflicts": 9,
+    "none": 2,
+    "ecc_unique_value": [
+      "языковые ревьюеры и build-resolver-ы (python-reviewer, typescript-reviewer, database-reviewer и ещё ≈30) — у владельца аналогов нет",
+      "block-no-verify (все профили): блок git --no-verify и обхода хуков",
+      "Hookify: правила-хуки в markdown по проекту",
+      "stop:cost-tracker: локальный журнал токенов и стоимости (~/.claude/metrics/costs.jsonl)",
+      "click-path-audit: аудит цепочек состояний UI",
+      "santa-method / council: двойное независимое ревью и 4 голоса для go/no-go",
+      "orch-pipeline: классификатор размера задачи + ровно двое ворот",
+      "AgentShield (security-scan): аудит конфигурации ~/.claude (npx, сеть)",
+      "agent-sort: план выборочной установки DAILY/LIBRARY",
+      "continuous-learning-v2: идея атомарных «инстинктов» с уверенностью",
+      "паттерны БД/DevOps/мобильной разработки как справочник"
+    ],
+    "owner_unique_value": [
+      "typesafe-triage: внешний классификатор TypeSafe + effort + подтверждения haiku/fable (у ECC только /model-route и фиксированный frontmatter)",
+      "site-qa-audit: браузерный QA со строгими запретами, сверкой с issues и перепроверкой исправлений",
+      "android-qa-audit: QA APK через adb — у ECC аналога нет",
+      "product-strategy + product-concept: реестр 50–200 предложений с RICE/ICE/WSJF/Кано, Гант, Kanban, сайт, XLSX/PPTX/PDF",
+      "Superpowers: целостный процесс brainstorming → plan → subagent-driven → review → finishing, согласованный с триажем (references/superpowers.md)",
+      "26 seo-* скилов (у ECC один seo)",
+      "marketing/product-management/data/CRO/churn/idea-* с требованиями к статистике (MDE, выборка) из CLAUDE.md",
+      "anthropic-skills для .docx/.pptx/.xlsx/.pdf, Claude Docs",
+      "taste-skill, ui-ux-pro-max, design-motion-principles: дизайн-набор глубже фронтенд-скилов ECC"
+    ],
+    "key_findings": [
+      "Бюджет списка скилов уже переполнен (×8.3 при окне 200K, ×1.7 при 1M — оценка); ECC добавит 406 записей, и одни их имена (≈9.3 тыс. симв.) больше всего бюджета при 200K.",
+      "Плагинные скилы ECC нельзя скрыть через skillOverrides — только /plugin целиком или deny-правила Skill(ecc:…)/Agent(ecc:…); уберут ли deny-правила описания из списка, документация не говорит (не проверено).",
+      "Совпадения имён: design-system и seo (личные скилы) ↔ ecc:design-system, ecc:seo; со встроенными Claude Code — code-review и security-review.",
+      "Главные конфликты с владельцем: haiku-агенты и вложенные claude --model haiku -p в обход триажа; PROACTIVE/MUST BE USED агенты (code-reviewer, e2e-runner, planner); GateGuard; session-end/pre:compact; mcp-health-check против TestSprite."
+    ]
+  }
+}
