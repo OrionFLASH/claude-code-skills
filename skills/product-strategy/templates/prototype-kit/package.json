@@ -1,0 +1,9 @@
+{
+  "name": "prototype",
+  "private": true,
+  "type": "commonjs",
+  "description": "Рабочий прототип концепции (набор product-strategy prototype-kit): статический HTML+CSS+JS без сборки и зависимостей. Тесты ядра: node js/core.test.js; смоук: node tests/smoke.mjs.",
+  "scripts": {
+    "test": "node js/core.test.js && node js/kit.test.js"
+  }
+}

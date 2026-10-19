@@ -23,6 +23,29 @@ project.goal = commercial; localization — если рынков (strategy.mark
 --demo — режим демо-прогона: заглушки URL разрешены, минимумы по категориям и доля A+B — предупреждения
 (демо-данные генерируются случайно).
 
+Дополнения 1.5 (все поля run-config необязательны; без них — поведение 1.4):
+  - личный режим (project.audience = personal | circle | personal_then_public): свои категории реестра
+    (PERSONAL_CATEGORIES: core, data-sources, reliability, privacy-security, ux, ai-quality, maintenance,
+    personal-analytics) и минимумы «по приоритету»; категории аудитории (acquisition, conversion, retention,
+    monetization, partnerships, localization) — предупреждение (personal_then_public — только в horizon now);
+    порог A+B — 40 %, предупреждение о «внешних» A+B не выводится;
+  - registry.category_minimums = count | priority (по умолчанию count; priority — в личном режиме и при
+    registry.capacity_cap): в режиме priority категория обязана быть представлена (≥ 1), а не набрать долю;
+  - evidence.kind = owner_prior_work (прежние работы и репозитории владельца — внутреннее доказательство): класс
+    предложения, у которого все доказательства такого вида, — не выше C (A/B — ошибка); такие предложения не входят
+    в знаменатель доли A+B;
+  - ёмкость (scripts/capacity.py, одна величина project.capacity.day_hours): сумма середин effort_days горизонта
+    now против dev_days за registry.now_months (иначе idea.facets.mvp_weeks, иначе 3 мес.) × 1,3 — предупреждение;
+  - решения владельца data/decisions.json → horizons[] {proposals, horizon, tag?} (и forks[].apply при заданном
+    decision): горизонт/тег реестра расходится с решением — ошибка (исправляет merge_proposals.py --sync-decisions);
+  - режим идеи: horizon и тег mvp|v1|later расходятся (mvp → now, v1 → next, later → later|vision) — предупреждение;
+  - нарезка на очереди (slicing.enabled, slicing.queues[].id): proposals[].queue — существующая очередь; предложения
+    horizon now без очереди — предупреждение; сводка by_queue (число и сумма середин effort_days);
+  - ошибка цитаты ≥ 15 слов подсказывает правку в build/overrides.json; --suggest-overrides пишет заготовку
+    build/overrides.suggested.json (цитаты сокращены до 10 слов);
+  - --quotas [--json] — квоты категорий для брифов генераторов ({QUOTAS}) с учётом режима.
+check_proposal(..., draft=True) — черновик (G7/G8 до слияния): нет merged_from/source_group — не предупреждение.
+
 Код выхода 0 — ошибок нет, 1 — есть ошибки. Отчёт — stdout и data/registry-check.json. Только стандартная библиотека.
 """
 import argparse
@@ -35,12 +58,38 @@ from datetime import date
 from pathlib import Path
 from urllib.parse import urlparse
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+try:
+    from capacity import capacity as _capacity  # noqa: E402
+except ImportError:                                  # pragma: no cover — capacity.py входит в скилл с 1.5
+    _capacity = None
+
 CATEGORIES = ["product", "acquisition", "conversion", "retention", "monetization", "analytics", "partnerships",
               "localization", "new_lines", "platform"]
 # минимум по категориям, % от минимального числа предложений (universal-strategy-prompt §7)
 CATEGORY_MIN_PCT = {"product": 30, "acquisition": 20, "conversion": 8, "retention": 8, "monetization": 8,
                     "analytics": 6, "partnerships": 6, "localization": 5, "new_lines": 3}
-EVIDENCE_KINDS = ["competitor", "community", "issue", "docs", "repo", "research", "analytics", "own_app"]
+# личный режим (project.audience = personal | circle | personal_then_public): свои категории и доли
+PERSONAL_CATEGORIES = ["core", "data-sources", "reliability", "privacy-security", "ux", "ai-quality", "maintenance",
+                       "personal-analytics"]
+PERSONAL_MIN_PCT = {"core": 30, "data-sources": 10, "reliability": 10, "privacy-security": 8, "ux": 10, "ai-quality": 6,
+                    "maintenance": 8, "personal-analytics": 5}
+PUBLIC_ONLY = ["acquisition", "conversion", "retention", "monetization", "partnerships", "localization"]
+ALL_CATEGORIES = CATEGORIES + PERSONAL_CATEGORIES
+PERSONAL_AUDIENCES = ("personal", "circle", "personal_then_public")
+CATEGORY_LABELS_RU = {
+    "product": "Продукт", "acquisition": "Привлечение", "conversion": "Конверсия", "retention": "Удержание",
+    "monetization": "Монетизация", "analytics": "Аналитика", "partnerships": "Партнёрства", "localization": "Локализация",
+    "new_lines": "Новые направления", "platform": "Платформа", "core": "Ядро", "data-sources": "Источники данных",
+    "reliability": "Надёжность", "privacy-security": "Приватность и безопасность", "ux": "Удобство (UX)",
+    "ai-quality": "Качество ИИ", "maintenance": "Поддержка и обновления", "personal-analytics": "Личная аналитика"}
+EVIDENCE_KINDS = ["competitor", "community", "issue", "docs", "repo", "research", "analytics", "own_app", "owner_prior_work"]
+OWNER_KIND = "owner_prior_work"
+AB_MIN_SHARE_PERSONAL = 0.40
+NOW_CAP_FACTOR = 1.3
+TAG_HORIZON = {"mvp": ("now",), "v1": ("next",), "later": ("later", "vision")}
+OVERRIDES_HINT = ("исправьте в build/overrides.json (пример: {\"%s\": {\"%s\": \"…\"}}) или в черновике, затем "
+                  "merge_proposals.py — правка переживёт следующее слияние; заготовка — check_registry.py <OUT> --suggest-overrides")
 HORIZONS = ["now", "next", "later", "vision"]
 KANO = ["must", "linear", "delight", "indifferent"]
 SCORE_REQUIRED = ["value", "cost", "risk", "confidence"]
@@ -56,7 +105,7 @@ AB_MIN_SHARE = 0.60
 AB_EXTERNAL_MIN_SHARE = 0.40   # минимум «внешних» A+B — для рыночных предложений
 # профиль → категории, минимум которых применяется только «по запросу»
 PROFILE_OPTIONAL = {"zero-budget-solo": ["monetization", "partnerships", "localization", "new_lines"]}
-INTERNAL_KINDS = {"repo", "own_app", "analytics"}
+INTERNAL_KINDS = {"repo", "own_app", "analytics", "owner_prior_work"}
 EXTERNAL_KINDS = {"competitor", "community"}
 IMAGE_EXT = re.compile(r"\.(png|jpe?g|webp|gif|svg|avif)(:\d+)?$", re.I)
 QUOTE_MAX_WORDS = 15
@@ -171,12 +220,52 @@ def find_cycles(graph):
     return cycles
 
 
+def audience(cfg):
+    """project.audience: personal | circle | personal_then_public | public (по умолчанию public — поведение 1.4)."""
+    a = str(((cfg or {}).get("project") or {}).get("audience") or "public").strip().lower()
+    return a if a in PERSONAL_AUDIENCES + ("public",) else "public"
+
+
+def is_personal(cfg):
+    return audience(cfg) in PERSONAL_AUDIENCES
+
+
+def active_categories(cfg):
+    """Категории реестра для прогона: личный режим — PERSONAL_CATEGORIES (+ категории аудитории для
+    personal_then_public — раздел «Если захочется выпустить наружу»), иначе CATEGORIES."""
+    if not is_personal(cfg):
+        return list(CATEGORIES)
+    return PERSONAL_CATEGORIES + (PUBLIC_ONLY if audience(cfg) == "personal_then_public" else [])
+
+
+def category_mode(cfg):
+    """count — минимум долей по числу (1.4); priority — категория должна быть представлена (≥ 1), а место в now
+    ей обеспечивает merge_proposals.py --cap-now (категории — приоритет, а не число)."""
+    reg = (cfg or {}).get("registry") or {}
+    m = str(reg.get("category_minimums") or "").strip().lower()
+    if m in ("count", "priority"):
+        return m
+    return "priority" if (is_personal(cfg) or reg.get("capacity_cap")) else "count"
+
+
+def ai_in_product(cfg):
+    """Есть ли ИИ в продукте по ответам опроса (idea.facets.ai_role|ai)."""
+    fc = ((cfg or {}).get("idea") or {}).get("facets") or {}
+    v = fc.get("ai_role", fc.get("ai"))
+    if isinstance(v, bool):
+        return v
+    s = str(v or "").strip().lower()
+    return bool(s) and not re.search(r"^(no|none|нет|без ии|без ai|without)", s)
+
+
 def category_requirements(cfg, min_n):
     """Минимумы категорий для реестра из min_n предложений с учётом run-config.
 
-    Возвращает {категория: {"pct", "required", "na", "optional", "note"}}: required — сколько нужно (0, если
-    категория неприменима или минимум «по запросу» в профиле), na — strategy.categories_na, optional — минимум
-    снят профилем. Используют check_registry, merge_proposals (не ронять минимум при слиянии) и gap_audit."""
+    Возвращает {категория: {"pct", "required", "na", "optional", "note", "nominal", "mode"}}: required — сколько
+    нужно (0, если категория неприменима или минимум «по запросу» в профиле; 1 в режиме priority), na —
+    strategy.categories_na, optional — минимум снят профилем. Личный режим — свои категории (PERSONAL_MIN_PCT;
+    ai-quality — только при ИИ в продукте). Используют check_registry, merge_proposals (не ронять минимум при
+    слиянии) и gap_audit."""
     cfg = cfg or {}
     strat = cfg.get("strategy") or {}
     project = cfg.get("project") or {}
@@ -184,13 +273,19 @@ def category_requirements(cfg, min_n):
     profile = strat.get("profile") or "standard"
     requested = set(strat.get("categories_required") or [])
     markets = [m for m in (strat.get("markets") or []) if m and m != "auto"]
+    mode = category_mode(cfg)
+    personal = is_personal(cfg)
+    table = PERSONAL_MIN_PCT if personal else CATEGORY_MIN_PCT
     out = {}
-    for c, pct in CATEGORY_MIN_PCT.items():
+    for c, pct in table.items():
         need = int(math.ceil(pct * min_n / 100.0 - 1e-9))
         optional, note = False, ""
         if c in na:
             note = "неприменима (strategy.categories_na)"
-        elif c in PROFILE_OPTIONAL.get(profile, []):
+        elif personal and c == "ai-quality" and not ai_in_product(cfg) and c not in requested:
+            optional = True
+            note = "личный режим: ИИ в продукте не заявлен — минимум по запросу"
+        elif not personal and c in PROFILE_OPTIONAL.get(profile, []):
             implied = ((c == "monetization" and (strat.get("paid_tier") == "yes" or project.get("goal") == "commercial"))
                        or (c == "localization" and len(markets) > 1))
             if c in requested or implied:
@@ -200,9 +295,127 @@ def category_requirements(cfg, min_n):
             else:
                 optional = True
                 note = "профиль %s: минимум по запросу (strategy.categories_required)" % profile
-        out[c] = {"pct": pct, "required": 0 if (c in na or optional) else need, "na": c in na, "optional": optional,
-                  "nominal": need, "note": note}
+        req = 0 if (c in na or optional) else need
+        if mode == "priority" and req:
+            req = 1
+            note = (note + "; " if note else "") + "минимум по приоритету: категория представлена (≥ 1), место в now — --cap-now"
+        out[c] = {"pct": pct, "required": req, "na": c in na, "optional": optional, "nominal": need, "note": note,
+                  "mode": mode}
     return out
+
+
+def quotas(cfg, min_n):
+    """Квоты генераторов {категория: число} — номинальные доли (в режиме priority тоже: это план генерации, а не
+    порог проверки); неприменимые и «по запросу» — 0."""
+    return {c: (0 if (r["na"] or r["optional"]) else r["nominal"]) for c, r in category_requirements(cfg, min_n).items()}
+
+
+def effort_mid(p):
+    ed = p.get("effort_days")
+    if isinstance(ed, list) and len(ed) == 2 and all(is_num(x) for x in ed):
+        return (ed[0] + ed[1]) / 2.0
+    return 0.0
+
+
+def now_months(cfg):
+    """Длина горизонта now в месяцах: registry.now_months → idea.facets.mvp_weeks (режим идеи) → 3 (контракт)."""
+    cfg = cfg or {}
+    reg = cfg.get("registry") or {}
+    try:
+        v = float(reg.get("now_months"))
+        if v > 0:
+            return v, "registry.now_months"
+    except (TypeError, ValueError):
+        pass
+    fc = (cfg.get("idea") or {}).get("facets") or {}
+    try:
+        w = float(fc.get("mvp_weeks"))
+        if w > 0:
+            return round(w * 12 / 52.0, 2), "idea.facets.mvp_weeks"
+    except (TypeError, ValueError):
+        pass
+    return 3.0, "контракт: now — 0–3 мес."
+
+
+def capacity_relevant(cfg):
+    """Сверять now с ёмкостью, только если ёмкость задана или это прогон одного человека (старые прогоны не шумят)."""
+    cfg = cfg or {}
+    return bool(((cfg.get("project") or {}).get("capacity")) or (cfg.get("registry") or {}).get("capacity_cap")
+                or ((cfg.get("strategy") or {}).get("profile") == "zero-budget-solo")
+                or ((cfg.get("idea") or {}).get("facets") or {}).get("hours_week") or is_personal(cfg))
+
+
+def now_capacity(cfg, props=None, factor=NOW_CAP_FACTOR):
+    """Ёмкость горизонта now: {months, months_source, dev_days, ceiling, factor, day_hours, line, now_days, now_count, ok}."""
+    months, src = now_months(cfg)
+    if _capacity is None:
+        return None
+    cap = _capacity(cfg or {}, months)
+    out = {"months": months, "months_source": src, "dev_days": cap["dev_days"], "factor": factor,
+           "ceiling": round(cap["dev_days"] * factor, 1), "day_hours": cap["day_hours"], "line": cap["line"]}
+    if props is not None:
+        now = [p for p in props if isinstance(p, dict) and p.get("horizon") == "now"]
+        out["now_days"] = round(sum(effort_mid(p) for p in now), 1)
+        out["now_count"] = len(now)
+        out["ok"] = out["now_days"] <= out["ceiling"] + 1e-9
+    return out
+
+
+def owner_only(p):
+    """Все доказательства предложения — прежние работы владельца (owner_prior_work)."""
+    ev = [e for e in (p.get("evidence") or []) if isinstance(e, dict)]
+    return bool(ev) and all(e.get("kind") == OWNER_KIND for e in ev)
+
+
+def decision_horizons(out_dir):
+    """Решения владельца о горизонтах из data/decisions.json: horizons[] {proposals, horizon, tag?, why?} и
+    forks[].apply {proposals, horizon, tag?} при заданном decision. → [{id, horizon, tag, why, source}]."""
+    p = Path(out_dir) / "data" / "decisions.json"
+    try:
+        d = json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
+    except (OSError, json.JSONDecodeError):
+        d = None
+    if not isinstance(d, dict):
+        return []
+    rows = []
+
+    def take(e, source):
+        if not isinstance(e, dict):
+            return
+        hz, tag = e.get("horizon"), e.get("tag")
+        if hz is not None and hz not in HORIZONS:
+            return
+        if not hz and not tag:
+            return
+        pids = e.get("proposals") or ([e["id"]] if isinstance(e.get("id"), str) and re.fullmatch(r"P\d{3,}", e["id"]) else [])
+        for pid in pids if isinstance(pids, list) else [pids]:
+            if isinstance(pid, str):
+                rows.append({"id": pid, "horizon": hz, "tag": tag, "why": e.get("why") or e.get("note") or "", "source": source})
+
+    for e in d.get("horizons") or []:
+        take(e, "decisions.horizons")
+    for f in d.get("forks") or []:
+        if isinstance(f, dict) and f.get("decision") not in (None, "") and isinstance(f.get("apply"), (dict, list)):
+            for e in (f["apply"] if isinstance(f["apply"], list) else [f["apply"]]):
+                take(e, "decisions.forks.%s" % f.get("id", "?"))
+    return rows
+
+
+def slicing_queues(cfg):
+    s = (cfg or {}).get("slicing") or {}
+    if not s.get("enabled"):
+        return []
+    return [q for q in (s.get("queues") or []) if isinstance(q, dict) and q.get("id")]
+
+
+def shorten_quotes(text, keep=10):
+    """Сокращает цитаты в кавычках из ≥ 15 слов до keep слов с «…» (для заготовки overrides)."""
+    def rep(m):
+        ws = m.group(1).split()
+        if len(ws) < QUOTE_MAX_WORDS:
+            return m.group(0)
+        return m.group(0)[0] + " ".join(ws[:keep]) + " …" + m.group(0)[-1]
+    return QUOTE_RE.sub(rep, text) if isinstance(text, str) else text
 
 
 def own_markers(cfg):
@@ -261,11 +474,17 @@ def evidence_split(props, cfg=None):
             "ab_external_count": ab_ext, "ab_internal_count": ab_int, "evidence_sides": dict(sides), "own_markers": own}
 
 
-def check_proposal(p, idx, demo, errors, warnings, quote_by_url, allow_draft_refs=False):
-    """allow_draft_refs — черновик (G7 до слияния): ссылки G\\d+-\\d+ допустимы."""
+def check_proposal(p, idx, demo, errors, warnings, quote_by_url, allow_draft_refs=False, draft=False, quote_fix=None):
+    """allow_draft_refs — черновик (G7 до слияния): ссылки G\\d+-\\d+ допустимы. draft — черновик G7/G8 до слияния:
+    поля слияния (merged_from, source_group) заполняет merge_proposals.py — их отсутствие не предупреждение, а
+    заполненный merged_from — предупреждение. quote_fix — словарь {id: {поле: исправленное значение}} для заготовки
+    build/overrides.suggested.json."""
     pid = p.get("id") if isinstance(p.get("id"), str) and p.get("id") else "#%d" % (idx + 1)
+    soft = warnings if demo else errors
     for f, (types, required) in FIELDS.items():
         if f not in p:
+            if draft and f in ("merged_from", "source_group"):
+                continue
             (errors if required else warnings).append("%s: нет поля %s" % (pid, f))
             continue
         v = p[f]
@@ -274,10 +493,17 @@ def check_proposal(p, idx, demo, errors, warnings, quote_by_url, allow_draft_ref
             continue
         if required and isinstance(v, str) and not v.strip():
             errors.append("%s: %s пустое" % (pid, f))
+    if draft and p.get("merged_from"):
+        warnings.append("%s: у черновика заполнен merged_from — его заполняет merge_proposals.py при слиянии (уберите)" % pid)
     if isinstance(p.get("title"), str) and len(p["title"]) > TITLE_MAX:
         warnings.append("%s: название длиннее %d знаков (%d)" % (pid, TITLE_MAX, len(p["title"])))
-    if "category" in p and p.get("category") not in CATEGORIES:
+    if "category" in p and p.get("category") not in ALL_CATEGORIES:
         errors.append("%s: неизвестная категория %r" % (pid, p.get("category")))
+    if p.get("evidence_class") in ("A", "B") and owner_only(p):
+        soft.append("%s: класс %s при доказательствах только owner_prior_work (прежние работы владельца) — класс не выше C"
+                    % (pid, p.get("evidence_class")))
+    if "queue" in p and p["queue"] is not None and not isinstance(p["queue"], str):
+        errors.append("%s: queue — строка (id очереди из slicing.queues) или null" % pid)
     if "evidence_class" in p and p.get("evidence_class") not in ("A", "B", "C", "D"):
         errors.append("%s: класс доказательства %r не из A–D" % (pid, p.get("evidence_class")))
     if "horizon" in p and p.get("horizon") not in HORIZONS:
@@ -303,12 +529,18 @@ def check_proposal(p, idx, demo, errors, warnings, quote_by_url, allow_draft_ref
         if prob:
             errors.append("%s: evidence[%d] %s" % (pid, k, prob))
         for words in long_quotes(e.get("note"), False):
-            errors.append("%s: evidence[%d].note — цитата %d слов (нужно < %d)" % (pid, k, words, QUOTE_MAX_WORDS))
+            errors.append("%s: evidence[%d].note — цитата %d слов (нужно < %d); %s" % (
+                pid, k, words, QUOTE_MAX_WORDS, OVERRIDES_HINT % (pid, "evidence")))
+            if quote_fix is not None:
+                fixed = [dict(x, note=shorten_quotes(x.get("note"))) if isinstance(x, dict) else x for x in ev]
+                quote_fix.setdefault(pid, {})["evidence"] = fixed
         if isinstance(e.get("note"), str) and QUOTE_RE.search(e["note"]) and e.get("url"):
             quote_by_url.setdefault(e["url"], set()).add(pid)
     for fld in ("description", "rationale", "cheap_test", "current_feature"):
         for words in long_quotes(p.get(fld), True):
-            errors.append("%s: %s — цитата %d слов (нужно < %d)" % (pid, fld, words, QUOTE_MAX_WORDS))
+            errors.append("%s: %s — цитата %d слов (нужно < %d); %s" % (pid, fld, words, QUOTE_MAX_WORDS, OVERRIDES_HINT % (pid, fld)))
+            if quote_fix is not None:
+                quote_fix.setdefault(pid, {})[fld] = shorten_quotes(p.get(fld))
 
     steps = p.get("steps") if isinstance(p.get("steps"), list) else []
     if isinstance(p.get("steps"), list) and not steps:
@@ -373,8 +605,8 @@ def check_proposal(p, idx, demo, errors, warnings, quote_by_url, allow_draft_ref
         warnings.append("%s: mockup — пустая строка (нужно null)" % pid)
 
 
-def run_check(out_dir, min_override=None, demo=False):
-    """Возвращает отчёт (dict) по реестру."""
+def run_check(out_dir, min_override=None, demo=False, quote_fix=None):
+    """Возвращает отчёт (dict) по реестру. quote_fix — словарь для заготовки overrides (заполняется на месте)."""
     out_dir = Path(out_dir)
     cfg_path = out_dir / "build" / "run-config.json"
     cfg = json.loads(cfg_path.read_text(encoding="utf-8")) if cfg_path.exists() else {}
@@ -401,7 +633,7 @@ def run_check(out_dir, min_override=None, demo=False):
         good.append(p)
     quote_by_url = {}
     for i, p in enumerate(good):
-        check_proposal(p, i, demo, errors, warnings, quote_by_url)
+        check_proposal(p, i, demo, errors, warnings, quote_by_url, quote_fix=quote_fix)
 
     ids = [p.get("id") for p in good if isinstance(p.get("id"), str)]
     dup = sorted(k for k, v in Counter(ids).items() if v > 1)
@@ -430,6 +662,33 @@ def run_check(out_dir, min_override=None, demo=False):
         if own:
             warnings.append("режим идеи: доказательства вида repo/own_app у %s — продукта ещё нет, нужен внешний источник"
                             % ", ".join(own[:10]) + (" и ещё %d" % (len(own) - 10) if len(own) > 10 else ""))
+        # тег релиза и горизонт (бриф генератора: mvp → now, v1 → next, later → later|vision)
+        mism = []
+        for p in good:
+            tags = [t for t in (p.get("tags") or []) if t in TAG_HORIZON]
+            if len(tags) == 1 and p.get("horizon") in HORIZONS and p.get("horizon") not in TAG_HORIZON[tags[0]]:
+                mism.append("%s (%s/%s)" % (p.get("id"), tags[0], p.get("horizon")))
+        if mism:
+            warnings.append("режим идеи: тег релиза расходится с horizon (mvp → now, v1 → next, later → later|vision): %s"
+                            % ", ".join(mism[:12]) + (" и ещё %d" % (len(mism) - 12) if len(mism) > 12 else ""))
+
+    by_id = {p.get("id"): p for p in good if isinstance(p.get("id"), str)}
+    # решения владельца о горизонтах (data/decisions.json) — источник правды для horizon/тега
+    decision_conflicts = []
+    for d in decision_horizons(out_dir):
+        p = by_id.get(d["id"])
+        if p is None:
+            warnings.append("decisions.json (%s): %s нет в реестре" % (d["source"], d["id"]))
+            continue
+        bad = []
+        if d["horizon"] and p.get("horizon") != d["horizon"]:
+            bad.append("horizon %s, решение — %s" % (p.get("horizon"), d["horizon"]))
+        if d["tag"] and d["tag"] not in (p.get("tags") or []):
+            bad.append("нет тега %s" % d["tag"])
+        if bad:
+            decision_conflicts.append(dict(d, registry_horizon=p.get("horizon")))
+            errors.append("%s: реестр расходится с решением владельца (%s): %s — merge_proposals.py <OUT> --sync-decisions"
+                          % (d["id"], d["source"], "; ".join(bad)))
 
     total = len(good)
     if total < min_n:
@@ -442,25 +701,85 @@ def run_check(out_dir, min_override=None, demo=False):
         actual = cnt.get(c, 0)
         skip = r["na"] or r["optional"]
         cat_report[c] = {"pct": r["pct"], "required": need, "actual": actual, "na": r["na"], "optional": r["optional"],
-                         "note": r["note"], "ok": skip or actual >= need}
+                         "note": r["note"], "ok": skip or actual >= need, "nominal": r["nominal"], "mode": r["mode"]}
         if not skip and actual < need:
-            soft.append("категория %s: %d < %d (%d %% от %d)" % (c, actual, need, r["pct"], min_n))
+            soft.append("категория %s: %d < %d (%s)" % (c, actual, need, "%d %% от %d" % (r["pct"], min_n)
+                                                        if r["mode"] == "count" else "минимум по приоритету — категория не представлена"))
+    personal = is_personal(cfg)
+    aud = audience(cfg)
+    if personal:
+        extra = sorted(c for c in cnt if c in PUBLIC_ONLY)
+        if aud == "personal_then_public":
+            now_pub = sorted(p.get("id") for p in good if p.get("category") in PUBLIC_ONLY and p.get("horizon") == "now"
+                             and isinstance(p.get("id"), str))
+            if now_pub:
+                warnings.append("личный режим (сначала для себя): категории аудитории в horizon now у %s — выпуск наружу "
+                                "позже (раздел «Если захочется выпустить наружу»)" % ", ".join(now_pub[:12]))
+        elif extra:
+            warnings.append("личный режим (%s): категории аудитории %s не нужны — замените на %s"
+                            % (aud, ", ".join("%s %d" % (c, cnt[c]) for c in extra), ", ".join(PERSONAL_CATEGORIES)))
+    elif any(c in PERSONAL_CATEGORIES for c in cnt):
+        warnings.append("категории личного режима (%s) в реестре публичного продукта — project.audience не задан как личный"
+                        % ", ".join(sorted(c for c in cnt if c in PERSONAL_CATEGORIES)))
     cls = Counter(p.get("evidence_class") for p in good)
     ab = (cls.get("A", 0) + cls.get("B", 0)) / total if total else 0.0
-    if total and ab < AB_MIN_SHARE:
-        soft.append("доля классов A+B %.0f %% < %.0f %%" % (ab * 100, AB_MIN_SHARE * 100))
+    # предложения только на прежних работах владельца — класс ≤ C и вне знаменателя доли A+B
+    owner = [p for p in good if owner_only(p)]
+    base = [p for p in good if not owner_only(p)]
+    ab_base = (sum(1 for p in base if p.get("evidence_class") in ("A", "B")) / len(base)) if base else 1.0
+    try:
+        ab_min = float(((cfg.get("registry") or {}).get("ab_min_share")))
+    except (TypeError, ValueError):
+        ab_min = AB_MIN_SHARE_PERSONAL if personal else AB_MIN_SHARE
+    if total and base and ab_base < ab_min:
+        soft.append("доля классов A+B %.0f %% < %.0f %%%s" % (
+            ab_base * 100, ab_min * 100, " (без %d предложений только на owner_prior_work)" % len(owner) if owner else ""))
     split = evidence_split(good, cfg)
-    if total and split["ab_external"] < AB_EXTERNAL_MIN_SHARE:
+    if total and split["ab_external"] < AB_EXTERNAL_MIN_SHARE and not personal:
         warnings.append("внешних A+B (конкуренты, сообщества, внешние источники) %.0f %% < %.0f %% — рыночные предложения "
                         "опираются в основном на код продукта; внутренних A+B %.0f %%"
                         % (split["ab_external"] * 100, AB_EXTERNAL_MIN_SHARE * 100, split["ab_internal"] * 100))
     hz = Counter(p.get("horizon") for p in good)
+    # ёмкость горизонта now (одна величина project.capacity.day_hours — scripts/capacity.py)
+    cap = now_capacity(cfg, good) if capacity_relevant(cfg) else None
+    if cap and not cap["ok"]:
+        warnings.append("сумма середин effort_days в horizon now %.1f дн. > ёмкость %.1f дн. × %.1f = %.1f дн. (%g мес., %s; %s) — "
+                        "merge_proposals.py <OUT> --cap-now или registry.capacity_cap"
+                        % (cap["now_days"], cap["dev_days"], cap["factor"], cap["ceiling"], cap["months"], cap["months_source"], cap["line"]))
+    # очереди нарезки (slicing)
+    queues = slicing_queues(cfg)
+    qids = [q["id"] for q in queues]
+    by_queue = {}
+    for p in good:
+        q = p.get("queue")
+        if q:
+            row = by_queue.setdefault(q, {"count": 0, "effort_days": 0.0, "ids": []})
+            row["count"] += 1
+            row["effort_days"] = round(row["effort_days"] + effort_mid(p), 1)
+            row["ids"].append(p.get("id"))
+            if queues and q not in qids:
+                errors.append("%s: очередь %r нет в slicing.queues (%s)" % (p.get("id"), q, ", ".join(qids)))
+            elif not queues:
+                warnings.append("%s: queue %r, но slicing.enabled не включён" % (p.get("id"), q))
+    if queues:
+        noq = sorted(p.get("id") for p in good if p.get("horizon") == "now" and not p.get("queue") and isinstance(p.get("id"), str))
+        if noq:
+            warnings.append("нарезка на очереди включена, но у предложений now нет queue: %s — merge_proposals.py <OUT> --cap-now"
+                            % ", ".join(noq[:15]) + (" и ещё %d" % (len(noq) - 15) if len(noq) > 15 else ""))
+    # согласованность merged_from (заполняет merge_proposals.py)
+    for p in good:
+        mf = p.get("merged_from")
+        if isinstance(mf, list) and len(mf) != len(set(map(str, mf))):
+            warnings.append("%s: повторы в merged_from %s" % (p.get("id"), mf))
     return {"ok": not errors, "date": date.today().isoformat(), "demo": demo, "total": total, "min": min_n,
-            "profile": strat.get("profile") or "standard",
+            "profile": strat.get("profile") or "standard", "audience": aud, "categories_active": active_categories(cfg),
+            "category_mode": category_mode(cfg),
             "categories_na": sorted(na), "by_category": dict(cnt), "category_minimums": cat_report,
             "evidence_classes": {k: cls.get(k, 0) for k in "ABCD"}, "ab_share": round(ab, 4),
+            "ab_share_checked": round(ab_base, 4), "ab_min_share": ab_min, "owner_only": [p.get("id") for p in owner],
             "ab_external_share": split["ab_external"], "ab_internal_share": split["ab_internal"],
-            "evidence_sides": split["evidence_sides"],
+            "evidence_sides": split["evidence_sides"], "now_capacity": cap, "by_queue": by_queue,
+            "decision_conflicts": decision_conflicts,
             "by_horizon": {k: hz.get(k, 0) for k in HORIZONS}, "errors": errors, "warnings": warnings}
 
 
@@ -470,11 +789,31 @@ def main(argv=None):
     ap.add_argument("--min", type=int, default=None, help="минимум предложений (иначе из run-config или 100)")
     ap.add_argument("--demo", action="store_true", help="демо-режим: заглушки URL разрешены, минимумы — предупреждения")
     ap.add_argument("--quiet", action="store_true", help="не печатать предупреждения")
+    ap.add_argument("--suggest-overrides", action="store_true",
+                    help="записать build/overrides.suggested.json — заготовку правок для ошибок цитат (перенесите в overrides.json)")
+    ap.add_argument("--quotas", action="store_true", help="только напечатать квоты категорий для брифов генераторов ({QUOTAS})")
+    ap.add_argument("--json", action="store_true", help="с --quotas: JSON {категория: число}")
     a = ap.parse_args(argv)
     out_dir = Path(a.out).resolve()
-    rep = run_check(out_dir, a.min, a.demo)
+    if a.quotas:
+        cfg_path = out_dir / "build" / "run-config.json"
+        cfg = json.loads(cfg_path.read_text(encoding="utf-8")) if cfg_path.exists() else {}
+        min_n = a.min if a.min is not None else (cfg.get("strategy") or {}).get("proposals_min") or 100
+        q = {c: n for c, n in quotas(cfg, min_n).items() if n}
+        print(json.dumps(q, ensure_ascii=False) if a.json else ", ".join("%s:%d" % kv for kv in q.items()))
+        return 0
+    fixes = {} if a.suggest_overrides else None
+    rep = run_check(out_dir, a.min, a.demo, quote_fix=fixes)
     (out_dir / "data").mkdir(parents=True, exist_ok=True)
     (out_dir / "data" / "registry-check.json").write_text(json.dumps(rep, ensure_ascii=False, indent=2), encoding="utf-8")
+    if fixes is not None:
+        (out_dir / "build").mkdir(parents=True, exist_ok=True)
+        doc = {"_comment": "Заготовка check_registry.py --suggest-overrides: цитаты сокращены до 10 слов. Проверьте текст и "
+                           "перенесите нужные записи в build/overrides.json, затем merge_proposals.py <OUT> (или "
+                           "--apply-overrides build/overrides.json)."}
+        doc.update(fixes)
+        (out_dir / "build" / "overrides.suggested.json").write_text(json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8")
+        print("Заготовка правок: build/overrides.suggested.json (записей %d)" % len(fixes))
     print("Предложений: %d (минимум %d)%s; A+B: %.0f %% (внешние %.0f %%, внутренние %.0f %%)"
           % (rep["total"], rep["min"], " [демо]" if a.demo else "", rep["ab_share"] * 100, rep["ab_external_share"] * 100,
              rep["ab_internal_share"] * 100))
@@ -483,6 +822,12 @@ def main(argv=None):
                                         for c, v in rep["category_minimums"].items()))
     print("Классы: " + ", ".join("%s %d" % kv for kv in rep["evidence_classes"].items())
           + "; горизонты: " + ", ".join("%s %d" % kv for kv in rep["by_horizon"].items()))
+    if rep.get("now_capacity"):
+        c = rep["now_capacity"]
+        print("Ёмкость now: %.1f из %.1f дн. (потолок ×%.1f от %.1f дн. за %g мес.)%s"
+              % (c["now_days"], c["ceiling"], c["factor"], c["dev_days"], c["months"], "" if c["ok"] else " — ПРЕВЫШЕНИЕ"))
+    if rep.get("by_queue"):
+        print("Очереди: " + ", ".join("%s %d (%.1f дн.)" % (q, v["count"], v["effort_days"]) for q, v in rep["by_queue"].items()))
     if rep["warnings"] and not a.quiet:
         print("Предупреждения (%d):" % len(rep["warnings"]))
         for w in rep["warnings"][:60]:

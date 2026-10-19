@@ -37,15 +37,38 @@
 Режим «Идея → концепция продукта» (references/concept-mode.md; run-config → mode: "concept"):
   intake.py concept-setup [--json]                    карточка настройки: число вопросов (15/25/40/своё ≥ 15), глубина,
                                                       форматы, папка результата (спрашивается каждый раз)
-  intake.py concept-questions --count N [--batch 4] [--json]
+  intake.py concept-intro [--request "<запрос>"] [--json]
+                                                      карточка «Начало» (до банка, 1.5): для кого приложение (личный режим
+                                                      project.audience), режим опроса (по темам / быстро / глубоко), модели и
+                                                      effort субагентов (tools.agents); подсказка из текста запроса
+  intake.py concept-questions --count N [--batch 4] [--audience A] [--mode standard|fast|deep] [--request "<запрос>"]
+                              [--prefill '<JSON|@файл>'] [--json]
                                                       первые N вопросов банка (40 вопросов, 9 тем) по приоритету пачками
-                                                      по ≤ 4 для AskUserQuestion; N < 15 — ошибка; покрытие тем в начале
+                                                      по ≤ 4 для AskUserQuestion; N < 15 — ошибка; покрытие тем в начале.
+                                                      --audience personal|circle|personal_then_public — вопросы о рынке и
+                                                      деньгах заменены вопросами о себе; --request/--prefill — уверенные
+                                                      ответы из текста идут одной карточкой «Из запроса понял…» (confirm),
+                                                      освободившиеся места занимают блоки (платформа, данные, ИИ), «живых»
+                                                      вопросов ≥ 15; --mode fast — таблица на тему вместо вопросов
+  intake.py concept-blocks --answers '<JSON|@файл>' [--request "<запрос>"] [--prefill …] [--mode …] [--count N] [--json]
+                                                      условные блоки по ответам: ИИ, админка, данные, внешняя платформа,
+                                                      право по областям, интерфейс, прототип, контекст владельца, оплата
   intake.py concept-apply --repo <cwd> --idea "<идея>" --from-askuser '<JSON|@файл|->' [--out-dir D] [--set k=v]
-                          [--request "<запрос>"] [--count N]
-                                                      ответы карточек (ключ — header, текст вопроса или id c01…c40) →
-                                                      <OUT>/build/run-config.json с mode: concept и блоком idea; OUT=…
-  intake.py concept-defaults --idea "<идея>" [--repo <cwd>] [--out-dir D] [--set k=v]
+                          [--request "<запрос>"] [--count N] [--prefill …] [--request-questions '<JSON>']
+                          [--topic-en "<перевод темы>"] [--keywords "a, b"] [--name "<имя>"] [--slug <slug>]
+                          [--branch auto|none] [--branch-name B] [--dry-run] [--json]
+                                                      ответы карточек (ключ — header, текст вопроса или id c01…c40, p01…,
+                                                      блоки) → <OUT>/build/run-config.json с mode: concept и блоком idea;
+                                                      OUT=…; разбор запроса (вопросы RQ, ссылки владельца), проверки
+                                                      противоречий и ёмкости → follow_up до «Начинаю?»; внутри git — ветка
+                                                      прогона создаётся ДО первой записи (--branch none — не трогать git);
+                                                      --dry-run — только сводка и follow_up, без записи и git
+  intake.py concept-defaults --idea "<идея>" [--repo <cwd>] [--out-dir D] [--set k=v] [те же флаги имени/ветки]
                                                       автопилот: 15 вопросов отвечены значениями по умолчанию (допущения)
+  intake.py concept-check <OUT> [--json]              пересчитать проверки ответов (противоречия, ёмкость) → follow_up
+  intake.py concept-verdict <OUT> [--json]            красный/жёлтый светофор (data/typesafe-concept.json) → карточка «что
+                                                      дальше» с вариантом «нарезка на очереди»; ответ — intake.py update
+                                                      <OUT> --from-askuser '{"Светофор": "…"}' → блок slicing
 
 answers.json — {"<header вопроса>": "<label выбранного варианта>" | ["label", …] | "свой текст"} (как вернул
 AskUserQuestion; «Other» — свой текст). --set — точечные пути: strategy.proposals_min=150, scope.competitors=false.
@@ -65,6 +88,10 @@ import subprocess
 import sys
 from datetime import date
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import concept_banks as cb  # noqa: E402 — банки 1.5, разбор текста запроса (не импортирует intake)
+import concept_checks as cc  # noqa: E402 — проверки до «Начинаю?», git, правила владельца (не импортирует intake)
 
 DEPTH = {  # глубина → значения по умолчанию объёма (references/phases.md, таблица масштабирования)
     "quick": {"proposals_min": 50, "competitors_min": 6, "mockups_min": 6, "experiments": 3, "specs_top": 5, "kanban_cards": 20},
@@ -1449,7 +1476,47 @@ def refresh(cfg):
         cfg["follow_up"] = [x for x in cfg.get("follow_up") or [] if x.get("path") != "project.product_owner"]
     if cfg.get("mode") != "concept":
         cfg["forecast"] = forecast(cfg)
+    else:
+        concept_refresh(cfg)
     cfg.pop("_explicit", None)
+    return cfg
+
+
+SLICE_KEYS = {"Продолжить с нарезкой на очереди": "slice", "Продолжить без изменений": "continue", "Уточнить идею": "refine",
+              "Остановиться": "stop"}
+
+
+def concept_refresh(cfg):
+    """Режим идеи после update: решения по проверкам и имени, нарезка на очереди после светофора, ёмкость, новые проверки."""
+    idea = cfg.setdefault("idea", {})
+    dec = idea.get("decisions") or {}
+    if dec.get("name") and dec["name"] not in NAME_OK and idea.get("name_applied") != dec["name"]:
+        nm = clean_given_name(dec["name"])
+        if nm:
+            cfg["product"]["name"] = idea["name"] = nm
+            idea["name_source"], idea["name_applied"] = "given", dec["name"]
+            cfg["assumptions"].append("Имя «%s» — от владельца после записи конфига; папка и ветка остаются %s (переименовать — "
+                                      "init_run.py <OUT> --relocate …)" % (nm, idea.get("slug")))
+    sl = cfg.get("slicing") or {}
+    raw = sl.get("decision") or dec.get("slicing")
+    if raw:
+        key = SLICE_KEYS.get(str(raw).replace(" (Recommended)", ""), raw)
+        if key == "slice" and not sl.get("queues"):
+            doc = cc.load_verdict(cfg["output"].get("dir") or ".")
+            cfg["slicing"] = dict(cc.build_slicing(cfg, doc), decision="slice")
+            f = idea.setdefault("facets", {})
+            if f.get("mvp") != "single_feature":
+                f["mvp_before_slicing"] = f.get("mvp")
+                f["mvp"] = "single_feature"
+            cfg["assumptions"].append("Светофор %s → нарезка на очереди: MVP — один сквозной сценарий (α), затем β, v1, v2 с условиями "
+                                      "входа; приоритет — дешёвые проверки слабых мест" % ((doc or {}).get("verdict") or "—"))
+        elif key in ("continue", "refine", "stop"):
+            cfg["slicing"] = dict(sl, decision=key, enabled=False)
+    cap = (cfg.get("project") or {}).get("capacity") or {}
+    if not isinstance(cap, dict) or str(cap.get("source") or "").startswith(("ответ c32", "значение по умолчанию c32")):
+        concept_capacity(cfg)
+    concept_run_checks(cfg)
+    concept_registry(cfg)
     return cfg
 
 
@@ -1605,10 +1672,10 @@ CONCEPT_BANK = [
         ("Нужна группа", "Семья, команда, соседи — пользуются вместе", {"idea.facets.network": "group"})]),
     # 4. Продукт и объём MVP
     ("c16", "product", 4, "Форма", "В какой форме будет продукт?", False, [
-        ("Веб-приложение (Recommended)", "Сайт-сервис в браузере, работает и на телефоне", {"product.type": "saas"}),
-        ("Мобильное приложение", "iOS и/или Android, магазины приложений", {"product.type": "mobile"}),
-        ("Бот в мессенджере", "Бот или мини-приложение в мессенджере", {"product.type": "bot"}),
-        ("Расширение или десктоп", "Расширение браузера или программа для компьютера", {"product.type": "desktop"})]),
+        ("Веб-приложение (Recommended)", "Сайт-сервис в браузере, работает и на телефоне", {"product.type": "saas", "product.forms": ["web"]}),
+        ("Мобильное приложение", "iOS и/или Android, магазины приложений", {"product.type": "mobile", "product.forms": ["mobile"]}),
+        ("Бот в мессенджере", "Бот или мини-приложение в мессенджере", {"product.type": "bot", "product.forms": ["bot"]}),
+        ("Расширение или десктоп", "Расширение браузера или программа для компьютера", {"product.type": "desktop", "product.forms": ["desktop"]})]),
     ("c17", "product", 12, "MVP", "Каким должен быть первый выпуск (MVP)?", False, [
         ("Одна ключевая функция (Recommended)", "Самый узкий сценарий, который решает боль целиком", {"idea.facets.mvp": "single_feature"}),
         ("Лендинг и лист ожидания", "Проверка спроса до разработки", {"idea.facets.mvp": "landing"}),
@@ -1749,7 +1816,8 @@ CONCEPT_SETUP = [
     ("Папка", "Где сохранить концепцию?", False, [
         ("Текущая папка: concept/ (Recommended)", "./concept/<имя>/<дата>/; внутри git-репозитория — отдельная ветка docs/concept-<имя>", "here"),
         ("Рядом: ../concept-<имя>/", "Соседняя папка ../concept-<имя>/<дата>/ — вне текущего проекта", "sibling"),
-        ("Домашняя: ~/concepts/", "~/concepts/<имя>/<дата>/ — общая папка всех концепций", "home")]),
+        ("Домашняя: ~/concepts/", "~/concepts/<имя>/<дата>/ — общая папка всех концепций", "home"),
+        ("Плоско: concept/<имя>/", "./concept/<имя>/ без папки даты (дата — в файлах); для небольших репозиториев", "flat")]),
 ]
 CONCEPT_SETUP_BY = {h: (h, q, m, o) for h, q, m, o in CONCEPT_SETUP}
 for _h, _q, _m, _o in CONCEPT_SETUP:
@@ -1776,23 +1844,207 @@ def slugify(text, max_len=40):
 
 
 def idea_first_phrase(pitch):
-    """Первая фраза идеи (до точки, «!», «?», «;», переноса строки или тире)."""
+    """Первая фраза идеи: до конца предложения («.», «!», «?» с пробелом после), «;», «:», переноса строки или тире;
+    скобки выкидываются («Веб-сервис (адаптив, …) для анализа …» → «Веб-сервис для анализа …»)."""
     t = re.sub(r"^\s*(?:!concept\b|concept\s*:|!идея\b|идея\s*:)\s*", "", str(pitch or ""), flags=re.I)
-    m = re.split(r"(?<=[^\d])[.!?;\n]|\s[—–]\s", t.strip(), maxsplit=1)
-    return (m[0] if m else t).strip(" «»\"'")
+    t = re.sub(r"\([^()]*\)", " ", t)
+    m = re.split(r"(?<=[^\d])[.!?](?=\s|$)|[;\n]|:(?!//)|\s[—–]\s", t.strip(), maxsplit=1)
+    head = (m[0] if m else t).strip()
+    if len(m) > 1 and len(head.split()) <= 2 and re.match(r"^[^:]{1,30}:(?!//)", t.strip()) and m[1].strip():
+        rest = re.split(r"(?<=[^\d])[.!?](?=\s|$)|[;\n]|:(?!//)|\s[—–]\s", m[1].strip(), maxsplit=1)
+        head = rest[0] if rest and rest[0].strip() else head      # «Демо: приложение для …» — ярлык до двоеточия не идея
+    return re.sub(r"\s+", " ", head).strip(" «»\"'")
 
 
-def idea_name_slug(pitch, given=None):
-    """Имя и slug идеи: из ответа «Название», иначе — из первой фразы (без слов-обёрток, до 4 значимых слов)."""
-    if given and str(given).strip():
-        name = str(given).strip().strip("«»\"'")[:60]
-        return name, slugify(name)
+# имя идеи (FB-022): оценочные слова и формы продукта в начале фразы не дают имени; составные «приложение-трекер» → «трекер»
+EVAL_WORDS = {"платный", "платная", "платное", "бесплатный", "бесплатная", "бесплатное", "простой", "простая", "простое",
+              "удобный", "удобная", "удобное", "умный", "умная", "умное", "лучший", "лучшая", "крутой", "мощный", "современный",
+              "небольшой", "маленький", "личный", "личная", "персональный", "новый", "новая", "новое", "мой", "моя", "моё", "мое"}
+FORM_HEADS = {"приложение", "приложения", "сайт", "сайта", "сервис", "сервиса", "веб-сервис", "веб-приложение", "бот", "бота",
+              "платформа", "портал", "app", "website", "service", "tool", "инструмент", "программа", "расширение",
+              "мини-приложение", "pwa", "веб"}
+NAME_FUNCTION = {"для", "и", "в", "во", "с", "со", "на", "по", "о", "об", "от", "до", "из", "через", "под", "при", "а", "или",
+                 "чтобы", "который", "которое", "которая", "for", "and", "with", "of", "the", "a", "an", "to"}
+WORKING_PREFIX_RE = re.compile(r"^\s*(?:рабоч\w*(?:\s+(?:название|имя))?|временн\w*(?:\s+(?:название|имя))?|пока|кодов\w*\s+имя|"
+                               r"working(?:\s+(?:title|name))?|codename|tbd)\s*[:—–-]\s*", re.I | re.U)
+
+
+def clean_given_name(text):
+    """Ответ «Название» без служебных префиксов («Рабочее: Smart Market Lens AI» → «Smart Market Lens AI», SM 3.5)."""
+    s = str(text or "").strip().strip("«»\"'")
+    s = WORKING_PREFIX_RE.sub("", s).strip().strip("«»\"'")
+    return s[:60]
+
+
+def _degenitive(word):
+    """Первое слово после «для» — в именительный падеж (простые окончания): анализа → анализ, учёта → учёт,
+    планирования → планирование, аренды → аренда, доставки → доставка, контроля → контроль."""
+    w = word
+    low = w.lower()
+    if low.endswith("ия") and len(low) > 4:
+        return w[:-2] + "ие"
+    if low.endswith(("ки", "ги", "хи")) and len(low) > 3:
+        return w[:-1] + "а"
+    if low.endswith("ы") and len(low) > 3:
+        return w[:-1] + "а"
+    if low.endswith("я") and len(low) > 4 and not low.endswith(("ая", "яя")):
+        return w[:-1] + "ь"
+    if low.endswith("а") and len(low) > 3 and not low.endswith(("ая", "ья")):
+        return w[:-1]
+    return w
+
+
+def _is_entity_token(tok, first=False):
+    if "-" in tok and re.search(r"[A-Za-z]", tok) and re.search(r"[А-Яа-яЁё]", tok):
+        return False                                            # «ARC-роботов» — производное от сущности, не сущность
+    if re.search(r"[A-Za-z]", tok) and not tok.lower() in FORM_HEADS:
+        return True
+    return (not first) and tok[:1].isupper() and tok.lower() not in FORM_HEADS
+
+
+def idea_entities(text, limit=4):
+    """Сущности (имена собственные) в тексте: подряд идущие слова с заглавной буквы или латиницей («ARC Raiders»,
+    «Smart Market Lens AI»); прилагательное с заглавной + существительное («Московской биржи»). Слова через дефис
+    с частью сущности («ARC-роботов») — не отдельная сущность."""
+    out = []
+    text = cb.BARE_DOMAIN_RE.sub(" ", cb.URL_RE.sub(" ", str(text or "")))     # домены и ссылки — не сущности
+    for sent in re.split(r"(?<=[.!?])\s+|[;\n]", text):
+        toks = re.findall(r"[\w'’-]+", re.sub(r"\([^()]*\)", " ", sent).replace("/", " "), re.U)
+        i = 0
+        while i < len(toks):
+            if _is_entity_token(toks[i], first=(i == 0)) and toks[i].lower() not in NAME_FUNCTION:
+                j = i
+                run = []
+                while j < len(toks) and _is_entity_token(toks[j], first=(j == 0 and not run)) and toks[j].lower() not in NAME_FUNCTION:
+                    run.append(toks[j])
+                    j += 1
+                if len(run) == 1 and re.search(r"(?:ой|ий|ый|ая|ое|ские|ской|ского)$", run[0]) and j < len(toks) and \
+                        re.fullmatch(r"[а-яё-]+", toks[j]):
+                    run.append(toks[j])
+                    j += 1
+                ent = " ".join(run)
+                if not (i == 0 and len(run) == 1 and not re.search(r"[A-Za-z]", run[0])) and ent not in out:
+                    out.append(ent)
+                i = j
+            else:
+                i += 1
+            if len(out) >= limit:
+                return out
+    return out
+
+
+def auto_name(pitch):
+    """Рабочее имя из первой фразы (≤ 4 слов, сущность цела): «Платный сайт/приложение-трекер для игры ARC Raiders: …»
+    → «Трекер ARC Raiders»; «Приложение для обмена книгами между соседями» → «Обмен книгами между соседями»."""
     phrase = idea_first_phrase(pitch)
-    words = [w for w in re.findall(r"[\w-]+", phrase, re.U)]
-    core = [w for w in words if w.lower() not in SLUG_FILLER]
-    name = " ".join(words[:8]) if words else "Новая идея"
-    name = (name[:1].upper() + name[1:])[:60]
-    return name, slugify(" ".join((core or words)[:4]))
+    toks = re.findall(r"[\w'’-]+", phrase.replace("/", " "), re.U)
+    while toks and toks[0].lower() in EVAL_WORDS:
+        toks.pop(0)
+    if not toks:
+        return "Новая идея"
+    noun = None
+    for t in toks:
+        parts = t.split("-")
+        if len(parts) == 2 and parts[0].lower() in FORM_HEADS and parts[1] and parts[1].lower() not in FORM_HEADS:
+            noun = parts[1]
+            break
+    ents = idea_entities(phrase)
+    if noun and ents:
+        ent = ents[0].split()[:3]
+        return " ".join([noun[:1].upper() + noun[1:]] + ent)
+    words = list(toks)
+    if len(words) >= 3 and words[0].lower() in FORM_HEADS and words[1].lower() == "для":
+        words = [_degenitive(words[2])] + words[3:]
+    elif noun and words[0].lower() != noun.lower():
+        words = [noun] + [w for w in words[1:] if w.lower() not in FORM_HEADS]
+    out = []
+    for w in words:
+        if len(out) >= 4:
+            break
+        out.append(w)
+    while len(out) > 1 and out[-1].lower() in NAME_FUNCTION:
+        out.pop()
+    # не резать сущность пополам: если 4-е слово — начало многословной сущности, убрать её целиком
+    joined = " ".join(out)
+    for e in ents:
+        parts = e.split()
+        if len(parts) > 1 and parts[0] in out and not all(p in out for p in parts):
+            out = out[:out.index(parts[0])] or parts[:4]
+            while len(out) > 1 and out[-1].lower() in NAME_FUNCTION:
+                out.pop()
+            joined = " ".join(out)
+            break
+    name = joined or "Новая идея"
+    return (name[:1].upper() + name[1:])[:60]
+
+
+def idea_name_slug(pitch, given=None, topic_en=None):
+    """Имя и slug идеи: из ответа «Название» (без префиксов «Рабочее:»), иначе — рабочее имя из первой фразы
+    (auto_name, ≤ 4 слов). slug — из имени (транслитерация); при переводе темы (--topic-en) и автоимени — из перевода
+    («ARC Raiders tracker» → arc-raiders-tracker)."""
+    g = clean_given_name(given) if given else ""
+    if g:
+        return g, slugify(g)
+    name = auto_name(pitch)
+    if topic_en and str(topic_en).strip():
+        return name, slugify(topic_en)
+    return name, slugify(name)
+
+
+KW_STOP = set("""и в во на с со по для из от до за к ко о об обо у а но или же ли не ни что чтобы как это эти этот эта который которая
+которые которое мой моя моё мое свой своя своё свои их его её ее при между через без над под про все всех всё весь
+можно нужно будет будут есть быть очень также ещё еще где когда кто там тут так даже уже только""".split())
+KW_GENERIC = {"игры", "игра", "игр", "игре", "игру", "сайт", "сайта", "версия", "версию", "версии", "мобильную", "мобильная",
+              "мобильной", "адаптивная", "адаптивной", "адаптивный", "верстка", "вёрстка", "верстки", "заделом", "задел",
+              "также", "помощью", "через", "много", "различных", "вариантов", "выбор", "выбора", "бэкенд", "бэкенда", "бд",
+              "ориентир", "ориентиром", "пользователя", "пользователей", "пользователь", "людей", "человек", "нужно",
+              "хочу", "сделать", "интерфейса", "интерфейс", "синхронизация", "синхронизации", "анализа", "расчёт", "расчет"}
+
+
+def idea_keywords(pitch, n=6, extra_stop=()):
+    """Ключевые слова идеи (FB-022, SM 6.2): сущности целиком («ARC Raiders»), затем существительное из составной формы
+    («приложение-трекер» → «трекер»), затем значимые слова первой фразы и остального текста без служебных, оценочных
+    слов и слов формы («платный», «сайт», «игры», «адаптивная»…); слова с частью сущности («ARC-роботов») пропускаются."""
+    stop = set(SLUG_FILLER) | EVAL_WORDS | FORM_HEADS | KW_GENERIC | KW_STOP | set(extra_stop) | NAME_FUNCTION
+    text = re.sub(r"^\s*(?:!concept\b|concept\s*:|!идея\b|идея\s*:)\s*", "", str(pitch or ""), flags=re.I)
+    text = cb.BARE_DOMAIN_RE.sub(" ", cb.URL_RE.sub(" ", text))
+    ents = idea_entities(text)
+    ent_parts = {p.lower() for e in ents for p in e.split()}
+    out = ents[:1]
+    first = idea_first_phrase(text)
+    for t in re.findall(r"[\w-]+", first.replace("/", " ")):
+        parts = t.lower().split("-")
+        if len(parts) == 2 and parts[0] in FORM_HEADS and parts[1] not in FORM_HEADS and parts[1] not in out:
+            out.append(parts[1])
+            break
+    for e in ents[1:3]:
+        if e.lower() not in [x.lower() for x in out]:
+            out.append(e)
+    rest = text
+    for chunk in (first, rest):
+        for w in re.findall(r"[\w-]{3,}", re.sub(r"\([^()]*\)", lambda m: " " + m.group(0)[1:-1] + " ", chunk).replace("/", " "), re.U):
+            lw = w.lower()
+            parts = lw.split("-")
+            if len(parts) == 2 and parts[0] in FORM_HEADS:
+                lw = parts[1]
+            if lw in stop or lw.isdigit() or lw in ent_parts or (len(parts) == 2 and (parts[0] in ent_parts or parts[1] in ent_parts)):
+                continue
+            if lw not in [x.lower() for x in out]:
+                out.append(lw)
+            if len(out) >= n:
+                return out
+    return out[:n]
+
+
+def idea_topic_auto(pitch):
+    """Тема для поисковых запросов: рабочее имя идеи со строчной первой буквой (сущности сохраняют регистр)."""
+    name = auto_name(pitch)
+    if name == "Новая идея":
+        return ""
+    first = name.split()[0]
+    if re.match(r"[А-ЯЁ][а-яё-]*$", first):
+        name = first[:1].lower() + name[1:]
+    return name
 
 
 def concept_setup_json():
@@ -1803,16 +2055,22 @@ def concept_setup_json():
 
 def concept_select(count):
     """Первые count вопросов банка по приоритету (count ≥ 15, не больше 40). Ошибка ValueError при count < 15."""
+    return concept_select_bank(CONCEPT_BANK, count)
+
+
+def concept_select_bank(bank, count):
+    """То же для банка, адаптированного под аудиторию (личный режим — вопросы p01…p10 вместо части c-вопросов)."""
     count = int(count)
     if count < CONCEPT_MIN_QUESTIONS:
         raise ValueError("минимум 15 вопросов об идее (запрошено %d): меньше — темы не покрываются; автопилот — concept-defaults" % count)
-    return sorted(CONCEPT_BANK, key=lambda q: q[2])[:min(count, len(CONCEPT_BANK))]
+    return sorted(bank, key=lambda q: q[2])[:min(count, len(bank))]
 
 
 def concept_coverage(selected):
     cov = {k: 0 for k, _ in CONCEPT_THEMES}
     for q in selected:
-        cov[q[1]] += 1
+        if q[1] in cov:
+            cov[q[1]] += 1
     return cov
 
 
@@ -1821,14 +2079,19 @@ def _card(q):
     return {"header": h, "question": text, "multiSelect": multi, "options": [{"label": l, "description": d} for l, d, _ in opts]}
 
 
-def concept_questions_json(count, batch=4):
-    """Вопросы об идее пачками по ≤ batch (≤ 4 — ограничение AskUserQuestion) в порядке тем; заголовок пачки — темы в ней."""
-    batch = max(1, min(4, int(batch)))
-    sel = concept_select(count)
-    theme_order = {k: i for i, (k, _) in enumerate(CONCEPT_THEMES)}
-    ordered = sorted(sel, key=lambda q: (theme_order[q[1]], q[2]))
+def _q_title(q):
+    if q[1] in CONCEPT_THEME_TITLE:
+        return CONCEPT_THEME_TITLE[q[1]]
+    if q[1] == "intro":
+        return "Начало"
+    key = q[1].split(":")[0]
+    return cb.BLOCKS[key][0] if key in cb.BLOCKS else key
+
+
+def _balanced_batches(ordered, batch=4, card=_card):
+    """Пачки ровные по размеру: 25 вопросов → 4+4+4+4+3+3+3, а не 6×4 и одиночный хвост."""
     batches = []
-    nb = -(-len(ordered) // batch)                      # пачки ровные по размеру: 25 вопросов → 4+4+4+4+3+3+3, а не 6×4 и одиночный хвост
+    nb = -(-len(ordered) // batch)
     base, extra = divmod(len(ordered), nb) if nb else (0, 0)
     pos = 0
     for k in range(nb):
@@ -1837,14 +2100,204 @@ def concept_questions_json(count, batch=4):
         pos += size
         titles = []
         for q in chunk:
-            if CONCEPT_THEME_TITLE[q[1]] not in titles:
-                titles.append(CONCEPT_THEME_TITLE[q[1]])
-        batches.append({"batch": len(batches) + 1, "title": " · ".join(titles), "questions": [_card(q) for q in chunk],
+            if _q_title(q) not in titles:
+                titles.append(_q_title(q))
+        batches.append({"batch": len(batches) + 1, "title": " · ".join(titles), "questions": [card(q) for q in chunk],
                         "ids": [{"id": q[0], "header": q[3], "theme": q[1], "priority": q[2]} for q in chunk]})
-    cov = concept_coverage(sel)
-    return {"count": len(sel), "total_bank": len(CONCEPT_BANK), "min": CONCEPT_MIN_QUESTIONS,
-            "coverage": [{"theme": k, "title": t, "questions": cov[k]} for k, t in CONCEPT_THEMES],
-            "all_themes_covered": all(cov.values()), "batches": batches}
+    return batches
+
+
+def _answer_text(q, ans):
+    if isinstance(ans, list):
+        return ", ".join(str(x).replace(" (Recommended)", "") for x in ans)
+    return str(ans if ans is not None else "").replace(" (Recommended)", "")
+
+
+def _confirm_cards(items, look):
+    """Уверенные ответы из текста → карточки «Из запроса понял: … Верно?» (до 4 вопросов по ≤ 6 пунктов)."""
+    rows = []
+    for qid, pv in items:
+        q = look[qid][0]
+        rows.append((qid, "%s — %s%s" % (q[3], _answer_text(q, pv["answer"]), " («%s»)" % pv["quote"] if pv.get("quote") else "")))
+    groups = [rows[i:i + 6] for i in range(0, len(rows), 6)][:4]
+    qs, ids = [], []
+    for i, g in enumerate(groups):
+        header = cb.CONFIRM_HEADER if i == 0 else "%s %d" % (cb.CONFIRM_HEADER, i + 1)
+        qs.append({"header": header, "question": "Из запроса понял: %s. Верно? Поправки — в «Other» строками «Заголовок: ответ»."
+                   % "; ".join(r for _id, r in g), "multiSelect": False,
+                   "options": [{"label": "Да, верно (Recommended)", "description": "Ответы из запроса принимаются, эти вопросы не задаются"},
+                               {"label": "Задать эти вопросы", "description": "Вопросы вернутся в опрос с вариантами"}]})
+        ids.append([qid for qid, _r in g])
+    return qs, ids
+
+
+def _fast_cards(sel, pre, audience):
+    """Быстрый режим (SM 3.6): одна строка-таблица на тему — значения по умолчанию и из запроса; подтвердить или поправить."""
+    theme_order = [k for k, _ in CONCEPT_THEMES]
+    out, ids = [], []
+    for th in theme_order:
+        qs = sorted([q for q in sel if q[1] == th], key=lambda q: q[2])
+        if not qs:
+            continue
+        parts = []
+        for q in qs:
+            pv = pre.get(q[0])
+            ans = _answer_text(q, pv["answer"]) + " (из запроса)" if pv else q[6][0][0].replace(" (Recommended)", "")
+            parts.append("%s — %s" % (q[3], ans))
+        out.append(("fast:" + th, th, 0, cb.THEME_CONFIRM[th],
+                    "%s: %s. Верно? Поправки — в «Other» строками «Заголовок: ответ»." % (CONCEPT_THEME_TITLE[th], "; ".join(parts)), False,
+                    [("Верно (Recommended)", "Принять значения темы", {}), ("Задать вопросы темы", "Вопросы темы — отдельной пачкой", {})]))
+        ids.append([q[0] for q in qs])
+    return out, ids
+
+
+def concept_questions_json(count, batch=4, audience=None, prefill=None, request="", mode=None):
+    """Вопросы об идее пачками по ≤ batch (≤ 4 — ограничение AskUserQuestion) в порядке тем; заголовок пачки — темы в ней.
+
+    1.5: audience — личный режим (вопросы о рынке и деньгах заменены вопросами о себе); request/prefill — уверенные
+    ответы из текста (≥ 0,8) выносятся в карточки confirm и не задаются, освободившиеся места (из первых N) занимают
+    вопросы блоков, видимых по тексту (платформа, данные, ИИ…), «живых» вопросов не меньше 15; mode=fast — вместо
+    вопросов таблица на тему. Без этих параметров — поведение 1.4 (первые N по приоритету)."""
+    batch = max(1, min(4, int(batch)))
+    mode = mode if mode in ("standard", "fast", "deep") else "standard"
+    aud = cb.audience_of(audience)
+    bank = cb.adapted_bank(CONCEPT_BANK, aud)
+    sel = concept_select_bank(bank, count)
+    look = cb.lookup(CONCEPT_BANK)
+    pre = cb.merged_prefill(CONCEPT_BANK, request, prefill, audience_known=audience is not None) if (request or prefill) else {}
+    bank_ids = {q[0] for q in bank}
+    confident = {k: v for k, v in pre.items() if v["confidence"] >= cb.CONFIDENT}
+    P = [q for q in sorted(bank, key=lambda q: q[2]) if q[0] in confident]
+    p_ids = {q[0] for q in P}
+    sel_ids = {q[0] for q in sel}
+    theme_order = {k: i for i, (k, _) in enumerate(CONCEPT_THEMES)}
+    block_taken = []
+    if mode == "fast":
+        fq, fids = _fast_cards(sel, pre, aud)
+        batches = _balanced_batches(fq, batch)
+        for b in batches:
+            b["theme_ids"] = [fids[[x[0] for x in fq].index(i["id"])] for i in b["ids"]]
+        live_ids = [q[0] for q in sel]
+        cov = concept_coverage(sel)
+        theme_batches = {th: _balanced_batches(sorted([q for q in sel if q[1] == th], key=lambda q: q[2]), batch)
+                         for th in cb.THEME_CONFIRM if any(q[1] == th for q in sel)}
+        confirm_qs, confirm_ids = [], []
+    else:
+        n = len(sel)
+        p_in = len(p_ids & sel_ids)
+        live_target = max(CONCEPT_MIN_QUESTIONS, n - p_in)                # «живых» вопросов ≥ 15
+        freed = min(p_in, max(0, live_target + p_in - CONCEPT_MIN_QUESTIONS))  # блоки занимают освободившиеся места, но
+                                                                               # вопросов банка (живых + из запроса) ≥ 15
+        if freed and request:
+            seen = set(confident)
+            for _key, qs in cb.text_blocks(request, mode):
+                for q in qs:
+                    if q[0] not in seen and len(block_taken) < freed:
+                        block_taken.append(q)
+                        seen.add(q[0])
+        bank_live_n = max(1, live_target - len(block_taken))
+        ordered_all = sorted(bank, key=lambda q: q[2])
+        live = [q for q in ordered_all if q[0] not in p_ids][:bank_live_n]
+        if len(live) < bank_live_n:                      # почти всё предзаполнено: «живых» ≥ 15 — менее уверенные вопросы
+            back = sorted(P, key=lambda q: (confident[q[0]]["confidence"], q[2]))[:bank_live_n - len(live)]   # возвращаются в опрос
+            live += back
+            P = [q for q in P if q not in back]
+            p_ids = {q[0] for q in P}
+        covered = {q[1] for q in live} | {q[1] for q in P}
+        for th, _t in CONCEPT_THEMES:                    # покрытие тем: в каждой теме есть живой или подтверждённый вопрос
+            if th in covered:
+                continue
+            top = next((q for q in ordered_all if q[1] == th and q[0] not in p_ids), None)
+            if not top:
+                continue
+            counts = {}
+            for q in live:
+                counts[q[1]] = counts.get(q[1], 0) + 1
+            victim = next((q for q in reversed(live) if counts.get(q[1], 0) > 1), None)
+            if victim:
+                live.remove(victim)
+            live.append(top)
+            covered.add(th)
+        ordered = sorted(live, key=lambda q: (theme_order[q[1]], q[2])) + block_taken
+        batches = _balanced_batches(ordered, batch)
+        live_ids = [q[0] for q in live]
+        cov = concept_coverage(live + P) if pre else concept_coverage(sel)
+        theme_batches = None
+        conf_items = [(q[0], confident[q[0]]) for q in P] + [(k, v) for k, v in confident.items() if k not in bank_ids and k in look
+                                                            and look[k][1] in ("block", "intro") and k != "i01"]
+        confirm_qs, confirm_ids = _confirm_cards(conf_items, look) if conf_items else ([], [])
+    hints = [{"id": k, "header": look[k][0][3], "answer": v["answer"], "confidence": v["confidence"], "quote": v.get("quote", "")}
+             for k, v in pre.items() if k not in confident and k in look]
+    res = {"count": len(sel), "total_bank": len(CONCEPT_BANK), "min": CONCEPT_MIN_QUESTIONS,
+           "coverage": [{"theme": k, "title": t, "questions": cov[k]} for k, t in CONCEPT_THEMES],
+           "all_themes_covered": all(cov.values()), "batches": batches}
+    if audience is not None or pre or mode != "standard":
+        res.update({"audience": aud, "mode": mode, "live_ids": live_ids, "prefilled_ids": sorted(p_ids),
+                    "blocks_in_batches": [q[0] for q in block_taken],
+                    "prefill": [{"id": k, "header": look[k][0][3], "answer": v["answer"], "confidence": v["confidence"],
+                                 "quote": v.get("quote", ""), "source": v.get("source")} for k, v in pre.items() if k in look],
+                    "confirm": confirm_qs, "confirm_ids": confirm_ids, "hints": hints,
+                    "card_count": len(batches) + (1 if confirm_qs else 0)})
+        if "i01" in pre:
+            res["audience_suggested"] = {"answer": pre["i01"]["answer"], "quote": pre["i01"].get("quote", "")}
+        if theme_batches is not None:
+            res["theme_batches"] = theme_batches
+        res["next"] = ("после ответов: intake.py concept-blocks --answers '<ответы>' — условные блоки (ИИ, админка, данные, "
+                       "платформа, право, интерфейс, прототип, контекст владельца)")
+    return res
+
+
+def concept_intro_json(request=""):
+    """Карточка «Начало» (до банка): для кого приложение, режим опроса, модели и effort субагентов. По тексту запроса
+    подходящий вариант «Для кого» помечается в описании (← из запроса)."""
+    hint = cb.prefill_from_text(request).get("i01") if request else None
+    qs = []
+    for q in cb.INTRO:
+        card = _card(q)
+        if hint and q[0] == "i01":
+            for o in card["options"]:
+                if o["label"].replace(" (Recommended)", "") == str(hint["answer"]).replace(" (Recommended)", ""):
+                    o["description"] += " ← из запроса: «%s»" % hint.get("quote", "")
+        qs.append(card)
+    return {"title": "Начало", "questions": qs, "suggested": hint,
+            "note": "Задать ПЕРЕД concept-questions: ответ «Для кого» → --audience, «Опрос» → --mode"}
+
+
+def _provisional_cfg(answers, request="", prefill=None, count=None, audience=None, mode=None):
+    cfg = concept_base_config(".", "", None)
+    cfg["idea"]["request"] = cb.mask(request)[:4000]
+    if prefill is not None:
+        cfg["idea"]["prefill_raw"] = prefill
+    if audience:
+        cfg["project"]["audience"] = cb.audience_of(audience)
+    if mode:
+        cfg["idea"]["interview_mode"] = mode
+    apply_concept_answers(cfg, answers or {}, count)
+    return cfg
+
+
+def concept_blocks_json(answers, request="", prefill=None, mode=None, count=None, batch=4, audience=None):
+    """Условные блоки по ответам (после банка): какие блоки и вопросы задать; уже отвеченные и уверенно предзаполненные
+    (подтверждённые карточкой «Из запроса») — не задаются. → {blocks: [{key, title, why, ids}], batches, count}."""
+    answers = unwrap_answers(answers or {})
+    cfg = _provisional_cfg(answers, request, prefill, count, audience, mode)
+    mode = mode or cfg["idea"].get("interview_mode") or "standard"
+    text = " ".join(x for x in (request, cfg["idea"].get("pitch") or "") if x)
+    asked = set()
+    for k in answers:
+        hit = cb.lookup(CONCEPT_BANK).get(str(k).strip())
+        if hit:
+            asked.add(hit[0][0])
+    pre = cb.merged_prefill(CONCEPT_BANK, request, prefill) if (request or prefill) else {}
+    asked |= {k for k, v in pre.items() if v["confidence"] >= cb.CONFIDENT}
+    blocks, ordered = [], []
+    for key, title, why, qs in cb.blocks_for(cfg, text, mode):
+        rest = [q for q in qs if q[0] not in asked]
+        if rest:
+            blocks.append({"key": key, "title": title, "why": why, "ids": [q[0] for q in rest]})
+            ordered += rest
+    return {"mode": mode, "blocks": blocks, "batches": _balanced_batches(ordered, max(1, min(4, int(batch)))), "count": len(ordered),
+            "note": "ответы блоков добавить в общий JSON ответов concept-apply (ключ — header блока)"}
 
 
 def _match_label(opts, val):
@@ -1865,15 +2318,53 @@ FORM_WORDS = [(r"моб|ios|android|айфон|андроид", "mobile"), (r"б
               (r"блог|медиа|контент|журнал|подкаст|рассылк", "content"), (r"сайт|веб|web|браузер|saas|сервис", "saas")]
 
 
+MARKET_FILLER = {"основной", "основные", "основная", "основном", "плюс", "также", "рынок", "рынки", "рынка", "рынках", "язык",
+                 "и", "а", "на", "в", "с", "для", "или", "по", "сначала", "потом", "затем", "ещё", "еще"}
+
+
+def market_remainder(text):
+    """Часть ответа «Рынки», где нет распознанного языка или рынка (≥ 3 значимых слова) → текст или ""."""
+    clauses = re.split(r"[,;]|\s+(?:плюс|а\s+также|кроме\s+того|и\s+ещё|и\s+еще)\s+", str(text or ""), flags=re.I)
+    rest = []
+    for c in clauses:
+        low = c.lower()
+        if any(re.search(rx, low) for rx, _code in MARKET_WORDS):
+            continue
+        words = [w for w in re.findall(r"[\w-]+", c) if w.lower() not in MARKET_FILLER]
+        if words:
+            rest.append(" ".join(words))
+    joined = " ".join(rest).strip()
+    return joined if len([w for w in joined.split() if len(w) >= 3]) >= 3 else ""
+
+
 def _custom_answer(cfg, qid, text, notes):
     """Свой ответ («Other») на вопрос банка → поля run-config, где это можно сделать надёжно."""
     t = str(text).strip()
     low = t.lower()
     if qid == "c16":
-        hit = next((v for rx, v in FORM_WORDS if re.search(rx, low)), None)
-        set_path(cfg, "product.type", hit or "other")
-        if not hit:
-            cfg["assumptions"].append("Форма продукта «%s» не распознана — тип other; уточнить в фазе C3" % t)
+        fp = cb.parse_forms(t)                      # FB-024: все формы, «мобильная версия веба»/адаптив/PWA — это веб
+        if fp["main"]:
+            set_path(cfg, "product.type", fp["type"])
+            set_path(cfg, "product.forms", fp["forms"])
+            if fp["future"]:
+                set_path(cfg, "product.future_forms", fp["future"])
+            cfg["assumptions"].append("Форма продукта «%s» → тип %s; формы: %s%s%s" % (
+                t, fp["type"], ", ".join(fp["forms"]), "; позже: %s" % ", ".join(fp["future"]) if fp["future"] else "",
+                " («или» — выбран более дешёвый веб-путь, мобильное приложение — на потом)" if fp["alternatives"] else ""))
+            if fp["ambiguous"]:
+                kinds = []
+                for f in fp["forms"]:
+                    k = cb.FORM_TYPE.get(f)
+                    if k and k not in [x[2] for x in kinds]:
+                        kinds.append((cb.FORM_LABELS[f][:1].upper() + cb.FORM_LABELS[f][1:], "Основная форма MVP, остальное — позже", k))
+                opts = [(kinds[0][0] + " (Recommended)", kinds[0][1], kinds[0][2])] + kinds[1:4]
+                _follow(cfg, "product.type", "Осн. форма", "Форм несколько (%s). Какая основная для MVP?" % ", ".join(
+                    cb.FORM_LABELS[f] for f in fp["forms"]), "choice", opts, "свой ответ «Форма»: несколько форм")
+        else:
+            hit = next((v for rx, v in FORM_WORDS if re.search(rx, low)), None)
+            set_path(cfg, "product.type", hit or "other")
+            if not hit:
+                cfg["assumptions"].append("Форма продукта «%s» не распознана — тип other; уточнить в фазе C3" % t)
     elif qid == "c07":
         langs = []
         for rx, code in MARKET_WORDS:
@@ -1885,6 +2376,12 @@ def _custom_answer(cfg, qid, text, notes):
             set_path(cfg, "strategy.markets", langs[:6])
         else:
             notes.append("Рынки: свой ответ «%s» не распознан — рынки определю по идее" % t)
+        rest = market_remainder(t)                  # FB-025: хвост ответа не теряется
+        if rest:
+            set_path(cfg, "strategy.markets_note", rest)
+            cfg["assumptions"].append("Рынки: %s + уточнение «%s» — определить в исследовании (C4)" % (", ".join(langs[:6]) or "—", rest))
+            cfg["idea"].setdefault("_rq_extra", []).append({"text": "Рынки и языки: уточнить «%s» (свой ответ c07)" % rest,
+                                                            "kind": "research", "source": "c07"})
     elif qid == "c31":
         if re.search(r"\b0\b|нол|нул|без бюджет|нет денег|бесплат", low):
             set_path(cfg, "strategy.budget.variants", ["zero"])
@@ -1986,6 +2483,8 @@ def concept_folder(cwd, choice, slug, today, custom=None):
         return cwd.parent / ("concept-%s" % slug) / today
     if choice == "home":
         return Path.home() / "concepts" / slug / today
+    if choice == "flat":
+        return cwd / "concept" / slug
     return cwd / "concept" / slug / today
 
 
@@ -2002,16 +2501,135 @@ def concept_set_output(cfg, cwd):
     return cfg
 
 
+def _split_multi(opts, value):
+    """Значение мультивыбора → список ответов. Строка с несколькими вариантами через запятую разбирается по известным
+    label (у варианта «Нет, обычные данные» запятая внутри — простое split(",") его ломает); остаток — свой текст."""
+    vals = value if isinstance(value, list) else [value]
+    out = []
+    labels = sorted({o[0] for o in opts} | {o[0].replace(" (Recommended)", "") for o in opts}, key=len, reverse=True)
+    for v in vals:
+        rest = str(v).strip()
+        if not rest:
+            continue
+        if _match_label(opts, rest):
+            out.append(rest)
+            continue
+        found = []
+        for lab in labels:
+            i = rest.find(lab)
+            if i >= 0 and not any(lab in f for f in found):
+                found.append(lab)
+                rest = (rest[:i] + "," + rest[i + len(lab):])
+        tail = [x.strip(" ,;") for x in re.split(r"[,;]", rest) if x.strip(" ,;")]
+        if found:
+            out += sorted(found, key=lambda lab: str(v).find(lab)) + tail
+        else:
+            out += [x.strip() for x in str(v).split(",") if x.strip()] if not tail else tail
+    return out
+
+
+def _fuzzy_label(opts, text):
+    """Свой ответ → вариант, если он явно его называет («острая» → «Острая, ищут решение»); иначе None."""
+    t = str(text or "").strip().lower().replace("ё", "е")
+    if not t:
+        return None
+    hit = _match_label(opts, text)
+    if hit:
+        return hit
+    for o in opts:
+        lab = o[0].replace(" (Recommended)", "").lower().replace("ё", "е")
+        if lab.startswith(t) or t.startswith(lab):
+            return o
+    words = [w for w in re.findall(r"[\w+–-]{3,}", t)]
+    best = None
+    for o in opts:
+        lab = o[0].replace(" (Recommended)", "").lower().replace("ё", "е")
+        score = sum(1 for w in words if w[:5] in lab)
+        if score and (best is None or score > best[0]):
+            best = (score, o)
+    if best and best[0] >= max(1, len(words) // 2):
+        return best[1]
+    m = difflib.get_close_matches(t, [o[0].replace(" (Recommended)", "").lower() for o in opts], n=1, cutoff=0.6)
+    if m:
+        return next(o for o in opts if o[0].replace(" (Recommended)", "").lower() == m[0])
+    return None
+
+
+def _parse_corrections(text):
+    """«Рынки: только RU; Форма: веб» → [(«Рынки», «только RU»), …] (поправки к карточкам подтверждения)."""
+    out = []
+    for part in re.split(r"[;\n]", str(text or "")):
+        m = re.match(r"\s*([^:—]{2,24})\s*[:—-]\s*(.+)$", part)
+        if m:
+            out.append((m.group(1).strip(), m.group(2).strip()))
+    return out
+
+
+def _block_custom(cfg, q, text, notes):
+    """Свой ответ на вопрос блока, карточки «Начало» или личного режима → поле run-config."""
+    qid, t = q[0], str(text).strip()
+    f = cfg["idea"].setdefault("facets", {})
+    if qid == "pl01":
+        f["platform_dependency"] = True
+        f["platform_name"] = t[:80]
+    elif qid in ("ow01", "ow02"):
+        items = [x.strip() for x in re.split(r"[,;\n]|\s(?=~/|/Users/|https?://)", t) if x.strip()]
+        key = "owner_repos" if qid == "ow01" else "owner_data_paths"
+        f[key] = [cb.mask(x) for x in items]
+        f["owner_repos_known" if qid == "ow01" else "owner_data"] = True
+        docs = cfg["sources"].setdefault("owner_docs", [])
+        for x in items:
+            x = cb.mask(x)
+            entry = {"url": x} if x.startswith("http") else {"path": x}
+            entry.update({"kind": "repo" if qid == "ow01" else "data", "role": "ref", "status": "not_attempted",
+                          "tool": "web-fetch" if x.startswith("http") else "read", "note": "ответ «%s»" % q[3], "source": qid})
+            if not any(d.get("url", d.get("path")) == x for d in docs if isinstance(d, dict)):
+                docs.append(entry)
+    elif qid == "ui02":
+        m = re.search(r"\d+", t)
+        if m:
+            set_path(cfg, "design.directions_count", max(1, min(7, int(m.group(0)))))
+        else:
+            notes.append("%s: свой ответ «%s» — учесть вручную" % (q[3], t))
+    elif qid == "da01":
+        f["data_sources_needed"] = [x.strip() for x in re.split(r"[,;\n]", t) if x.strip()]
+    elif qid == "ai06":
+        f["ai_hardware"] = t[:120]
+    elif qid == "i03":
+        set_path(cfg, "tools.agents.model_policy", "custom")
+        set_path(cfg, "tools.agents.note", t[:200])
+    elif qid == "i01":
+        low = t.lower()
+        aud = "personal_then_public" if cb.THEN_PUBLIC.search(low) else "personal" if cb.PERSONAL_WORDS.search(low) or "себя" in low \
+            else "circle" if cb.CIRCLE_WORDS.search(low) or re.search(r"семь|друз|команд|коллег", low) else "public"
+        set_path(cfg, "project.audience", aud)
+        set_path(cfg, "project.audience_note", t[:200])
+        if aud != "public":
+            set_path(cfg, "project.goal", "personal")
+    else:
+        first = next((k for _l, _d, m in q[6] for k in m if k.startswith("idea.facets.")), None)
+        if first:
+            node = cfg
+            parts = first.split(".")
+            for part in parts[:-1]:
+                node = node.setdefault(part, {})
+            node[parts[-1] + "_note"] = t[:200]
+        cfg["assumptions"].append("%s: свой ответ «%s»" % (q[3], t[:160]))
+
+
 def apply_concept_answers(cfg, answers, count=None):
-    """Ответы карточек режима идеи (настройка + вопросы банка). Ключ — header, текст вопроса или id; значение — label,
-    список label (мультивыбор) или свой текст. Вопросы без ответа из первых N — допущения со значением по умолчанию."""
-    by_key = {}
-    for q in CONCEPT_BANK:
-        by_key[q[0]] = by_key[q[3]] = by_key[q[4]] = q
+    """Ответы карточек режима идеи (настройка, «Начало», вопросы банка и личного режима, блоки, подтверждение «Из
+    запроса», таблицы быстрого режима, уточнения проверок). Ключ — header, текст вопроса или id; значение — label,
+    список label (мультивыбор) или свой текст. Вопросы без ответа из заданных — допущения со значением по умолчанию.
+    Контекст из cfg["idea"]: request, prefill_raw (предзаполнение), interview_mode, project.audience."""
+    look = cb.lookup(CONCEPT_BANK)
     explicit = cfg.setdefault("_explicit", [])
     idea, notes = cfg["idea"], []
-    answered = {}
-    for k, v in (answers or {}).items():
+    answered, block_answers = {}, {}
+    answers = dict(answers or {})
+    rest = {}
+    # 1) настройка и «Начало» — от них зависят аудитория и режим опроса
+    for k, v in answers.items():
         key = str(k).strip()
         if key in CONCEPT_SETUP_BY:
             h, _q, multi, opts = CONCEPT_SETUP_BY[key]
@@ -2044,8 +2662,39 @@ def apply_concept_answers(cfg, answers, count=None):
                     idea["folder_choice"], idea["folder_custom"] = "custom", str(vals[0]).strip()
                 explicit.append("output.dir")
             continue
-        q = by_key.get(key)
-        if not q and key in HANDOFF_HEADERS:                         # раунд 6 «Передача в разработку» общий с обычным режимом
+        hit = look.get(key)
+        if hit and hit[1] == "intro":
+            q = hit[0]
+            val = v[0] if isinstance(v, list) and v else v
+            o = _match_label(q[6], val)
+            if o:
+                _apply_mapping(cfg, o[2], explicit)
+            elif str(val).strip():
+                _block_custom(cfg, q, val, notes)
+            block_answers[q[0]] = {"block": "intro", "header": q[3], "question": q[4], "answer": val, "custom": o is None}
+            continue
+        rest[key] = v
+    audience = cb.audience_of(cfg["project"].get("audience"))
+    mode = idea.get("interview_mode") or "standard"
+    n = int(count or idea.get("questions_count") or CONCEPT_DEFAULT_QUESTIONS)
+    n = max(CONCEPT_MIN_QUESTIONS, min(n, len(CONCEPT_BANK)))
+    idea["questions_count"] = n
+    bank = cb.adapted_bank(CONCEPT_BANK, audience)
+    request = idea.get("request") or ""
+    prefill_raw = idea.get("prefill_raw")
+    aud_arg = audience if (audience != "public" or cfg["project"].get("audience")) else None
+    plan = concept_questions_json(n, 4, aud_arg, prefill_raw, request, mode) \
+        if (request or prefill_raw or mode != "standard" or audience != "public") else None
+    pre = cb.merged_prefill(CONCEPT_BANK, request, prefill_raw, audience_known=True) if (request or prefill_raw) else {}
+    confident = {k: v for k, v in pre.items() if v["confidence"] >= cb.CONFIDENT}
+    deferred, card_defaults, decisions = [], [], {}
+    check_rules = {}
+    for it in idea.get("checks") or []:
+        if it.get("header"):
+            check_rules[it["header"]] = it["id"]
+    # 2) остальные ответы
+    for key, v in rest.items():
+        if key in HANDOFF_HEADERS:                                   # раунд 6 «Передача в разработку» общий с обычным режимом
             for lab in (v if isinstance(v, list) else [v])[:1]:
                 _m, mapping = _find_option(key, lab)
                 if mapping:
@@ -2054,34 +2703,169 @@ def apply_concept_answers(cfg, answers, count=None):
                 else:
                     notes.append("%s: свой ответ «%s» — учесть вручную" % (key, lab))
             continue
-        if not q:
+        if key.startswith(cb.CONFIRM_HEADER) or key in cb.THEME_CONFIRM.values():
+            deferred.append((key, v))
+            continue
+        if key in ("Осн. форма",):
+            val = v[0] if isinstance(v, list) and v else v
+            low = str(val).lower()
+            t = next((cb.FORM_TYPE[f] for f, lab in cb.FORM_LABELS.items() if lab.split()[0] in low), None)
+            if t:
+                set_path(cfg, "product.type", t)
+                explicit.append("product.type")
+            continue
+        if key == "Имя и папка":
+            val = v[0] if isinstance(v, list) and v else v
+            decisions["name"] = str(val).strip()
+            continue
+        if key == "Светофор":
+            val = v[0] if isinstance(v, list) and v else v
+            decisions["slicing"] = str(val).strip()
+            continue
+        if key in check_rules or key in cc.CHECK_HEADERS or key in CHECK_HEADER_IDS:
+            rid = check_rules.get(key) or cc.CHECK_HEADERS.get(key) or CHECK_HEADER_IDS.get(key)
+            val = v[0] if isinstance(v, list) and v else v
+            decisions[rid] = str(val).strip()
+            continue
+        hit = look.get(key)
+        if not hit:
             notes.append("Неизвестный вопрос «%s» — ответ сохранён в допущения" % key)
             cfg["assumptions"].append("%s: %s" % (key, v))
             continue
+        q, src = hit
         qid, theme, _p, h, text, multi, opts = q
-        vals = v if isinstance(v, list) else ([x.strip() for x in str(v).split(",")] if multi and _match_label(opts, str(v).split(",")[0].strip()) else [v])
+        if isinstance(v, str) and cb.CARD_DEFAULT_RE.search(v):
+            card_defaults.append(qid)
+            continue
+        vals = _split_multi(opts, v) if multi else ([v[0]] if isinstance(v, list) and v else [v])
         vals = [x for x in vals if str(x).strip()]
         if not vals:
             continue
+        if len(vals) == 1 and isinstance(vals[0], str) and cb.ONE_DEFAULT_RE.match(vals[0]):
+            vals = [opts[0][0]]
         custom = False
-        if multi:                               # «Нет, обычные данные» вместе с другими вариантами теряет смысл
+        rec = {"theme": theme, "header": h, "question": text, "custom": False}
+        if multi and qid in cb.EXCLUSIVE and len(vals) > 1:              # «Нет …» вместе с другими вариантами (SM 3.4)
+            ex_lab = opts[cb.EXCLUSIVE[qid]][0]
             hits = [_match_label(opts, x) for x in vals]
-            if any(hits) and len(vals) > 1:
-                vals = [x for x, hh in zip(vals, hits) if not (hh is opts[0] and qid == "c38")] or vals
+            if any(hh is not None and hh[0] == ex_lab for hh in hits):
+                vals = [x for x, hh in zip(vals, hits) if not (hh is not None and hh[0] == ex_lab)] or vals
+                if qid == "c38":
+                    rec["exclusive_conflict"] = True
+                    rec["answer_raw"] = _split_multi(opts, v)
         for x in vals:
-            hit = _match_label(opts, x)
-            if hit:
-                _apply_mapping(cfg, hit[2], explicit)
+            o = _match_label(opts, x)
+            if o:
+                _apply_mapping(cfg, o[2], explicit)
             else:
                 custom = True
-                _custom_answer(cfg, qid, x, notes)
-        answered[qid] = {"theme": theme, "header": h, "question": text, "answer": vals if multi else vals[0], "custom": custom}
-    n = int(count or idea.get("questions_count") or CONCEPT_DEFAULT_QUESTIONS)
-    n = max(CONCEPT_MIN_QUESTIONS, min(n, len(CONCEPT_BANK)))
-    idea["questions_count"] = n
-    asked = [q[0] for q in concept_select(n)]
+                if src == "bank":
+                    _custom_answer(cfg, qid, x, notes)
+                else:
+                    _block_custom(cfg, q, x, notes)
+        rec.update({"answer": vals if multi else vals[0], "custom": custom})
+        if rec.get("answer_raw"):
+            rec["answer"] = rec.pop("answer_raw")
+        if src in ("bank", "personal"):
+            answered[qid] = rec
+        else:
+            rec["block"] = theme.split(":")[0]
+            block_answers[qid] = rec
+    # 3) подтверждение предзаполнения («Из запроса понял…») и таблицы быстрого режима
+    ask_again = set()
+    corrections = []
+    confirm_ids = dict(zip([c["header"] for c in (plan or {}).get("confirm") or []], (plan or {}).get("confirm_ids") or []))
+    for key, v in deferred:
+        val = v[0] if isinstance(v, list) and v else v
+        if key.startswith(cb.CONFIRM_HEADER):
+            ids = confirm_ids.get(key, [])
+            if str(val).startswith("Задать"):
+                ask_again |= set(ids)
+            elif not str(val).startswith("Да"):
+                corrections += _parse_corrections(val)
+            continue
+        th = next(t for t, hh in cb.THEME_CONFIRM.items() if hh == key)
+        ids = [q[0] for q in concept_select_bank(bank, n) if q[1] == th]
+        if str(val).startswith("Задать"):
+            continue
+        for qid in ids:
+            if qid in answered:
+                continue
+            q = look[qid][0]
+            pv = pre.get(qid)
+            lab = pv["answer"] if pv else q[6][0][0]
+            o = _match_label(q[6], lab) if not isinstance(lab, list) else None
+            if o:
+                _apply_mapping(cfg, o[2], explicit)
+            elif pv:
+                _custom_answer(cfg, qid, lab, notes) if look[qid][1] == "bank" else _block_custom(cfg, q, lab, notes)
+            answered[qid] = {"theme": q[1], "header": q[3], "question": q[4], "answer": lab if not isinstance(lab, list) else lab,
+                             "custom": False, "confirmed_default": not bool(pv), "prefilled": bool(pv)}
+        if not str(val).startswith("Верно"):
+            corrections += _parse_corrections(val)
+    for header, value in corrections:
+        hit = look.get(header) or next((look[k] for k in look if k.lower() == header.lower()), None)
+        if not hit:
+            cfg["assumptions"].append("Поправка «%s: %s» — вопрос не найден, учесть вручную" % (header, value))
+            continue
+        q, src = hit
+        o = _fuzzy_label(q[6], value)
+        if o:
+            _apply_mapping(cfg, o[2], explicit)
+            val = o[0]
+        else:
+            _custom_answer(cfg, q[0], value, notes) if src == "bank" else _block_custom(cfg, q, value, notes)
+            val = value
+        rec = {"theme": q[1], "header": q[3], "question": q[4], "answer": val, "custom": o is None, "correction": True}
+        (answered if src in ("bank", "personal") else block_answers)[q[0]] = rec
+    # предзаполненные уверенные ответы, на которые нет ответа владельца
+    confirmed = any(k.startswith(cb.CONFIRM_HEADER) for k, _v in deferred)
+    for qid, pv in confident.items():
+        if qid in answered or qid in block_answers or qid in ask_again or (qid == "i01" and not cfg.get("autopilot")):
+            continue                                              # «Для кого» из текста — подсказка карточки «Начало»; в автопилоте — ответ
+        q, src = look[qid]
+        lab = pv["answer"]
+        if q[5] and not isinstance(lab, list):
+            lab = _split_multi(q[6], lab)
+        labs = lab if isinstance(lab, list) else [lab]
+        any_custom = False
+        for x in labs:
+            o = _match_label(q[6], x)
+            if o:
+                _apply_mapping(cfg, o[2], explicit)
+            else:
+                any_custom = True
+                _custom_answer(cfg, qid, x, notes) if src == "bank" else _block_custom(cfg, q, x, notes)
+        rec = {"theme": q[1], "header": q[3], "question": q[4], "answer": labs if q[5] else labs[0], "custom": any_custom,
+               "prefilled": True, "confirmed": confirmed, "quote": pv.get("quote", ""), "source": pv.get("source")}
+        (answered if src in ("bank", "personal") else block_answers)[qid] = rec
+        if not confirmed:
+            cfg["assumptions"].append("%s: «%s» — из текста запроса, не подтверждено владельцем" % (q[3], _answer_text(q, rec["answer"])))
+    # «по умолчанию для всей карточки» (SM 3.6)
+    if card_defaults:
+        batches = (plan or concept_questions_json(n, 4))["batches"]
+        for qid in card_defaults:
+            sib = next(([i["id"] for i in b["ids"]] for b in batches if qid in [i["id"] for i in b["ids"]]), [qid])
+            if look[qid][1] == "block":
+                sib = [x[0] for x in cb.BLOCKS[look[qid][0][1].split(":")[0]][2]]
+            for sid in sib:
+                if sid in answered or sid in block_answers:
+                    continue
+                q, src = look[sid]
+                _apply_mapping(cfg, q[6][0][2], explicit)
+                rec = {"theme": q[1], "header": q[3], "question": q[4], "answer": [q[6][0][0]] if q[5] else q[6][0][0], "custom": False,
+                       "card_default": True}
+                (answered if src in ("bank", "personal") else block_answers)[sid] = rec
+    if decisions:
+        idea.setdefault("decisions", {}).update(decisions)
+    asked = set(plan["live_ids"]) if plan and plan.get("live_ids") else {q[0] for q in concept_select_bank(bank, n)}
+    if plan and plan.get("prefilled_ids"):
+        asked |= set(plan["prefilled_ids"]) & set(answered)
+    asked |= ask_again
+    replaced = cb.replaced_ids(audience)
     # значения по умолчанию — для всех вопросов без ответа (заданные, но пропущенные, — в допущения поимённо)
-    for q in sorted(CONCEPT_BANK, key=lambda x: x[2]):
+    idea["unanswered"], idea["not_asked"] = [], []
+    for q in sorted(bank, key=lambda x: x[2]):
         qid = q[0]
         if qid in answered:
             continue
@@ -2096,26 +2880,171 @@ def apply_concept_answers(cfg, answers, count=None):
             idea["not_asked"].append(qid)
     if idea["not_asked"]:
         cfg["assumptions"].append("Вопросы вне выбранных %d не задавались (%d шт.) — для них значения по умолчанию" % (n, len(idea["not_asked"])))
+    if replaced:
+        idea["replaced"] = sorted(replaced)
     idea["answers"] = {k: answered[k] for k in sorted(answered)}
+    if block_answers:
+        idea["block_answers"] = {k: block_answers[k] for k in sorted(block_answers)}
+        blocks = sorted({r.get("block") for r in block_answers.values() if r.get("block") and r.get("block") != "intro"})
+        if blocks:
+            idea["blocks_answered"] = blocks
+        if any(r.get("block") == "admin" for r in block_answers.values()):
+            idea.setdefault("facets", {}).setdefault("admin_needed", True)
     return notes
 
 
-def concept_finish(cfg, cwd, request=""):
-    """Имя и slug, цель, цена по диапазону, папка, проверка запроса «в/вне репозитория», finalize."""
+# заголовки карточек проверок (concept_checks) → id правила: ответы через concept-apply принимаются и до первого прогона проверок
+CHECK_HEADER_IDS = {"Сообщество": "own_community_no_access", "Ёмкость MVP": "mvp_capacity", "Цель дохода": "revenue_vs_resources",
+                    "Каналы B2B": "b2b_social", "Чувств. обл.": "sensitive_exclusive", "Деньги лично": "personal_money",
+                    "Кто разраб.": "no_dev_skills", "ИИ и железо": "ai_local_browser", "Аналоги есть": "competitors_claimed_none",
+                    "Доход/модель": "revenue_none_paid"}
+
+
+NAME_OK = ("Подходит (Recommended)", "Подходит", "ok", "Придумать варианты позже", "later")
+AUDIENCE_NAMES = {"public": "публичный продукт (аудитория, рынок, модель дохода)",
+                  "personal": "только для меня — личный режим: без аудитории, маркетинга и монетизации",
+                  "circle": "для меня и узкого круга — личный режим без маркетинга",
+                  "personal_then_public": "сначала для себя, потом, возможно, публично — личный режим и раздел «Если захочется выпустить наружу»"}
+
+
+def concept_request(cfg, request, request_questions=None):
+    """Разбор исходного запроса (FB-001, FB-002): вопросы RQ, ссылки и материалы владельца → run-config. Повтор безопасен."""
+    idea, src = cfg["idea"], cfg["sources"]
+    notes = []
+    if request:
+        idea["request"] = cb.mask(request)[:4000]
+    rq = cb.normalize_request_questions(request_questions) if request_questions else cb.request_questions(request, idea.get("pitch"))
+    for x in idea.pop("_rq_extra", []) or []:
+        if not any(x["text"] == r["text"] for r in rq):
+            rq.append({"id": "RQ%02d" % (len(rq) + 1), "text": cb.mask(x["text"]), "kind": x.get("kind", "research"), "source": x.get("source", "answers")})
+    if rq or "request_questions" not in idea:
+        idea["request_questions"] = rq
+    urls = cb.classify_urls(request) if request else []
+    docs = src.setdefault("owner_docs", [])
+    ext = src.setdefault("external", {"site": "", "stores": [], "apk": [], "tracker": "", "other_urls": []})
+    comps = src.setdefault("competitor_list", [])
+    facets = idea.setdefault("facets", {})
+    for u in urls:
+        key = u.get("url") or u.get("path")
+        if not any(isinstance(d, dict) and (d.get("url") or d.get("path")) == key for d in docs):
+            docs.append({k: v for k, v in u.items() if k != "domain"})
+        if u["kind"] == "platform_site":
+            ext["site"] = ext.get("site") or u["url"]
+            pu = facets.setdefault("platform_urls", [])
+            if u["url"] not in pu:
+                pu.append(u["url"])
+        elif u["kind"] == "competitor":
+            if not any(str(c).lower().rstrip("/") in (u["domain"], u["url"].lower().rstrip("/")) for c in comps):
+                comps.append(u["domain"])
+    if urls:
+        notes.append("Материалы владельца из запроса: %d (%s) — шаг C0.6: прочитать каждую и записать статус в sources.owner_docs[] и build/owner-materials.md"
+                     % (len(urls), ", ".join("%s: %s" % (u["kind"], u.get("domain") or u.get("path")) for u in urls)))
+    return notes
+
+
+def concept_capacity(cfg, explicit=()):
+    """project.capacity (одна величина «часов в дне» — day_hours; project.hours_in_day не вводится) из ответа «Время» (c32);
+    заданное через --set project.capacity.* не перезаписывается, недостающие поля дополняются."""
+    prj, f = cfg["project"], (cfg["idea"].get("facets") or {})
+    team = int(prj.get("team_size") or 1)
+    hw = float(f.get("hours_week") or 8)
+    asked = "c32" in (cfg["idea"].get("answers") or {})
+    cur = prj.get("capacity") if isinstance(prj.get("capacity"), dict) else {}
+    computed = {"hours_per_week": hw, "dev_share": 0.7, "day_hours": 8,      # часы на человека; команду умножает capacity.py
+                "source": ("ответ c32 (часов в неделю)" if asked else "значение по умолчанию c32 (5–10 ч/нед) [допущение]") +
+                          (" на человека × команда %d [допущение: у каждого столько же]" % team if team > 1 else "")}
+    if any(k == "project.capacity" or k.startswith("project.capacity.") for k in explicit):
+        prj["capacity"] = dict(computed, **cur)
+        prj["capacity"]["source"] = cur.get("source") or "задано владельцем (--set project.capacity…)"
+    else:
+        prj["capacity"] = computed
+
+
+def concept_registry(cfg):
+    """registry {passes, capacity_cap, category_minimums} для WP-C: один проход генерации на quick и deep (FB-005), два — на
+    standard и exhaustive; потолок ёмкости для now — если MVP не помещается в ёмкость, включена нарезка или личный режим;
+    минимумы категорий — по приоритету в личном режиме и при потолке. Заданное через --set не трогается."""
+    reg = cfg.setdefault("registry", {})
+    auto = reg.setdefault("auto_keys", [])
+    def put(k, v):
+        if k not in reg or k in auto:
+            reg[k] = v
+            if k not in auto:
+                auto.append(k)
+    put("passes", 1 if cfg["strategy"].get("depth") in ("quick", "deep") else 2)
+    try:
+        tight = cc.mvp_capacity(cfg)["fits"] == "no"
+    except Exception:                                       # noqa: BLE001
+        tight = False
+    personal = cb.audience_of(cfg["project"].get("audience")) in cb.PERSONAL_AUDIENCES
+    put("capacity_cap", bool(tight or (cfg.get("slicing") or {}).get("enabled") or personal))
+    put("category_minimums", "priority" if (personal or reg.get("capacity_cap")) else "count")
+    return reg
+
+
+def _concept_personal(cfg):
+    prj, sc, st = cfg["project"], cfg["scope"], cfg["strategy"]
+    aud = cb.audience_of(prj.get("audience"))
+    prj["audience"] = aud
+    if aud == "public":
+        prj.setdefault("release_outward", True)
+        return []
+    explicit = set(cfg.get("_explicit") or [])
+    off = []
+    for k in cb.PERSONAL_SCOPE_OFF:
+        if "scope." + k not in explicit and sc.get(k):
+            sc[k] = False
+            off.append(k)
+    if "strategy.monetization" not in explicit:
+        st["monetization"] = "none"
+        st["paid_tier"] = "no"
+    prj["goal"] = "personal"
+    if aud == "personal_then_public":
+        prj["release_outward"] = True
+    cfg["assumptions"].append("Личный режим (%s): поиск запросов и календарь событий выключены (%s); сообщества — источник идей и "
+                              "библиотек, аналоги — «готовое вместо своего» (build vs buy); модель — стоимость владения" % (
+                                  aud, ", ".join(off) or "уже выключены"))
+    return []
+
+
+def concept_finish(cfg, cwd, request="", name=None, slug=None, topic_en=None, keywords=None, request_questions=None,
+                   home=None):
+    """Имя и slug, цель, разбор запроса (RQ, ссылки владельца), ключевые слова и перевод темы, личный режим, папка,
+    проверка запроса «в/вне репозитория», finalize, ёмкость, git и правила владельца, проверки до «Начинаю?»."""
     idea = cfg["idea"]
-    given = idea.pop("name_given", None)
+    dec = idea.get("decisions") or {}
+    given = name or idea.pop("name_given", None)
+    idea.pop("name_given", None)
+    if dec.get("name") and dec["name"] not in NAME_OK and not name:
+        given = dec["name"]
     notes = []
     facets = idea.get("facets") or {}
     if facets.get("naming") == "given" and not given:
         notes.append("Название: выбрано «Есть, впишу», но текста нет — рабочее имя по идее; уточнить у владельца")
-    name, slug = idea_name_slug(idea["pitch"], given)
-    idea["name"], idea["slug"] = name, slug
-    cfg["product"]["name"] = name
-    cfg["strategy"]["goal"] = "концепция нового продукта: %s" % (idea_first_phrase(idea["pitch"]) or name)
+    pitch = idea.get("pitch_v2") or idea["pitch"]
+    if topic_en:
+        idea["topic_en"] = str(topic_en).strip()
+        idea["topic_en_for"] = int(idea.get("version") or 1)
+    nm, sl = idea_name_slug(pitch, given, idea.get("topic_en"))
+    if slug:
+        sl = slugify(slug)
+    idea["name"], idea["slug"] = nm, sl
+    idea["name_source"] = "given" if given else "auto"
+    cfg["product"]["name"] = nm
+    cfg["strategy"]["goal"] = "концепция нового продукта: %s" % (idea_first_phrase(pitch) or nm)
     if not idea["pitch"]:
         notes.append("Идея не передана (--idea) — досье будет пустым; повторить concept-apply с --idea \"<текст>\"")
+    notes += concept_request(cfg, request, request_questions)
+    if keywords:
+        idea["keywords"] = [k.strip() for k in (keywords if isinstance(keywords, list) else re.split(r"[,;]", str(keywords))) if k.strip()][:12]
+        idea["keywords_source"] = "owner"
+    elif idea.get("keywords_source") != "owner":
+        idea["keywords"] = idea_keywords(pitch)
+        idea["keywords_source"] = "auto"
     if facets.get("sensitive"):
         cfg["scope"]["legal"] = True
+    notes += _concept_personal(cfg)
+    explicit_all = set(cfg.get("_explicit") or [])
     concept_set_output(cfg, cwd)
     notes += check_concept_folder(cfg, cwd, request)
     finalize(cfg)
@@ -2124,7 +3053,44 @@ def concept_finish(cfg, cwd, request=""):
         rub = cfg["project"]["currency"] == "RUB"
         cfg["project"]["price_hint"] = {"low": 299 if rub else 5, "mid": 990 if rub else 15, "high": 4990 if rub else 49}[band]
         cfg["assumptions"].append("Ориентир цены %s %s/мес — по ответу «Цена» (диапазон %s)" % (cfg["project"]["price_hint"], cfg["project"]["currency"], band))
+    concept_capacity(cfg, explicit_all)
+    concept_registry(cfg)
+    ag = cfg["tools"].setdefault("agents", {})
+    ag.setdefault("model_policy", "triage")
+    ag.setdefault("effort_policy", "none")
+    gs = cc.git_state(cfg["output"]["dir"])
+    cfg["git"] = {"state": gs["state"], "has_origin": gs["has_origin"], "branch": gs.get("branch"), "default_branch": gs.get("default_branch"),
+                  "visibility": cfg["project"].get("repo_visibility") or "unknown"}
+    rules = cc.owner_rules(gs.get("top") or cwd, home)
+    if rules.get("sources"):
+        cfg["owner_rules"] = rules
+    notes += concept_run_checks(cfg)
+    if idea["name_source"] == "auto" and "name" not in dec:
+        _follow(cfg, "idea.decisions.name", "Имя и папка",
+                "Рабочее имя «%s», папка и ветка — %s. Подходит? Своё имя — в «Other»." % (nm, sl), "choice",
+                [("Подходит (Recommended)", "Имя временное: варианты названия — в концепции", "ok"),
+                 ("Придумать варианты позже", "Оставить рабочее имя до выбора названия", "later")],
+                "имя выведено из текста идеи (FB-022); своё — concept-apply --name/--slug")
     return notes
+
+
+def concept_run_checks(cfg):
+    """Проверки до «Начинаю?»: решения (idea.decisions) применяются, нерешённые находки → follow_up (FB-053, FB-054)."""
+    idea = cfg["idea"]
+    before = cc.run_checks(cfg)
+    idea["checks"] = [x for x in before if x.get("options")]
+    applied = cc.apply_decisions(cfg, set_path) if idea.get("decisions") else []
+    after = cc.run_checks(cfg) if applied else before
+    dec = idea.get("decisions") or {}
+    keep = {x["id"]: x for x in before if x.get("options") and x["id"] in dec}
+    for x in after:
+        keep.setdefault(x["id"], x)
+    idea["checks"] = list(keep.values())
+    for x in after:
+        if x.get("options") and x["id"] not in dec:
+            _follow(cfg, "idea.decisions.%s" % x["id"], x["header"], x["question"], "choice",
+                    [(o["label"], o["description"], o["key"]) for o in x["options"]], x["message"])
+    return ["Решение до старта: %s" % a for a in applied]
 
 
 def check_concept_folder(cfg, cwd, request):
@@ -2151,9 +3117,14 @@ def concept_defaults(cfg, cwd, request=""):
     """Автопилот режима идеи: первые 15 вопросов считаются отвеченными значениями по умолчанию."""
     cfg["autopilot"] = True
     explicit = cfg.setdefault("_explicit", [])
+    if cfg["idea"].get("request") or cfg["idea"].get("prefill_raw"):
+        apply_concept_answers(cfg, {}, CONCEPT_MIN_QUESTIONS)     # автопилот с текстом запроса: уверенные ответы из текста
+        cfg["idea"]["unanswered"] = []                            # (SM 3.1) вместо значений по умолчанию
     sel = concept_select(CONCEPT_MIN_QUESTIONS)
     for q in sel:
         qid, theme, _p, h, text, multi, opts = q
+        if qid in cfg["idea"]["answers"]:
+            continue
         _apply_mapping(cfg, opts[0][2], explicit)
         lab = opts[0][0]
         cfg["idea"]["answers"][qid] = {"theme": theme, "header": h, "question": text, "answer": [lab] if multi else lab,
@@ -2166,6 +3137,76 @@ def concept_defaults(cfg, cwd, request=""):
                 _apply_mapping(cfg, {k: v}, [])
     cfg["assumptions"].append("Автопилот: 15 вопросов об идее отвечены значениями по умолчанию — на вашу проверку")
     return []
+
+
+def _concept_extra_lines(cfg):
+    idea, prj, pr = cfg.get("idea") or {}, cfg["project"], cfg["product"]
+    lines = []
+    aud = cb.audience_of(prj.get("audience"))
+    lines.append("Для кого: %s" % AUDIENCE_NAMES[aud] + ("; выпуск наружу допускается" if aud in ("personal", "circle") and prj.get("release_outward") else ""))
+    forms = pr.get("forms") or []
+    if forms or pr.get("future_forms"):
+        lines.append("Форма: %s (формы: %s%s)" % (cb.FORM_LABELS.get(forms[0], pr["type"]) if forms else pr["type"], ", ".join(forms) or "—",
+                                                 "; позже: %s" % ", ".join(pr["future_forms"]) if pr.get("future_forms") else ""))
+    if cfg["strategy"].get("markets_note"):
+        lines.append("Рынки: %s (+ уточнение: «%s» — в исследовании)" % (", ".join(cfg["strategy"]["markets"]), cfg["strategy"]["markets_note"]))
+    try:
+        mc = cc.mvp_capacity(cfg)
+        c6 = cc.cap_mod.capacity(cfg, cfg["strategy"].get("horizon_months") or 6)
+        lines.append("Ёмкость: %s" % c6["line"])
+        lines.append("MVP: %s" % mc["line"])
+    except Exception:                                             # noqa: BLE001 — сводка не должна падать
+        pass
+    try:
+        import model as _model                                    # WP-B: профиль модели по форме, оплате и аудитории
+        prof, why = _model.select_profile(cfg)
+        lines.append("Модель: %s (%s)" % (prof, why))
+    except Exception:                                             # noqa: BLE001 — нет model.py или старый — без строки
+        pass
+    kw = idea.get("keywords") or []
+    if kw:
+        en = idea.get("topic_en")
+        lines.append("Ключевые слова: %s (%s); тема EN: %s" % (", ".join(kw), "владелец" if idea.get("keywords_source") == "owner" else "автоматически — поправить: --keywords",
+                                                              en or "нет — передайте --topic-en \"<перевод темы>\", иначе в плане поиска останутся <EN: …>"))
+    lines.append("Имя: «%s» (%s) · slug/папка/ветка: %s" % (pr.get("name"), "из ответа «Название»" if idea.get("name_source") == "given" else
+                                                            "рабочее, из текста идеи — своё: --name/--slug", idea.get("slug")))
+    rq = idea.get("request_questions") or []
+    if rq:
+        lines.append("Вопросы запроса (RQ, %d — проследить ответ на каждый): %s%s" % (
+            len(rq), "; ".join("%s [%s] %s" % (r["id"], r["kind"], r["text"][:70]) for r in rq[:6]), " …" if len(rq) > 6 else ""))
+    docs = [d for d in (cfg["sources"].get("owner_docs") or []) if isinstance(d, dict)]
+    if docs:
+        pend = sum(1 for d in docs if d.get("status") == "not_attempted")
+        lines.append("Материалы владельца (%d): %s; не прочитано %d — шаг C0.6 (прочитать каждую, статус read|blocked)" % (
+            len(docs), "; ".join("%s %s (роль %s)" % (d.get("kind"), d.get("url") or d.get("path"), d.get("role")) for d in docs[:5]), pend))
+    ag = cfg["tools"].get("agents") or {}
+    if ag:
+        lines.append("Агенты: модели — %s; effort — %s" % ({"triage": "триаж TypeSafe (если установлен)", "default": "по умолчанию скилла",
+                                                         "custom": "свои правила: %s" % ag.get("note", "—")}.get(ag.get("model_policy"), ag.get("model_policy")),
+                                                        "задаётся явно" if ag.get("effort_policy") == "explicit" else "не задаётся"))
+    g = cfg.get("git") or {}
+    if g:
+        lines += cc.git_plan(dict(g, top=None), cfg["output"].get("git_branch") or "docs/concept-%s" % idea.get("slug"))
+    bs = cfg["output"].get("branch_status")
+    if bs:
+        lines.append(("Ветка: %s" if bs in ("created", "current", "switched") else "ВНИМАНИЕ, ветка: %s") % cfg["output"].get("branch_note"))
+    rules = cfg.get("owner_rules") or {}
+    if rules.get("lines"):
+        lines.append("Правила владельца (%s): %s" % (", ".join(rules.get("sources") or []), "; ".join(rules["lines"])))
+    reg = cfg.get("registry") or {}
+    if reg:
+        lines.append("Реестр: проходов %s, потолок ёмкости для now — %s" % (reg.get("passes"), _yn(reg.get("capacity_cap"))))
+    if cfg.get("slicing", {}).get("enabled"):
+        lines.append("Нарезка на очереди: %s" % ", ".join(q["name"] for q in cfg["slicing"].get("queues") or []))
+    blocks = idea.get("blocks_answered") or []
+    if blocks:
+        lines.append("Блоки опроса: %s" % ", ".join(cb.BLOCKS[b][0] for b in blocks if b in cb.BLOCKS))
+    checks = [x for x in idea.get("checks") or [] if x.get("severity") != "info" or x.get("message")]
+    if checks:
+        lines.append("Проверка ответов до «Начинаю?» (%d): %s" % (len(checks), " | ".join(
+            "[%s%s] %s" % (x.get("header") or x["id"], ", решено" if x.get("resolved") or x["id"] in (idea.get("decisions") or {}) else "", x["message"])
+            for x in checks)))
+    return lines
 
 
 def show_concept(cfg):
@@ -2193,12 +3234,16 @@ def show_concept(cfg):
     ]
     if s.get("success_criteria"):
         lines.insert(3, "Критерий успеха: %s" % s["success_criteria"])
+    lines += _concept_extra_lines(cfg)
     if idea.get("unanswered"):
         lines.append("Не отвечено (допущения): %s" % ", ".join(idea["unanswered"]))
     if cfg["author"].get("copyright"):
         lines.append("Авторство: %s" % cfg["author"]["copyright"])
     if cfg["assumptions"]:
         lines.append("Допущения: " + "; ".join(cfg["assumptions"]))
+    fu = cfg.get("follow_up") or []
+    if fu:
+        lines.append("Уточнить ДО «Начинаю?» (%d): %s" % (len(fu), " | ".join("[%s] %s" % (x.get("header"), x.get("question")) for x in fu)))
     return "\n".join(lines)
 
 
@@ -2360,17 +3405,47 @@ def main(argv=None):
     cq = sub.add_parser("concept-questions", help="режим идеи: первые N вопросов банка пачками по ≤ 4")
     cq.add_argument("--count", type=int, default=CONCEPT_DEFAULT_QUESTIONS)
     cq.add_argument("--batch", type=int, default=4)
+    cq.add_argument("--audience", choices=list(cb.AUDIENCE), help="ответ «Для кого» карточки «Начало» (личный режим — свой банк)")
+    cq.add_argument("--mode", choices=["standard", "fast", "deep"], help="ответ «Опрос» карточки «Начало»")
+    cq.add_argument("--request", default="", help="исходный запрос: предзаполнение ответов из текста (FB-055, SM 3.1)")
+    cq.add_argument("--prefill", help="предзаполнение оркестратора: JSON {id|header: ответ | {answer, confidence, quote}}, @файл или -")
     cq.add_argument("--json", action="store_true")
+    ci = sub.add_parser("concept-intro", help="режим идеи: карточка «Начало» (для кого, режим опроса, модели и effort)")
+    ci.add_argument("--request", default="")
+    ci.add_argument("--json", action="store_true")
+    cbl = sub.add_parser("concept-blocks", help="режим идеи: условные блоки вопросов по ответам")
+    cbl.add_argument("--answers", required=True, help="ответы карточек (JSON, @файл или -)")
+    cbl.add_argument("--request", default="")
+    cbl.add_argument("--prefill")
+    cbl.add_argument("--mode", choices=["standard", "fast", "deep"])
+    cbl.add_argument("--audience", choices=list(cb.AUDIENCE))
+    cbl.add_argument("--count", type=int)
+    cbl.add_argument("--json", action="store_true")
+    for name in ("concept-check", "concept-verdict"):
+        p = sub.add_parser(name)
+        p.add_argument("out")
+        p.add_argument("--json", action="store_true")
     for name in ("concept-apply", "concept-defaults"):
         p = sub.add_parser(name)
         p.add_argument("--repo", default=".", help="текущая папка пользователя (от неё считается папка результата)")
         p.add_argument("--idea", default="", help="идея дословно")
         p.add_argument("--out-dir")
         p.add_argument("--set", action="append", default=[])
-        p.add_argument("--request", default="", help="исходный запрос: слова «в/вне репозитория» сверяются с папкой")
+        p.add_argument("--request", default="", help="исходный запрос: слова «в/вне репозитория», вопросы RQ, ссылки владельца, предзаполнение")
+        p.add_argument("--request-questions", help="вопросы запроса от оркестратора: JSON-список строк или {text, kind} (FB-001)")
+        p.add_argument("--topic-en", help="перевод темы идеи на английский — подставляется вместо <EN: …> в плане поиска (FB-023)")
+        p.add_argument("--keywords", help="подтверждённые ключевые слова через запятую (FB-023)")
+        p.add_argument("--name", help="имя продукта (FB-022); без него — из ответа «Название» или рабочее из идеи")
+        p.add_argument("--slug", help="slug папки и ветки (латиница)")
+        p.add_argument("--branch", choices=["auto", "none"], default="auto",
+                       help="auto — внутри git создать и включить ветку прогона ДО первой записи (FB-034); none — git не трогать")
+        p.add_argument("--branch-name", help="имя ветки вместо docs/concept-<slug>")
+        p.add_argument("--dry-run", action="store_true", help="только сводка и follow_up: ничего не писать, git не трогать")
+        p.add_argument("--json", action="store_true", help="сводка, заметки, follow_up одним JSON")
         if name == "concept-apply":
             p.add_argument("--from-askuser", required=True, help="ответы карточек (JSON-строка, @файл или - для stdin)")
             p.add_argument("--count", type=int, help="сколько вопросов задавали (иначе — ответ карточки «Вопросов», по умолчанию 25)")
+            p.add_argument("--prefill", help="предзаполнение оркестратора (тот же JSON, что у concept-questions)")
     a = ap.parse_args(argv)
 
     if a.cmd == "concept-setup":
@@ -2385,9 +3460,22 @@ def main(argv=None):
                     print("   - %s — %s" % (o["label"], o["description"]))
             print("   (в «Папка» свой путь — через «Other»; в «Вопросов» — своё число ≥ 15)")
         return 0
+    if a.cmd == "concept-intro":
+        d = concept_intro_json(a.request)
+        if a.json:
+            print(json.dumps(d, ensure_ascii=False, indent=2))
+        else:
+            print(d["title"] + ":")
+            for i, q in enumerate(d["questions"], 1):
+                print("%d. [%s] %s" % (i, q["header"], q["question"]))
+                for o in q["options"]:
+                    print("   - %s — %s" % (o["label"], o["description"]))
+            print("   " + d["note"])
+        return 0
     if a.cmd == "concept-questions":
         try:
-            d = concept_questions_json(a.count, a.batch)
+            pre = _read_answers_arg(a.prefill) if a.prefill else None
+            d = concept_questions_json(a.count, a.batch, a.audience, pre, a.request, a.mode)
         except ValueError as e:
             print("ошибка: %s" % e, file=sys.stderr)
             return 2
@@ -2398,18 +3486,87 @@ def main(argv=None):
         print("Покрытие тем:")
         for c in d["coverage"]:
             print("  %-32s %d" % (c["title"], c["questions"]))
+        for cq_ in d.get("confirm") or []:
+            print("\nПодтвердить [%s]: %s" % (cq_["header"], cq_["question"]))
         for b in d["batches"]:
             print("\nПачка %d — %s" % (b["batch"], b["title"]))
             for q, meta in zip(b["questions"], b["ids"]):
                 print("  %s [%s] %s" % (meta["id"], q["header"], q["question"]))
                 for o in q["options"]:
                     print("     - %s — %s" % (o["label"], o["description"]))
+        if d.get("next"):
+            print("\n" + d["next"])
+        return 0
+    if a.cmd == "concept-blocks":
+        try:
+            ans = _read_answers_arg(a.answers)
+            pre = _read_answers_arg(a.prefill) if a.prefill else None
+        except (ValueError, OSError) as e:
+            print("ошибка: --answers/--prefill не читается как JSON (%s)" % e, file=sys.stderr)
+            return 2
+        d = concept_blocks_json(ans, a.request, pre, a.mode, a.count, 4, a.audience)
+        if a.json:
+            print(json.dumps(d, ensure_ascii=False, indent=2))
+            return 0
+        print("Условные блоки: %d вопросов в %d пачках" % (d["count"], len(d["batches"])))
+        for bl in d["blocks"]:
+            print("  %s — %s (%s): %s" % (bl["key"], bl["title"], bl["why"], ", ".join(bl["ids"])))
+        for b in d["batches"]:
+            print("\nПачка %d — %s" % (b["batch"], b["title"]))
+            for q, meta in zip(b["questions"], b["ids"]):
+                print("  %s [%s] %s" % (meta["id"], q["header"], q["question"]))
+        return 0
+    if a.cmd in ("concept-check", "concept-verdict"):
+        cfgp = Path(a.out) / "build" / "run-config.json"
+        try:
+            cfg = json.loads(cfgp.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as e:
+            print("ошибка: нет или не читается %s (%s)" % (cfgp, e), file=sys.stderr)
+            return 2
+        if cfg.get("mode") != "concept":
+            print("ошибка: run-config не в режиме идеи (mode: concept)", file=sys.stderr)
+            return 2
+        card = None
+        if a.cmd == "concept-check":
+            notes = concept_run_checks(cfg)
+        else:
+            notes = []
+            doc = cc.load_verdict(a.out)
+            card = cc.traffic_card(doc)
+            if card:
+                _follow(cfg, "slicing.decision", card["header"], card["question"], "choice", card["options"],
+                        "светофор %s (data/typesafe-concept.json)" % card["verdict"])
+        cfgp.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+        fu = cfg.get("follow_up") or []
+        if a.json:
+            print(json.dumps({"checks": (cfg.get("idea") or {}).get("checks") or [], "follow_up": fu, "notes": notes,
+                              "verdict_card": ({"header": card["header"], "question": card["question"], "multiSelect": False,
+                                                "options": [{"label": l, "description": d} for l, d, _k in card["options"]]} if card else None)},
+                             ensure_ascii=False, indent=2))
+            return 0
+        if a.cmd == "concept-verdict" and not card:
+            print("Светофор зелёный или data/typesafe-concept.json нет — карточка «что дальше» не нужна")
+        for x in fu:
+            print("Уточнить: [%s] %s → intake.py update %s --from-askuser '{\"%s\": \"<вариант>\"}'" % (
+                x.get("header"), x.get("question"), a.out, x.get("header")))
         return 0
     if a.cmd in ("concept-apply", "concept-defaults"):
         cfg = concept_base_config(a.repo, a.idea, a.out_dir)
         if a.out_dir:
             cfg.setdefault("_explicit", []).append("output.dir")
+        if a.request:
+            cfg["idea"]["request"] = cb.mask(a.request)[:4000]
         notes = []
+        rq = None
+        try:
+            if getattr(a, "prefill", None):
+                cfg["idea"]["prefill_raw"] = _read_answers_arg(a.prefill)
+            if a.request_questions:
+                rq = _read_answers_arg(a.request_questions) if a.request_questions.strip()[:1] in "[{@-" else \
+                    [x.strip() for x in a.request_questions.split(";") if x.strip()]
+        except (ValueError, OSError) as e:
+            print("ошибка: --prefill/--request-questions не читается как JSON (%s)" % e, file=sys.stderr)
+            return 2
         if a.cmd == "concept-apply":
             try:
                 answers = unwrap_answers(_read_answers_arg(a.from_askuser))
@@ -2423,11 +3580,34 @@ def main(argv=None):
         else:
             notes += concept_defaults(cfg, a.repo, a.request)
         _apply_sets(cfg, a.set)
-        notes += concept_finish(cfg, a.repo, a.request)
-        path = write_config(cfg)
+        notes += concept_finish(cfg, a.repo, a.request, name=a.name, slug=a.slug, topic_en=a.topic_en, keywords=a.keywords,
+                                request_questions=rq)
+        if a.branch_name and cfg["output"]["inside_repo"]:
+            cfg["output"]["git_branch"] = a.branch_name
+        if cfg["output"]["inside_repo"] and not a.dry_run:
+            st, msg = cc.ensure_branch(cfg["repo"]["path"], cfg["output"]["git_branch"], a.branch)
+            cfg["output"]["branch_status"], cfg["output"]["branch_note"] = st, msg
+            if st in ("created", "switched", "current"):
+                cfg.setdefault("git", {})["branch"] = cfg["output"]["git_branch"]
+        elif cfg["output"]["inside_repo"]:
+            cfg["output"]["branch_status"], cfg["output"]["branch_note"] = "planned", "ветка %s будет создана при записи (без --dry-run)" % cfg["output"]["git_branch"]
+        path = None if a.dry_run else write_config(cfg)
+        if a.json:
+            print(json.dumps({"out": cfg["output"]["dir"], "run_config": str(path) if path else None, "dry_run": bool(a.dry_run),
+                              "summary": show(cfg), "notes": notes, "follow_up": cfg.get("follow_up") or [],
+                              "checks": (cfg.get("idea") or {}).get("checks") or [],
+                              "request_questions": (cfg.get("idea") or {}).get("request_questions") or []}, ensure_ascii=False, indent=2))
+            return 0
         print(show(cfg))
         for n in notes:
             print("Заметка: " + n)
+        for x in cfg.get("follow_up") or []:
+            print("Уточнить: [%s] %s → intake.py update <OUT> --from-askuser '{\"%s\": \"<вариант>\"}'" % (x.get("header"), x.get("question"), x.get("header")))
+        if a.dry_run:
+            print("\n(--dry-run: ничего не записано, git не тронут; после уточнений — тот же concept-apply без --dry-run, ответы "
+                  "follow_up — в --from-askuser, имя — --name/--slug)")
+            print("OUT_PLANNED=%s" % cfg["output"]["dir"])
+            return 0
         print("\nrun-config: %s" % path)
         print("OUT=%s" % cfg["output"]["dir"])
         return 0

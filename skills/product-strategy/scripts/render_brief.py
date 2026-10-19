@@ -33,6 +33,28 @@ experiments, concept-analogs …). Выдача — <OUT>/build/briefs/<имя>[
 Остальное (QUOTAS, SECTIONS, PART, OTHER_PARTS, KEYS, BETS, PLATFORMS …) — --set. Значение из --set важнее
 вычисленного; «@файл» — взять текст из файла.
 
+--auto (FB-050, режим идеи и обычный): значения по умолчанию для того, что раньше требовало --set — SECTIONS/PART/
+OTHER_PARTS из outline (`--parts N`, `--part K` или `--group S<K>`: разделы 2…17 поровну по объёму; раздел 1 — резюме,
+его пишет оркестратор/генератор), QUOTAS/CATEGORIES/COUNT из минимумов категорий (check_registry.quotas, группы — run-config
+registry.groups или поровну по объёму), PASS (registry.passes = 1 → details), OTHER_TITLES одного прохода (категории и
+затравки других групп), KEYS/VIEWPORTS (data/mockups-index.json или топ MVP-предложений по scores.json; формы продукта),
+RANGE/MAP (индекс макетов), BETS (data/decisions.json или топ рангов), PLATFORMS (формы продукта и платформа идеи),
+MODE схем (draw), GENERIC/LIMIT (charts.py --list-generic), KIT_CLASSES (классы набора _kit.css), STEPS/CHOSEN
+дизайна (design.chosen). В начале брифа — строка «Подставлено автоматически: …». Плейсхолдер без значения в --auto —
+предупреждение и «нет данных», бриф пишется.
+Значения новых брифов 1.5.0 (AUDIENCE, PLATFORM, DATA_NEEDS, REQUEST_QUESTIONS, ARCH, FLOWS, PROTO_*, …) — из
+scripts/brief_facets.py (подключается автоматически); {CAPACITY} — одна строка ёмкости (capacity.py, FB-028);
+{IDEA_FACTS} дополняется выводами пересмотра идеи (data/premises.json, FB-044) и ёмкостью.
+Ворота: брифы рынка (C4) режима идеи не пишутся, пока в build/search-plan.md есть непереведённые `<EN: …>` (FB-023;
+--allow-untranslated — записать; демо — предупреждение); concept-design с шагами 2–3 вне автопилота — только при
+run-config design.chosen (FB-007: сначала показать направления владельцу); strategy-section — проверка
+data/decisions.json (decisions.py --check, FB-049).
+Условные строки шаблона «Если в {SECTIONS} есть раздел N…» вычисляются по точному номеру раздела (а не по подстроке):
+строка остаётся без условия или удаляется (SM 6.2). Входы, которых нет на диске, помечаются в разделе «Входы» и
+перечисляются в {MISSING_INPUTS} — агенту не нужно сообщать «файла нет». В каждый бриф добавляется блок «Общие
+правила прогона»: временные файлы — только в build/tmp/<имя брифа>/ (FB-006), общие файлы — у оркестратора, браузер
+владельца не трогать (FB-043), пункт отчёта «Отступления от брифа» (FB-004); --no-rules — без блока.
+
 Справочная строка «Плейсхолдеры: …» в начале шаблона НЕ раскрывается (остаётся справкой). Непарные плейсхолдеры
 (в теле остался {КЛЮЧ} без значения или «{КЛЮЧ» без закрывающей скобки) — ошибка, код 1, файл не пишется
 (--allow-missing — записать всё равно). Не считаются плейсхолдерами: синтаксис вставок стратегии ({rank:P032},
@@ -149,7 +171,7 @@ def template_path(arg):
 
 # ---------------------------------------------------------------- контекст
 class Ctx:
-    def __init__(self, tpl_path, out, sets, group=None, pas=None, base=None, exist_check=True):
+    def __init__(self, tpl_path, out, sets, group=None, pas=None, base=None, exist_check=True, auto=False, part=None, parts=None):
         self.tpl_path = tpl_path
         self.name = tpl_path.stem
         self.text = tpl_path.read_text(encoding="utf-8")
@@ -167,6 +189,11 @@ class Ctx:
         self.base_note = None
         self.base = Path(base).resolve() if base else None
         self.cache = {}
+        self.auto = auto
+        self.auto_used = []
+        self.absent = []
+        self.part = part
+        self.parts = parts
 
     def c(self, *keys, default=None):
         v = self.cfg
@@ -186,6 +213,15 @@ class Ctx:
         if name not in self.cache:
             fn = RESOLVERS.get(name, (None, None))[1]
             self.cache[name] = fn(self) if (fn and self.out) else None
+            if self.cache[name] is None and self.auto and self.out and name in AUTO:
+                try:
+                    v = AUTO[name][1](self)
+                except Exception:                     # noqa: BLE001 — авто-значение не должно ронять рендер
+                    v = None
+                if v is not None:
+                    self.cache[name] = v
+                    if name not in self.auto_used:
+                        self.auto_used.append(name)
         return self.cache[name]
 
 
@@ -318,6 +354,12 @@ def r_other_titles(ctx):
         return None
     rows = draft_titles(ctx, False)
     if not rows:
+        if ctx.auto and (one_pass(ctx) or ctx.get("PASS") == "details"):
+            v = auto_other_titles(ctx)                # FB-005: один проход — темы других групп заранее
+            if v:
+                if "OTHER_TITLES" not in ctx.auto_used:
+                    ctx.auto_used.append("OTHER_TITLES")
+                return v
         return "нет"
     return "\n" + "\n".join(rows)
 
@@ -336,11 +378,18 @@ def r_hend(ctx):
 
 
 def r_owner_list(ctx):
-    lst = ctx.c("sources", "competitor_list") or []
-    return ", ".join(map(str, lst)) if lst else "нет"
+    lst = [str(x) for x in (ctx.c("sources", "competitor_list") or [])]
+    for d in ctx.c("sources", "owner_docs") or []:      # FB-002: ссылки владельца с ролью конкурента/эталона
+        if isinstance(d, dict) and d.get("url") and str(d.get("kind") or d.get("role") or "").lower() in ("competitor", "benchmark", "эталон"):
+            if d["url"] not in lst:
+                lst.append(str(d["url"]))
+    return ", ".join(lst) if lst else "нет"
 
 
 def r_keywords(ctx):
+    kw = ctx.c("idea", "keywords") or ctx.idea.get("keywords_confirmed")   # FB-023: подтверждённые в сводке
+    if kw:
+        return ", ".join(map(str, kw)) if isinstance(kw, list) else str(kw)
     sp = ctx.out / "build" / "search-plan.md"
     if sp.exists():
         m = re.search(r"Ключевые слова[^:]*:\s*(.+)", sp.read_text(encoding="utf-8"))
@@ -458,9 +507,17 @@ def idea_facts(ctx):
     lines.append("Ограничения: %s." % ("; ".join(cons) if cons else "не названы владельцем [допущение]"))
     if i.get("success_criteria") or ctx.c("strategy", "success_criteria"):
         lines.append("Успех: %s." % (i.get("success_criteria") or ctx.c("strategy", "success_criteria")))
+    aud = ctx.c("project", "audience")
+    if aud and aud != "public":
+        lines.append("Для кого: %s — личный режим (аудитории и маркетинга нет)." % aud)
+    if ctx.c("project", "capacity") or ctx.c("idea", "facets", "hours_week"):
+        cap = r_capacity(ctx)
+        if cap:
+            lines.append("Ёмкость: %s." % cap)
+    lines += premises_lines(ctx)
     if (ctx.out / "research" / "idea-dossier.md").exists():
         lines.append("Подробно — `{OUT}/research/idea-dossier.md` (неотвеченное — допущения и открытые вопросы).")
-    return "\n".join("- " + x for x in lines[:12])
+    return "\n".join("- " + x for x in lines[:14])
 
 
 def r_existing(ctx):
@@ -556,7 +613,100 @@ def r_name_hints(ctx):
 
 
 def r_steps(ctx):
-    return "1-3" if ctx.cfg.get("autopilot") else None
+    if ctx.cfg.get("autopilot"):
+        return "1-3"
+    if ctx.auto and ctx.name == "concept-design":     # FB-007: без выбора владельца — только направления
+        return "2-3" if design_chosen(ctx) else "1"
+    return None
+
+
+# ---------------------------------------------------------------- 1.5.0: ёмкость, дизайн, пересмотр идеи
+def r_capacity(ctx):
+    """FB-028: одна строка ёмкости для всех брифов (capacity.py) — другого определения рабочего дня быть не должно."""
+    try:
+        sys.path.insert(0, str(HERE))
+        import capacity
+    except ImportError:
+        return None
+    months = ctx.c("strategy", "horizon_months", default=6)
+    try:
+        return capacity.capacity(ctx.cfg, float(months))["line"]
+    except (TypeError, ValueError, KeyError):
+        return None
+
+
+def design_chosen(ctx):
+    d = ctx.cfg.get("design") or {}
+    return d.get("chosen") if isinstance(d, dict) and d.get("chosen") not in (None, "", "нет") else None
+
+
+def r_chosen(ctx):
+    ch = design_chosen(ctx)
+    if not ch:
+        return "нет"
+    by = (ctx.cfg.get("design") or {}).get("chosen_by")
+    return "%s (%s)" % (ch, {"owner": "выбрал владелец", "default": "по умолчанию — рекомендованное, владелец не выбирал"}.get(by, "выбрано"))
+
+
+def r_directions_count(ctx):
+    d = ctx.cfg.get("design") or {}
+    n = d.get("directions_count") if isinstance(d, dict) else None
+    return str(n) if n else "3"
+
+
+def premises_lines(ctx):
+    """FB-044: выводы пересмотра идеи (data/premises.json) — в контекст идеи брифов, без ручного блока «ВЫВОДЫ»."""
+    pr = jload(ctx.out / "data" / "premises.json", None) if ctx.out else None
+    if not isinstance(pr, dict):
+        return []
+    items = [p for p in pr.get("premises") or [] if isinstance(p, dict)]
+    lab = {"refuted": "опровергнуто", "partial": "частично", "confirmed": "подтверждено"}
+    out = []
+    bad = [p for p in items if p.get("status") in ("refuted", "partial")]
+    if bad:
+        out.append("Выводы исследования (C4.5, `{OUT}/data/premises.json`): " + "; ".join(
+            "%s — %s%s" % (p.get("text") or p.get("id"), lab.get(p.get("status"), p.get("status")),
+                           " (%s)" % p["source"] if p.get("source") else "") for p in bad[:5]))
+    dec = pr.get("decision")
+    if dec:
+        out.append("Решение владельца по пересмотру: %s%s." % ({"keep": "продолжить с исходной идеей", "narrow": "принять сужение",
+                                                            "stop": "остановиться"}.get(dec, dec),
+                                                           ("; идея v2: %s" % pr["pitch_v2"]) if pr.get("pitch_v2") else ""))
+    return out
+
+
+SKIP_SECTIONS = re.compile(r"Выдача|Output|Чек-лист|Формат отчёта|Входы, которых нет", re.I)
+
+
+def brief_sections(text):
+    """[(заголовок, тело)] разделов «## …» шаблона."""
+    parts = re.split(r"(?m)^(## [^\n]*)\n", text)
+    res = [("", parts[0])]
+    for i in range(1, len(parts) - 1, 2):
+        res.append((parts[i], parts[i + 1]))
+    return res
+
+
+def absent_inputs(ctx, covered=()):
+    """Файлы {OUT}/…, упомянутые вне «Выдачи», «Чек-листа» и «Формата отчёта», которых нет на диске (SM 6.2)."""
+    text = "\n".join(line for line in ctx.text.splitlines() if not REF_RE.match(line))
+    outputs = set()
+    for head, body in brief_sections(text):
+        if re.search(r"Выдача|Output", head, re.I):
+            outputs.update(m.group(1).rstrip(".:") for m in PATH_RE.finditer(body))
+    absent = []
+    for head, body in brief_sections(text):
+        if head and SKIP_SECTIONS.search(head):
+            continue
+        for m in PATH_RE.finditer(body):
+            rel = m.group(1).rstrip(".:")
+            if "<" in rel or "{" in rel or rel in outputs or rel in covered or any(rel.startswith(c.rstrip("*")) and c.endswith("*") for c in covered):
+                continue
+            path = ctx.out / rel
+            exists = bool(glob.glob(str(path))) if any(ch in rel for ch in "*?[") else path.exists()
+            if not exists and rel not in absent:
+                absent.append(rel)
+    return absent
 
 
 def r_missing(ctx):
@@ -581,19 +731,14 @@ def r_missing(ctx):
             covered.update(new)
             lines.append("- %s — %s;" % (", ".join(new), why))
     if ctx.exist_check:
-        sections = re.findall(r"(?ms)^## Входы(?![^\n]*которых нет)[^\n]*\n(.*?)(?=^## |\Z)", text)
-        absent = []
-        for sec in sections:
-            for m in PATH_RE.finditer(sec):
-                rel = m.group(1).rstrip(".:")
-                if "<" in rel or "{" in rel or rel in covered or any(rel.startswith(c.rstrip("*")) and c.endswith("*") for c in covered):
-                    continue
-                path = ctx.out / rel
-                exists = bool(glob.glob(str(path))) if any(ch in rel for ch in "*?[") else path.exists()
-                if not exists and rel not in absent:
-                    absent.append(rel)
+        absent = absent_inputs(ctx, covered)
+        ctx.absent = absent
         if absent:
-            lines.append("- %s — нет на момент подготовки брифа (фаза ещё не наступила или не выполнялась);" % ", ".join(absent))
+            lines.append("- %s — нет на момент подготовки брифа (фаза ещё не наступила или не выполнялась): не искать и не "
+                         "писать в отчёте «файла нет» — работать без них;" % ", ".join(absent))
+    if ctx.name == "strategy-section" and ctx.out and not (ctx.out / "data" / "decisions.json").exists():
+        lines.append("- data/decisions.json — решений ещё нет (decisions.py --init не запускался): вставки ставок, North Star "
+                     "и критериев отказа не использовать, писать по факт-листу;")
     kw = jload(ctx.out / "data" / "keywords.json", None)
     if isinstance(kw, list) and kw and all(isinstance(k, dict) and k.get("volume") in (None, "") for k in kw) and "keywords.json" in text:
         lines.append("- keywords.json → volume — объёмов нет (вход в инструменты не выполнялся), используй кластеры и конкуренцию;")
@@ -614,6 +759,306 @@ def cfgv(*keys, fmt=None, default=None):
             return None
         return fmt(v) if fmt else str(v)
     return f
+
+
+# ---------------------------------------------------------------- --auto (FB-050): значения по умолчанию вместо --set
+PARTS_BY_DEPTH = {"quick": 2, "standard": 4, "deep": 5, "exhaustive": 5}
+GROUPS_BY_DEPTH = {"quick": 3, "standard": 5, "deep": 6, "exhaustive": 8}
+
+
+def outline_rows(ctx):
+    """Таблица объёма outline → {номер: (название, слов минимум)}."""
+    outline = SKILL / "references" / ("concept-outline.md" if ctx.concept else "strategy-outline.md")
+    rows, head = {}, None
+    try:
+        lines = outline.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return rows
+    for line in lines:
+        cells = [x.strip() for x in line.strip().strip("|").split("|")]
+        if line.startswith("| №"):
+            head = cells
+            continue
+        if head and len(cells) == len(head) and cells[0].isdigit():
+            r = dict(zip(head, cells))
+            val = r.get(ctx.depth) or r.get("standard") or ""
+            nums = re.findall(r"\d[\d\s ]*", val)
+            words = int(re.sub(r"\D", "", nums[0])) if nums else 0
+            rows[int(cells[0])] = (r.get("Раздел", ""), words)
+        elif head and not line.strip().startswith("|") and rows:
+            break
+    return rows
+
+
+def part_index(ctx):
+    """Номер части: --part K, иначе --group S<K> (или G<K>), иначе 1."""
+    if ctx.part:
+        return int(ctx.part)
+    m = re.search(r"(\d+)$", str(ctx.group or ""))
+    return int(m.group(1)) if m else 1
+
+
+def split_parts(ctx):
+    """Разделы 2…N поровну по объёму → [[номер…] на часть] (раздел 1 — резюме оркестратора/генератора)."""
+    rows = outline_rows(ctx)
+    secs = [n for n in sorted(rows) if n != 1]
+    n = int(ctx.parts or PARTS_BY_DEPTH.get(ctx.depth, 4))
+    n = max(1, min(n, len(secs) or 1))
+    total = sum(rows[s][1] or 1 for s in secs)
+    parts, cur, acc = [], [], 0
+    for s in secs:
+        cur.append(s)
+        acc += rows[s][1] or 1
+        if acc >= total * (len(parts) + 1) / n and len(parts) < n - 1:
+            parts.append(cur)
+            cur = []
+    if cur:
+        parts.append(cur)
+    return parts, rows
+
+
+def a_sections(ctx):
+    if ctx.name != "strategy-section":
+        return None
+    parts, rows = split_parts(ctx)
+    k = part_index(ctx)
+    if not parts or k > len(parts):
+        return None
+    return "; ".join("%d. %s" % (s, rows[s][0]) for s in parts[k - 1])
+
+
+def a_other_parts(ctx):
+    if ctx.name != "strategy-section":
+        return None
+    parts, _rows = split_parts(ctx)
+    k = part_index(ctx)
+    other = ["разделы %s — часть S%d" % (("%d–%d" % (p[0], p[-1])) if len(p) > 1 else str(p[0]), i)
+             for i, p in enumerate(parts, 1) if i != k]
+    return "; ".join(["раздел 1 (резюме) — оркестратор (summary_scaffold.py)"] + other)
+
+
+def one_pass(ctx):
+    return str((ctx.cfg.get("registry") or {}).get("passes") or "") == "1" or ctx.depth == "quick"
+
+
+def group_categories(ctx):
+    """Категории групп генераторов: run-config registry.groups {G1: [..]} или поровну по квотам → {группа: [категории]}."""
+    groups = (ctx.cfg.get("registry") or {}).get("groups")
+    if isinstance(groups, dict) and groups:
+        return {str(k): list(v) for k, v in groups.items()}
+    q = registry_quotas(ctx)
+    if not q:
+        return {}
+    n = min(GROUPS_BY_DEPTH.get(ctx.depth, 5), len([c for c, v in q.items() if v]))
+    bins = [[0, []] for _ in range(max(1, n))]
+    for c, v in sorted(q.items(), key=lambda kv: -kv[1]):
+        if not v:
+            continue
+        b = min(bins, key=lambda x: x[0])
+        b[0] += v
+        b[1].append(c)
+    return {"G%d" % i: b[1] for i, b in enumerate(bins, 1)}
+
+
+def registry_quotas(ctx):
+    try:
+        sys.path.insert(0, str(HERE))
+        import check_registry
+        min_n = int(ctx.c("strategy", "proposals_min", default=60 if ctx.concept else 100))
+        return check_registry.quotas(ctx.cfg, min_n)
+    except Exception:                                  # noqa: BLE001 — нет функции в старой версии
+        return {}
+
+
+def a_quotas(ctx):
+    if ctx.name != "registry-generator":
+        return None
+    q = registry_quotas(ctx)
+    cats = group_categories(ctx).get(ctx.get("GROUP") or "G1") or []
+    items = ["%s — %d" % (c, q.get(c, 0)) for c in cats if q.get(c)]
+    return "; ".join(items) or None
+
+
+def a_pass(ctx):
+    if ctx.name != "registry-generator":
+        return None
+    if one_pass(ctx):
+        return "details"
+    g = ctx.get("GROUP") or "G1"
+    return "details" if (ctx.out / "data" / ("proposals-draft-%s.json" % g)).exists() else "titles"
+
+
+def a_my_titles(ctx):
+    if ctx.name != "registry-generator":
+        return None
+    return "— (черновика группы ещё нет: один проход — свои категории по квотам группы, без заголовков других групп)"
+
+
+def auto_other_titles(ctx):
+    me = ctx.get("GROUP") or "G1"
+    groups = group_categories(ctx)
+    other = {g: cats for g, cats in groups.items() if g != me}
+    if not other:
+        return None
+    lines = ["- темы группы %s: %s — не развивать (затравки этих категорий в build/seeds.md — у %s)" % (g, ", ".join(c), g)
+             for g, c in other.items()]
+    return "\n" + "\n".join(lines)
+
+
+def mockup_plan(ctx):
+    """[(ключ, [P-id])]: data/mockups-index.json, иначе топ MVP по scores.json (ключ Mnn — имя файла выбирает агент)."""
+    idx = jload(ctx.out / "data" / "mockups-index.json", []) or []
+    rows = [(x.get("key"), [p for p in (x.get("proposals") or []) if p]) for x in idx if isinstance(x, dict) and x.get("key")]
+    rows = [r for r in rows if not str(r[0]).startswith("M00")]
+    if rows:
+        return rows
+    n = int(ctx.c("scope", "mockups_min", default=8 if ctx.concept else 12))
+    props = {p.get("id"): p for p in (jload(ctx.out / "data" / "proposals.json", []) or []) if isinstance(p, dict)}
+    order = scores_order(ctx) or list(props)
+    mvp = [i for i in order if "mvp" in (props.get(i, {}).get("tags") or []) or props.get(i, {}).get("horizon") == "now"] or order
+    return [("M%02d" % (k + 1), [pid]) for k, pid in enumerate(mvp[:n])]
+
+
+def my_slice(ctx, items):
+    k, n = part_index(ctx), int(ctx.parts or 1)
+    if n <= 1:
+        return items
+    size = -(-len(items) // n)
+    return items[(k - 1) * size:k * size]
+
+
+def forms(ctx):
+    f = ctx.c("product", "forms") or []
+    t = r_ptype(ctx)
+    if not f:
+        f = ["mobile"] if t == "mobile" else ["web"]
+    return [str(x) for x in f]
+
+
+def a_keys(ctx):
+    if ctx.name not in ("concept-design", "mockups"):
+        return None
+    props = {p.get("id"): p for p in (jload(ctx.out / "data" / "proposals.json", []) or []) if isinstance(p, dict)}
+    plan = my_slice(ctx, mockup_plan(ctx))
+    if not plan:
+        return "все (по минимуму макетов и реестру)" if ctx.name == "concept-design" else None
+    return "; ".join("%s → %s" % (k, ", ".join("%s «%s»" % (p, (props.get(p) or {}).get("title", "")[:60]) if props.get(p) else p for p in pids))
+                     for k, pids in plan)
+
+
+def a_viewports(ctx):
+    if ctx.name not in ("concept-design", "mockups"):
+        return None
+    fs = forms(ctx)
+    plan = my_slice(ctx, mockup_plan(ctx))
+    keys = [k for k, _ in plan]
+    mobile = any(x in ("mobile", "mobile_app", "ios", "android") for x in fs)
+    web = any(x in ("web", "saas", "mobile_web", "pwa", "desktop") for x in fs)
+    if mobile and not web:
+        return "все ключи — мобильные 390x844"
+    if keys and web and mobile:
+        return "%s — 1440x900; мобильный задел: %s — 390x844" % (", ".join(keys[:-1]) or keys[0], keys[-1])
+    return "все ключи — десктоп 1440x900; мобильный задел (1–2 экрана 390x844) — если владелец назвал мобильную версию «позже»"
+
+
+def a_range_map(ctx, want):
+    idx = jload(ctx.out / "data" / "mockups-index.json", []) or []
+    rows = [(x.get("key"), x.get("proposals") or []) for x in idx if isinstance(x, dict) and x.get("key")]
+    rows = my_slice(ctx, sorted(rows, key=lambda r: str(r[0])))
+    if not rows:
+        return None
+    nums = []
+    for k, _p in rows:
+        m = re.match(r"M(\d+)", str(k))
+        nums.append("%02d" % int(m.group(1)) if m else "%02d" % (len(nums) + 1))
+    if want == "RANGE":
+        return "%s–%s" % (nums[0], nums[-1]) if len(nums) > 1 else nums[0]
+    return "; ".join("%s → %s → %s" % (n, k, ", ".join(p) or "—") for n, (k, p) in zip(nums, rows))
+
+
+def a_bets(ctx):
+    if ctx.name != "gap-audit":
+        return None
+    dec = jload(ctx.out / "data" / "decisions.json", {}) or {}
+    bets = [b for b in (dec.get("bets") or []) if isinstance(b, dict)]
+    if bets:
+        return "; ".join("%s) %s (%s)" % (b.get("id", i), b.get("name") or b.get("what") or "—", ", ".join(b.get("proposals") or []) or "—")
+                         for i, b in enumerate(bets, 1)) + " [data/decisions.json]"
+    props = {p.get("id"): p for p in (jload(ctx.out / "data" / "proposals.json", []) or []) if isinstance(p, dict)}
+    top = scores_order(ctx)[:3]
+    if not top:
+        return None
+    return "; ".join("%d) %s «%s»" % (i, p, (props.get(p) or {}).get("title", "")[:70]) for i, p in enumerate(top, 1)) + \
+        " [черновик: топ рангов score.py — оркестратор подтверждает]"
+
+
+def a_platforms(ctx):
+    if ctx.name != "research-legal":
+        return None
+    labels = {"web": "веб (хостинг, платёжный сервис, правила рекламы)", "mobile_web": "мобильная версия веба", "pwa": "PWA",
+              "mobile": "App Store, Google Play", "ios": "App Store", "android": "Google Play", "bot": "мессенджер-бот (правила платформы)",
+              "extension": "магазин расширений браузера", "desktop": "десктоп (подпись и дистрибуция)", "saas": "веб-сервис (SaaS)"}
+    out = [labels.get(f, f) for f in forms(ctx)]
+    fc = (ctx.cfg.get("idea") or {}).get("facets") or {}
+    if fc.get("platform_name"):
+        out.append("%s (внешняя платформа: условия использования, API, лицензии на данные)" % fc["platform_name"])
+    return "; ".join(dict.fromkeys(out))
+
+
+def a_generic(ctx):
+    if ctx.name != "chart-notes":
+        return None
+    try:
+        r = subprocess.run([sys.executable, "-B", str(HERE / "charts.py"), str(ctx.out), "--list-generic"], capture_output=True, text=True, timeout=180)
+        txt = r.stdout.strip()
+        json.loads(txt or "[]")
+        return txt or "[]"
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return "[]"
+
+
+def a_kit_classes(ctx):
+    for p in (ctx.out / "mockups" / "concepts" / "_kit.css", SKILL / "templates" / "mockup-kit" / "_kit.css"):
+        if p.exists():
+            cls = list(dict.fromkeys(re.findall(r"\.(ps-[a-z0-9-]+)", p.read_text(encoding="utf-8", errors="replace"))))
+            if cls:
+                return ", ".join(cls[:60]) + (" …" if len(cls) > 60 else "")
+    return None
+
+
+def a_flows(ctx):
+    """FB-006: ключи схем — data/flows-plan.json (brief_facets), иначе data/flows.json, иначе набор по режиму."""
+    if ctx.name != "flows":
+        return None
+    have = [x for x in (jload(ctx.out / "data" / "flows.json", []) or []) if isinstance(x, dict) and x.get("key")]
+    if have:
+        return "; ".join("%s — %s" % (x["key"], x.get("title") or x["key"]) for x in have)
+    base = [("user-journey", "Путь пользователя"), ("architecture", "Архитектура компонентов"), ("experiment-tree", "Дерево решений экспериментов")]
+    if str(ctx.c("project", "audience") or "public") == "public":
+        base.insert(1, ("growth-loops", "Петли роста"))
+    return "; ".join("%s — %s" % kv for kv in base) + " (план ключей — запишите в data/flows-plan.json до авторов разделов)"
+
+
+AUTO = {   # имя → (откуда, функция): только при --auto и только если обычного значения нет
+    "FLOWS": ("--auto: data/flows.json или набор схем по режиму", a_flows),
+    "SECTIONS": ("--auto: outline, разделы 2…17 поровну по объёму (--parts N, --part K / --group S<K>)", a_sections),
+    "OTHER_PARTS": ("--auto: остальные части той же разбивки", a_other_parts),
+    "QUOTAS": ("--auto: check_registry.quotas по группам (registry.groups или поровну)", a_quotas),
+    "PASS": ("--auto: registry.passes = 1 или quick → details; есть черновик группы → details; иначе titles", a_pass),
+    "GROUP": ("--auto: G1", lambda ctx: "G1" if ctx.name == "registry-generator" else None),
+    "MY_TITLES": ("--auto: один проход — заголовков ещё нет", a_my_titles),
+    "KEYS": ("--auto: data/mockups-index.json или топ MVP по scores.json", a_keys),
+    "VIEWPORTS": ("--auto: формы продукта (product.forms / type)", a_viewports),
+    "RANGE": ("--auto: data/mockups-index.json", lambda ctx: a_range_map(ctx, "RANGE") if ctx.name == "design-refs" else None),
+    "MAP": ("--auto: data/mockups-index.json", lambda ctx: a_range_map(ctx, "MAP") if ctx.name == "design-refs" else None),
+    "BETS": ("--auto: data/decisions.json или топ-3 рангов score.py", a_bets),
+    "PLATFORMS": ("--auto: формы продукта и idea.facets.platform_name", a_platforms),
+    "MODE": ("--auto: flows — draw", lambda ctx: "draw" if ctx.name == "flows" else None),
+    "PART": ("--auto: competitor-cards — 1", lambda ctx: "1" if ctx.name == "competitor-cards" else None),
+    "GENERIC": ("--auto: charts.py --list-generic", a_generic),
+    "LIMIT": ("--auto: 60", lambda ctx: "60" if ctx.name == "chart-notes" else None),
+    "KIT_CLASSES": ("--auto: классы набора _kit.css", a_kit_classes),
+}
 
 
 # имя → (откуда, функция)
@@ -672,11 +1117,19 @@ RESOLVERS = {
     "CARD00": ("design-refs/00-*.json есть/нет", r_card00),
     "FLOWS_OUT": ("по умолчанию data/flows.json", const("data/flows.json")),
     "SLUGS": ("по умолчанию «все»", const("все")),
-    "CHOSEN": ("по умолчанию «нет»", const("нет")),
+    "CHOSEN": ("run-config design.chosen (+ chosen_by) или «нет»", r_chosen),
+    "DIRECTIONS_COUNT": ("run-config design.directions_count или 3", r_directions_count),
+    "CAPACITY": ("вычисляется: capacity.py — одна строка ёмкости (project.capacity / ответ «часов в неделю»)", r_capacity),
     "DESIGN_ANSWERS": ("ответы темы «дизайн» из data/idea.json", r_design_answers),
     "NAME_HINTS": ("ответ «Название» из data/idea.json или «нет»", r_name_hints),
-    "STEPS": ("autopilot — «1-3», иначе --set", r_steps),
+    "STEPS": ("autopilot — «1-3»; --auto (concept-design) — «1» без design.chosen, «2-3» с ним; иначе --set", r_steps),
 }
+try:                                                   # значения новых брифов 1.5.0 (WP-G): свои резолверы важнее
+    sys.path.insert(0, str(HERE))
+    import brief_facets
+    brief_facets.install(RESOLVERS)
+except ImportError:                                    # pragma: no cover — brief_facets.py входит в скилл с 1.5.0
+    brief_facets = None
 
 
 # ---------------------------------------------------------------- рендер
@@ -706,20 +1159,103 @@ def placeholders(text, skip_ref=True):
     return names, ref_idx
 
 
-def render(ctx, add_context=True):
+COND_RE = re.compile(r"^(\s*[-*]\s+(?:\[ \]\s+)?)Если в \{SECTIONS\} есть раздел (\d+)(?:\s*«[^»]*»)?\s*[:—-]\s*(.+)$")
+COND_WROTE_RE = re.compile(r"Если писал `gantt\.json`/`kanban\.json`")
+NO_DATA = "нет данных (render_brief --auto)"
+
+
+def section_numbers(value):
+    return {int(x) for x in re.findall(r"(?<![\d.])(\d{1,2})\.", str(value or ""))}
+
+
+def apply_conditions(ctx, text):
+    """SM 6.2: «Если в {SECTIONS} есть раздел N…» — по точному номеру: строка без условия или удаление."""
+    secs = ctx.get("SECTIONS")
+    if not secs:
+        return text
+    nums = section_numbers(secs)
+    out = []
+    # таблица «| Номер раздела | Файл | … |» (WP-G) — условие по номеру уже в самой таблице, строки не трогаются
+    for line in text.splitlines():
+        m = COND_RE.match(line)
+        if m:
+            if int(m.group(2)) in nums:
+                rest = m.group(3)
+                out.append(m.group(1) + rest[:1].upper() + rest[1:])
+            continue
+        if COND_WROTE_RE.search(line) and not ({14, 16} & nums):
+            continue
+        out.append(line)
+    return "\n".join(out) + ("\n" if text.endswith("\n") else "")
+
+
+def mark_absent_inputs(ctx, text):
+    """В разделах «Входы» строки, все файлы которых отсутствуют, помечаются «нет в этом прогоне» (агент их не ищет)."""
+    absent = set(ctx.absent or [])
+    if not absent:
+        return text
+    out, in_inputs = [], False
+    for line in text.splitlines():
+        if line.startswith("## "):
+            in_inputs = bool(re.match(r"## Входы(?![^\n]*которых нет)", line))
+        paths = [m.group(1).rstrip(".:") for m in PATH_RE.finditer(line)] if in_inputs else []
+        if paths and all(p in absent for p in paths) and "нет в этом прогоне" not in line:
+            line = line.rstrip() + " *(нет в этом прогоне — не искать)*"
+        out.append(line)
+    return "\n".join(out) + ("\n" if text.endswith("\n") else "")
+
+
+BROWSER_HINT = re.compile(r"playwright|браузер|скриншот|shoot_|\.mjs|smoke", re.I)
+
+
+def rules_block(ctx, body, out_v, dest_stem):
+    """FB-004/006/043, SM 6.3: общие правила прогона — пропускаются пункты, которые в брифе уже есть."""
+    items = []
+    if "build/tmp/%s/" % dest_stem not in body:      # общее правило шаблона «build/tmp/<ключ агента>/» уточняется своей папкой
+        items.append("Временные файлы (скрипты-генераторы, черновики, промежуточные JSON) — только в `%s/build/tmp/%s/` — это твоя "
+                     "временная папка; в чужие `build/tmp/<другой>/` и в общие пути не писать (check_paths.py это проверяет)." % (out_v, dest_stem))
+    if "владелец общих файлов" not in body:
+        items.append("Общие файлы (`data/proposals.json`, `data/sources.json`, `data/mockups-index.json`, `mockups/concepts/_kit.css`, "
+                     "`research/strategy.md`, общие тесты и снимки других агентов) правит только оркестратор — владелец общих файлов; "
+                     "нужна правка — опишите её в отчёте. Свои тесты перезаписывают только свои артефакты.")
+    if BROWSER_HINT.search(body) and "браузер владельца" not in body:
+        items.append("Браузер — только изолированный Playwright из скриптов скилла; браузер владельца (его окна, вкладки, сессии) "
+                     "не открывать и не переключать без явной просьбы владельца (references/safety.md, §8).")
+    if "Отступления от брифа" not in body:
+        items.append("Последним пунктом отчёта (перед «Расхождениями с фактами», если они есть) — «Отступления от брифа»: что сделано "
+                     "иначе, чем написано в брифе, и почему; отступлений нет — «нет» (журнал вмешательств, FB-004).")
+    if not items:
+        return body
+    block = "## Общие правила прогона (render_brief.py)\n" + "\n".join("- " + x for x in items) + "\n\n"
+    m = re.search(r"(?m)^## (Формат отчёта|Отчёт)", body)
+    return body[:m.start()] + block + body[m.start():] if m else body.rstrip("\n") + "\n\n" + block
+
+
+def render(ctx, add_context=True, rules=True, dest_stem=None):
     """Возвращает (текст, ошибки, предупреждения, значения)."""
-    text = ctx.text
+    text = apply_conditions(ctx, ctx.text)
+    ctx.text = text
     names, ref_idx = placeholders(text)
     values, missing = {}, []
     out_v = ctx.get("OUT")
     for n in ["OUT"] + [x for x in names if x != "OUT"]:
         v = ctx.get(n)
+        if v is None and ctx.auto and n in names and n != "OUT":
+            v = NO_DATA                                  # FB-050: в --auto пропуск — предупреждение, а не ошибка
+            ctx.auto_used.append(n + " (нет данных)")
         if v is None:
             if n in names:
                 missing.append(n)
         else:
             values[n] = str(v) if n == "OUT" or out_v is None else str(v).replace("{OUT}", str(out_v))
+    if "CHART_KEYS" in values and 14 in section_numbers(ctx.get("SECTIONS")) and "gantt" not in values["CHART_KEYS"]:
+        values["CHART_KEYS"] += ", gantt (после записи data/gantt.json и charts.py --only gantt)"
     errors, warns = [], []
+    for n in [x for x in ctx.auto_used if x.endswith("(нет данных)")]:
+        warns.append("--auto: нет данных для {%s} — подставлено «%s»" % (n.split(" ")[0], NO_DATA))
+    if ctx.exist_check and ctx.out and "MISSING_INPUTS" not in names:
+        ctx.absent = absent_inputs(ctx)
+    text = mark_absent_inputs(ctx, text)
     lines = text.splitlines()
     for k, line in enumerate(lines):
         if k == ref_idx:
@@ -727,8 +1263,8 @@ def render(ctx, add_context=True):
         for m in OPEN_RE.finditer(line):
             errors.append("строка %d: непарная скобка %r" % (k + 1, m.group(0)))
     if missing:
-        errors.append("непарные плейсхолдеры (нет значения): %s — задайте --set КЛЮЧ=значение (откуда берутся — --list)"
-                      % ", ".join("{%s}" % n for n in missing))
+        errors.append("непарные плейсхолдеры (нет значения): %s — задайте --set КЛЮЧ=значение (откуда берутся — --list; "
+                      "значения по умолчанию — --auto)" % ", ".join("{%s}" % n for n in missing))
     multi = {n for n, v in values.items() if "\n" in v}
     has_full = {n for n in multi for k, line in enumerate(lines) if k != ref_idx and is_full(line, n)}
     shown = set()
@@ -762,6 +1298,12 @@ def render(ctx, add_context=True):
             block = "## Контекст %s\n%s\n\n" % ("идеи" if ctx.concept else "продукта", ctxv.replace("{OUT}", values.get("OUT", "{OUT}")))
             m = re.search(r"(?m)^## Входы", body)
             body = body[:m.start()] + block + body[m.start():] if m else body + "\n" + block
+    if rules and ctx.out:
+        body = rules_block(ctx, body, values.get("OUT", "{OUT}"), dest_stem or ctx.name)
+    if ctx.auto and ctx.auto_used:
+        first = body.split("\n", 1)
+        note = "> Подставлено автоматически (render_brief --auto): %s." % ", ".join(dict.fromkeys(ctx.auto_used))
+        body = first[0] + "\n\n" + note + ("\n" + first[1] if len(first) > 1 else "\n")
     if ctx.base_note:
         first = body.split("\n", 1)
         body = first[0] + "\n\n> " + ctx.base_note + ("\n" + first[1] if len(first) > 1 else "\n")
@@ -801,6 +1343,8 @@ def do_list(ctx):
         if n == (ref_only[0] if ref_only else None):
             print("Только в справочной строке (в тексте брифа не используются):")
         src = RESOLVERS.get(n, ("нужно --set", None))[0]
+        if n in AUTO:
+            src += "; " + AUTO[n][0]
         if n in ctx.sets:
             src = "--set (" + src + ")"
         v = ctx.get(n) if ctx.out or n in ctx.sets else None
@@ -814,12 +1358,61 @@ def do_list(ctx):
     return 0
 
 
+C4_BRIEFS = {"concept-analogs", "research-competitors", "research-communities", "research-keywords", "research-events", "research-legal",
+             "research-integration", "research-datasources", "research-ai", "competitor-cards"}
+EN_RE = re.compile(r"^- EN: .*<EN:", re.M)
+
+
+def is_demo(cfg):
+    return any("Демо" in str(x) for x in (cfg.get("assumptions") or []))
+
+
+def untranslated(ctx):
+    """FB-023: число непереведённых английских запросов `<EN: …>` в build/search-plan.md."""
+    sp = ctx.out / "build" / "search-plan.md" if ctx.out else None
+    if not sp or not sp.exists():
+        return 0
+    return len(EN_RE.findall(sp.read_text(encoding="utf-8", errors="replace")))
+
+
+def gates(ctx, allow_untranslated=False):
+    """Ворота перед записью брифа → (ошибки, предупреждения)."""
+    errors, warns = [], []
+    if not ctx.out:
+        return errors, warns
+    uses_plan = ctx.name in C4_BRIEFS or "search-plan.md" in ctx.text
+    if ctx.concept and uses_plan and "KEYWORDS" not in ctx.sets and "SEED_KEYWORDS" not in ctx.sets:
+        n = untranslated(ctx)
+        if n:
+            msg = ("в build/search-plan.md %d непереведённых английских запросов `<EN: …>` — передайте перевод темы "
+                   "(intake.py concept-apply --topic-en \"…\" или замените вручную) и повторите (FB-023)" % n)
+            if allow_untranslated or is_demo(ctx.cfg):
+                warns.append(msg)
+            else:
+                errors.append(msg + "; записать всё равно — --allow-untranslated")
+    if ctx.name == "concept-design" and not ctx.cfg.get("autopilot"):
+        steps = str(ctx.get("STEPS") or "")
+        chosen = design_chosen(ctx) or (ctx.sets.get("CHOSEN") not in (None, "", "нет") and ctx.sets.get("CHOSEN"))
+        if re.search(r"[23]", steps) and not chosen:
+            errors.append("шаги 2–3 concept-design без выбора владельца: сначала шаг 1 (directions.md), затем вопрос владельцу "
+                          "с направлениями (рекомендованное первым) и запись run-config design.chosen / design.chosen_by (FB-007)")
+    if ctx.name == "strategy-section" and (ctx.out / "data" / "decisions.json").exists() and (HERE / "decisions.py").exists():
+        try:
+            r = subprocess.run([sys.executable, "-B", str(HERE / "decisions.py"), str(ctx.out), "--check"], capture_output=True, text=True, timeout=120)
+            if r.returncode != 0:
+                tail = ((r.stdout or "") + (r.stderr or "")).strip().splitlines()
+                warns.append("decisions.py --check: %s — исправьте data/decisions.json до раздачи авторов (FB-049)" % (tail[-1] if tail else "ошибки схемы"))
+        except (OSError, subprocess.SubprocessError):
+            pass
+    return errors, warns
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Готовый бриф субагента из шаблона templates/briefs/*.md.")
     ap.add_argument("template", help="имя шаблона (registry-generator, specs …) или путь к .md")
     ap.add_argument("--out", help="папка прогона <OUT>")
     ap.add_argument("--set", action="append", default=[], metavar="КЛЮЧ=значение", help="значение плейсхолдера (@файл — из файла)")
-    ap.add_argument("--group", help="группа генератора (G1…) — {GROUP} и суффикс имени файла")
+    ap.add_argument("--group", help="группа генератора (G1…) или часть (S1…) — {GROUP} и суффикс имени файла")
     ap.add_argument("--pass", dest="pas", choices=["titles", "details"], help="проход генератора реестра — {PASS}")
     ap.add_argument("--suffix", help="суффикс имени готового брифа (если нет --group)")
     ap.add_argument("--base", help="корень для относительных путей {OUT} (по умолчанию run-config repo.path)")
@@ -828,16 +1421,27 @@ def main(argv=None):
     ap.add_argument("--allow-missing", action="store_true", help="записать бриф, даже если остались непарные плейсхолдеры")
     ap.add_argument("--no-context", action="store_true", help="не вставлять раздел «Контекст продукта», если его нет в шаблоне")
     ap.add_argument("--no-exist-check", action="store_true", help="не перечислять в {MISSING_INPUTS} отсутствующие на диске входы")
+    ap.add_argument("--auto", action="store_true", help="значения по умолчанию для режима и глубины вместо --set (FB-050)")
+    ap.add_argument("--auto-other-titles", action="store_true", help="registry-generator одного прохода: OTHER_TITLES из категорий других групп (FB-005)")
+    ap.add_argument("--parts", type=int, help="--auto: на сколько частей делить разделы / макеты")
+    ap.add_argument("--part", type=int, help="--auto: номер части (1…), иначе из --group S<K>")
+    ap.add_argument("--no-rules", action="store_true", help="не добавлять блок «Общие правила прогона»")
+    ap.add_argument("--allow-untranslated", action="store_true", help="записать бриф рынка, даже если в search-plan есть <EN: …>")
     a = ap.parse_args(argv)
     tpl = template_path(a.template)
     if not a.out and not a.list:
         ap.error("нужен --out <OUT> (или --list)")
     if a.out and not (Path(a.out) / "build" / "run-config.json").exists():
         print("нет %s/build/run-config.json — значения из конфига не подставятся" % a.out, file=sys.stderr)
-    ctx = Ctx(tpl, a.out, parse_sets(a.set), a.group, a.pas, a.base, exist_check=not a.no_exist_check)
+    ctx = Ctx(tpl, a.out, parse_sets(a.set), a.group, a.pas, a.base, exist_check=not a.no_exist_check,
+              auto=a.auto or a.auto_other_titles, part=a.part, parts=a.parts)
     if a.list:
         return do_list(ctx)
-    body, errors, warns, values = render(ctx, add_context=not a.no_context)
+    dest = ctx.out / "build" / "briefs" / out_name(ctx, a.suffix)
+    body, errors, warns, values = render(ctx, add_context=not a.no_context, rules=not a.no_rules, dest_stem=dest.stem)
+    g_err, g_warn = gates(ctx, a.allow_untranslated)
+    errors += g_err
+    warns += g_warn
     for w in warns:
         print("  ! " + w, file=sys.stderr)
     dest = ctx.out / "build" / "briefs" / out_name(ctx, a.suffix)
@@ -853,6 +1457,8 @@ def main(argv=None):
     if a.show:
         print(body)
     print("Записано: %s (плейсхолдеров подставлено %d%s)" % (rel, len(values), "; есть непарные" if errors else ""))
+    if ctx.auto_used:
+        print("Подставлено автоматически: %s" % ", ".join(dict.fromkeys(ctx.auto_used)))
     print("Промпт агенту: Прочитай и выполни бриф %s целиком. Пиши только в пути, перечисленные в разделе «Выдача». "
           "Последнее сообщение — отчёт по формату брифа." % rel)
     return 1 if errors else 0

@@ -40,6 +40,19 @@
   - повторы между разделами: почти одинаковые абзацы (шинглы по 5 слов, сходство ≥ 0,6, абзацы ≥ 20 слов) → предупреждения
     `repeated_text` «раздел A ↔ раздел B»; общие числа с %/деньгами в разделах 2/3/6/7 — список в отчёте `repeats.numbers`.
 
+  - базовая линия плана (data/plan-baseline.json, plan_baseline.py): `{plan:beta}`, `{plan:launch}`, `{plan:mvp_ids}`,
+    `{plan:kill.1.date}`, `{plan:capacity}` … подставляются как остальные плейсхолдеры; буквальные даты вех, ёмкость, состав
+    MVP и другое определение рабочего дня, чем capacity.day_hours, → предупреждения `plan_mismatch`, `kill_date_mismatch`,
+    `capacity_mismatch`, `mvp_mismatch`, `workday_mismatch` (с `--strict` — ошибки); без базовой линии проверяется только
+    рабочий день (по scripts/capacity.py); отчёт — `plan_consistency`;
+  - модель в режиме sensitivity-only (FB-027): к `{model:…}` денежных и прогнозных итогов (выручка, ROI, LTV, CAC, окупаемость,
+    безубыточность, база) добавляется метка «[иллюстрация при допущениях]» — одна на строку; буквальные числа выручки/ROI/LTV
+    без этой метки → `illustration_unlabeled` (с `--strict` — ошибка);
+  - числа без метки (FB-030): не считаются числа, совпадающие со значениями плейсхолдеров и факт-листа (build/strategy-facts.md),
+    и строки таблиц с колонкой «Источник»/«Метка»; повторы чисел между разделами 2/3/6/7 — только при совпадении контекста
+    (±5 слов, `repeats.numbers`), прежний список по одному значению — `repeats.numbers_value_only`;
+  - черновик решений (decisions.json с полем draft) → предупреждение `decisions_draft`.
+
 Результат: research/strategy.md (без --check), отчёт build/assemble-report.json. Если существующий strategy.md отличается от
 собранного из частей, прежний сохраняется в build/strategy.prev.md.
 Код выхода: 0 — ошибок нет (предупреждения допустимы); 1 — есть ошибки (с --lenient ошибки становятся предупреждениями;
@@ -61,6 +74,18 @@ HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 import decisions as dec_mod  # noqa: E402
+import capacity as cap_mod  # noqa: E402
+import plan_baseline as plan_mod  # noqa: E402
+
+ILLUSTRATION_LABEL = "[иллюстрация при допущениях]"
+ILL_MARK = "\x01ILL\x01"
+# итоги модели, которые в режиме sensitivity-only — иллюстрация (входы-допущения сценария сюда не входят)
+ILLUSTRATIVE = {"net_revenue", "revenue_last", "revenue_first", "roi", "ltv", "ltv_cac", "ltv_cac_paid", "cac", "cac_paid", "payback_months",
+                "breakeven_month", "arpu", "arppu", "users_last", "paying_last", "new_paying", "cost", "marketing", "cum_margin_last",
+                "cum_cost_last", "net_value", "value", "signups", "activated", "visitors", "installs", "revenue_per_hour", "time_breakeven_month"}
+REVENUE_CTX = re.compile(r"выручк\w*|доход\w*|прибыл\w*|\broi\b|\bltv\b|окупаем\w*|безубыточ\w*|revenue|\barpu\b|\barppu\b", re.I)
+SOURCE_HEAD = re.compile(r"источник|source|метка|label|достоверн", re.I)
+METHOD_CTX = re.compile(r"мощност\w*|\bpower\b|α|\balpha\b|доверительн\w*|значимост\w*|уровн\w+\s+доверия", re.I)
 
 SECTIONS = list(range(1, 18))
 # минимум слов на раздел по глубине (references/strategy-outline.md)
@@ -549,14 +574,112 @@ def text_units(text, code=None):
     return res
 
 
-def unlabeled_numbers(text, code=None):
-    """Эвристика: единицы текста с числом при %, п.п. или деньгах, но без метки → [(начало, конец, текст)]."""
-    res = []
-    for start, end, body in text_units(text, code):
-        body_clean = URL_RE.sub(" ", re.sub(r"`[^`\n]*`", " ", body))
-        if NUMBER_RE.search(body_clean) and not LABEL_RE.search(body):
-            res.append((start, end, body))
+def num_value(token):
+    """«12 346 ₽» → (12346.0, 'money'), «3,5 %» → (3.5, 'pct'); None, если числа нет."""
+    m = re.search(r"\d[\d \u00a0\u202f]*(?:[.,]\d+)?", token)
+    if not m:
+        return None
+    raw = re.sub(r"[ \u00a0\u202f]", "", m.group(0)).replace(",", ".")
+    try:
+        v = round(float(raw), 2)
+    except ValueError:
+        return None
+    return v, ("pct" if re.search(r"%|п\.", token) else "money")
+
+
+def sourced_table_lines(text):
+    """Номера строк таблиц, в заголовке которых есть колонка «Источник» / «Метка» (у каждой строки свой источник)."""
+    lines, res, i = text.splitlines(), set(), 0
+    while i < len(lines):
+        if lines[i].strip().startswith("|"):
+            j = i
+            while j < len(lines) and lines[j].strip().startswith("|"):
+                j += 1
+            if SOURCE_HEAD.search(lines[i]):
+                res.update(range(i + 1, j + 1))
+            i = j
+        else:
+            i += 1
     return res
+
+
+def unlabeled_numbers(text, code=None, known=None, pid_known=None):
+    """Эвристика: единицы текста с числом при %, п.п. или деньгах, но без метки → [(начало, конец, текст)].
+    known — значения из плейсхолдеров и факт-листа: такие числа источником обеспечены; строки таблиц с колонкой «Источник» — тоже;
+    pid_known — {P-id: значения из effect_kpi / cost_money / cheap_test предложения}: число из реестра рядом с его P-id — с источником."""
+    res = []
+    sourced = sourced_table_lines(text)
+    for start, end, body in text_units(text, code):
+        if start in sourced:
+            continue
+        body_clean = URL_RE.sub(" ", re.sub(r"`[^`\n]*`", " ", body))
+        hits = [m.group(0) for m in NUMBER_RE.finditer(body_clean)
+                if not METHOD_CTX.search(body_clean[max(0, m.start() - 24):m.start()])]   # «мощность 80 %», «α = 5 %» — параметры метода
+        if not hits or LABEL_RE.search(body):
+            continue
+        ok = set(known or ())
+        if pid_known:
+            for pid in set(PID_RE.findall(body)):
+                ok |= pid_known.get(pid, set())
+        if ok and all(num_value(h) in ok for h in hits):
+            continue
+        res.append((start, end, body))
+    return res
+
+
+def proposal_values(data):
+    """{P-id: {(значение, единица)}} из effect_kpi (range), cost_money и cheap_test — числа реестра со своими метками."""
+    res = {}
+    for pid, p in data.proposals.items():
+        vals = set()
+        parts = [str(k.get("range") or "") for k in p.get("effect_kpi") or [] if isinstance(k, dict)]
+        parts.append(str(p.get("cheap_test") or ""))
+        cm = p.get("cost_money") if isinstance(p.get("cost_money"), dict) else {}
+        for k in ("min", "max"):
+            if isinstance(cm.get(k), (int, float)) and not isinstance(cm.get(k), bool):
+                vals.add((round(float(cm[k]), 2), "money"))
+        for t in parts:
+            for m in NUMBER_RE.finditer(t):
+                v = num_value(m.group(0))
+                if v is not None:
+                    vals.add(v)
+        if vals:
+            res[pid] = vals
+    return res
+
+
+def known_values(out, reg):
+    """Числа с единицей, у которых уже есть источник: значения плейсхолдеров (решения, эксперименты, план) и числа
+    факт-листа → {(значение, 'pct' | 'money')}; доли модели 0…1 считаются и процентами."""
+    vals = set()
+
+    def add_text(x):
+        for m in NUMBER_RE.finditer(x):
+            v = num_value(m.group(0))
+            if v is not None:
+                vals.add(v)
+
+    def add(x, money=False):
+        if isinstance(x, bool):
+            return
+        if isinstance(x, (int, float)):
+            if 0 < abs(x) < 1:
+                vals.add((round(float(x) * 100, 2), "pct"))
+            elif money:
+                vals.add((round(float(x), 2), "money"))
+        elif isinstance(x, str):
+            add_text(x)
+    # значения модели — сотни чисел, случайные совпадения часты: они учитываются через факт-лист (там таблица сценариев)
+    for d in (reg.dec, reg.exp, getattr(reg, "pln", {})):
+        for x in d.values():
+            add(x)
+    facts = out / "build" / "strategy-facts.md"
+    if facts.exists():
+        try:
+            add_text(facts.read_text(encoding="utf-8"))
+        except OSError:
+            pass
+    return vals
 
 
 # ---------------------------------------------------------------- решения, модель, эксперименты
@@ -586,15 +709,62 @@ def substitute_decisions(sections, reg, rep, neutral=False):
                 return m.group(0)
             k = kind or bare
             counts[k] = counts.get(k, 0) + 1
-            if kind == "model" and sens_only and not warned[0]:
+            if kind == "model" and sens_only:
                 metric = full.split(".")[-1]
-                if metric in dec_mod.FORECAST_KEYS or metric.endswith("_last"):
+                if not warned[0] and (metric in dec_mod.FORECAST_KEYS or metric.endswith("_last")):
                     warned[0] = True
                     rep.warn("model_sensitivity_only", "модель в режиме sensitivity-only (нет данных об аудитории): %s и другие прогнозные "
-                             "числа — иллюстрация, а не прогноз; оговорите это в тексте" % m.group(0), section=n)
+                             "числа — иллюстрация, а не прогноз; сборка ставит метку %s" % (m.group(0), ILLUSTRATION_LABEL), section=n)
+                if is_illustrative(reg, full):
+                    return val + ILL_MARK
             return val
-        return dec_mod.PH_RE.sub(repl, text)
+        return label_illustrations(dec_mod.PH_RE.sub(repl, text))
     return {n: one(n, t) for n, t in sections.items()}, counts
+
+
+def is_illustrative(reg, full):
+    """{model:scen.metric} — итог (а не вход-допущение) в режиме sensitivity-only."""
+    key = full.split(":", 1)[1]
+    scen, _, metric = key.partition(".")
+    if not metric:
+        return False
+    sc = ((reg.model or {}).get("scenarios") or {}).get(scen) or {}
+    if metric in (sc.get("assumptions") or {}):
+        return False
+    return metric in ILLUSTRATIVE or metric.endswith("_last") or metric.startswith("paid.")
+
+
+def label_illustrations(text):
+    """Метки ILL_MARK → одна « [иллюстрация при допущениях]» на строку (если в строке её ещё нет)."""
+    if ILL_MARK not in text:
+        return text
+    out = []
+    for line in text.split("\n"):
+        if ILL_MARK in line:
+            if "иллюстрац" in line.replace(ILL_MARK, ""):
+                line = line.replace(ILL_MARK, "")
+            else:
+                head, _, tail = line.partition(ILL_MARK)
+                line = head + " " + ILLUSTRATION_LABEL + tail.replace(ILL_MARK, "")
+        out.append(line)
+    return "\n".join(out)
+
+
+def illustration_unlabeled(raw_neutral, owner, starts, rep, strict):
+    """Режим sensitivity-only: буквальные числа выручки/ROI/LTV без метки иллюстрации → предупреждения (ошибки с --strict)."""
+    emit = rep.error if strict else rep.warn
+    found = []
+    for n, text in raw_neutral.items():
+        for st, _en, body in text_units(text):
+            clean = URL_RE.sub(" ", re.sub(r"`[^`\n]*`", " ", body))
+            if NUMBER_RE.search(clean) and REVENUE_CTX.search(clean) and "иллюстрац" not in body.lower():
+                line = starts.get(n, 1) + st - 1
+                found.append({"section": n, "file": owner.get(n), "line": line, "text": body[:140]})
+    for f in found[:30]:
+        emit("illustration_unlabeled", "%s:%s (раздел %s): число выручки/ROI/LTV без метки %s — модель в режиме sensitivity-only; "
+             "используйте {model:…} или допишите метку: %s" % (f["file"], f["line"], f["section"], ILLUSTRATION_LABEL, f["text"][:90]),
+             line=f["line"], section=f["section"])
+    return found
 
 
 KILL_CTX = re.compile(r"критери\w*\s+(?:отказа|остановки)|kill|стоп-критери\w*|останов\w*|прекрат\w*|прекращ\w*|закро\w*\s+ставк|закрыва\w*\s+ставк", re.I)
@@ -704,6 +874,23 @@ def check_decisions(raw_neutral, owner, starts, reg, rep, strict):
     return found
 
 
+def plan_consistency(raw_neutral, owner, starts, reg, cfg, rep, strict):
+    """Сверка текста с data/plan-baseline.json (сроки, ёмкость, MVP, рабочий день); без базовой линии — только рабочий день."""
+    base = reg.plan
+    if not isinstance(base, dict):
+        c = cap_mod.capacity(cfg, (cfg.get("strategy") or {}).get("horizon_months") or 12)
+        base = {"capacity": {"day_hours": c["day_hours"]}, "horizon_months": c["months"]}
+    units = []
+    for n, text in raw_neutral.items():
+        for st, _en, body in text_units(text):
+            units.append((owner.get(n, "?"), starts.get(n, 1) + st - 1, body))
+    issues = plan_mod.check_units(units, base)
+    emit = rep.error if strict else rep.warn
+    for i in issues[:60]:
+        emit(i["code"], "%s:%s — %s" % (i["file"], i["line"], i["message"]), line=i["line"])
+    return issues
+
+
 def kill_measurability(out, reg, rep, strict, cfg):
     """Измеримость критериев отказа через sample_size.evaluate_criteria → строки отчёта."""
     if not isinstance(reg.decisions, dict) or not dec_mod.bets(reg.decisions):
@@ -728,6 +915,7 @@ SHINGLE = 5
 REPEAT_MIN_WORDS = 20
 REPEAT_SIM = 0.6
 REPEAT_NUM_SECTIONS = (2, 3, 6, 7)
+LABEL_SPAN = re.compile(r"\[\s*(?:факт|оценка|допущение|не подтверждено|иллюстрац)[^\]\n]*\]", re.I)
 
 
 def _paragraphs(text):
@@ -788,16 +976,30 @@ def find_repeats(raw_neutral, owner, starts, rep, limit=50):
         rep.warn("repeated_text", "раздел %s ↔ раздел %s: похожие абзацы (%d %%) — %s:%s и %s:%s; оставьте в одном, в другом — ссылка" % (
             p["a"]["section"], p["b"]["section"], int(p["similarity"] * 100), p["a"]["file"], p["a"]["line"], p["b"]["file"], p["b"]["line"]),
             line=p["a"]["line"], section=p["a"]["section"])
-    nums = {}
+    nums, ctx = {}, {}
     for n in REPEAT_NUM_SECTIONS:
         text = raw_neutral.get(n)
         if not text:
             continue
-        for m in NUMBER_RE.finditer(URL_RE.sub(" ", text)):
-            key = re.sub(r"[   ]", "", m.group(0)).lower()
+        clean = URL_RE.sub(" ", LABEL_SPAN.sub(" ", text))
+        for m in NUMBER_RE.finditer(clean):
+            key = re.sub(r"[ \u00a0\u202f]", "", m.group(0)).lower()
             nums.setdefault(key, set()).add(n)
-    common = [{"value": k, "sections": sorted(v)} for k, v in sorted(nums.items()) if len(v) >= 2]
-    return {"paragraphs": pairs[:limit], "paragraphs_total": len(pairs), "numbers": common}
+            before = [w for w in re.findall(r"\w+", clean[max(0, m.start() - 80):m.start()].lower()) if len(w) >= 3 and not w.isdigit()][-5:]
+            after = [w for w in re.findall(r"\w+", clean[m.end():m.end() + 80].lower()) if len(w) >= 3 and not w.isdigit()][:5]
+            ctx.setdefault(key, []).append((n, {w[:6] for w in before + after}))
+    common_value = [{"value": k, "sections": sorted(v)} for k, v in sorted(nums.items()) if len(v) >= 2]
+    common = []
+    for k, occ in sorted(ctx.items()):
+        secs = set()
+        for i in range(len(occ)):
+            for j in range(i + 1, len(occ)):
+                (na, ca), (nb, cb) = occ[i], occ[j]
+                if na != nb and len(ca & cb) >= 2:
+                    secs.update((na, nb))
+        if secs:
+            common.append({"value": k, "sections": sorted(secs)})
+    return {"paragraphs": pairs[:limit], "paragraphs_total": len(pairs), "numbers": common, "numbers_value_only": common_value}
 
 
 def label_unlabeled(out, items):
@@ -872,13 +1074,13 @@ def load_sources(out, a, rep, existing):
     return "in-place", pre, sections, owner, starts, ["research/strategy.md", pre_line]
 
 
-def unlabeled_items(raw_neutral, pre_neutral, owner, starts, pre_src):
+def unlabeled_items(raw_neutral, pre_neutral, owner, starts, pre_src, known=None, pid_known=None):
     items = []
     if pre_neutral and pre_src:
-        for st, en, body in unlabeled_numbers(pre_neutral):
+        for st, en, body in unlabeled_numbers(pre_neutral, known=known, pid_known=pid_known):
             items.append({"section": None, "file": pre_src[0], "line": pre_src[1] + st - 1, "end_line": pre_src[1] + en - 1, "text": body})
     for n in sorted(raw_neutral):
-        for st, en, body in unlabeled_numbers(raw_neutral[n]):
+        for st, en, body in unlabeled_numbers(raw_neutral[n], known=known, pid_known=pid_known):
             items.append({"section": n, "file": owner.get(n), "line": starts.get(n, 1) + st - 1, "end_line": starts.get(n, 1) + en - 1,
                           "text": body})
     return items
@@ -928,7 +1130,7 @@ def main(argv=None):
         _m, pre0, secs0, own0, st0, ps0 = load_sources(out, a, Report(True), existing)
         neu0, _c = substitute_decisions(secs0, reg, Report(True), neutral=True)
         pneu0 = substitute_decisions({0: pre0}, reg, Report(True), neutral=True)[0][0] if pre0 else ""
-        labeled = label_unlabeled(out, unlabeled_items(neu0, pneu0, own0, st0, ps0))
+        labeled = label_unlabeled(out, unlabeled_items(neu0, pneu0, own0, st0, ps0, known_values(out, reg), proposal_values(data)))
         existing = strat.read_text(encoding="utf-8") if strat.exists() else ""
     mode, pre, sections, owner, starts, pre_src = load_sources(out, a, rep, existing)
     # исходный текст разделов с нейтральными значениями плейсхолдеров — для проверок с адресами в частях
@@ -938,6 +1140,10 @@ def main(argv=None):
     if criteria:
         reg = dec_mod.Registry(out, criteria=criteria)
     mismatches = check_decisions(raw_neutral, owner, starts, reg, rep, a.strict)
+    if reg.is_draft():
+        rep.warn("decisions_draft", "data/decisions.json — черновик (поле draft): решения предложены по данным; подтвердите их и удалите draft")
+    plan_issues = plan_consistency(raw_neutral, owner, starts, reg, data.cfg, rep, a.strict)
+    ill = illustration_unlabeled(raw_neutral, owner, starts, rep, a.strict) if (reg.model or {}).get("mode") == "sensitivity-only" else []
     # плейсхолдеры, запросы макетов, блоки макетов
     sections, rank_counts = substitute_ranks(sections, data, rep)
     sections, dec_counts = substitute_decisions(sections, reg, rep)
@@ -977,7 +1183,7 @@ def main(argv=None):
         need = depth_min_words(depth, n, data.cfg.get("mode") == "concept")
         if need and wc[n] < need:
             rep.warn("short_section", "раздел %d: %d слов < минимума %d для глубины %s" % (n, wc[n], need, depth), section=n)
-    unl = unlabeled_items(raw_neutral, pre_neutral, owner, starts, pre_src)
+    unl = unlabeled_items(raw_neutral, pre_neutral, owner, starts, pre_src, known_values(out, reg), proposal_values(data))
     if unl:
         rep.warn("unlabeled_numbers", "%d фрагментов с числами (%%, деньги) без метки [факт|оценка|допущение]: места — ниже и в "
                  "build/assemble-report.json; --label-unlabeled допишет [допущение]" % len(unl))
@@ -1004,6 +1210,8 @@ def main(argv=None):
         "labeled": [{"file": f, "line": ln, "was": was} for f, ln, was, _new in labeled],
         "decisions": {"present": reg.decisions is not None, "mismatches": mismatches},
         "kill_criteria": criteria,
+        "plan_consistency": {"baseline": reg.plan is not None, "issues": plan_issues},
+        "illustration": {"mode": (reg.model or {}).get("mode"), "unlabeled": ill},
         "repeats": repeats,
         "errors": rep.errors, "warnings": rep.warnings, "notes": rep.notes,
         "counts": {"errors": len(rep.errors), "warnings": len(rep.warnings), "notes": len(rep.notes)},
@@ -1020,7 +1228,7 @@ def main(argv=None):
 def print_text(rp, strat, a):
     print("%s: %s; разделов %d из 17, слов %d" % (("проверено (файл не записан)" if a.check else ("записано " + str(strat)) if rp["written"] else "без изменений " + str(strat)),
                                                   "режим «%s»" % rp["mode"], len(rp["sections_present"]), rp["words_total"]))
-    subs = ", ".join(("{%s:…} × %d" if k in ("rank", "deprank", "bet", "fork", "model", "exp") else "{%s} × %d") % (k, v)
+    subs = ", ".join(("{%s:…} × %d" if k in ("rank", "deprank", "bet", "fork", "model", "exp", "plan") else "{%s} × %d") % (k, v)
                      for k, v in rp["substituted"].items() if v)
     if subs:
         print("подставлено: %s" % subs)

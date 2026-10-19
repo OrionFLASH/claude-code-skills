@@ -156,7 +156,8 @@ def test_triage_file_and_apply(out):
     r = run(out, "triage", "5a")
     assert r.returncode == 0 and "typesafe_triage.py --batch" in r.stdout
     items = json.loads((out / "build" / "triage-5a.json").read_text(encoding="utf-8"))
-    assert items[0] == {"id": "G1", "task": "заголовки кандидатов группы G1", "paths": ["data/proposals-draft-G1.json"]}
+    # 1.5.0 (FB-013): shared_out — агенты пишут в общий <OUT>, триаж не ставит isolation
+    assert items[0] == {"id": "G1", "task": "заголовки кандидатов группы G1", "paths": ["data/proposals-draft-G1.json"], "shared_out": True}
     result = {"tasks": [{"id": "G1", "model": "haiku", "effort": "low", "confirm": True, "fallback": "sonnet", "effort_confirm": True, "effort_fallback": "medium"},
                         {"id": "G2", "model": "opus", "effort": "high", "confirm": False, "effort_confirm": False}],
               "ask": {"questions": [{"question": "haiku?"}]}}

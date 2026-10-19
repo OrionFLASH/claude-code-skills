@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Фаза 5.5 «аудит пробелов и предпосылок»: фактура для агента-аудитора и проверка его выдачи.
+r"""Фаза 5.5 «аудит пробелов и предпосылок»: фактура для агента-аудитора и проверка его выдачи.
 
   gap_audit.py <OUT> [--top 30] [--bets P012,P031,P056]   → build/gap-audit-facts.md + data/gap-audit-facts.json
   gap_audit.py <OUT> --check                              → проверка research/gap-audit.md и data/proposals-draft-G7.json
@@ -27,9 +27,17 @@ data/registry-check.json, data/gap-audit-deps.json (необязательно).
 объект {id: [id…]} с существующими id; до слияния G7 допустимы и ссылки на черновики G7-NN из
 data/proposals-draft-G7.json (предупреждение «переведите после --append»), прочие неизвестные — ошибка.
 
---remap (после merge_proposals.py --append G7; тот же перевод merge_proposals делает сам): ключи и значения вида
-G7-NN (и любые G\d+-\d+) в data/gap-audit-deps.json переводятся по накопительной карте build/id-map.json
-(слитые черновики — в id победителя); прежние P-id не меняются. Код 1 — остались непереведённые ссылки.
+--remap (после merge_proposals.py --append G7 НЕ нужен: тот же перевод merge_proposals делает сам): ключи и значения
+вида G7-NN (и любые G\d+-\d+) в data/gap-audit-deps.json переводятся по накопительной карте build/id-map.json
+(слитые черновики — в id победителя); прежние P-id не меняются. Сообщение различает «ссылок на черновики нет —
+уже переведены merge_proposals.py» и «переведено N из K». Перед переводом дописываются зависимости от черновиков,
+названные текстом в research/gap-audit.md («P035 ← G7-02») и полем unlocks черновиков (merge_proposals.text_gap_deps).
+Код 1 — остались непереведённые ссылки.
+
+Черновики G7 проверяются как черновики (check_registry.check_proposal(draft=True)): отсутствие merged_from и
+source_group — не предупреждение (бриф велит их не заполнять). Фактура содержит ёмкость (scripts/capacity.py —
+одна величина project.capacity.day_hours) и сумму середин effort_days горизонта now; покрытие — по категориям
+прогона (check_registry.active_categories: в личном режиме — свои категории).
 Код выхода 0 — ок, 1 — есть ошибки. Только стандартная библиотека.
 """
 import argparse
@@ -41,8 +49,9 @@ from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from check_registry import CATEGORIES, category_requirements, check_proposal, evidence_split  # noqa: E402
-from merge_proposals import GREF_RE, Similarity, load_id_map, remap_gap_deps  # noqa: E402
+from check_registry import (active_categories, capacity_relevant, category_requirements, check_proposal,  # noqa: E402
+                            evidence_split, now_capacity)
+from merge_proposals import GREF_RE, Similarity, add_gap_deps, load_id_map, remap_gap_deps, text_gap_deps  # noqa: E402
 
 # семейства предпосылок: ключ → (подпись, регулярное выражение RU/EN)
 PREREQ_FAMILIES = [
@@ -271,7 +280,8 @@ def build_facts(out_dir, top_n=30, bets_arg=None, sim_min=0.18):
     cnt_all = Counter(p.get("category") for p in props)
     cnt_top = Counter(p.get("category") for p in top)
     cats = {}
-    for c in CATEGORIES:
+    cat_list = active_categories(cfg) + sorted(c for c in cnt_all if c not in active_categories(cfg) and c)
+    for c in cat_list:
         r = reqs.get(c, {})
         cats[c] = {"total": cnt_all.get(c, 0), "in_top": cnt_top.get(c, 0), "required": r.get("required", 0),
                    "na": r.get("na", False), "optional": r.get("optional", False),
@@ -281,12 +291,13 @@ def build_facts(out_dir, top_n=30, bets_arg=None, sim_min=0.18):
     cls_top = Counter(p.get("evidence_class") for p in top)
     hz_top = Counter(p.get("horizon") for p in top)
     coverage = {"categories": cats,
-                "missing_in_top": [c for c in CATEGORIES if not cnt_top.get(c) and not cats[c]["na"]],
+                "missing_in_top": [c for c in active_categories(cfg) if not cnt_top.get(c) and not cats[c]["na"]],
                 "below_minimum": [c for c, v in cats.items() if not v["ok"]],
                 "evidence_classes": {"all": {k: cls_all.get(k, 0) for k in "ABCD"}, "top": {k: cls_top.get(k, 0) for k in "ABCD"}},
                 "ab_share": round((cls_all.get("A", 0) + cls_all.get("B", 0)) / len(props), 4),
                 "ab_external_share": split["ab_external"], "ab_internal_share": split["ab_internal"],
                 "horizons_top": dict(hz_top), "top_d_class": [p["id"] for p in top if p.get("evidence_class") == "D"]}
+    cap = now_capacity(cfg, props) if capacity_relevant(cfg) else None
     cp = jload(data / "critical-path.json", {}) or {}
     facts = {"version": 1, "date": date.today().isoformat(), "product": (cfg.get("product") or {}).get("name") or "",
              "profile": (cfg.get("strategy") or {}).get("profile") or "standard",
@@ -296,7 +307,8 @@ def build_facts(out_dir, top_n=30, bets_arg=None, sim_min=0.18):
              "dependency_warnings": dep_warn, "keyword_flags": flags, "similar_pairs": similar,
              "free_vs_paid": fvp, "free_vs_paid_pairs": fvp_pairs, "coverage": coverage,
              "critical_path": cp.get("order") or [], "cycles": cp.get("cycles") or [], "unknown_dependencies": unknown,
-             "families": [{"key": k, "label": lab, "pattern": rx} for k, lab, rx in families]}
+             "families": [{"key": k, "label": lab, "pattern": rx} for k, lab, rx in families],
+             "now_capacity": cap}
     if cfg.get("mode") == "concept":
         facts["mode"] = "concept"
     return facts
@@ -375,6 +387,12 @@ def render_md(f):
               ", ".join("%s %d" % kv for kv in c["evidence_classes"]["top"].items()), c["ab_share"] * 100,
               c["ab_external_share"] * 100, c["ab_internal_share"] * 100, ", ".join(c["top_d_class"]) or "нет"),
           "Горизонты топа: %s." % (", ".join("%s %d" % kv for kv in c["horizons_top"].items()) or "—"), ""]
+    cap = f.get("now_capacity")
+    if cap:
+        L += ["Ёмкость (единственный источник — scripts/capacity.py, день = %g ч): %s. Горизонт now (%g мес., %s): сумма "
+              "середин effort_days %.1f дн. при потолке %.1f дн. (×%.1f)%s. В тексте аудита используйте эти числа, "
+              "а не свой пересчёт." % (cap["day_hours"], cap["line"], cap["months"], cap["months_source"], cap["now_days"],
+                                        cap["ceiling"], cap["factor"], "" if cap["ok"] else " — ПРЕВЫШЕНИЕ"), ""]
     L += ["## 8. Вопросы аудитору", "",
           "1. Что должно существовать до трёх ставок и топа (хостинг, открытый код, лицензия, платёжный путь, домен, "
           "измерения)? Есть ли это в реестре — какие id? Нет — черновик G7-NN.",
@@ -430,7 +448,7 @@ def run_check(out_dir):
                 if not re.fullmatch(r"G7-\d{2,}", str(p.get("id") or "")):
                     errors.append("G7 #%d: id %r не вида G7-NN" % (i + 1, p.get("id")))
                 e0, w0 = [], []
-                check_proposal(p, i, False, e0, w0, {}, allow_draft_refs=True)
+                check_proposal(p, i, False, e0, w0, {}, allow_draft_refs=True, draft=True)
                 errors += ["G7: " + e for e in e0]
                 warnings += ["G7: " + w for w in w0]
                 for d in p.get("dependencies") or []:
@@ -477,6 +495,18 @@ def main(argv=None):
     out_dir = Path(a.out).resolve()
     if a.remap:
         idmap = load_id_map(out_dir)
+        reg_ids = {x.get("id") for x in jload(out_dir / "data" / "proposals.json", []) or [] if isinstance(x, dict)}
+        added = add_gap_deps(out_dir, text_gap_deps(out_dir), idmap, known=reg_ids or None)
+        if added.get("added"):
+            print("data/gap-audit-deps.json: дописано зависимостей из research/gap-audit.md и unlocks черновиков: %d (%s)"
+                  % (added["added"], "; ".join(added["pairs"][:10])))
+        deps_path = out_dir / "data" / "gap-audit-deps.json"
+        pending = 0
+        if deps_path.exists():
+            d = jload(deps_path, None)
+            if isinstance(d, dict):
+                pending = sum(1 for k, v in d.items() for x in [k] + list(v if isinstance(v, list) else [v])
+                              if isinstance(x, str) and GREF_RE.fullmatch(x))
         res = remap_gap_deps(out_dir, idmap)
         if res.get("missing"):
             print("нет data/gap-audit-deps.json — переводить нечего")
@@ -484,7 +514,12 @@ def main(argv=None):
         if res.get("error"):
             print("data/gap-audit-deps.json %s" % res["error"])
             return 1
-        print("data/gap-audit-deps.json: переведено ссылок %d по карте build/id-map.json (%d записей)" % (res["changed"], len(idmap)))
+        if not pending:
+            print("data/gap-audit-deps.json: ссылок на черновики G-NN нет — уже переведены merge_proposals.py при --append "
+                  "(карта build/id-map.json: %d записей); делать нечего" % len(idmap))
+            return 0
+        print("data/gap-audit-deps.json: переведено ссылок %d из %d по карте build/id-map.json (%d записей)"
+              % (res["changed"], pending, len(idmap)))
         if res["unresolved"]:
             print("  ! непереведённые (нет в карте — сначала merge_proposals.py --append G7): %s" % ", ".join(res["unresolved"]))
             return 1

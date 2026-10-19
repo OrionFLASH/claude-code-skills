@@ -1056,18 +1056,44 @@ def ch_dist_horizon(S):
 
 
 # ---------------------------------------------------------------- план
-def ch_gantt(G):
+def gantt_horizon(cfg):
+    """Горизонт плана в месяцах (run-config strategy.horizon_months; нет — 12): граница «план | видение» на Ганте."""
+    st = cfg.get("strategy") if isinstance(cfg, dict) and isinstance(cfg.get("strategy"), dict) else {}
+    h = st.get("horizon_months")
+    return int(h) if isinstance(h, (int, float)) and not isinstance(h, bool) and h >= 1 else 12
+
+
+def gantt_gaps(G, maxm):
+    """Пробелы плана: месяцы 1…maxm без единой задачи → [(с, по)] (SM: «месяцев 7–12 нет» — контракт Ганта на весь горизонт)."""
+    covered = set()
+    for g in G:
+        covered.update(range(int(g["start_month"]), int(g["end_month"]) + 1))
+    out, a = [], None
+    for m in range(1, maxm + 2):
+        if m <= maxm and m not in covered:
+            a = m if a is None else a
+        elif a is not None:
+            out.append((a, m - 1))
+            a = None
+    return out
+
+
+def ch_gantt(G, cfg=None):
     G = [g for g in G if isinstance(g, dict) and isinstance(g.get("start_month"), (int, float)) and isinstance(g.get("end_month"), (int, float))]
     if not G:
         return None
     maxm = int(max(g["end_month"] for g in G))
+    H = gantt_horizon(cfg or {})
     W = 1160
     label_w = 330
     phases = list(OrderedDict.fromkeys(g.get("phase", "") for g in G))
     ms = sum(1 for g in G if g.get("type") == "milestone")
+    gaps = gantt_gaps(G, maxm)
+    gap_txt = ", ".join(("%d" % a if a == b else "%d–%d" % (a, b)) for a, b in gaps)
     title = "Диаграмма Ганта: %d %s и %d %s на %d мес." % (
         len(G) - ms, plural(len(G) - ms, ("задача", "задачи", "задач")), ms, plural(ms, ("контрольная точка", "контрольные точки", "контрольных точек")), maxm)
-    cap = "Полосы — задачи по фазам, ромбы — контрольные точки; затенённая зона — годы видения (после 12-го месяца)."
+    cap = ("Полосы — задачи по фазам, ромбы — контрольные точки; затенённая зона — видение (после %d-го месяца — горизонта плана)" % H
+           + ("; красная штриховка — месяцы без задач: %s." % gap_txt if gaps else "."))
     c = Chart(W, title, cap, "Источник: data/gantt.json")
     x0, x1 = PAD + label_w, W - PAD
     mw = (x1 - x0) / maxm
@@ -1078,12 +1104,21 @@ def ch_gantt(G):
         tl = wrap("%s %s" % (g.get("id", ""), g.get("task", "")), label_w - 14, 12)
         rows.append((g, tl, max(26, len(tl) * 15 + 10)))
     body_h = sum(r[2] for r in rows) + len(phases) * 22
-    if maxm > 12:
-        nv = sum(1 for g in G if g["end_month"] > 12)
-        with c.item("area-vision", "Годы видения: месяцы 13–%d, %d %s" % (maxm, nv, plural(nv, ("задача", "задачи", "задач"))), "area",
+    if maxm > H:
+        nv = sum(1 for g in G if g["end_month"] > H)
+        with c.item("area-vision", "Видение: месяцы %d–%d, %d %s" % (H + 1, maxm, nv, plural(nv, ("задача", "задачи", "задач"))), "area",
                     {"gloss": gl("charts", "gantt", "elements", "area-vision"), "section": 15,
-                     "meaning": "После 12-го месяца заканчивается %d %s плана." % (nv, plural(nv, ("задача", "задачи", "задач")))}):
-            c.rect(x0 + 12 * mw, y, (maxm - 12) * mw, body_h, THEME["panel"])
+                     "meaning": "После %d-го месяца (горизонт плана) заканчивается %d %s." % (H, nv, plural(nv, ("задача", "задачи", "задач")))}):
+            c.rect(x0 + H * mw, y, (maxm - H) * mw, body_h, THEME["panel"])
+    for a, b in gaps:          # пробелы плана: месяцы без задач — красная штриховка поверх сетки, элемент с пояснением
+        span = "месяц %d" % a if a == b else "месяцы %d–%d" % (a, b)
+        with c.item("gap-%d-%d" % (a, b), "Пробел плана: %s без задач" % span, "area",
+                    {"gloss": gl("charts", "gantt", "elements", "area-gap"), "section": 14, "title": "Пробел плана: %s" % span,
+                     "meaning": "На %s в data/gantt.json нет ни одной задачи и вехи (горизонт плана — %d мес.%s)." % (
+                         span, H, ", видение — до %d-го месяца" % maxm if maxm > H else "")}):
+            c.rect(x0 + (a - 1) * mw, y, (b - a + 1) * mw, body_h, THEME["bad"], op=0.12)
+            for xx in (x0 + (a - 1) * mw, x0 + b * mw):
+                c.line(xx, y, xx, y + body_h, THEME["bad"], 1, dash="4 3", op=0.7)
     for m in range(1, maxm + 1):
         if (m - 1) % step == 0:
             c.text(x0 + (m - 0.5) * mw, c.top + 14, str(m), 11, THEME["muted"], "middle")
@@ -2370,7 +2405,7 @@ def plan_jobs(D, top_n=15):
         ("dist-category", why(S, no_s), lambda: ch_dist_category(S, D["check"])),
         ("dist-evidence", why(S, no_s), lambda: ch_dist_evidence(S)),
         ("dist-horizon", why(S, no_s), lambda: ch_dist_horizon(S)),
-        ("gantt", why(valid_g, "нет data/gantt.json (фаза 7; график строится сразу после её записи)"), lambda: ch_gantt(valid_g)),
+        ("gantt", why(valid_g, "нет data/gantt.json (фаза 7; график строится сразу после её записи)"), lambda: ch_gantt(valid_g, D.get("cfg") or {})),
         ("critical-path", why(CP, "нет data/critical-path.json (score.py)") or why(CP.get("edges"), "нет зависимостей среди топа и их предпосылок"),
          lambda: ch_critical_path(CP, S, props)),
         ("channel-mix", why(props, "нет data/proposals.json") or why(any(p.get("category") == "acquisition" for p in props),

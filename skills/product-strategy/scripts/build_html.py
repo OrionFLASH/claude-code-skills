@@ -1136,6 +1136,61 @@ def chart_svg_fragment(src):
     return new + s[len(root):]
 
 
+def svg_viewbox(s):
+    """(ширина, высота) из viewBox корневого <svg> (или width/height); None — не найдено."""
+    m = re.search(r"<svg\b[^>]*>", s or "", re.S | re.I)
+    if not m:
+        return None
+    vb = re.search(r"\sviewBox\s*=\s*[\"']\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)", m.group(0))
+    if vb and float(vb.group(1)) > 0 and float(vb.group(2)) > 0:
+        return float(vb.group(1)), float(vb.group(2))
+    w, h = svg_size(m.group(0))
+    return (float(w), float(h)) if w and h else None
+
+
+def flow_a11y(svg_html, scope, nodes, title):
+    """Доступность встроенной схемы (FB-038): корень — role="group" (role="img" прятал блоки-кнопки от экранного диктора),
+    aria-labelledby — только на существующие (переименованные областью) id, иначе aria-label = название схемы; у каждого блока
+    data-node — <title> (из flows.json → nodes[].what, иначе label) и aria-label «… — открыть расшифровку». <title> уже есть —
+    не трогается."""
+    if not svg_html:
+        return svg_html
+    ids = set(re.findall(r"\sid\s*=\s*\"([^\"]+)\"", svg_html))
+    root = re.match(r"<svg\b[^>]*>", svg_html, re.S).group(0)
+    new = root
+    if re.search(r"\srole\s*=\s*\"img\"", new):
+        new = re.sub(r"\srole\s*=\s*\"img\"", ' role="group"', new, count=1)
+    elif not re.search(r"\srole\s*=", new):
+        new = new[:-1] + ' role="group">'
+    lab = re.search(r"\saria-labelledby\s*=\s*\"([^\"]*)\"", new)
+    keep = []
+    if lab:
+        for tok in lab.group(1).split():
+            if scope + "-" + tok in ids:
+                keep.append(scope + "-" + tok)
+            elif tok in ids:
+                keep.append(tok)
+        new = new.replace(lab.group(0), (' aria-labelledby="' + " ".join(keep) + '"') if keep else "", 1)
+    if not keep and not re.search(r"\saria-label\s*=", new):
+        new = new[:-1] + ' aria-label="' + esc(title) + '">'
+    s = new + svg_html[len(root):]
+
+    def node(mm):
+        tag, node_id, end = mm.group(0), html.unescape(mm.group(2)), mm.group(3)
+        n = nodes.get(node_id) or {}
+        label = text_of(n.get("label")) or node_id
+        if "aria-label" not in tag:
+            tag = tag[:-len(end)] + ' aria-label="' + esc(label + " — открыть расшифровку") + '"' + end
+        if end == "/>":
+            return tag
+        rest = s[mm.end():mm.end() + 400]
+        if re.match(r"\s*<title\b", rest):
+            return tag
+        what = text_of(n.get("what")).strip()
+        return tag + '<title class="ps-nt">' + esc(label + (": " + what if what and what != label else "")) + "</title>"
+    return re.sub(r"<([a-zA-Z][\w:-]*)\s(?:[^>]*?\s)?data-node\s*=\s*\"([^\"]+)\"[^>]*?(/?>)", node, s)
+
+
 # ---------------------------------------------------------------- тема
 def parse_color(v):
     v = (v or "").strip().lower()
@@ -1523,10 +1578,37 @@ class Markdown:
             al = aligns[k] if k < len(aligns) else ""
             body = self.inline(txt)
             return "<" + tag + (' class="al-' + al + '"' if al else "") + ">" + (wbr_long(body) if tag == "td" else body) + "</" + tag + ">"
-        thead = "".join(cell("th", head[k], k) for k in range(ncol))
-        body = "".join("<tr>" + "".join(cell("td", r[k] if k < len(r) else "", k) for k in range(ncol)) + "</tr>" for r in rows)
-        many = ' class="many"' if ncol >= 7 else ""     # много столбцов — компактнее, чтобы на 1440 влезть в рамку
-        return '<div class="tbl"><table' + many + '><thead><tr>' + thead + "</tr></thead><tbody>" + body + "</tbody></table></div>", i
+
+        def blank(v):
+            return not re.sub(r"[\s—–\-]+", "", v or "")
+        # FB-039: колонка, пустая во всех строках (или только тире), не выводится — «пустая колонка “Значение”»
+        cols = [k for k in range(ncol) if not (rows and all(blank(r[k] if k < len(r) else "") for r in rows))] or list(range(ncol))
+        thead = "".join(cell("th", head[k], k) for k in cols)
+        body = "".join("<tr>" + "".join(cell("td", r[k] if k < len(r) else "", k) for k in cols) + "</tr>" for r in rows)
+        many = ' class="many"' if len(cols) >= 7 else ""     # много столбцов — компактнее, чтобы на 1440 влезть в рамку
+        return '<div class="tbl"><table' + many + '>' + self._colgroup(head, rows, cols) + '<thead><tr>' + thead + "</tr></thead><tbody>" + body + "</tbody></table></div>", i
+
+    @staticmethod
+    def _colgroup(head, rows, cols):
+        """Ширины колонок, если у колонки короткие значения (медиана < 20 знаков), но одно-два длинных (> 40 знаков и в 2,5 раза длиннее
+        медианы): без подсказки браузер отдаёт такой колонке пол-таблицы («пустая область», smoke). Ширина такой колонки — по медиане
+        длины, остальных — по 75-му перцентилю (4…60 знаков, не уже заголовка); таблицы без таких колонок не меняются."""
+        if len(cols) < 3 or len(rows) < 2:
+            return ""
+        plain_len = lambda v: len(re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", re.sub(r"[*_`]", "", v or "")).strip())
+        stats, need = [], False
+        for k in cols:
+            ls = sorted(plain_len(r[k] if k < len(r) else "") for r in rows)
+            ls = [x for x in ls if x] or [0]
+            med, top, p75 = ls[len(ls) // 2], ls[-1], ls[min(len(ls) - 1, int(len(ls) * 0.75))]
+            outlier = med < 20 and top > 40 and top > 2.5 * max(med, 1)
+            need = need or outlier
+            # колонке-«выбросу» — ширина по медиане (длинное значение переносится), остальным — по 75-му перцентилю
+            stats.append(max(4, min(60, max(med if outlier else p75, plain_len(head[k]) if k < len(head) else 0))))
+        if not need:
+            return ""
+        tot = float(sum(stats))
+        return "<colgroup>" + "".join('<col style="width:%.1f%%">' % (100.0 * s / tot) for s in stats) + "</colgroup>"
 
     def _list(self, lines, i):
         n = len(lines)
@@ -1716,6 +1798,98 @@ def pid_link(pid, titles):
             + pid + "</a>")
 
 
+# ---------------------------------------------------------------- слой интерактивности 1.5 (FB-035): обёртки, кнопки, подсказки
+PSI_HINT = "Графики и схемы кликабельны: наведите — подсказка, нажмите — подробности, 🔍 — увеличить."
+SITE_TEMPLATES = Path(__file__).resolve().parent.parent / "templates" / "site"
+LAYER_JS_FILES = ("ps-interact.js", "ps-search.js", "ps-ents.js")
+LAYER_CSS_FILE = "ps-layer.css"
+LAYER_MARK = ("/* ps-1.5:start — слои страницы (templates/site) */\n", "\n/* ps-1.5:end */\n")
+
+
+def psi_hint(top=False):
+    return ('<p class="psi-hint"' + (' data-psi-top="1"' if top else "") + '><span aria-hidden="true">👆</span> ' + esc(PSI_HINT) + "</p>")
+
+
+def psi_wrap(kind, box, title):
+    """Обёртка графика или схемы: видимая кнопка «🔍 Увеличить» в углу (на телефоне — над картинкой) и плашка при наведении.
+    Разметка закрывается сразу после плашки — так её можно однозначно найти и в тестах, и в регрессии."""
+    what = "схему" if kind == "flow" else "график"
+    cue = ("Наведите на блок — подсказка · нажмите — расшифровка · фон — увеличить" if kind == "flow"
+           else "Наведите на элемент — подсказка · нажмите — подробности · фон — увеличить")
+    return ('<div class="psi-wrap psi-' + kind + '">' + box + '<button type="button" class="psi-zoom" aria-label="Увеличить ' + what + " «"
+            + esc(title) + '» и открыть подробности" title="Открыть крупно: масштаб, подсказки и подробности по каждому элементу">'
+            '<span aria-hidden="true">🔍</span> Увеличить</button><span class="psi-cue" aria-hidden="true">' + cue + "</span></div>")
+
+
+def layer_assets(warn):
+    """JS и CSS слоёв страницы из templates/site (просмотр графиков и схем, поиск, сущности). Нет файлов — страница без слоёв
+    и предупреждение (сборщик скопирован без папки templates/)."""
+    js, css = [], ""
+    for name in LAYER_JS_FILES:
+        p = SITE_TEMPLATES / name
+        try:
+            js.append(p.read_text(encoding="utf-8"))
+        except OSError:
+            warn("нет templates/site/%s — слой страницы не подключён (переустановите плагин)" % name)
+    try:
+        css = LAYER_MARK[0] + (SITE_TEMPLATES / LAYER_CSS_FILE).read_text(encoding="utf-8") + LAYER_MARK[1]
+    except OSError:
+        warn("нет templates/site/%s — стили слоёв не подключены" % LAYER_CSS_FILE)
+    return "\n".join(js), css
+
+
+GLOSS_ROW_RE = re.compile(r"^\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*$")
+GLOSS_TERM_RE = re.compile(r"^- \*\*(.+?)\*\*(?: \[синонимы: (.+?)\])? — (.+)$")
+
+
+def parse_glossary(text, dictionary=""):
+    """research/glossary.md (build_appendix.py: таблица «| Термин | Значение |» + термины, дописанные оркестратором) →
+    [{key, label, forms, ci, what, src}]; синонимы — из словаря templates/glossary.md (строки «- **Термин** [синонимы: a; b] — …»)."""
+    syn = {}
+    for ln in (dictionary or "").splitlines():
+        m = GLOSS_TERM_RE.match(ln.strip())
+        if m:
+            syn[m.group(1).strip()] = [x.strip() for x in (m.group(2) or "").split(";") if x.strip()]
+    out, seen = [], set()
+    for ln in (text or "").splitlines():
+        m = GLOSS_ROW_RE.match(ln.strip())
+        if m:
+            term, what = m.group(1).strip(), m.group(2).strip()
+            if term.lower() in ("термин", "term") or set(term) <= set("-: "):
+                continue
+        else:
+            m = GLOSS_TERM_RE.match(ln.strip())
+            if not m:
+                continue
+            term, what = m.group(1).strip(), m.group(3).strip()
+            syn.setdefault(term, [x.strip() for x in (m.group(2) or "").split(";") if x.strip()])
+        term = re.sub(r"[*_`]", "", term).strip()
+        what = re.sub(r"\*\*|__|`", "", what).strip()
+        key = re.sub(r"[^\w]+", "-", term.lower()).strip("-_") or "t%d" % len(out)
+        if not term or key in seen:
+            continue
+        seen.add(key)
+        forms = [term] + [x for x in syn.get(term, []) if x and x != term]
+        src = ""
+        ms = re.search(r"\s*\((?:источник|source):\s*([^)]+)\)\s*$", what, re.I)
+        if ms:
+            src, what = ms.group(1).strip(), what[:ms.start()].strip()
+        out.append({"key": key, "label": term, "forms": forms, "ci": True, "what": what, "src": src})
+    return out
+
+
+def md_blocks(text, limit=200000):
+    """Текст исследования для поиска: без разметки Markdown, не длиннее limit знаков."""
+    t = re.sub(r"```.*?```", " ", text or "", flags=re.S)
+    t = re.sub(r"!\[\[[^\]]*\]\]", " ", t)
+    t = re.sub(r"!\[[^\]]*\]\([^)]*\)", " ", t)
+    t = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", t)
+    t = re.sub(r"^\s{0,3}#{1,6}\s*", "", t, flags=re.M)
+    t = re.sub(r"[*_`>|]", " ", t)
+    t = re.sub(r"[ \t]+", " ", t)
+    return t[:limit]
+
+
 # ---------------------------------------------------------------- сборщик
 class Builder:
     def __init__(self, out, out_file, title=None, lite=False, lite_encoder="auto", site=False, site_csp="self"):
@@ -1831,6 +2005,51 @@ class Builder:
         self.load_mockups()
         self.load_flows()
         self.load_progress()
+        # 1.5: есть графики/схемы с интерактивностью → подсказки «кликабельны» и кнопки увеличения; глоссарий и прочие исследования
+        self.has_psi = bool(self.ich) or any(fl.get("src") for fl in self.flow_list)
+        self.gloss = self.load_glossary()
+        self.docs = self.load_docs()
+
+    def load_glossary(self):
+        """research/glossary.md (build_appendix.py) → термины для раздела «Глоссарий», подсказок и кликабельных терминов текста."""
+        text = self.text("research/glossary.md")
+        if not text or not text.strip():
+            return []
+        try:
+            dic = (SITE_TEMPLATES.parent / "glossary.md").read_text(encoding="utf-8")
+        except OSError:
+            dic = ""
+        g = parse_glossary(text, dic)
+        if not g:
+            self.warn("research/glossary.md: нет строк «| Термин | Значение |» — глоссарий и термины текста не показаны")
+        return g
+
+    DOCS_SKIP = {"strategy.md", "questions-owner.md", "glossary.md"}
+    DOCS_TOTAL_MAX = 3 * 1024 * 1024
+
+    def load_docs(self):
+        """Прочие исследования research/**/*.md (кроме выведенных на страницу) — только для сквозного поиска: текст без разметки,
+        не больше 200 000 знаков на файл и 3 МБ всего; ссылка на файл рядом."""
+        d = self.out / "research"
+        if not d.is_dir():
+            return []
+        out, total = [], 0
+        for p in sorted(d.rglob("*.md")):
+            rel = p.relative_to(self.out).as_posix()
+            if p.name in self.DOCS_SKIP and p.parent == d or p.name.endswith(".generated.md"):
+                continue
+            try:
+                raw = p.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            m = re.search(r"^\s{0,3}#\s+(.+?)\s*#*\s*$", raw, re.M)
+            text = md_blocks(raw)
+            if total + len(text) > self.DOCS_TOTAL_MAX:
+                self.warn("поиск: исследования больше 3 МБ текста — %s и дальше в индекс не вошли" % rel)
+                break
+            total += len(text)
+            out.append({"path": rel, "title": (m.group(1).strip() if m else p.stem), "text": text, "href": self.rel_link(rel)})
+        return out
 
     # --- отслеживание выполнения (1.2): data/progress.json и сопутствующие; нет progress.json — страница прежняя
     def load_progress(self):
@@ -2029,6 +2248,8 @@ class Builder:
 
     def load_mockups(self):
         self.mock = {}
+        hsfile = self.json("mockups/hotspots.json", dict) or {}
+        hs_by = hsfile.get("mockups") if isinstance(hsfile.get("mockups"), dict) else {}
         for m in self.mockups:
             key = str(m.get("key") or Path(str(m.get("html") or m.get("png") or "")).stem or "")
             if not key:
@@ -2036,7 +2257,19 @@ class Builder:
             m = dict(m)
             m["key"] = key
             m["img"] = self.img.add(m.get("png"), "m-" + key) if m.get("png") else None
+            # вторая тема снимка (shoot_mockups.mjs): themes {light, dark} | png_dark | png_light | png_alt
+            alt, alt_name = None, ""
+            themes = m.get("themes") if isinstance(m.get("themes"), dict) else {}
+            for name, rel in list(themes.items()) + [("dark", m.get("png_dark")), ("light", m.get("png_light")), ("alt", m.get("png_alt"))]:
+                if rel and str(rel) != str(m.get("png") or "") and m.get("img"):
+                    k = self.img.add(str(rel), "m-" + key + "-" + slug(name))
+                    if k and k != m["img"]:
+                        alt, alt_name = k, str(name)
+                        break
+            m["alt_img"], m["alt_theme"] = alt, alt_name
+            m["hs_ref"] = self.mock_hotspots(m, hs_by.get(key) if isinstance(hs_by.get(key), dict) else None)
             self.mock[key] = m
+        self.mock_hs_count = sum(len(v["hotspots"]) for v in getattr(self, "mock_refs", {}).values())
         # картинки референсов без своего PNG → PNG макета того же HTML
         for stem, r in self.refs.items():
             if r.get("img"):
@@ -2047,6 +2280,66 @@ class Builder:
                     r["img"] = m["img"]
                     r["img_from_mockup"] = True
                     break
+
+    HS_TAG_RE = re.compile(r"<[a-zA-Z][\w-]*\s[^>]*\bdata-hs-title\s*=[^>]*>", re.S)
+    HS_ATTR_RE = re.compile(r"\s(data-hs(?:-[a-z]+)?)\s*=\s*(\"([^\"]*)\"|'([^']*)')", re.S)
+
+    def mock_hotspots(self, m, rec):
+        """Подсказки к элементам макета (стандарт data-hs-*, mockup-kit/_hotspots.js) для просмотра на странице: зоны с номерами
+        поверх снимка и описания в боковой панели. Координаты — mockups/hotspots.json {mockups: {ключ: {items: [{n, id, title, what,
+        why, p, sec, r: [x, y, w, h] — доли снимка]}}}} (пишет shoot_mockups.mjs) или поле hotspots записи mockups-index.json (r —
+        доли, либо x/y/w/h в пикселях снимка); без координат — список из атрибутов data-hs-* самого HTML-макета (зон нет, описания
+        есть). Возвращает ключ псевдореференса «m:<ключ>» в d-refs или ""."""
+        if not hasattr(self, "mock_refs"):
+            self.mock_refs = OrderedDict()
+        meta = self.img.meta.get(m.get("img") or "", {})
+        W = num(m.get("width")) or meta.get("w") or 1440.0
+        H = num(m.get("height")) or meta.get("h") or 900.0
+        items = rec.get("items") if rec and isinstance(rec.get("items"), list) else m.get("hotspots") if isinstance(m.get("hotspots"), list) else None
+        raw = []
+        if items is None and m.get("html"):
+            p = self.img.resolve(str(m.get("html")))
+            try:
+                src = p.read_text(encoding="utf-8", errors="replace") if p and p.is_file() else ""
+            except OSError:
+                src = ""
+            items = []
+            for tag in self.HS_TAG_RE.findall(src):
+                at = {mm.group(1): html.unescape(mm.group(3) if mm.group(3) is not None else mm.group(4)) for mm in self.HS_ATTR_RE.finditer(tag)}
+                if at.get("data-hs-title"):
+                    items.append({"id": at.get("data-hs", ""), "title": at.get("data-hs-title"), "what": at.get("data-hs-what", ""),
+                                  "why": at.get("data-hs-why", ""), "p": at.get("data-hs-p", ""), "sec": at.get("data-hs-sec", "")})
+        out = []
+        for i, it in enumerate(items or [], 1):
+            if not isinstance(it, dict) or not text_of(it.get("title")):
+                continue
+            pids = [x for x in re.split(r"[\s,;]+", " ".join(str_list(it.get("p"))) if isinstance(it.get("p"), list) else text_of(it.get("p"))) if PID_FULL.match(x)]
+            secs = [int(x) for x in re.split(r"[\s,;]+", " ".join(map(str, it.get("sec"))) if isinstance(it.get("sec"), list) else text_of(it.get("sec"))) if x.isdigit()]
+            item = {"n": text_of(it.get("n")) or str(i), "title": text_of(it.get("title")), "text": text_of(it.get("what") or it.get("text")),
+                    "why": text_of(it.get("why")), "proposal": pids[0] if pids else text_of(it.get("proposal")), "pids": pids, "sec": secs,
+                    "state": text_of(it.get("state"))}
+            r = it.get("r")
+            box = None
+            if isinstance(r, list) and len(r) == 4 and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in r):
+                box = [float(v) * 100 for v in r]
+            elif all(isinstance(it.get(k), (int, float)) and not isinstance(it.get(k), bool) for k in ("x", "y", "w", "h")):
+                box = [it["x"] / W * 100, it["y"] / H * 100, it["w"] / W * 100, it["h"] / H * 100]
+            if box:
+                cl = lambda v: max(0.0, min(100.0, v))
+                l, t = round(cl(box[0]), 3), round(cl(box[1]), 3)
+                item.update({"l": l, "t": t, "w": round(max(0.0, min(100.0 - l, box[2])), 3), "h": round(max(0.0, min(100.0 - t, box[3])), 3)})
+                raw.append({"x": l / 100 * W, "y": t / 100 * H})
+            else:
+                raw.append({})
+            out.append(item)
+        if not out:
+            return ""
+        self.place_pins(out, raw, W, H)
+        key = "m:" + m["key"]
+        self.mock_refs[key] = {"title": text_of(m.get("title")) or m["key"], "kind": "макет", "summary": text_of(m.get("summary")),
+                               "entry": "", "proposals": str_list(m.get("proposals")), "hotspots": out, "todo": [], "w": W, "h": H, "scale": 1.0,
+                               "html": self.rel_link(str(m.get("html"))) if m.get("html") else "", "mock": True}
+        return key
 
     # --- ссылки и пути
     def rel_link(self, rel_to_out):
@@ -2095,6 +2388,11 @@ class Builder:
         meta = self.img.meta.get(key, {})
         w, h = meta.get("w"), meta.get("h")
         size = (' width="%d" height="%d"' % (w, h)) if w and h else ""
+        if w and h:
+            # ленивая картинка до загрузки — уже своего размера (FB-037): ширина, которую она займёт (max-width:100% сожмёт), и
+            # пропорции; телефонный макет (figure.mobile, max-height 540) — ширина по высоте 540
+            fw = min(w, int(round(540.0 * w / h))) if "mobile" in cls.split() else w
+            size += ' style="width:%dpx;aspect-ratio:%d / %d"' % (fw, w, h)
         self.figs += 1
         return ('<figure class="lb ' + cls + '"' + attrs + ' data-key="' + esc(key) + '" data-group="' + esc(group) + '" data-ref="' + esc(ref)
                 + '" data-cap="' + esc(cap_text) + '" tabindex="0" role="button" aria-label="Увеличить: ' + esc(cap_text) + '">'
@@ -2175,24 +2473,28 @@ class Builder:
         key, meta = c["key"], c["meta"]
         self.chart_n += 1
         hid = "howto-%s-%d" % (key, self.chart_n)
-        cap_text = c["title"] + (" — " + c["caption"] if c.get("caption") else "")
         if self.site:
             g = self.chart_group(c)
-            box = ('<div class="ps-svg ps-wait" data-chart="' + esc(key) + '" data-ps-src="@@charts-' + esc(g) + '@@">'
+            # заглушка ленивого графика — сразу размером с график (FB-037): aspect-ratio из viewBox; на телефоне (≤ 699 px) SVG не
+            # уже 560 px и прокручивается в рамке → высота = 560·H/W + рамка; страница не сдвигается при подгрузке
+            vb = svg_viewbox(c["svg"])
+            size = (' style="--ps-ar:%g / %g;--ps-mh:%dpx"' % (round(vb[0], 2), round(vb[1], 2), round(560 * vb[1] / vb[0] + 2))) if vb else ""
+            box = ('<div class="ps-svg ps-wait" data-chart="' + esc(key) + '" data-ps-src="@@charts-' + esc(g) + '@@"' + size + '>'
                    '<p class="ps-ph muted">График загружается…</p><noscript><p class="missing">Интерактивный график показывается скриптом '
                    "страницы; без JavaScript см. charts/" + esc(key) + ".svg.</p></noscript></div>")
         else:
             box = '<div class="ps-svg" data-chart="' + esc(key) + '">' + c["svg"] + "</div>"
+        box = psi_wrap("chart", box, c["title"])
         legend = [x for x in as_list(meta.get("legend")) if isinstance(x, dict) and text_of(x.get("label"))]
         howto = text_of(meta.get("howto"))
         how = ('<div class="ps-howto" id="' + esc(hid) + '" hidden>' + ("<p>" + esc(howto) + "</p>" if howto else "")
                + ('<dl class="ps-legend">' + "".join("<dt>" + esc(text_of(x.get("label"))) + "</dt><dd>" + esc(text_of(x.get("text"))) + "</dd>"
                                                     for x in legend) + "</dl>" if legend else "")
                + '<p class="small muted">Нажмите на элемент графика (или выберите его клавишей Tab и нажмите Enter) — справа откроется '
-                 "панель: что это, что значит, что делать и ссылки. ←/→ — соседний элемент, Esc — закрыть.</p></div>")
+                 "панель: что это, что значит, что делать и ссылки. ←/→ — соседний элемент, Esc — закрыть. «🔍 Увеличить» или клик по фону — "
+                 "крупный просмотр с живым графиком: масштаб, подсказки и подробности по каждому элементу.</p></div>")
         acts = ('<span class="ps-acts"><button type="button" class="linkbtn ps-howto-btn" aria-expanded="false" aria-controls="' + esc(hid)
-                + '">Как читать график</button> · <button type="button" class="lb linkbtn" data-key="c-' + esc(key) + '" data-group="charts" '
-                'data-ref="" data-cap="' + esc(cap_text) + '">⤢ увеличить</button></span>')
+                + '">Как читать график</button></span>')
         self.anchors.setdefault("chart", set()).add(key)
         return ('<figure class="ps-ichart' + (" ps-primary" if primary else "") + '" data-chart="' + esc(key) + '"'
                 + (' id="chart-' + esc(key) + '"' if primary else "") + ">" + box + "<figcaption>" + self.links(cap) + " " + acts
@@ -2232,13 +2534,16 @@ class Builder:
             return '<span class="emb">макет «' + esc(title) + "»</span>"
         cap = "<b>" + esc(title) + "</b> " + badge + (" · " + pr if pr else "") + (" · " + esc(m.get("viewport")) if m.get("viewport") else "")
         self.anchors["mockup"].add(m["key"])
+        # 1.5: у каждого макета — ключ (цель #mockup/…, M-ключи текста), связанные P-id и ссылка на живой HTML для просмотра
+        # («Открыть интерактивный макет»), вторая тема снимка (переключатель в просмотре)
         mattr = (' data-mock="' + esc(m["key"]) + '"' + (' data-pids="' + esc(" ".join(str_list(m.get("proposals")))) + '"' if str_list(m.get("proposals")) else "")
-                 if self.ich else "")
+                 + (' data-html="' + esc(html_rel) + '"' if html_rel else "")
+                 + (' data-alt="' + esc(m["alt_img"]) + '" data-alt-theme="' + esc(m.get("alt_theme") or "") + '"' if m.get("alt_img") else ""))
         if not m.get("img"):
-            return ('<div class="ph mock-ph" id="mock-' + esc(slug(m["key"])) + '"' + mattr + (' tabindex="-1"' if self.ich else "") + '><div class="ph-t">Нет PNG макета</div>'
+            return ('<div class="ph mock-ph" id="mock-' + esc(slug(m["key"])) + '"' + mattr + ' tabindex="-1"><div class="ph-t">Нет PNG макета</div>'
                     + cap + open_html + "</div>")
         mob = "mobile" if self.is_mobile_img(m["img"], str(m.get("viewport") or "")) else ""
-        return self.fig(m["img"], cap, title, group, mob, self.mock_ref(m), extra=open_html, attrs=mattr)
+        return self.fig(m["img"], cap, title, group, mob, self.mock_ref(m) or m.get("hs_ref") or "", extra=open_html, attrs=mattr)
 
     def ref_fig(self, r, with_link=False):
         title = text_of(r.get("title")) or r["stem"]
@@ -2251,6 +2556,9 @@ class Builder:
     # --- разделы
     def add(self, sid, label, body, group=""):
         if body:
+            if sid != "top" and 'class="psi-wrap' in body and "</h2>" in body:   # раздел с графиками или схемами — строка-подсказка под заголовком
+                i = body.index("</h2>") + 5
+                body = body[:i] + psi_hint() + body[i:]
             self.sections.append(body)
             self.nav.append((sid, label, group))
 
@@ -2298,6 +2606,7 @@ class Builder:
         self.sec_market()
         self.sec_sources()
         self.sec_questions()
+        self.sec_glossary()
         return self.assemble()
 
     # --- реестр: строки для JS
@@ -2317,7 +2626,7 @@ class Builder:
                 seen_r.add(rstem)
                 if r.get("img"):
                     img, ref = r["img"], rstem
-            out.append({"title": text_of(m.get("title")) or m["key"], "img": img, "ref": ref or (rstem if r is not None and img else ""),
+            out.append({"title": text_of(m.get("title")) or m["key"], "img": img, "ref": ref or (rstem if r is not None and img else "") or (m.get("hs_ref") or ""),
                         "mock": m["key"], "html": self.rel_link(str(m.get("html"))) if m.get("html") else "",
                         "mobile": self.is_mobile_img(img, str(m.get("viewport") or ""))})
         for st, r in self.refs.items():
@@ -2543,7 +2852,8 @@ class Builder:
             author = '<p class="author">' + ("Автор: <b>" + esc(who) + "</b>" if who else "") + (" · " if who and cp else "") + esc(cp) + "</p>"
         body = ('<section id="top" class="top"><p class="eyebrow">' + ("Концепция нового продукта" if self.concept else "Стратегия развития продукта")
                 + " · " + esc(self.date) + "</p><h1>"
-                + esc(title) + "</h1>" + author + '<dl class="facts">' + "".join("<dt>" + a + "</dt><dd>" + b + "</dd>" for a, b in facts)
+                + esc(title) + "</h1>" + author + (psi_hint(top=True) if self.has_psi else "")
+                + '<dl class="facts">' + "".join("<dt>" + a + "</dt><dd>" + b + "</dd>" for a, b in facts)
                 + "</dl>" + ('<div class="kpis">' + kpi + "</div>" if kpi else "") + pre + self.links(top10) + assum_html
                 + '<p class="hint muted">Как читать: любой номер предложения (например, P001) открывает его карточку; любая картинка '
                 "увеличивается по клику; строки Ганта, карточки Kanban и блоки схем раскрываются. Esc закрывает верхнее окно.</p></section>")
@@ -3094,6 +3404,8 @@ class Builder:
         svg_html = sanitize_svg(fl["src"], scope, {str(n["id"]) for n in nodes}) if fl.get("src") else ""
         if fl.get("src") and not svg_html:
             self.warn("блок-схема %s: в файле нет <svg>" % key)
+        if svg_html:
+            svg_html = flow_a11y(svg_html, scope, {str(n["id"]): n for n in nodes}, title)
         chips = "".join('<button type="button" class="nchip" data-node="' + esc(n["id"]) + '">' + esc(text_of(n.get("label")) or n["id"])
                         + "</button>" for n in nodes)
         anchor = "" if embedded else ' id="flow-' + esc(slug(key)) + '"' + (' tabindex="-1"' if self.ich else "")
@@ -3101,14 +3413,13 @@ class Builder:
             self.anchors["flow"].add(key)
         body = '<div class="flow' + (" embedded" if embedded else "") + '"' + (' data-flow="' + esc(key) + '"' if self.ich else "") + anchor + "><h3>" + esc(title) + "</h3>"
         if svg_html:
-            body += ('<div class="flowsvg" id="' + scope + '" data-imgkey="flow-' + esc(slug(key)) + '" data-cap="' + esc(title) + '">'
-                     + svg_html + "</div>")
+            body += psi_wrap("flow", '<div class="flowsvg" id="' + scope + '" data-imgkey="flow-' + esc(slug(key)) + '" data-cap="' + esc(title) + '">'
+                             + svg_html + "</div>", title)
         if chips:
             body += '<div class="nchips"><span class="muted">Блоки схемы:</span> ' + chips + "</div>"
         if svg_html:
             body += ('<p class="muted small">Нажмите на блок схемы — откроется расшифровка: что это, как сейчас, что сделать, '
-                     'как измерять и связанные предложения. <button type="button" class="lb linkbtn" data-key="flow-' + esc(slug(key))
-                     + '" data-group="flows" data-ref="" data-cap="' + esc(title) + '">⤢ открыть схему как картинку</button></p>')
+                     "как измерять и связанные предложения; «🔍 Увеличить» или клик по фону — крупный просмотр с живой схемой.</p>")
         return body + "</div>"
 
     def sec_flows(self):
@@ -3155,7 +3466,9 @@ class Builder:
         plan_end = max([t["end"] for t in tasks if t["phase"].lower() != "vision" and t["start"] <= H] + [1])
         H = max(H, min(plan_end, 36))
         max_end = max(t["end"] for t in tasks)
-        V = 0 if max_end <= H else int(math.ceil((max_end - H) / 12.0)) * 12
+        # видение — до конца года, в котором кончается последняя задача (горизонт 6 мес. и задачи до 24-го → шкала 7–12 и «год 2»,
+        # а не «мес. 7–18, 19–30»); при горизонте, кратном 12, — как раньше
+        V = 0 if max_end <= H else int(math.ceil(max_end / 12.0)) * 12 - H
         Wm = 100.0 if not V else 74.0
 
         def pos(m0):  # m0 — граница месяца (0…H+V)
@@ -3173,10 +3486,25 @@ class Builder:
                 lab += "’" + str(int(self.date[:4]) + idx // 12)[2:]
             scale += ('<span style="left:%.2f%%;width:%.2f%%" title="месяц %d · %s">%s</span>'
                       % (pos(m - 1), pos(min(H, m - 1 + step)) - pos(m - 1), m, self.month_label(m, True), esc(lab)))
-        for y in range(V // 12):
-            a, b = H + 12 * y, H + 12 * (y + 1)
-            lab = ("год %d" % (b // 12)) if H % 12 == 0 else "мес. %d–%d" % (a + 1, b)
-            scale += '<span class="yr" style="left:%.2f%%;width:%.2f%%">%s</span>' % (pos(a), pos(b) - pos(a), esc(lab))
+        a = H
+        while a < H + V:                       # блоки видения по годам; первый — до конца года горизонта (короткая подпись «7–12»)
+            b = (a // 12 + 1) * 12
+            lab = ("год %d" % (b // 12)) if a % 12 == 0 else "%d–%d" % (a + 1, b)
+            tip = "" if a % 12 == 0 else ' title="месяцы %d–%d · видение, год %d"' % (a + 1, b, b // 12)
+            scale += '<span class="yr" style="left:%.2f%%;width:%.2f%%"%s>%s</span>' % (pos(a), pos(b) - pos(a), tip, esc(lab))
+            a = b
+        # пробелы плана: месяцы горизонта и видения без единой задачи (SM: «месяцев 7–12 нет») — заштрихованы, в легенде и в предупреждении
+        covered = set()
+        for t in tasks:
+            covered.update(range(t["start"], t["end"] + 1))
+        gaps, g0 = [], None
+        for m in range(1, max_end + 2):
+            if m <= max_end and m not in covered:
+                g0 = m if g0 is None else g0
+            elif g0 is not None:
+                gaps.append((g0, m - 1))
+                g0 = None
+        self.gantt_gaps = gaps
         phases, order = {}, []
         for i, t in enumerate(tasks):
             if t["phase"] not in phases:
@@ -3256,8 +3584,21 @@ class Builder:
             legend += ('<p class="pg-glegend small">' + " ".join(st_chip(s, GSTATUS_LABELS, GSTATUS_ICONS, "gst") for s in GSTATUS_LABELS if s in used)
                        + ' <span class="muted">· заливка полосы — доля выполненного; красная линия — сегодня (месяц плана %d, проверка %s)</span></p>'
                        % (cur, esc(text_of(self.pg.get("checked")) or "—")))
+        gap_ovl = ""
+        if gaps:
+            names = ", ".join(("%d" % a if a == b else "%d–%d" % (a, b)) for a, b in gaps)
+            for a, b in gaps:
+                x0, x1 = pos(a - 1) / 100.0, pos(b) / 100.0
+                gap_ovl += ('<div class="ggap" style="--x0:%.4f;--x1:%.4f" title="месяцы %s: задач нет" aria-hidden="true"></div>'
+                            % (x0, x1, ("%d" % a if a == b else "%d–%d" % (a, b))))
+                scale += '<b class="ggap-l" style="left:%.2f%%;width:%.2f%%" title="задач нет">нет задач</b>' % (pos(a - 1), pos(b) - pos(a - 1))
+            gin_cls += " has-gaps"
+            legend += ('<p class="small gaps-note">Месяцы без задач: %s — план не покрывает весь горизонт; на диаграмме заштрихованы. '
+                       "Дополните data/gantt.json задачами или вехами на эти месяцы.</p>" % esc(names))
+            self.warn("data/gantt.json: месяцы %s без задач — диаграмма показывает весь горизонт (план 1–%d и видение до %d-го месяца), "
+                      "пробелы заштрихованы; контракт Ганта — все месяцы горизонта и видения" % (names, H, H + V or max_end))
         inner = (legend + '<div class="gantt"><div class="gin' + gin_cls + '"><div class="ghead"><div class="gl">Задача</div><div class="gscale">'
-                 + scale + "</div></div>" + rows + today + "</div></div>")
+                 + scale + "</div></div>" + rows + today + gap_ovl + "</div></div>")
         self.add("gantt", "План и диаграмма Ганта", self.section("gantt", "План действий и диаграмма Ганта", inner))
 
     def when(self, s, e, H):
@@ -3367,9 +3708,15 @@ class Builder:
             return
         lead = ("Продукта ещё нет: все макеты — концепт продукта целиком, а не существующие экраны. " if self.concept
                 else "Все макеты — концепты, а не существующие функции. ")
+        # 1.5: галерея вариантов дизайна и рабочий прототип рядом с макетами (если есть) — живые HTML, открываются в новой вкладке
+        more = []
+        for rel, label in (("mockups/gallery.html", "галерея вариантов дизайна"), ("prototype/index.html", "рабочий прототип")):
+            if (self.out / rel).is_file() and self.rel_link(rel):
+                more.append('<a href="' + esc(self.rel_link(rel)) + '" target="_blank" rel="noopener">' + label + " ↗</a>")
         inner = ('<p class="lead">' + lead + "Нажмите на макет, чтобы рассмотреть его крупно; "
                  "у макетов с референсом поверх картинки видны нумерованные элементы с описанием.</p>"
-                 '<div class="gallery mocks">' + "".join(self.mock_fig(m) for m in ms) + "</div>")
+                 + ('<p class="small">Также: ' + " · ".join(more) + " — «Открыть интерактивный макет» в просмотре ведёт на живой HTML.</p>" if more else "")
+                 + '<div class="gallery mocks">' + "".join(self.mock_fig(m) for m in ms) + "</div>")
         self.add("mockups", "Макеты (концепты)", self.section("mockups", "Макеты ключевых экранов" if self.concept else "Макеты предлагаемых функций", self.links(inner)))
 
     # --- 10. референсы дизайна
@@ -3780,6 +4127,21 @@ class Builder:
         inner = self.md(min_heading=3).render(strip_h1(self.questions))
         self.add("questions", "Вопросы владельцу", self.links('<section id="questions" class="prose"><h2>Вопросы владельцу</h2>' + inner + "</section>"))
 
+    # --- 17. глоссарий (research/glossary.md от build_appendix.py; термины текста кликабельны — ps-ents.js)
+    def sec_glossary(self):
+        if not self.gloss:
+            return
+        trs = "".join('<tr id="gl-' + esc(g["key"]) + '"><td>' + esc(g["label"])
+                      + (' <span class="muted small">(' + esc(", ".join(g["forms"][1:])) + ")</span>" if len(g["forms"]) > 1 else "")
+                      + "</td><td>" + esc(g["what"]) + (' <span class="muted small">Источник: ' + esc(g["src"]) + "</span>" if g["src"] else "")
+                      + "</td></tr>" for g in self.gloss)
+        inner = ('<p class="lead">Термины, которые встречаются в тексте (research/glossary.md). В тексте термин подчёркнут пунктиром: наведите — '
+                 "определение, нажмите — где ещё упоминается.</p>"
+                 '<div class="toolbar"><input type="search" data-filter-table="gl-table" placeholder="Фильтр терминов…" aria-label="Фильтр терминов"></div>'
+                 '<div class="tbl"><table id="gl-table" class="data gl-table"><thead><tr><th>Термин</th><th>Что это</th></tr></thead><tbody>'
+                 + trs + "</tbody></table></div>")
+        self.add("glossary", "Глоссарий", self.section("glossary", "Глоссарий <span class=\"muted\">(%d)</span>" % len(self.gloss), self.links(inner)))
+
     # --- сборка страницы
     def nav_html(self):
         out, cur = [], ""
@@ -3923,16 +4285,31 @@ class Builder:
                 "reason": {"completed": "выполнено", "not_planned": "не планируется", "reopened": "переоткрыт", "duplicate": "дубликат"}, "checked": text_of(self.pg.get("checked"))}))
         if self.chart_page_meta and not self.site:     # single/lite: пояснения графиков — в странице (SVG уже в разметке разделов)
             pairs.append(("d-charts", self.chart_page_meta))
-        js = JS
+        if getattr(self, "mock_refs", None):            # подсказки элементов макетов (data-hs-*) — те же зоны, что у референсов
+            for i, (k, v) in enumerate(pairs):
+                if k == "d-refs":
+                    merged = dict(v)
+                    merged.update(self.mock_refs)
+                    pairs[i] = (k, merged)
+        if self.gloss:                                  # глоссарий: подсказки и кликабельные термины текста (ps-ents.js), поиск
+            pairs.append(("d-gloss", self.gloss))
+        if self.docs and not self.site:                 # прочие исследования для поиска (site — лениво, assets/search-docs.js)
+            pairs.append(("d-docs", self.docs))
+        layer_js, self.layer_css = layer_assets(self.warn)
+        # слои 1.5 (просмотр графиков и схем, поиск, сущности) — в том же скрипте сразу после app.js: хеш CSP считается по всему тексту
+        js = JS + ("\n" + layer_js if layer_js else "")
         head_js = HEAD_JS
+        self.extra = self.extras()
         if self.site:
             csp = None
         else:
             h1 = base64.b64encode(hashlib.sha256(js.encode("utf-8")).digest()).decode()
             h2 = base64.b64encode(hashlib.sha256(head_js.encode("utf-8")).digest()).decode()
+            # хуки расширения (build/extra.js, build/extra/*.js) в single/lite — свои встроенные скрипты со своими хешами
+            hx = "".join(" 'sha256-" + base64.b64encode(hashlib.sha256(t.encode("utf-8")).digest()).decode() + "'" for _, kind, t in self.extra if kind == "js")
             # --lite: картинки — файлы рядом со страницей (assets/), 'self' — только тот же источник, внешних по-прежнему нет
             img_src = "img-src data: 'self'" if self.lite else "img-src data:"
-            csp = ("default-src 'none'; " + img_src + "; style-src 'unsafe-inline'; script-src 'sha256-" + h1 + "' 'sha256-" + h2 + "'; "
+            csp = ("default-src 'none'; " + img_src + "; style-src 'unsafe-inline'; script-src 'sha256-" + h1 + "' 'sha256-" + h2 + "'" + hx + "; "
                    "font-src data:; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; "
                    "base-uri 'none'; form-action 'none'")
         metas = '<meta name="generator" content="product-strategy build_html.py">'
@@ -3968,24 +4345,60 @@ class Builder:
             '<button type="button" data-z="2">2×</button><button type="button" id="lbhs" title="Показать/скрыть элементы (H)">Элементы</button>'
             '<button type="button" data-close data-autofocus title="Закрыть (Esc)">✕ Закрыть</button></div><div id="lbview"><div id="lbwrap"><img id="lbimg" alt=""></div></div>'
             '<aside id="lbside" aria-label="Описание элементов"></aside><div class="lbhint">клик — 1:1 / вписать · Ctrl+колесо — масштаб · перетаскивание · ←/→ · H — элементы · Esc</div></div>')
+        # просмотр макетов (1.5): связанные P-id, «Открыть интерактивный макет», переключатель темы снимка
+        layers = layers.replace('<span id="lbcap"></span>', '<span id="lbcap"></span><span id="lbpids" hidden></span>'
+                                '<a id="lbopen" class="lbopen" target="_blank" rel="noopener" hidden>Открыть интерактивный макет ↗</a>'
+                                '<button type="button" id="lbtheme" hidden>Тема</button>')
         if self.chart_page_meta:
-            layers = layers.replace('<span id="lbcap"></span>', '<span id="lbcap"></span><span id="lbpids" hidden></span>') + self.chart_layers()
+            layers += self.chart_layers()
         if self.site:
             return self.assemble_site(pairs, title, metas, foot, nav, mbar, layers, js, head_js)
         data_blocks = [json_script(i, o) for i, o in pairs]
+        x_css = "".join("<style>" + t.replace("</", "<\\/") + "</style>" for _, kind, t in self.extra if kind == "css")
+        x_js = "".join("<script>" + t + "</script>" for _, kind, t in self.extra if kind == "js")
         page = ("<!doctype html>\n<html lang=\"ru\"><head><meta charset=\"utf-8\">"
                 '<meta http-equiv="Content-Security-Policy" content="' + csp + '">'
                 '<meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark">'
                 + metas + '<link rel="icon" href="data:,"><title>' + esc(title) + "</title><style>" + theme_css(self.tokens) + CSS + (CHART_CSS if self.ich else "") + (PROGRESS_CSS if self.pg else "")
-                + (CONCEPT_CSS if self.concept else "") + "</style>"
-                "<script>" + head_js + "</script></head><body>"
+                + (CONCEPT_CSS if self.concept else "") + self.layer_css + "</style>" + x_css
+                + "<script>" + head_js + "</script></head><body>"
                 '<a class="skip" href="#main">К содержанию</a>' + mbar + '<div class="wrap">' + nav + '<main id="main">'
-                + "".join(self.sections) + foot + "</main></div>" + layers + "".join(data_blocks) + "<script>" + js + "</script></body></html>\n")
+                + "".join(self.sections) + foot + "</main></div>" + layers + "".join(data_blocks) + "<script>" + js + "</script>" + x_js + "</body></html>\n")
         return page
+
+    EXTRA_MAX = 2 * 1024 * 1024
+
+    def extras(self):
+        """Хуки расширения страницы (подключаемые слои) во всех режимах: build/extra.css, build/extra.js и папка build/extra/*.css|*.js
+        (по имени файла). site — файлы assets/extra.* и assets/extra/<имя>; single/lite — встроенные <style>/<script> (у скрипта —
+        свой хеш CSP). Скрипт расширения идёт после app.js: API window.PS (on/emit/replace, data, router — references/interactive-site.md)."""
+        out = []
+        cands = [(self.out / "build" / "extra.css", "assets/extra.css", "css"), (self.out / "build" / "extra.js", "assets/extra.js", "js")]
+        d = self.out / "build" / "extra"
+        if d.is_dir():
+            for p in sorted(d.iterdir()):
+                if p.is_file() and p.suffix.lower() in (".css", ".js") and re.fullmatch(r"[\w.-]+", p.name):
+                    cands.append((p, "assets/extra/" + p.name, p.suffix.lower()[1:]))
+        for p, rel, kind in cands:
+            if not p.is_file():
+                continue
+            try:
+                t = p.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError) as e:
+                self.warn("%s не прочитан (%s) — не подключён" % (p.relative_to(self.out).as_posix(), str(e)[:80]))
+                continue
+            if len(t.encode("utf-8")) > self.EXTRA_MAX:
+                self.warn("%s больше 2 МБ — не подключён" % p.relative_to(self.out).as_posix())
+                continue
+            if kind == "js" and not self.site and re.search(r"</script", t, re.I):
+                self.warn("%s содержит «</script» — в single/lite не встраивается (используйте сборку site)" % p.relative_to(self.out).as_posix())
+                continue
+            out.append((rel, kind, t))
+        return out
 
     # --- режим site: оболочка index.html + assets/app.css, app.js, data.js, head.js (+ extra.*, charts.js)
     def assemble_site(self, pairs, title, metas, foot, nav, mbar, layers, js, head_js):
-        css = theme_css(self.tokens) + CSS + (CHART_CSS if self.ich else "") + (PROGRESS_CSS if self.pg else "") + (CONCEPT_CSS if self.concept else "")
+        css = theme_css(self.tokens) + CSS + (CHART_CSS if self.ich else "") + (PROGRESS_CSS if self.pg else "") + (CONCEPT_CSS if self.concept else "") + self.layer_css
         body_data = json.dumps({i: clean_json(o) for i, o in pairs}, ensure_ascii=False, separators=(",", ":"))
         body_data = body_data.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
         body_data = body_data.replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
@@ -4002,13 +4415,11 @@ class Builder:
                 {"svg": c["svg"], "meta": self.chart_page_meta[c["key"]]}) + ";\n" for c in cs)
             files["assets/charts-%s.js" % g] = ("/* product-strategy: интерактивные графики группы «%s» — SVG и пояснения к элементам "
                                                 "(подключается страницей при показе графика) */\n" % g) + body
-        for ext in ("css", "js"):                          # необязательные пользовательские правки из <OUT>/build/extra.{css,js}
-            ep = self.out / "build" / ("extra." + ext)
-            if ep.is_file():
-                try:
-                    files["assets/extra." + ext] = ep.read_text(encoding="utf-8")
-                except (OSError, UnicodeDecodeError) as e:
-                    self.warn("build/extra.%s не прочитан (%s) — не подключён" % (ext, str(e)[:80]))
+        for rel, kind, t in self.extra:                    # хуки расширения: build/extra.{css,js}, build/extra/*.{css,js}
+            files[rel] = t
+        if self.docs:                                      # прочие исследования для поиска — подгружаются при первом поиске
+            files["assets/search-docs.js"] = ("/* product-strategy: тексты research/*.md для сквозного поиска (подключается при первом поиске) */\n"
+                                              "window.PS_DOCS=" + js_literal(self.docs) + ";\n")
         self.site_files = {k: v.encode("utf-8") for k, v in files.items()}
 
         def url(rel):
@@ -4026,12 +4437,16 @@ class Builder:
         head = ('<meta name="referrer" content="no-referrer"><meta name="viewport" content="width=device-width, initial-scale=1">'
                 '<meta name="color-scheme" content="light dark">')
         links = '<link rel="stylesheet" href="' + url("assets/app.css") + '">'
-        if "assets/extra.css" in self.site_files:
-            links += '<link rel="stylesheet" href="' + url("assets/extra.css") + '">'
+        for rel, kind, _ in self.extra:
+            if kind == "css":
+                links += '<link rel="stylesheet" href="' + url(rel) + '">'
+        if "assets/search-docs.js" in self.site_files:
+            head += '<meta name="ps-docs" content="' + url("assets/search-docs.js") + '">'
         scripts = '<script src="' + url("assets/data.js") + '"></script>'
         scripts += '<script src="' + url("assets/app.js") + '"></script>'
-        if "assets/extra.js" in self.site_files:
-            scripts += '<script src="' + url("assets/extra.js") + '"></script>'
+        for rel, kind, _ in self.extra:
+            if kind == "js":
+                scripts += '<script src="' + url(rel) + '"></script>'
         page = ("<!doctype html>\n<html lang=\"ru\"><head><meta charset=\"utf-8\">" + sec + head + metas
                 + '<link rel="icon" href="data:,"><title>' + esc(title) + "</title>" + links
                 + '<script src="' + url("assets/head.js") + '"></script></head><body>'
@@ -4614,6 +5029,9 @@ function txt(v) { if (v == null) return ''; if (typeof v === 'boolean') return v
 function fmt(v) { if (v == null || v === '') return ''; if (typeof v !== 'number') return String(v); if (!isFinite(v)) return '—'; if (Number.isInteger(v)) return v.toLocaleString('ru-RU'); return v.toLocaleString('ru-RU', { maximumFractionDigits: Math.abs(v) < 10 ? 2 : 1 }); }
 function money(c) { if (!c || typeof c !== 'object') return txt(c); var lo = c.min, hi = c.max, s = ''; if (lo == null && hi == null) s = ''; else if (lo === hi || hi == null) s = fmt(lo); else if (lo == null) s = 'до ' + fmt(hi); else s = fmt(lo) + '–' + fmt(hi); s = (s + ' ' + (c.currency || '')).trim(); if (c.note) s += ' (' + c.note + ')'; return s; }
 function norm(s) { return String(s || '').toLowerCase().replace(/ё/g, 'е').trim(); }
+/* поиск в реестре, конкурентах и таблицах: несколько слов — все в любом порядке, «фраза в кавычках» — целиком; регистр и е/ё не важны */
+function qWords(q) { var out = [], m, re = /"([^"]+)"|«([^»]+)»|(\S+)/g; q = norm(q); while ((m = re.exec(q))) { var w = (m[1] || m[2] || m[3] || '').replace(/\s+/g, ' ').trim(); if (w) out.push(w); } return out; }
+function hayHas(h, ws) { for (var i = 0; i < ws.length; i++) if (h.indexOf(ws[i]) < 0) return false; return true; }
 function badge(kind, v) { if (!v) return ''; var t = kind === 'q' ? lab('quadrant', v) : v; return '<span class="b b-' + esc(String(v).replace(/[^\w-]/g, '-')) + '">' + esc(t) + '</span>'; }
 function tag(t, cls) { return t === '' || t == null ? '' : '<span class="tag' + (cls ? ' ' + cls : '') + '">' + esc(t) + '</span>'; }
 function pidLink(id) { var r = BYID[id]; if (!r) return esc(id); return '<a class="pid" href="#p=' + esc(id) + '" data-pid="' + esc(id) + '" title="' + esc(id + ' — ' + r.title) + '">' + esc(id) + '</a>'; }
@@ -4628,6 +5046,7 @@ function fillImgs(root) { $$('img[data-img]', root).forEach(function (im) { if (
 var PIDRE = /(^|[^\p{L}\p{N}_-])(P\d{3})(?![\p{L}\p{N}_-])/gu;   /* без lookbehind: старые Safari */
 var SKIP = { A: 1, SCRIPT: 1, STYLE: 1, TEXTAREA: 1, SELECT: 1, OPTION: 1, BUTTON: 1, TITLE: 1, INPUT: 1 };
 function linkifyEl(root) {
+  if (root && window.PS && window.PS.ents) safe('ents', function () { window.PS.ents(root); });   /* G-id, «раздел N», термины… — ps-ents.js */
   if (!root || !REG.length) return;
   var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: function (n) {
     if (!/P\d{3}/.test(n.nodeValue)) return NodeFilter.FILTER_REJECT;
@@ -4656,24 +5075,27 @@ function syncHash() {
   } catch (e) { /* file:// без history — не критично */ }
 }
 function restack() { stack.forEach(function (el, i) { el.style.zIndex = String(1000 + i * 10); }); document.documentElement.classList.toggle('locked', stack.length > 0); syncHash(); }
-function openLayer(el) { var i = stack.indexOf(el); if (i >= 0) stack.splice(i, 1); else el._opener = document.activeElement; stack.push(el); el.classList.add('open'); el.setAttribute('aria-hidden', 'false'); restack(); var f = el.querySelector('[data-autofocus]'); if (f) { try { f.focus({ preventScroll: true }); } catch (e) {} } }
+function openLayer(el) { var i = stack.indexOf(el); if (i >= 0) stack.splice(i, 1); else el._opener = document.activeElement; stack.push(el); el.classList.add('open'); el.setAttribute('aria-hidden', 'false'); restack(); var f = el.querySelector('[data-autofocus]'); if (f) { try { f.focus({ preventScroll: true }); } catch (e) {} } emitPS('layer:open', el.id); }
 function closeLayer(el) {
   el = el || stack[stack.length - 1]; if (!el) return; var i = stack.indexOf(el); if (i < 0) return;
   stack.splice(i, 1); el.classList.remove('open'); el.setAttribute('aria-hidden', 'true');
   if (el === pm) { pm.removeAttribute('data-id'); pmHist.length = 0; }
   if (el === lb) { LB.cur = null; lbimg.removeAttribute('src'); }
   restack(); var o = el._opener; el._opener = null; if (o && o.focus && document.contains(o)) { try { o.focus({ preventScroll: true }); } catch (e) {} }
+  emitPS('layer:close', el.id);
 }
 function closeAll() { while (stack.length) closeLayer(); }
 function topLayer() { return stack[stack.length - 1] || null; }
 
 /* ---------- карточка предложения ---------- */
 var pmHist = [];
-/* телефон: второстепенные секции карточки свёрнуты (<details>), иначе карточка в одну колонку — 2–4 тыс. px */
-var NARROW = window.matchMedia ? window.matchMedia('(max-width: 640px)') : { matches: false };
-function sec(title, h, cls, fold) {
+/* телефон и планшет (≤ 900 px): карточка свёрнута по умолчанию — открыта только «Суть» (и «Выполнение»), остальное (KPI, шаги, затраты,
+   оценки, доказательства, связи, концепт) — строки «Подробнее» с числом пунктов (<details>); иначе в одну колонку карточка — 2,5–4,5 тыс. px
+   (FB-039, SM 6.4) */
+var NARROW = window.matchMedia ? window.matchMedia('(max-width: 900px)') : { matches: false };
+function sec(title, h, cls, fold, n) {
   if (!h) return '';
-  if (fold && NARROW.matches) return '<details class="dsec fold' + (cls ? ' ' + cls : '') + '"><summary>' + title + '</summary>' + h + '</details>';
+  if (fold && NARROW.matches) return '<details class="dsec fold' + (cls ? ' ' + cls : '') + '"><summary>' + title + (n ? ' <span class="dsec-n">· ' + n + '</span>' : '') + '</summary>' + h + '</details>';
   return '<section class="dsec' + (cls ? ' ' + cls : '') + '"><h4>' + title + '</h4>' + h + '</section>';
 }
 function kv(pairs) { var h = pairs.filter(function (p) { return p[1] !== '' && p[1] != null; }).map(function (p) { return '<dt>' + p[0] + '</dt><dd>' + p[1] + '</dd>'; }).join(''); return h ? '<dl class="kv">' + h + '</dl>' : ''; }
@@ -4714,11 +5136,12 @@ function detail(r) {
   (mn.kanban || []).forEach(function (k) { ment.push('<li>Kanban: <a href="#kanban" data-k-open="' + k.i + '">колонка «' + esc(k.t) + '»</a></li>'); });
   (mn.flows || []).forEach(function (f) { ment.push('<li>Схема «' + esc(f.f) + '»: <a href="#flows" data-node-open="' + esc(f.id) + '">' + esc(f.t) + '</a></li>'); });
   var rel = kv([['Зависит от', deps], ['От него зависят', rdeps], ['Источник', esc(r.source_group) + ((r.merged_from || []).length ? ' · объединено из ' + esc(r.merged_from.join(', ')) : '')]]);
-  return '<div class="detail">' + sec('Суть', essence) + (r.pg ? sec('Выполнение', pgHtml(r), 'wide pg') : '') + sec('Эффект и KPI', kpi ? '<ul>' + kpi + '</ul>' : '') + sec('Шаги', steps ? '<ol>' + steps + '</ol>' : '', '', 1)
-    + sec('Затраты и проверка', costs) + sec('Риски (1–5)', risks, '', 1) + sec('Классификация', cls, '', 1)
+  var nk = (r.effect_kpi || []).length, ns = (r.steps || []).length, ne = (r.evidence || []).length;
+  return '<div class="detail">' + sec('Суть', essence) + (r.pg ? sec('Выполнение', pgHtml(r), 'wide pg') : '') + sec('Эффект и KPI', kpi ? '<ul>' + kpi + '</ul>' : '', '', 1, nk) + sec('Шаги', steps ? '<ol>' + steps + '</ol>' : '', '', 1, ns)
+    + sec('Затраты и проверка', costs, '', 1) + sec('Риски (1–5)', risks, '', 1) + sec('Классификация', cls, '', 1)
     + sec('Оценки 1–5', scoreChips + (scoreChips && missingSubs.length && missingSubs.length < subs.length ? '<p class="muted small">Остальные подшкалы (' + missingSubs.length + ' из ' + subs.length + ') не заданы — в расчётах равны «Ценности».</p>' : ''), '', 1)
-    + sec('Расчётные метрики', idx + calc + ts, '', 1) + sec('Доказательства (класс ' + esc(r.evidence_class || '—') + ')', ev ? '<ul>' + ev + '</ul>' : '', '', 1)
-    + sec('Связи', rel + (ment.length ? '<ul>' + ment.join('') + '</ul>' : ''), '', 1) + sec('Концепт дизайна', conceptsHtml(r), 'wide') + '</div>';
+    + sec('Расчётные метрики', idx + calc + ts, '', 1) + sec('Доказательства (класс ' + esc(r.evidence_class || '—') + ')', ev ? '<ul>' + ev + '</ul>' : '', '', 1, ne)
+    + sec('Связи', rel + (ment.length ? '<ul>' + ment.join('') + '</ul>' : ''), '', 1) + sec('Концепт дизайна', conceptsHtml(r), 'wide', 1, (r.concepts || []).length) + '</div>';
 }
 function openProposal(id, fromHist) {
   var r = BYID[id]; if (!r) return;
@@ -4782,12 +5205,12 @@ function pass(r, f, q) {
     else if (k === 'has_mockup') { if ((v === 'yes') !== !!r.has_mockup) return false; }
     else if (String(r[k] || '') !== v) return false; }
   if (QF && !qpass(r)) return false;
-  return !q || r._hay.indexOf(q) >= 0;
+  return !q || hayHas(r._hay, q);
 }
 function renderReg() {
   var tb = $('#tb'); if (!tb) return;
   var f = filters(), q = norm($('#q').value);
-  shown = REG.filter(function (r) { return pass(r, f, q); });
+  var qs = qWords(q); shown = REG.filter(function (r) { return pass(r, f, qs.length ? qs : ''); });
   shown.sort(function (a, b) { var x = val(a, sortK), y = val(b, sortK); if (x == null && y == null) return a.id < b.id ? -1 : 1; if (x == null) return 1; if (y == null) return -1;
     var d = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'ru', { numeric: true }); return d ? d * sortD : (a.id < b.id ? -1 : 1); });
   var cols = visCols.slice(), extra = null;
@@ -4866,6 +5289,7 @@ function openNode(id) {
 var lbimg = $('#lbimg'), lbwrap = $('#lbwrap'), lbview = $('#lbview'), lbside = $('#lbside');
 function lbFigs() { return $$('.lb[data-key]'); }
 function openLB(el) {
+  if (window.PS && window.PS.isReplaced('lightbox')) return;              /* просмотр картинок взяло расширение (PS.replace) */
   var g = el.getAttribute('data-group') || '', seen = {};
   LB.items = lbFigs().filter(function (f) { return (f.getAttribute('data-group') || '') === g && IMG[f.getAttribute('data-key')]; }).filter(function (f) { var k = f.getAttribute('data-key') + '|' + (f.getAttribute('data-ref') || ''); if (seen[k]) return false; seen[k] = 1; return true; });
   if (!LB.items.length) return;
@@ -4874,8 +5298,13 @@ function openLB(el) {
 }
 function lbStep(d) { if (LB.items.length < 2) return; LB.idx = (LB.idx + d + LB.items.length) % LB.items.length; lbShow(); }
 function lbShow() {
-  var f = LB.items[LB.idx]; LB.cur = f; var key = f.getAttribute('data-key'), ref = REFS[f.getAttribute('data-ref')] || null;
+  var f = LB.items[LB.idx]; LB.cur = f; LB.alt = false; var key = f.getAttribute('data-key'), ref = REFS[f.getAttribute('data-ref')] || null;
   lbimg.removeAttribute('style'); lbimg.src = IMG[key]; lbimg.alt = f.getAttribute('data-cap') || '';
+  /* 1.5: «Открыть интерактивный макет» (живой HTML; с подсказками элементов — #hs) и переключатель второй темы снимка */
+  var lo = $('#lbopen'), hu = f.getAttribute('data-html') || (ref && ref.html) || '';
+  if (lo) { lo.hidden = !hu; if (hu) lo.setAttribute('href', hu + (ref && ref.mock && (ref.hotspots || []).length && hu.indexOf('#') < 0 ? '#hs' : '')); else lo.removeAttribute('href'); }
+  var lt = $('#lbtheme'), alt = f.getAttribute('data-alt');
+  if (lt) { lt.hidden = !(alt && IMG[alt]); lt.textContent = 'Тема: ' + themeName(f.getAttribute('data-alt-theme')); lt.setAttribute('aria-pressed', 'false'); }
   $('#lbcap').textContent = (f.getAttribute('data-cap') || '').replace(/\s+/g, ' ');
   var lpp = $('#lbpids'), pids = (f.getAttribute('data-pids') || '').split(/\s+/).filter(function (x) { return BYID[x]; });
   if (lpp) { lpp.innerHTML = pids.length ? 'Предложения: ' + pids.map(pidLink).join(' ') : ''; lpp.hidden = !pids.length; }
@@ -4888,9 +5317,13 @@ function lbShow() {
     var hs = ref.hotspots || [];
     lbside.innerHTML = '<h3>' + esc(ref.title) + '</h3><div class="meta">' + ((ref.proposals || []).length ? 'Предложения: ' + ref.proposals.map(pidLink).join(' ') : 'Общий дизайн') + (ref.kind ? ' · ' + esc(ref.kind) : '') + '</div>'
       + (ref.summary ? '<p>' + esc(ref.summary) + '</p>' : '') + (ref.entry ? '<p class="meta">Точка входа: ' + esc(ref.entry) + '</p>' : '')
-      + '<div class="hslist">' + hs.map(function (h) { return '<div class="hsitem" data-n="' + esc(h.n) + '"><span class="hsn">' + esc(h.n) + '</span><div><b>' + esc(h.title) + (h.state ? ' <span class="st st-' + esc(h.state) + '">' + esc({ new: 'новое', changed: 'изменено', shared: 'общий дизайн' }[h.state] || h.state) + '</span>' : '') + '</b><span>' + esc(h.text) + '</span>' + (h.proposal ? ' ' + pidLink(h.proposal) : '') + '</div></div>'; }).join('') + '</div>'
+      + '<div class="hslist">' + hs.map(function (h) { var pids = (h.pids && h.pids.length ? h.pids : h.proposal ? [h.proposal] : []), secs = (h.sec || []).filter(function (n) { return document.getElementById('s-' + n); });
+        return '<div class="hsitem" data-n="' + esc(h.n) + '"><span class="hsn">' + esc(h.n) + '</span><div><b>' + esc(h.title) + (h.state ? ' <span class="st st-' + esc(h.state) + '">' + esc({ new: 'новое', changed: 'изменено', shared: 'общий дизайн' }[h.state] || h.state) + '</span>' : '') + '</b><span>' + esc(h.text) + '</span>'
+          + (h.why ? '<span class="hs-sec">Для чего: ' + esc(h.why) + '</span>' : '') + (pids.length ? ' ' + pids.map(pidLink).join(' ') : '')
+          + (secs.length ? ' <span class="hs-sec">' + secs.map(function (n) { return '<a href="#s' + n + '">раздел ' + n + '</a>'; }).join(', ') + '</span>' : '') + '</div></div>'; }).join('') + '</div>'
       + ((ref.todo || []).length ? '<details open><summary>Что доделать (' + ref.todo.length + ')</summary><ul>' + ref.todo.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul></details>' : '')
-      + '<p class="meta"><a href="#ref-' + esc(f.getAttribute('data-ref')) + '">Карточка референса →</a></p>';
+      + (ref.mock ? (hu ? '<p class="meta"><a href="' + esc(hu) + ((ref.hotspots || []).length && hu.indexOf('#') < 0 ? '#hs' : '') + '" target="_blank" rel="noopener">Открыть интерактивный макет с подсказками ↗</a></p>' : '')
+        : '<p class="meta"><a href="#ref-' + esc(f.getAttribute('data-ref')) + '">Карточка референса →</a></p>');
     hs.forEach(function (h) { if (h.l == null) return;
       var box = document.createElement('div'); box.className = 'hsbox'; box.setAttribute('data-n', h.n); box.style.cssText = 'left:' + h.l + '%;top:' + h.t + '%;width:' + h.w + '%;height:' + h.h + '%'; lbwrap.appendChild(box);
       var sel = document.createElement('div'); sel.className = 'hsel'; sel.setAttribute('data-n', h.n); sel.style.cssText = box.style.cssText; lbwrap.appendChild(sel);
@@ -4898,7 +5331,10 @@ function lbShow() {
   }
   if (lbimg.complete && lbimg.naturalWidth) setZoom(LB.zoom); syncHash();
 }
-function baseWidth() { var key = LB.cur && LB.cur.getAttribute('data-key'); var d = DIMS[key] || [lbimg.naturalWidth, lbimg.naturalHeight]; var ref = REFS[LB.cur && LB.cur.getAttribute('data-ref')]; var nw = d[0] || 0, nh = d[1] || 0; if (ref && ref.w) { return [ref.w, ref.h || (nh * ref.w / (nw || 1))]; } var sc = ref && ref.scale > 0 ? ref.scale : 1; return [nw / sc, nh / sc]; }
+function themeName(t) { return { dark: 'тёмная', light: 'светлая' }[t] || 'другая'; }
+function lbTheme() { var f = LB.cur, alt = f && f.getAttribute('data-alt'); if (!alt || !IMG[alt]) return; LB.alt = !LB.alt; lbimg.src = IMG[LB.alt ? alt : f.getAttribute('data-key')];
+  var lt = $('#lbtheme'); if (lt) { lt.setAttribute('aria-pressed', String(LB.alt)); lt.textContent = 'Тема: ' + (LB.alt ? 'основная' : themeName(f.getAttribute('data-alt-theme'))); } }
+function baseWidth() { var key = LB.cur && (LB.alt && LB.cur.getAttribute('data-alt') || LB.cur.getAttribute('data-key')); var d = DIMS[key] || [lbimg.naturalWidth, lbimg.naturalHeight]; var ref = REFS[LB.cur && LB.cur.getAttribute('data-ref')]; var nw = d[0] || 0, nh = d[1] || 0; if (ref && ref.w) { return [ref.w, ref.h || (nh * ref.w / (nw || 1))]; } var sc = ref && ref.scale > 0 ? ref.scale : 1; return [nw / sc, nh / sc]; }
 function setZoom(z) {
   LB.zoom = z; var b = baseWidth(), bw = b[0], bh = b[1]; if (!bw || !bh) return;
   var aw = Math.max(60, lbview.clientWidth - 32), ah = Math.max(60, lbview.clientHeight - 32);
@@ -4929,7 +5365,7 @@ function renderComp() {
   var q = norm(($('#cq') || {}).value), ty = ($('#ctype') || {}).value || '';
   var show = { them: !$('#cthem') || $('#cthem').checked, us: !$('#cus') || $('#cus').checked, best: !$('#cbest') || $('#cbest').checked, design: !$('#cdesign') || $('#cdesign').checked };
   var all = COMP.filter(function (c) { return !c.self; });
-  var list = all.filter(function (c) { return (!ty || c.type === ty) && (!q || c._hay.indexOf(q) >= 0); });
+  var qs = qWords(q), list = all.filter(function (c) { return (!ty || c.type === ty) && (!qs.length || hayHas(c._hay, qs)); });
   $('#ccount').textContent = 'Показано: ' + list.length + ' из ' + all.length;
   grid.innerHTML = list.map(function (c) { return compCard(c, show); }).join('') || '<p class="muted">Ничего не найдено.</p>';
   fillImgs(grid); linkifyEl(grid); renderMatrix(list);
@@ -4960,7 +5396,7 @@ function initTables() {
       return String(x).localeCompare(String(y), 'ru', { numeric: true }) * dir; });
     rows.forEach(function (r) { tb.appendChild(r); }); }); }); });
   $$('input[data-filter-table]').forEach(function (inp) { inp.addEventListener('input', function () { var t = document.getElementById(inp.getAttribute('data-filter-table')); if (!t) return; var q = norm(inp.value);
-    Array.prototype.forEach.call(t.tBodies[0].rows, function (r) { r.hidden = !!q && norm(r.textContent).indexOf(q) < 0; }); }); });
+    var qs = qWords(q); Array.prototype.forEach.call(t.tBodies[0].rows, function (r) { r.hidden = !!qs.length && !hayHas(norm(r.textContent), qs); }); }); });
 }
 
 /* ---------- навигация: scrollspy, мобильное меню, тема ---------- */
@@ -4982,18 +5418,8 @@ function toggleNav(on) { document.body.classList.toggle('nav-open', on); var b =
 var THEMES = ['auto', 'light', 'dark'], THEME_T = { auto: 'Тема: авто', light: 'Тема: светлая', dark: 'Тема: тёмная' }, theme = 'auto';
 function applyTheme(t) { theme = THEMES.indexOf(t) >= 0 ? t : 'auto'; if (theme === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', theme); $$('[data-theme-btn]').forEach(function (b) { b.textContent = THEME_T[theme]; b.setAttribute('data-mode', theme); }); }
 
-/* ---------- схемы как картинки (для лайтбокса) ---------- */
-function flowImages() {
-  $$('.flowsvg').forEach(function (w) {
-    var svg = w.querySelector('svg'), key = w.getAttribute('data-imgkey'); if (!svg || !key) return;
-    var c = svg.cloneNode(true); c.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-    var vb = (svg.getAttribute('viewBox') || '').split(/[\s,]+/).map(Number);
-    if (vb.length === 4 && vb[2] > 0 && vb[3] > 0) { c.setAttribute('width', vb[2]); c.setAttribute('height', vb[3]); DIMS[key] = [vb[2], vb[3]]; }
-    c.setAttribute('style', 'font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#fff');
-    $$('style', c).forEach(function (st) { st.textContent = st.textContent.split('#' + w.id + ' ').join('').split('#' + w.id).join('svg'); });
-    IMG[key] = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(c));
-  });
-}
+/* схемы увеличиваются живыми в просмотре ps-interact.js (кнопка «🔍 Увеличить»); старые ссылки #lb=flow-<ключ> открывают его же */
+function openViewer(key, sel) { return !!(window.PSI && window.PSI.open(key, sel)); }
 
 /* ---------- интерактивные графики: панель пояснений, подсветка, ленивая подгрузка (references/interactive-site.md, 2.3) ---------- */
 /* single/lite: SVG — в разметке, пояснения — блок d-charts {ключ: meta}; site: window.PS_CHARTS[ключ] = {svg, meta} из
@@ -5013,11 +5439,7 @@ function chartFig(key) { return $('figure.ps-ichart.ps-primary[data-chart="' + c
 function initChart(fig) {
   if (!fig || fig.classList.contains('ps-ready')) return;
   var svg = svgOf(fig), key = fig.getAttribute('data-chart'); if (!svg || !chMeta(key)) return;
-  try {   /* копия для лайтбокса («увеличить») — до правок ниже */
-    var c = svg.cloneNode(true), vb = (svg.getAttribute('viewBox') || '').split(/[\s,]+/).map(Number); c.setAttribute('xmlns', SVGNS);
-    if (vb.length === 4 && vb[2] > 0 && vb[3] > 0) { c.setAttribute('width', vb[2]); c.setAttribute('height', vb[3]); DIMS['c-' + key] = [vb[2], vb[3]]; }
-    IMG['c-' + key] = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(c));
-  } catch (e) { /* без увеличения */ }
+  /* увеличение — живой SVG в просмотре ps-interact.js (кнопка «🔍 Увеличить»), плоская картинка-копия больше не нужна */
   $$('.ps-el[data-ps-el]', svg).forEach(function (g, i) {
     for (var ch = g.firstElementChild; ch; ch = ch.nextElementSibling) { if (ch.localName === 'title') { g.setAttribute('data-tip', ch.textContent); g.removeChild(ch); break; } }
     g.setAttribute('tabindex', i ? '-1' : '0');   /* одна остановка Tab на график, внутри — ←/→ */
@@ -5063,8 +5485,12 @@ function cpHtml(e, hlN) {
   if (e.meaning) h += '<section><h4>Что значит</h4><p>' + esc(e.meaning) + '</p></section>';
   if ((e.actions || []).length) h += '<section><h4>Что делать</h4><ul>' + e.actions.map(function (a) { return '<li>' + esc(a) + '</li>'; }).join('') + '</ul></section>';
   if ((e.metrics || []).length) h += '<section><h4>Метрики</h4><dl class="cp-mx">' + e.metrics.map(function (x) { return '<dt>' + esc(x.label) + '</dt><dd>' + esc(x.value === '' || x.value == null ? '—' : x.value) + (x.tag ? ' <span class="tag" title="метка достоверности">' + esc(x.tag) + '</span>' : '') + '</dd>'; }).join('') + '</dl></section>';
+  /* FB-035, п. 4: «Связанные предложения» (ссылки #p/… — строка реестра; P-id в тексте — карточка) и «Где на странице» (разделы, план, макеты…) */
   var ls = (e.links || []).filter(function (l) { return /^#[\w\/?=&.-]+$/.test(String(l.href || '')); });
-  if (ls.length) h += '<section><h4>Ссылки</h4><ul class="cp-links">' + ls.map(function (l) { return '<li><a href="' + esc(l.href) + '">' + esc(l.label || l.href) + '</a></li>'; }).join('') + '</ul></section>';
+  var lp = ls.filter(function (l) { return /^#p[\/=]P\d+$/.test(l.href); }), lo = ls.filter(function (l) { return !/^#p[\/=]P\d+$/.test(l.href); });
+  var li = function (l) { var m = /^#p[\/=](P\d+)$/.exec(l.href), r = m && BYID[m[1]]; return '<li><a href="' + esc(l.href) + '">' + esc(l.label || l.href) + '</a>' + (r && (l.label || '').indexOf(r.title) < 0 ? ' <span class="muted">' + esc(r.title) + '</span>' : '') + '</li>'; };
+  if (lp.length) h += '<section><h4>Связанные предложения</h4><ul class="cp-links">' + lp.map(li).join('') + '</ul></section>';
+  if (lo.length) h += '<section><h4>Где на странице</h4><ul class="cp-links">' + lo.map(li).join('') + '</ul></section>';
   if (hlN) h += '<p class="small muted">На графике подсвечено элементов: ' + hlN + '.</p>';
   return h || '<p class="muted">Пояснение к элементу не задано.</p>';
 }
@@ -5089,6 +5515,7 @@ function selectEl(fig, id, opt) {
   if (el && opt.focus !== false) focusEl(el);
   if (el) ensureVisible(el);
   setChartHash('#chart/' + key + '/' + id);
+  emitPS('chart:select', { key: key, id: id });
   return true;
 }
 function closePanel(ret) {
@@ -5221,12 +5648,30 @@ function go(h) {
         flash(f);
       });
       return true;
-    case 'lb': var ck = /^c-(.+)$/.exec(r.key); if (ck && chartFig(ck[1])) return go('#chart/' + ck[1]); return false;
+    case 'lb': var ck = /^c-(.+)$/.exec(r.key); if (ck && chartFig(ck[1])) return go('#chart/' + ck[1]);
+      var fk = /^flow-(.+)$/.exec(r.key); if (fk) return openViewer(fk[1]); return false;
   }
   return false;
 }
 window.PS_ROUTER = { parse: parseHref, resolve: resolveTarget, go: go, select: function (key, id) { var f = chartFig(key); return !!f && f.classList.contains('ps-ready') && selectEl(f, id); },
   close: function () { closePanel(true); }, loadAll: loadAllCharts, meta: chMeta, state: function () { return { open: CP.open, key: CP.key, id: CP.id }; } };
+
+/* ---------- хуки расширения (1.5): window.PS — данные, роутер, окна и события страницы ----------
+   Слои страницы (ps-interact.js, ps-search.js, ps-ents.js) и пользовательские build/extra.js, build/extra/*.js работают через него:
+   PS.on('ready'|'chart:select'|'layer:open'|'layer:close'|'viewer:open'|'viewer:close'|'viewer:select'|'search:open', fn) — событие уже
+   было (ready) → fn вызывается сразу; PS.replace('lightbox'|'viewer'|'search'|'entities') — расширение берёт компонент на себя: встроенный
+   слой не срабатывает, smoke_html.mjs пропускает его проверки с пояснением (<html data-ps-replaced="…">). */
+var HOOKS = {}, FIRED = {}, REPLACED = {};
+window.PS = {
+  version: '1.5', data: J, esc: esc, router: window.PS_ROUTER,
+  openProposal: openProposal, openInfo: openInfo, openNode: openNode, openGantt: openGantt, openKanban: openKanban,
+  openLayer: openLayer, closeLayer: closeLayer, closeAll: closeAll, linkify: function (root) { linkifyEl(root); },
+  on: function (ev, fn) { (HOOKS[ev] = HOOKS[ev] || []).push(fn); if (FIRED[ev]) safe('hook ' + ev, function () { fn(FIRED[ev].arg); }); return window.PS; },
+  emit: function (ev, arg) { if (ev === 'ready') FIRED[ev] = { arg: arg }; (HOOKS[ev] || []).slice().forEach(function (fn) { safe('hook ' + ev, function () { fn(arg); }); }); },
+  replace: function (name) { REPLACED[name] = 1; document.documentElement.setAttribute('data-ps-replaced', Object.keys(REPLACED).join(' ')); return window.PS; },
+  isReplaced: function (name) { return !!REPLACED[name]; }, replaced: function () { return Object.keys(REPLACED); }
+};
+function emitPS(ev, arg) { if (window.PS && window.PS.emit) window.PS.emit(ev, arg); }
 
 /* ---------- события ---------- */
 document.addEventListener('click', function (e) {
@@ -5297,17 +5742,33 @@ document.addEventListener('click', function (e) {
   try { if (location.hash !== h) history.pushState(null, '', h); } catch (x) { /* file:// без history */ }
   go(h);
 });
-document.addEventListener('focusin', function (e) { var t = e.target; if (t && t.matches && t.matches('svg[data-ps-chart] .ps-el')) focusRing(t); });
-document.addEventListener('focusout', function (e) { var t = e.target; if (t && t.matches && t.matches('svg[data-ps-chart] .ps-el')) ring(t.ownerSVGElement, null, 'ps-foc'); });
-/* подсказка при наведении — короткое название элемента */
-function tipFor(t) { var g = t && t.closest ? t.closest('svg[data-ps-chart] [data-ps-ref], svg[data-ps-chart] .ps-el') : null, f = figOf(g); if (!g || !f || !f.classList.contains('ps-ready')) return null;
-  var id = g.getAttribute('data-ps-ref') || g.getAttribute('data-ps-el'), i = chFind(f.getAttribute('data-chart'), id); return i >= 0 ? chEls(f.getAttribute('data-chart'))[i].title : g.getAttribute('data-tip'); }
-function tipMove(e) {
-  if (!cpTip) return; var txt = e.pointerType === 'touch' ? null : tipFor(e.target);
-  if (!txt) { if (!cpTip.hidden) cpTip.hidden = true; return; }
-  if (cpTip.textContent !== txt) cpTip.textContent = txt;
+document.addEventListener('focusin', function (e) { var t = e.target; if (t && t.matches && t.matches('svg[data-ps-chart] .ps-el')) { focusRing(t); tipFocus(t); } });
+document.addEventListener('focusout', function (e) { var t = e.target; if (t && t.matches && t.matches('svg[data-ps-chart] .ps-el')) { ring(t.ownerSVGElement, null, 'ps-foc'); if (cpTip && cpTip._focus) { cpTip.hidden = true; cpTip._focus = false; } } });
+/* подсказка при наведении и фокусе — мгновенная, «название + первое предложение „что это“» (FB-035, п. 3); системный <title> снят */
+function firstSent(s) { var w = String(s || ''), m = w.match(/^[\s\S]*?[.!?](?=\s|$)/); w = m ? m[0] : w; return w.length > 150 ? w.slice(0, 147) + '…' : w; }
+function tipHtml(g) {
+  var f = figOf(g); if (!g || !f || !f.classList.contains('ps-ready')) return null;
+  var id = g.getAttribute('data-ps-ref') || g.getAttribute('data-ps-el'), key = f.getAttribute('data-chart'), i = chFind(key, id);
+  if (i < 0) return g.getAttribute('data-tip') ? '<b>' + esc(g.getAttribute('data-tip')) + '</b>' : null;
+  var e = chEls(key)[i], s = firstSent(e.summary);
+  return '<b>' + esc(e.title || id) + '</b>' + (s ? '<span>' + esc(s) + '</span>' : '') + '<em>Нажмите — подробности</em>';
+}
+function tipFor(t) { var g = t && t.closest ? t.closest('svg[data-ps-chart] [data-ps-ref], svg[data-ps-chart] .ps-el') : null; return g ? tipHtml(g) : null; }
+function tipPlace(html, x, y) {
+  if (cpTip.getAttribute('data-h') !== html) { cpTip.innerHTML = html; cpTip.setAttribute('data-h', html); }
   cpTip.hidden = false; var w = cpTip.offsetWidth, hgt = cpTip.offsetHeight;
-  cpTip.style.left = Math.max(4, Math.min(innerWidth - w - 4, e.clientX + 14)) + 'px'; cpTip.style.top = Math.max(4, e.clientY - hgt - 12 < 4 ? e.clientY + 18 : e.clientY - hgt - 12) + 'px';
+  cpTip.style.left = Math.max(4, Math.min(innerWidth - w - 4, x + 14)) + 'px';
+  cpTip.style.top = Math.max(4, Math.min(innerHeight - hgt - 4, y - hgt - 12 < 4 ? y + 18 : y - hgt - 12)) + 'px';
+}
+function tipMove(e) {
+  if (!cpTip) return; var html = e.pointerType === 'touch' ? null : tipFor(e.target);
+  if (!html) { if (!cpTip.hidden && !cpTip._focus) cpTip.hidden = true; return; }
+  cpTip._focus = false; tipPlace(html, e.clientX, e.clientY);
+}
+function tipFocus(el) {
+  if (!cpTip) return; var kb = true; try { kb = el.matches(':focus-visible'); } catch (x) { /* старый движок */ }
+  var html = kb ? tipHtml(el) : null; if (!html) return;
+  var r = el.getBoundingClientRect(); cpTip._focus = true; tipPlace(html, r.left + Math.min(r.width / 2, 60), r.top);
 }
 document.addEventListener('pointermove', tipMove, { passive: true });
 document.addEventListener('pointerover', tipMove, { passive: true });
@@ -5315,7 +5776,6 @@ document.addEventListener('pointerleave', function () { if (cpTip) cpTip.hidden 
 window.addEventListener('scroll', function () { if (cpTip && !cpTip.hidden) cpTip.hidden = true; }, { passive: true });
 
 safe('images', function () { fillImgs(document); });
-safe('flows', flowImages);
 safe('registry', function () {
   if (!$('#tb')) return;
   if (!REG.some(function (r) { return r.m && r.m.rank != null; })) { sortK = 'id'; sortD = 1; }
@@ -5342,6 +5802,7 @@ safe('lightbox', function () {
   $('#lbprev').addEventListener('click', function () { lbStep(-1); }); $('#lbnext').addEventListener('click', function () { lbStep(1); });
   $$('#lbbar [data-z]').forEach(function (b) { b.addEventListener('click', function () { setZoom(b.getAttribute('data-z')); }); });
   $('#lbhs').addEventListener('click', function () { lb.classList.toggle('nohs'); });
+  var lt = $('#lbtheme'); if (lt) lt.addEventListener('click', lbTheme);
   lbimg.addEventListener('load', function () { if (LB.cur) setZoom(LB.zoom); });
   lbwrap.addEventListener('click', function (e) { var p = e.target.closest('.pin,.hsbox'); if (p) { e.stopPropagation(); selectHS(p.getAttribute('data-n')); return; } if (e.target === lbimg && !lbview.classList.contains('nozoom')) setZoom(LB.zoom === 'fit' ? '1' : 'fit'); });
   lbside.addEventListener('click', function (e) { var i = e.target.closest('.hsitem'); if (i && !e.target.closest('a')) { selectHS(i.getAttribute('data-n')); var pin = lbwrap.querySelector('.pin[data-n="' + i.getAttribute('data-n') + '"]'); if (pin) pin.scrollIntoView({ block: 'center', inline: 'center' }); } });
@@ -5383,6 +5844,7 @@ safe('charts', function () {
   window.addEventListener('beforeprint', function () { loadAllCharts(); });
 });
 safe('hash', function () { window.addEventListener('hashchange', hashOpen); hashOpen(); });
+emitPS('ready', { version: '1.5' });
 })();
 """
 
@@ -5588,7 +6050,8 @@ def main(argv=None):
         data_bytes = sum(v for k, v in produced.items() if k.startswith("data/"))
         total = size + assets_bytes + data_bytes
         core = {k: v for k, v in produced.items() if k in ("assets/app.css", "assets/app.js", "assets/data.js", "assets/head.js",
-                                                           "assets/extra.css", "assets/extra.js") or re.fullmatch(r"assets/charts-[\w-]+\.js", k)}
+                                                           "assets/extra.css", "assets/extra.js", "assets/search-docs.js")
+                or re.fullmatch(r"assets/charts-[\w-]+\.js", k) or k.startswith("assets/extra/")}
         print("Режим site (кодировщик: %s; CSP: %s)" % (b.lite.enc.label(), "'self'" if a.site_csp == "self" else "нет (запасной вариант --site-csp none)"))
         print("  index.html: %s (оболочка без данных)" % human(size))
         print("  assets/: %s — %s; картинок-файлов: %d (%s), миниатюр: %d (%s), повторов по содержимому: %d"
@@ -5622,9 +6085,12 @@ def main(argv=None):
               ("; повторов по содержимому (встроены один раз): %d" % len(b.img.alias)) if b.img.alias else ""))
         if dropped:
             print("Удалены файлы прошлой сборки другого режима (assets/, data/): %d" % dropped)
-        if (out / "build" / "extra.css").is_file() or (out / "build" / "extra.js").is_file():
-            b.warn("build/extra.css|js не подключены: в режимах --single и --lite они не используются (только в site)")
     print("Разделы (%d): %s" % (len(b.nav), ", ".join(sid for sid, _, _ in b.nav)))
+    print("Слои страницы: увеличение графиков и схем — кнопок %d, строк-подсказок %d; поиск по странице%s; глоссарий — терминов %d; "
+          "подсказок элементов макетов %d" % (page.count('class="psi-zoom"'), page.count('class="psi-hint"'),
+                                              " (+ исследований: %d)" % len(b.docs) if b.docs else "", len(b.gloss), getattr(b, "mock_hs_count", 0)))
+    if b.extra:
+        print("Расширения страницы (хуки): %s%s" % (", ".join(rel for rel, _, _ in b.extra), "" if site else " — встроены в страницу"))
     ich = b.chart_page_meta
     if ich or b.charts:
         n_el = sum(len(m["elements"]) for m in ich.values())

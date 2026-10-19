@@ -16,7 +16,14 @@
     «не писать», «не редактир» — запрет (его пути не разрешаются);
   - служебные файлы оркестратора (build/STATUS.md, STRATEGY_TASKS.md, build/briefs/*, build/agents.json,
     build/dispatch.json, build/triage-*.json, build/waves/*) — разрешены, если не задан --no-default-allow;
-  - --allow GLOB — дополнительные разрешения (например, общий файл, который в эту волну правит сам оркестратор).
+  - --allow GLOB — дополнительные разрешения (например, общий файл, который в эту волну правит сам оркестратор);
+  - временные файлы агента (FB-006, SM 6.3) — только в `build/tmp/<имя брифа>/` (имя брифа — файл без .md, например
+    `build/tmp/flows-F1/`): своя временная папка разрешена каждому брифу волны автоматически; запись в чужую
+    `build/tmp/<другой>/` — нарушение «чужая временная папка»; временные скрипты и черновики вне `build/tmp/`
+    (`gen.py`, `content.py`, `tmp_*`, `scratch*`, `*.bak` в <OUT>) — нарушение «временный файл вне build/tmp/<агент>/».
+Общие пути волны: шаблон «Выдачи», разрешённый двум и более брифам одной волны, печатается предупреждением
+«общий путь у A и B» (два агента не должны писать в один файл — назначьте владельца или разведите пути; `dispatch.py`
+не запускает такие задания одновременно).
 Изменения репозитория вне <OUT>, которых не было в снимке, — всегда нарушение.
 Код выхода: 0 — всё в разрешённых путях; 1 — есть записи вне путей; 2 — ошибка (нет снимка, брифа, папки).
 Только стандартная библиотека.
@@ -41,6 +48,40 @@ DENY_WORDS = re.compile(r"не\s+трогать|не\s+создавать|не\s
 TICK = re.compile(r"`([^`]+)`")
 PATHLIKE = re.compile(r"/|\.[A-Za-z0-9]{1,5}$")
 SCRIPT_EXT = (".py", ".mjs", ".cjs", ".sh", ".js")
+TMP_ROOT = "build/tmp/"
+# временные файлы агентов вне build/tmp/<агент>/ (FB-006: F1/F2 перезаписали друг другу gen.py/content.py)
+TEMP_LIKE = re.compile(r"(^|/)(gen|content|tmp|temp|scratch|draft|test_tmp)[\w-]*\.(py|mjs|cjs|js|sh|txt|json)$|(^|/)(tmp|temp)_[^/]*$|\.bak$|~$",
+                       re.I)
+
+
+def agent_id(brief_path):
+    """Имя брифа без расширения — имя временной папки агента (build/tmp/<имя>/)."""
+    return Path(brief_path).name[:-3] if Path(brief_path).name.endswith(".md") else Path(brief_path).name
+
+
+def shared_outputs(by_brief):
+    """Шаблоны «Выдачи», разрешённые двум и более брифам → [(шаблон, [брифы])] (кроме служебных)."""
+    owners = {}
+    for name, pats in by_brief.items():
+        for p in pats:
+            if p.startswith(TMP_ROOT) or p in ORCHESTRATOR_ALLOW:
+                continue
+            owners.setdefault(p, []).append(name)
+    names = list(by_brief)
+    res = [(p, sorted(set(v))) for p, v in owners.items() if len(set(v)) > 1]
+    for i, a in enumerate(names):                      # пересечения шаблонов (data/x-*.json и data/x-a.json)
+        for b in names[i + 1:]:
+            for pa in by_brief[a]:
+                for pb in by_brief[b]:
+                    if pa != pb and not pa.startswith(TMP_ROOT) and not pb.startswith(TMP_ROOT) and \
+                            (fnmatch.fnmatchcase(pa, pb) or fnmatch.fnmatchcase(pb, pa)):
+                        res.append(("%s ~ %s" % (pa, pb), sorted({a, b})))
+    seen, out = set(), []
+    for p, v in res:
+        if (p, tuple(v)) not in seen:
+            seen.add((p, tuple(v)))
+            out.append((p, v))
+    return out
 
 
 def git(repo, *args, timeout=60):
@@ -217,17 +258,23 @@ def check(out, briefs, extra_allow=(), wave=None, since=None, default_allow=True
     repo = repo_root(out)
     orel = out_rel(out, repo)
     allow, deny, by_brief = [], [], {}
+    own_tmp = []
     for b in briefs:
         bp = Path(b)
         if not bp.is_absolute() and not bp.exists() and (out / b).exists():
             bp = out / b
         if not bp.is_file():
             raise FileNotFoundError(b)
-        a, d = brief_patterns(bp.read_text(encoding="utf-8"), orel)
+        text = bp.read_text(encoding="utf-8")
+        a, d = brief_patterns(text, orel)
         by_brief[bp.name] = a
-        allow += a
+        allow += [x for x in a if not x.startswith(TMP_ROOT)]
         deny += d
-    allow += list(extra_allow) + (ORCHESTRATOR_ALLOW if default_allow else [])
+        own_tmp.append(TMP_ROOT + agent_id(bp) + "/*")
+        for name in re.findall(r"build/tmp/([\w.-]+)/", text):          # временная папка, названная в самом брифе
+            if TMP_ROOT + name + "/*" not in own_tmp:
+                own_tmp.append(TMP_ROOT + name + "/*")
+    allow += own_tmp + list(extra_allow) + (ORCHESTRATOR_ALLOW if default_allow else [])
     now = snapshot_files(out)
     outside_before = []
     if wave:
@@ -240,18 +287,26 @@ def check(out, briefs, extra_allow=(), wave=None, since=None, default_allow=True
     else:
         changed = changed_since_time(now, since)
     violations = []
+    explicit = list(extra_allow) + (ORCHESTRATOR_ALLOW if default_allow else [])
     for rel, kind in changed:
-        explicit = list(extra_allow) + (ORCHESTRATOR_ALLOW if default_allow else [])
+        if rel.startswith(TMP_ROOT):
+            if not matches(rel, own_tmp + explicit):
+                violations.append({"file": rel, "change": kind, "why": "чужая временная папка (своя — %s)" % (
+                    ", ".join(t[:-1] for t in own_tmp) or "build/tmp/<имя брифа>/")})
+            continue
         if matches(rel, deny) and not matches(rel, explicit):
             violations.append({"file": rel, "change": kind, "why": "запрещён брифом («не трогать»)"})
         elif not matches(rel, allow):
-            violations.append({"file": rel, "change": kind, "why": "нет в «Выдаче» брифов"})
+            why = "временный файл вне build/tmp/<агент>/" if TEMP_LIKE.search(rel) and kind != "удалён" else "нет в «Выдаче» брифов"
+            violations.append({"file": rel, "change": kind, "why": why})
     outside = [p for p in repo_changes(repo, orel) if p not in outside_before] if wave else []
     for p in outside:
         violations.append({"file": "../" + p if orel else p, "change": "вне <OUT>", "why": "изменение репозитория вне папки прогона"})
     allowed_counts = {name: sum(1 for rel, _ in changed if matches(rel, pats)) for name, pats in by_brief.items()}
+    shared = [{"pattern": p, "briefs": v} for p, v in shared_outputs(by_brief)]
     return {"wave": wave, "changed": [{"file": r, "change": k} for r, k in changed], "violations": violations,
-            "outside_repo": outside, "allowed_by_brief": allowed_counts, "patterns": {"allow": allow, "deny": deny}}
+            "outside_repo": outside, "allowed_by_brief": allowed_counts, "shared_outputs": shared,
+            "patterns": {"allow": allow, "deny": deny, "tmp": own_tmp}}
 
 
 def start(out, wave):
@@ -314,6 +369,8 @@ def main(argv=None):
             len(rep["changed"]), len(rep["violations"]), (" (волна %s)" % a.wave) if a.wave else ""))
         for name, n in rep["allowed_by_brief"].items():
             print("  %s: в своих путях %d" % (name, n))
+        for s in rep.get("shared_outputs") or []:
+            print("  ВНИМАНИЕ: общий путь %s у %s — назначьте владельца или разведите пути" % (s["pattern"], " и ".join(s["briefs"])))
         for v in rep["violations"]:
             print("  НАРУШЕНИЕ %-10s %s — %s" % (v["change"], v["file"], v["why"]))
         if rep["violations"]:

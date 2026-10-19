@@ -38,6 +38,19 @@
 // нет инлайн-скриптов (CSP script-src 'self'), нарушений CSP, 404 и ошибок консоли, внешних запросов 0, data/*.csv|json на
 // месте и совпадают с реестром страницы; размеры: index.html > 1 МБ — предупреждение, сайт > 25 МБ — совет. Загрузка по file://
 // проверяется отдельно в каждом доступном движке (Chromium, WebKit, Firefox); итог печатается списком «проверено на: …».
+// Слой интерактивности 1.5 (FB-035/036, references/interactive-site.md, п. 3): то, что ВИДИТ пользователь, — у каждого графика и схемы
+// видимая кнопка «🔍 Увеличить» (на 390 px ≥ 44×32 и не на заголовке графика), курсор zoom-in на фоне и pointer на элементах, строка
+// «Графики и схемы кликабельны…» вверху и в разделах; настоящее наведение мышью (без force) показывает подсказку «название + что это» в
+// пределах окна и контур; клик → непустая панель; «🔍» / клик по фону / Enter на кнопке открывают просмотр с ЖИВЫМ SVG (не <img>):
+// «+», колесо, перетаскивание меняют transform, «Сброс» возвращает, Tab не выходит из окна, Esc закрывает и возвращает фокус на кнопку;
+// в просмотре элементы (выборка ≤ 40 на график, все блоки схем) нажимаются там, где они сверху, иначе — через список; P-id открывает
+// карточку поверх просмотра; телефон: просмотр на весь экран, нижний лист, щипок и двойное касание; печать без кнопок и подсказок;
+// одна обёртка и одна кнопка на график (идемпотентность). Те же проверки по каждому графику и схеме — в WebKit (и Firefox, если запускается).
+// На странице без слоя (до 1.5) проверки падают со списком провалов по каждому графику. Поиск по странице («/», часть слова, е/ё,
+// фраза, фильтр, подсветка на странице), сущности текста (нет «мёртвых» P-/G-id и «раздел N»), просмотр макетов («Открыть интерактивный
+// макет», вторая тема), Гант без обрезанных подписей. Компонент, заменённый расширением (PS.replace('lightbox'|'viewer'|'search'|
+// 'entities'), — его проверки «skip» с пояснением (условие окружения), а не провал. Поиск конкурентов — по названию из данных, без
+// заданных фраз.
 // Нет данных для проверки — она «skip» (не провал), если не перечислена в --require (all — любая пропущенная проверка
 // данных считается провалом). Статус «warn» — предупреждение (итог «пройдено с предупреждениями», код выхода 0).
 //
@@ -174,7 +187,7 @@ async function closeLayers(page) {
 async function check(page, name, fn) {
   let res;
   try { res = await fn(); } catch (e) { res = FAIL(String((e && e.message) || e).split('\n')[0]); }
-  try { await closeLayers(page); } catch (e) { /* страница могла закрыться */ }
+  try { await page.evaluate(() => { if (window.PSI && PSI.close) PSI.close(); }); await closeLayers(page); } catch (e) { /* страница могла закрыться */ }
   const status = res && res.skip ? 'skip' : res && res.ok ? (res.warn ? 'warn' : 'pass') : 'fail';
   const item = { name, status, detail: res ? (res.skip || res.detail || '') : '' };
   if (res && res.env) item.env = true;    // пропуск из-за окружения (нет WebKit), а не из-за данных
@@ -195,6 +208,9 @@ page.setDefaultTimeout(10000);
 watch(page, 'desktop');
 await page.goto(URL_, { waitUntil: 'load' });
 await sleep(300);
+// компоненты, которые взяло на себя расширение страницы (build/extra*.js → PS.replace): их встроенные проверки — skip с пояснением
+const REPLACED = await page.evaluate(() => (window.PS && PS.replaced) ? PS.replaced() : []).catch(() => []);
+const replacedSkip = n => REPLACED.includes(n) ? SKIP(`компонент «${n}» заменён расширением страницы (PS.replace) — проверяет слой расширения`, true) : null;
 
 // ---------------------------------------------------------------- счётчики
 await check(page, 'counts', async () => {
@@ -384,6 +400,7 @@ await check(page, 'pid-dynamic', async () => {
 
 // ---------------------------------------------------------------- лайтбокс
 await check(page, 'lightbox', async () => {
+  if (replacedSkip('lightbox')) return replacedSkip('lightbox');
   const pick = await page.evaluate(() => {
     const figs = [...document.querySelectorAll('figure.lb')].filter(f => f.offsetParent !== null);
     if (!figs.length) return null;
@@ -440,6 +457,7 @@ await check(page, 'lightbox', async () => {
 
 // ---------------------------------------------------------------- зоны референсов
 await check(page, 'hotspot', async () => {
+  if (replacedSkip('lightbox')) return replacedSkip('lightbox');
   const fig = page.locator('figure.lb[data-ref]:not([data-ref=""]):visible').first();
   if (!await fig.count()) return SKIP('нет референсов с картинкой');
   await fig.scrollIntoViewIfNeeded();
@@ -464,6 +482,7 @@ await check(page, 'hotspot', async () => {
 
 // ---------------------------------------------------------------- слои: лайтбокс поверх модалки
 await check(page, 'layers', async () => {
+  if (replacedSkip('lightbox')) return replacedSkip('lightbox');
   const id = await page.evaluate(() => {
     const reg = (window.__psData('d-registry') || []);
     const img = (window.__psData('d-img') || {});
@@ -505,13 +524,27 @@ await check(page, 'gantt-modal', async () => {
   return r;
 });
 await check(page, 'kanban-modal', async () => infoModal('.kcard[data-k] .kt', 'карточек Kanban'));
-await check(page, 'flow-node', async () => infoModal('.flowsvg [data-node].fnode', 'узлов схемы', { force: true }));
+// блок схемы — настоящим кликом мыши в точке, где он сверху (без force: FB-036)
+await check(page, 'flow-node', async () => {
+  const n = await page.locator('.flowsvg [data-node].fnode').count();
+  if (!n) return SKIP('нет: узлов схемы');
+  let pt = null;
+  for (let i = 0; i < n && !pt; i++) pt = await page.evaluate(topPoint, ['.flowsvg [data-node].fnode', i]);
+  if (!pt) return FAIL('ни один блок схемы нельзя нажать мышью: все перекрыты');
+  await page.mouse.click(pt.x, pt.y);
+  await page.waitForSelector('#im.open');
+  const t = (await page.textContent('#imtitle')).trim(), b = (await page.textContent('#imbody')).trim();
+  if (!t || !b) return FAIL('пустая модалка');
+  return OK(t.slice(0, 70));
+});
 
 // ---------------------------------------------------------------- конкуренты
 await check(page, 'competitors', async () => {
   const total = await page.locator('.ccard').count();
   if (!total) return SKIP('нет конкурентов');
-  const name = (await page.locator('.ccard h4').nth(Math.min(1, total - 1)).textContent()).trim().split(/\s+/).slice(0, 2).join(' ');
+  // название — из данных карточки (d-comp по data-slug), а не первые слова заголовка: в заголовке после имени идёт вердикт
+  const name = await page.evaluate(i => { const c = document.querySelectorAll('.ccard')[i], slug = c && c.dataset.slug;
+    const d = (window.__psData('d-comp') || []).find(x => x.slug === slug); return ((d && d.name) || (c.querySelector('h4 a') || c.querySelector('h4')).textContent).trim(); }, Math.min(1, total - 1));
   await page.fill('#cq', name); await sleep(80);
   const n = await page.locator('.ccard').count();
   const cnt = await page.textContent('#ccount');
@@ -969,6 +1002,287 @@ await check(page, 'charts-deeplink', async () => {
   } finally { await c2.close(); }
 });
 
+// ---------------------------------------------------------------- слой интерактивности 1.5: видимость и просмотр (FB-035, FB-036)
+// точка внутри элемента, где он верхний под курсором (целые координаты: WebKit округляет координаты мыши), или null
+function topPoint([sel, idx]) {
+  const el = document.querySelectorAll(sel)[idx || 0]; if (!el) return null;
+  el.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+  for (const c of [el, ...el.querySelectorAll('*')]) {
+    const r = c.getBoundingClientRect(); if (r.width < 1 && r.height < 1) continue;
+    for (const [fx, fy] of [[.5, .5], [.3, .5], [.7, .5], [.5, .3], [.5, .7], [.2, .2], [.8, .8], [.2, .8], [.8, .2], [.1, .5], [.9, .5]]) {
+      const x = Math.round(r.left + r.width * fx), y = Math.round(r.top + r.height * fy);
+      if (x < 1 || y < 1 || x >= innerWidth - 1 || y >= innerHeight - 1) continue;
+      const t = document.elementFromPoint(x, y);
+      if (t && (t === el || el.contains(t))) return { x, y };
+    }
+  }
+  return null;
+}
+const HAS_FLOW = (await page.locator('.flowsvg').count()) > 0;
+const NO_VIEW = 'нет интерактивных графиков и блок-схем';
+const viewerSkip = () => (!HAS_CH && !HAS_FLOW) ? SKIP(NO_VIEW, true) : replacedSkip('viewer');
+// по одному экземпляру на график (основной — в разделе «Графики») и на схему (раздел «Блок-схемы» или первая вставка)
+function viewTargets() {
+  const out = [], seen = new Set(), q = s => window.CSS && CSS.escape ? CSS.escape(s) : s;
+  const figs = [...document.querySelectorAll('figure.ps-ichart')];
+  for (const f of figs.filter(x => x.classList.contains('ps-primary')).concat(figs)) {
+    const k = f.dataset.chart; if (seen.has('c:' + k)) continue; seen.add('c:' + k);
+    out.push({ kind: 'chart', key: k, sel: `figure.ps-ichart${f.classList.contains('ps-primary') ? '.ps-primary' : ''}[data-chart="${q(k)}"]`, box: '.ps-svg' });
+  }
+  [...document.querySelectorAll('.flowsvg')].forEach(b => { const k = b.dataset.imgkey || b.id; if (seen.has('f:' + k)) return; seen.add('f:' + k);
+    out.push({ kind: 'flow', key: k, sel: `.flowsvg[data-imgkey="${q(b.dataset.imgkey || '')}"]`, box: null }); });
+  return out;
+}
+// разметка и вид у ОДНОГО графика/схемы: обёртка, видимая кнопка, курсоры, строка-подсказка раздела
+function viewInfo(t) {
+  const f = document.querySelector(t.sel); if (!f) return { missing: true };
+  const box = t.kind === 'chart' ? f.querySelector('.ps-svg') : f, wrap = box && box.parentElement && box.parentElement.classList.contains('psi-wrap') ? box.parentElement : null;
+  const z = wrap && wrap.querySelector(':scope > .psi-zoom'), zr = z && z.getBoundingClientRect(), cs = z && getComputedStyle(z);
+  const el = t.kind === 'chart' ? box && box.querySelector('svg[data-ps-chart] .ps-el') : box.querySelector('.fnode[data-node]');
+  const sec = f.closest('section[id]');
+  return { wrap: !!wrap, zoom: !!(z && zr.width > 0 && zr.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none'), text: z ? z.textContent.trim() : '',
+    buttons: wrap ? wrap.querySelectorAll(':scope > .psi-zoom').length : 0, nested: !!(wrap && wrap.closest('.psi-wrap .psi-wrap, .psi-wrap > * .psi-wrap')),
+    cursorBg: box ? getComputedStyle(box).cursor : '', cursorEl: el ? getComputedStyle(el).cursor : '', hint: !!(sec && (sec.id === 'top' || sec.querySelector(':scope > .psi-hint'))),
+    img: t.kind === 'chart' ? !!(box && box.querySelector('img')) : false };
+}
+async function vstate(p) {
+  return p.evaluate(() => { const lb = document.getElementById('psi-lb'), c = lb && lb.querySelector('.psi-canvas'), st = window.PSI ? PSI.state() : null;
+    return { open: !!(st && st.open), transform: c ? c.style.transform : '', st, live: !!(c && c.querySelector('svg .ps-el, svg .fnode')), img: !!(c && c.querySelector('img')),
+      focusIn: !!(lb && lb.contains(document.activeElement)), rect: lb && !lb.hidden ? (r => ({ w: Math.round(r.width), h: Math.round(r.height) }))(lb.getBoundingClientRect()) : null }; });
+}
+async function panelInfo(p) {
+  return p.evaluate(() => { const pb = document.querySelector('#psi-lb .psi-pb'); if (!pb) return { len: 0, heads: {} };
+    const heads = {}; pb.querySelectorAll('section').forEach(s => { const h = s.querySelector('h4'); if (h) heads[h.textContent.trim()] = (s.textContent || '').trim().length; });
+    return { len: (pb.textContent || '').trim().length, heads, title: (document.querySelector('#psi-lb .psi-ptitle') || {}).textContent || '' }; });
+}
+async function closeViewer(p) { await p.keyboard.press('Escape'); await sleep(60); if ((await vstate(p)).open) await p.evaluate(() => PSI.close()); }
+
+await check(page, 'viewer-structure', async () => {
+  const sk = viewerSkip(); if (sk) return sk;
+  if (HAS_CH && !await chartsReady(page)) return FAIL('файлы графиков не подгрузились');
+  const ts = await page.evaluate(viewTargets), bad = [], pageBad = [];
+  let ok = 0;
+  for (const t of ts) {
+    const i = await page.evaluate(viewInfo, t), name = (t.kind === 'chart' ? 'график ' : 'схема ') + t.key;
+    if (i.missing) { bad.push(name + ': нет на странице'); continue; }
+    const b = [];
+    if (!i.wrap) b.push('нет обёртки .psi-wrap');
+    if (!i.zoom) b.push('нет видимой кнопки «🔍 Увеличить»');
+    else if (!/Увеличить/.test(i.text)) b.push('кнопка без текста «Увеличить»');
+    if (i.buttons > 1 || i.nested) b.push(`повтор обёртки или кнопки (${i.buttons})`);
+    if (i.cursorBg !== 'zoom-in') b.push('курсор фона ' + (i.cursorBg || '—') + ' (нужен zoom-in)');
+    if (i.cursorEl && i.cursorEl !== 'pointer') b.push('курсор элемента ' + i.cursorEl);
+    if (!i.hint) b.push('в разделе нет строки «Графики и схемы кликабельны…»');
+    if (i.img) b.push('<img> вместо встроенного SVG');
+    if (b.length) bad.push(name + ': ' + b.join(', ')); else ok++;
+  }
+  const top = await page.evaluate(() => { const h = document.querySelector('.psi-hint[data-psi-top]'); return h ? h.textContent.trim() : ''; });
+  if (!/кликабельны/.test(top)) pageBad.push('вверху страницы нет строки «Графики и схемы кликабельны…»');
+  const idem = await page.evaluate(() => ({ wraps: document.querySelectorAll('.psi-wrap').length, buttons: document.querySelectorAll('.psi-wrap > .psi-zoom').length,
+    boxes: document.querySelectorAll('figure.ps-ichart .ps-svg, .flowsvg').length, nested: document.querySelectorAll('.psi-wrap .psi-wrap').length }));
+  if (idem.wraps !== idem.boxes || idem.buttons !== idem.wraps || idem.nested) pageBad.push('идемпотентность: ' + JSON.stringify(idem));
+  Object.assign(counts, { viewer_targets: ts.length, viewer_wraps: idem.wraps });
+  if (bad.length || pageBad.length) return Object.assign(FAIL(`провалы у ${bad.length} из ${ts.length} графиков и схем` + (pageBad.length ? '; ' + pageBad.join('; ') : '') + ': ' + bad.slice(0, 12).join('; ')),
+    { data: { failed: bad, page: pageBad } });
+  return OK(`графиков и схем ${ts.length}: у каждого видимая «🔍 Увеличить», курсор zoom-in/pointer, строка-подсказка; обёрток ${idem.wraps} = блоков ${idem.boxes}`);
+});
+
+await check(page, 'viewer-hover', async () => {
+  const sk = viewerSkip(); if (sk) return sk;
+  const ts = await page.evaluate(viewTargets), bad = []; let ok = 0, n = 0;
+  for (const t of ts) {
+    const sel = t.kind === 'chart' ? `${t.sel} svg[data-ps-chart] .ps-el` : `${t.sel} .fnode[data-node]`;
+    const cnt = await page.locator(sel).count(); if (!cnt) continue; n++;
+    let pt = null; for (let i = 0; i < Math.min(cnt, 12) && !pt; i++) pt = await page.evaluate(topPoint, [sel, Math.floor(i * cnt / Math.min(cnt, 12))]);
+    if (!pt) { bad.push(`${t.key}: ни один элемент не сверху под курсором`); continue; }
+    await page.mouse.move(pt.x - 3, pt.y - 3); await page.mouse.move(pt.x, pt.y); await sleep(50);   // настоящее наведение, без force
+    const r = await page.evaluate(kind => { const tip = document.getElementById(kind === 'chart' ? 'cp-tip' : 'psi-tip'); const vis = !!(tip && !tip.hidden && tip.getClientRects().length);
+      const b = vis ? tip.getBoundingClientRect() : null; const ring = !!document.querySelector('.psi-wrap svg .psi-ovl .psi-hov, .psi-wrap svg .ps-ovl .ps-foc-line');
+      return { vis, inView: !!b && b.left >= 0 && b.top >= 0 && b.right <= innerWidth + 1 && b.bottom <= innerHeight + 1, text: vis ? tip.textContent.trim() : '', bold: vis ? (tip.querySelector('b') || {}).textContent || '' : '', ring }; }, t.kind);
+    if (!r.vis || !r.text) bad.push(`${t.key}: подсказки при наведении нет`);
+    else if (!r.inView) bad.push(`${t.key}: подсказка за краем окна`);
+    else if (!r.bold) bad.push(`${t.key}: в подсказке нет названия элемента`);
+    else if (!r.ring) bad.push(`${t.key}: нет контура наведения`);
+    else ok++;
+  }
+  await page.mouse.move(2, 2);
+  // фокус с клавиатуры: та же подсказка у элемента графика
+  let kb = 'нет графиков';
+  if (HAS_CH) {
+    const c = (await page.evaluate(chartsInPage)).charts.find(x => x.ids.length);
+    if (c) { await page.evaluate(k => { const el = document.querySelector(`figure.ps-ichart.ps-primary[data-chart="${k}"] svg .ps-el[tabindex="0"]`); if (el) { el.scrollIntoView({ block: 'center', behavior: 'instant' }); el.focus({ preventScroll: true }); } }, c.key);
+      await sleep(120); await page.keyboard.press('ArrowRight'); await sleep(60);   // фокус переведён клавиатурой → :focus-visible
+      const t = await page.evaluate(() => { const tip = document.getElementById('cp-tip'); return tip && !tip.hidden ? tip.textContent.trim() : ''; });
+      kb = t ? `фокус: «${t.slice(0, 30)}»` : 'фокус без подсказки';
+      if (!t) bad.push(`${c.key}: при фокусе с клавиатуры подсказки нет`); }
+  }
+  if (bad.length) return FAIL(`${bad.length} из ${n}: ` + bad.slice(0, 10).join('; '));
+  return OK(`подсказка «название + что это» и контур при наведении мышью: ${ok} из ${n}; ${kb}`);
+});
+
+await check(page, 'viewer-open', async () => {
+  const sk = viewerSkip(); if (sk) return sk;
+  const ts = await page.evaluate(viewTargets), bad = []; let ok = 0;
+  for (const t of ts) {
+    const zsel = t.kind === 'chart' ? `${t.sel} .psi-zoom` : `${t.sel} ~ .psi-zoom`;
+    if (!await page.locator(zsel).count()) { bad.push(`${t.key}: нет кнопки`); continue; }
+    await page.locator(zsel).first().scrollIntoViewIfNeeded(); await page.locator(zsel).first().click(); await sleep(140);
+    let v = await vstate(page);
+    if (!v.open) { bad.push(`${t.key}: кнопка не открыла просмотр`); continue; }
+    const b = [];
+    if (!v.live || v.img) b.push(v.img ? 'в просмотре картинка <img>, а не живой SVG' : 'в просмотре нет элементов SVG');
+    if (!v.focusIn) b.push('фокус не в окне просмотра');
+    const t0 = v.transform;
+    await page.click('#psi-lb [data-psi-z="in"]'); await sleep(30); const t1 = (await vstate(page)).transform;
+    const c = await page.evaluate(() => { const s = document.querySelector('#psi-lb .psi-stage').getBoundingClientRect(); return { x: Math.round(s.left + s.width / 2), y: Math.round(s.top + s.height / 2) }; });
+    await page.mouse.move(c.x, c.y); await page.mouse.wheel(0, -240); await sleep(50); const t2 = (await vstate(page)).transform;
+    await page.click('#psi-lb [data-psi-z="reset"]'); await sleep(30); const t3 = (await vstate(page)).transform;
+    if (!(t0 && t1 !== t0 && t2 !== t1)) b.push('«+» или колесо не меняют масштаб');
+    if (t3 !== t0) b.push('«Сброс» не вернул вписанный вид');
+    await page.mouse.move(c.x, c.y); await page.mouse.down(); await page.mouse.move(c.x + 60, c.y + 30, { steps: 4 }); await page.mouse.up(); await sleep(30);
+    if ((await vstate(page)).transform === t3) b.push('перетаскивание не сдвигает');
+    // Tab не выходит из окна
+    let out = 0; for (let i = 0; i < 14; i++) { await page.keyboard.press('Tab'); if (!(await vstate(page)).focusIn) { out++; break; } }
+    if (out) b.push('Tab вывел фокус из окна просмотра');
+    await page.keyboard.press('Escape'); await sleep(60); v = await vstate(page);
+    if (v.open) b.push('Esc не закрыл просмотр');
+    const back = await page.evaluate(z => { const a = document.activeElement; return !!(a && a.matches && a.matches('.psi-zoom') && a === document.querySelector(z)); }, zsel);
+    if (!back) b.push('фокус не вернулся на кнопку');
+    // клик по фону и Enter на кнопке открывают тот же просмотр
+    const bg = await page.evaluate(t => { const f = document.querySelector(t.sel), box = t.kind === 'chart' ? f.querySelector('.ps-svg') : f; const r = box.getBoundingClientRect();
+      for (let fy = .06; fy < .96; fy += .06) for (let fx = .04; fx < .97; fx += .06) { const x = Math.round(r.left + r.width * fx), y = Math.round(r.top + r.height * fy); if (y < 2 || y > innerHeight - 2 || x < 2 || x > innerWidth - 2) continue;
+        const e = document.elementFromPoint(x, y); if (e && box.contains(e) && !e.closest('.ps-el,[data-ps-ref],.fnode,[data-node],button,a')) return { x, y }; } return null; }, t);
+    if (bg) { await page.mouse.click(bg.x, bg.y); await sleep(100); if (!(await vstate(page)).open) b.push('клик по фону не открыл просмотр'); await closeViewer(page); }
+    await page.focus(zsel); await page.keyboard.press('Enter'); await sleep(100);
+    if (!(await vstate(page)).open) b.push('Enter на кнопке не открыл просмотр'); await closeViewer(page);
+    if (b.length) bad.push(`${t.key}: ` + b.join(', ')); else ok++;
+  }
+  await shot(page, 'desktop-viewer');
+  if (bad.length) return FAIL(`${bad.length} из ${ts.length}: ` + bad.slice(0, 10).join('; '));
+  return OK(`просмотр с живым SVG у ${ok} из ${ts.length}: «🔍», клик по фону, Enter; «+»/колесо/перетаскивание/«Сброс»; Tab в окне; Esc → фокус на кнопку`);
+});
+
+await check(page, 'viewer-elements', async () => {
+  const sk = viewerSkip(); if (sk) return sk;
+  const ts = await page.evaluate(viewTargets), bad = []; let mouse = 0, list = 0, real = 0, total = 0, pidInfo = 'P-id в панели нет';
+  for (const t of ts) {
+    await page.evaluate(k => PSI.open(k), t.kind === 'chart' ? t.key : t.key.replace(/^flow-/, '')); await sleep(140);
+    const v = await vstate(page); if (!v.open) { bad.push(`${t.key}: просмотр не открылся`); continue; }
+    const ov = await page.evaluate(() => ({ list: document.querySelectorAll('#psi-lb .psi-chip[data-psi-sel]').length, how: /Как читать/.test(document.querySelector('#psi-lb .psi-pb').textContent) }));
+    if (!ov.list || !ov.how) bad.push(`${t.key}: без выбора нет «Как читать» или списка элементов`);
+    const ids = v.st.ids, pick = t.kind === 'flow' ? ids : sampleIds(ids);
+    // точки, где элемент сверху: одним проходом в странице (синтетический клик в найденный верхний элемент = попадание мышью)
+    const hits = await page.evaluate(([kind, pick]) => {
+      const q = s => window.CSS && CSS.escape ? CSS.escape(s) : s, out = {};
+      for (const id of pick) {
+        const el = document.querySelector(`#psi-lb .psi-canvas ${kind === 'flow' ? '.fnode[data-node="' + q(id) + '"]' : '[data-ps-el="' + q(id) + '"]'}`); out[id] = null; if (!el) continue;
+        for (const c of [el, ...el.querySelectorAll('*')]) { const r = c.getBoundingClientRect(); if (r.width < 1 && r.height < 1) continue;
+          for (const [fx, fy] of [[.5, .5], [.3, .5], [.7, .5], [.5, .3], [.5, .7]]) { const x = Math.round(r.left + r.width * fx), y = Math.round(r.top + r.height * fy);
+            const e = document.elementFromPoint(x, y); if (e && (e === el || el.contains(e))) { out[id] = { x, y }; break; } } if (out[id]) break; }
+      } return out; }, [t.kind, pick]);
+    const realIds = new Set([pick[0], pick[Math.floor(pick.length / 2)], pick[pick.length - 1]].filter(id => hits[id]));
+    for (const id of pick) {
+      total++;
+      const pt = hits[id];
+      if (pt && realIds.has(id)) { await page.mouse.click(pt.x, pt.y); real++; }
+      else if (pt) await page.evaluate(([x, y]) => { const e = document.elementFromPoint(x, y); e.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: x, clientY: y })); }, [pt.x, pt.y]);
+      else await page.evaluate(id => PSI.select(id), id);
+      await sleep(8);
+      const s = (await vstate(page)).st, pi = await panelInfo(page);
+      const need = t.kind === 'flow' ? (pi.heads['Что это'] || 0) > 0 && (pi.heads['Что сделать'] || 0) > 0 : pi.len > 20;
+      if (s.sel === id && need) { if (pt) mouse++; else list++; } else bad.push(`${t.key}/${id}: панель ${pi.len} зн. (${Object.keys(pi.heads).join('/')})`);
+    }
+    // ←/→ — соседний элемент
+    if (ids.length > 1) { const s0 = (await vstate(page)).st.sel; await page.keyboard.press('ArrowRight'); await sleep(20); const s1 = (await vstate(page)).st.sel; if (s1 === s0) bad.push(`${t.key}: → не перешёл к соседнему`); }
+    // P-id → карточка поверх просмотра; Esc закрывает карточку, затем просмотр
+    const pid = page.locator('#psi-lb .psi-pb a[data-pid]').first();
+    if (pidInfo === 'P-id в панели нет' && await pid.count()) {
+      await pid.click(); await sleep(120);
+      const z = await page.evaluate(() => ({ pm: !!document.querySelector('#pm.open'), above: +getComputedStyle(document.getElementById('pm')).zIndex > +getComputedStyle(document.getElementById('psi-lb')).zIndex }));
+      await page.keyboard.press('Escape'); await sleep(80);
+      const after = await page.evaluate(() => ({ pm: !!document.querySelector('#pm.open'), viewer: PSI.state().open }));
+      if (!z.pm || !z.above) bad.push(`${t.key}: P-id не открыл карточку поверх просмотра`);
+      else if (after.pm || !after.viewer) bad.push(`${t.key}: Esc закрыл не верхний слой (карточку)`);
+      else pidInfo = 'P-id → карточка поверх просмотра, Esc — по слоям';
+    }
+    await closeViewer(page);
+  }
+  if (bad.length) return FAIL(`${bad.length} проблем: ` + bad.slice(0, 10).join('; '));
+  return OK(`элементов в просмотре ${total}: попадание мышью ${mouse} (настоящих кликов ${real}), через список ${list} (перекрыты); ${pidInfo}`);
+});
+
+await check(page, 'viewer-print', async () => {
+  const sk = viewerSkip(); if (sk) return sk;
+  await page.emulateMedia({ media: 'print' });
+  const r = await page.evaluate(() => [...document.querySelectorAll('.psi-zoom, .psi-hint, .psi-cue')].filter(e => getComputedStyle(e).display !== 'none').length);
+  await page.emulateMedia({ media: 'screen' });
+  return r ? FAIL(`при печати видны кнопки или подсказки: ${r}`) : OK('при печати кнопки «Увеличить», плашки и строки-подсказки скрыты');
+});
+
+// ---------------------------------------------------------------- поиск по странице, сущности текста, просмотр макетов (1.5, SM раздел 8)
+await check(page, 'search', async () => {
+  if (replacedSkip('search')) return replacedSkip('search');
+  if (!await page.evaluate(() => !!window.PS_SEARCH)) return FAIL('нет поиска по странице (window.PS_SEARCH)');
+  // слово из текста раздела стратегии (≥ 6 букв, с «е» — для проверки е/ё), часть слова и фраза из двух слов
+  const w = await page.evaluate(() => { const secs = [...document.querySelectorAll('main section.strat p, main section.strat li, main section p')];
+    for (const p of secs) { const ws = (p.textContent.match(/[А-Яа-яЁё]{6,}/g) || []).filter(x => /е/.test(x.toLowerCase())); if (ws.length >= 1) { const m = p.textContent.match(/([А-Яа-яЁё]{4,})\s+([А-Яа-яЁё]{4,})/); return { word: ws[0], phrase: m ? m[1] + ' ' + m[2] : '' }; } } return null; });
+  if (!w) return SKIP('нет текста разделов для поиска');
+  const btn = page.locator('nav.side .pss-open').first();
+  if (!await btn.count()) return FAIL('нет кнопки «Поиск по странице» в меню разделов');
+  await page.keyboard.press('/'); await sleep(150);
+  if (!await page.locator('#pss.open').count()) return FAIL('клавиша «/» не открыла поиск');
+  const res = async q => { await page.fill('#pss-q', q); await sleep(260); return page.evaluate(() => ({ n: document.querySelectorAll('#pss-res li').length, cnt: document.getElementById('pss-count').textContent, marks: document.querySelectorAll('#pss-res mark').length })); };
+  const r1 = await res(w.word);
+  if (!r1.n || !r1.marks) return FAIL(`«${w.word}»: ${r1.cnt}`);
+  const yo = w.word.replace(/е/, 'ё'), r2 = await res(yo);
+  if (!r2.n) return FAIL(`е/ё: «${yo}» не нашёл «${w.word}»`);
+  const part = w.word.slice(0, 4), r3 = await res(part);
+  if (!r3.n) return FAIL(`часть слова «${part}» ничего не нашла`);
+  let ph = 'фразы нет'; if (w.phrase) { const r4 = await res('"' + w.phrase + '"'); if (!r4.n) return FAIL(`фраза «${w.phrase}» не найдена`); ph = `фраза → ${r4.n}`; }
+  await res(w.word);
+  const chips = await page.locator('#pss .pss-filters button[data-t]:not([data-t=""])').count();
+  if (chips) { await page.locator('#pss .pss-filters button[data-t]:not([data-t=""])').first().click(); await sleep(80); }
+  const filt = await page.evaluate(() => document.querySelectorAll('#pss-res li').length);
+  await page.focus('#pss-q'); await page.keyboard.press('Enter'); await sleep(350);
+  const after = await page.evaluate(() => { const m = document.querySelector('mark.pss-hit'); const b = m && m.getBoundingClientRect(); return { open: !!document.querySelector('#pss.open'), marks: document.querySelectorAll('mark.pss-hit').length, inView: !!b && b.top >= 0 && b.bottom <= innerHeight }; });
+  if (after.open) return FAIL('Enter не закрыл поиск и не перешёл к результату');
+  if (!after.marks) return FAIL('после перехода совпадения не подсвечены на странице');
+  await page.evaluate(() => PS_SEARCH.clear());
+  return OK(`«${w.word}» → ${r1.n}, «${yo}» → ${r2.n}, «${part}» → ${r3.n}, ${ph}; фильтр → ${filt}; переход: подсвечено ${after.marks}${after.inView ? ', на экране' : ''}`);
+});
+await check(page, 'entities', async () => {
+  if (replacedSkip('entities')) return replacedSkip('entities');
+  const a = await page.evaluate(() => window.PS_ENTS ? PS_ENTS.audit() : null);
+  if (!a) return FAIL('нет слоя сущностей (window.PS_ENTS)');
+  if (a.inert) return FAIL(`«мёртвых» упоминаний: ${a.inert} (P-id ${a.pid}, G-id ${a.gantt}, «раздел N» ${a.sec}, ID строк ${a.row}): ${a.examples.join(', ')}`);
+  let nav = 'ссылок на разделы нет';
+  const sec = page.locator('main a.ps-ent[data-ent^="sec:"]').first();
+  if (await sec.count()) { const n = (await sec.getAttribute('data-ent')).split(':')[1]; await sec.scrollIntoViewIfNeeded(); await sec.click(); await sleep(150);
+    const top = await page.evaluate(n => { const s = document.getElementById('s-' + n); return s ? Math.round(s.getBoundingClientRect().top) : null; }, n);
+    if (top == null || top < -5 || top > 200) return FAIL(`ссылка «раздел ${n}» не привела к разделу (верх ${top})`); nav = `«раздел ${n}» → раздел`; }
+  let term = 'терминов глоссария нет';
+  const t = page.locator('main a.ps-term').first();
+  if (await t.count()) { await t.scrollIntoViewIfNeeded(); await t.click(); await sleep(120); const ok = await page.evaluate(() => !!document.querySelector('#im.open') && /Что это/.test(document.getElementById('imbody').textContent));
+    await page.keyboard.press('Escape'); if (!ok) return FAIL('клик по термину не открыл определение'); term = 'термин → определение'; }
+  return OK(`«мёртвых» сущностей 0; связано: сущностей ${a.ents_linked}, терминов ${a.terms_linked}; ${nav}; ${term}`);
+});
+await check(page, 'mockup-viewer', async () => {
+  if (replacedSkip('lightbox')) return replacedSkip('lightbox');
+  const f = page.locator('main figure.lb[data-mock]:visible').first();
+  if (!await f.count()) return SKIP('нет макетов с картинкой');
+  const info = await f.evaluate(e => ({ html: e.getAttribute('data-html') || '', alt: e.getAttribute('data-alt') || '', pids: (e.getAttribute('data-pids') || '').split(/\s+/).filter(Boolean).length }));
+  await f.scrollIntoViewIfNeeded(); await f.click(); await page.waitForSelector('#lb.open');
+  const r = await page.evaluate(() => { const o = document.getElementById('lbopen'), p = document.getElementById('lbpids'), t = document.getElementById('lbtheme');
+    return { link: o && !o.hidden ? o.getAttribute('href') : '', pids: p && !p.hidden ? p.querySelectorAll('a.pid').length : 0, theme: !!t && !t.hidden, src: document.getElementById('lbimg').getAttribute('src') }; });
+  const bad = [];
+  if (info.html && !r.link) bad.push('нет «Открыть интерактивный макет»');
+  if (info.pids && !r.pids) bad.push('нет связанных P-id');
+  if (info.alt) { if (!r.theme) bad.push('нет переключателя темы'); else { await page.click('#lbtheme'); await sleep(80); const src2 = await page.getAttribute('#lbimg', 'src'); if (src2 === r.src) bad.push('тема не переключилась'); } }
+  await page.keyboard.press('Escape');
+  if (bad.length) return FAIL(bad.join('; '));
+  return OK(`макет: ${r.link ? 'интерактивный HTML ' + r.link.split('/').pop() : 'без HTML'}, P-id ${r.pids}${info.alt ? ', вторая тема переключается' : ''}`);
+});
+
 // ---------------------------------------------------------------- мобильная ширина 390 px
 const mctx =await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, hasTouch: true });
 await mctx.addInitScript(INIT);
@@ -1047,6 +1361,60 @@ await check(mpage, 'charts-mobile', async () => {
   if (r.sw > r.W + 1) return FAIL(`горизонтальная прокрутка документа: ${r.sw} > ${r.W}`);
   if (r.elTop != null && (r.elBottom <= 0 || r.elTop >= r.t)) return FAIL(`выбранный элемент закрыт листом: элемент ${r.elTop}–${r.elBottom}, лист с ${r.t}`);
   return OK(`${pt ? 'касание' : 'переход'}: нижний лист ${r.r - r.l}×${r.b - r.t} px, элемент над листом, ширина документа ${r.sw} ≤ ${r.W}`);
+});
+await check(mpage, 'viewer-mobile', async () => {
+  const sk = viewerSkip(); if (sk) return sk;
+  if (HAS_CH && !await chartsReady(mpage)) return FAIL('файлы графиков не подгрузились');
+  const ts = await mpage.evaluate(viewTargets), bad = [];
+  // кнопка на каждом графике и схеме: ≥ 44×32 px и не закрывает заголовок графика (первую подпись SVG)
+  const sizes = await mpage.evaluate(ts => ts.map(t => { const f = document.querySelector(t.sel); if (!f) return { key: t.key, miss: true };
+    const box = t.kind === 'chart' ? f.querySelector('.ps-svg') : f, z = box && box.parentElement.querySelector(':scope > .psi-zoom'); if (!z) return { key: t.key, miss: true };
+    const zr = z.getBoundingClientRect(), tx = [...box.querySelectorAll('svg text')].find(x => (x.textContent || '').trim()), tr = tx && tx.getBoundingClientRect();
+    const over = !!tr && tr.width > 0 && !(tr.right <= zr.left || tr.left >= zr.right || tr.bottom <= zr.top || tr.top >= zr.bottom);
+    return { key: t.key, w: Math.round(zr.width), h: Math.round(zr.height), over }; }), ts);
+  for (const s of sizes) { if (s.miss) bad.push(`${s.key}: нет кнопки`); else { if (s.w < 44 || s.h < 32) bad.push(`${s.key}: кнопка ${s.w}×${s.h} < 44×32`); if (s.over) bad.push(`${s.key}: кнопка закрывает заголовок графика`); } }
+  const t = ts.find(x => x.kind === 'chart') || ts[0];
+  const zsel = t.kind === 'chart' ? `${t.sel} .psi-zoom` : `${t.sel} ~ .psi-zoom`;
+  await mpage.locator(zsel).first().scrollIntoViewIfNeeded();
+  const zb = await mpage.locator(zsel).first().boundingBox();
+  await mpage.touchscreen.tap(Math.round(zb.x + zb.width / 2), Math.round(zb.y + zb.height / 2)); await sleep(220);
+  let v = await vstate(mpage);
+  const W = await mpage.evaluate(() => innerWidth), H = await mpage.evaluate(() => innerHeight);
+  if (!v.open) return FAIL('касание кнопки не открыло просмотр; ' + bad.slice(0, 4).join('; '));
+  if (!v.rect || v.rect.w !== W || v.rect.h !== H) bad.push(`просмотр не на весь экран: ${JSON.stringify(v.rect)} при ${W}×${H}`);
+  if (await mpage.evaluate(() => document.getElementById('psi-lb').classList.contains('psi-sheet-open'))) bad.push('лист панели открыт без выбора');
+  const s0 = v.st.scale;
+  await mpage.evaluate(() => {      // щипок двумя пальцами — синтетические pointer-события (в Playwright нет мультитача)
+    const st = document.querySelector('#psi-lb .psi-stage'), r = st.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const ev = (type, id, x, y) => st.dispatchEvent(new PointerEvent(type, { pointerId: id, pointerType: 'touch', clientX: x, clientY: y, bubbles: true, isPrimary: id === 11 }));
+    ev('pointerdown', 11, cx - 30, cy); ev('pointerdown', 12, cx + 30, cy);
+    for (let k = 1; k <= 6; k++) { ev('pointermove', 11, cx - 30 - k * 12, cy); ev('pointermove', 12, cx + 30 + k * 12, cy); }
+    ev('pointerup', 11, cx - 102, cy); ev('pointerup', 12, cx + 102, cy); });
+  await sleep(60); v = await vstate(mpage);
+  if (!(v.st.scale > s0 * 1.5)) bad.push(`щипок не увеличил: ${s0.toFixed(3)} → ${v.st.scale.toFixed(3)}`);
+  await mpage.click('#psi-lb [data-psi-z="reset"]'); await sleep(60);
+  const s1 = (await vstate(mpage)).st.scale;
+  const sp = await mpage.evaluate(() => { const s = document.querySelector('#psi-lb .psi-stage').getBoundingClientRect(); return { x: Math.round(s.left + s.width / 2), y: Math.round(s.top + s.height * 0.3) }; });
+  await mpage.touchscreen.tap(sp.x, sp.y); await sleep(90); await mpage.touchscreen.tap(sp.x, sp.y); await sleep(160);
+  if (!((await vstate(mpage)).st.scale > s1 * 1.5)) bad.push('двойное касание не увеличило');
+  await mpage.click('#psi-lb [data-psi-z="reset"]'); await sleep(60);
+  const ids = (await vstate(mpage)).st.ids; let pt = null;
+  for (let i = 0; i < ids.length && !pt; i++) pt = await mpage.evaluate(([kind, id]) => { const q = s => window.CSS && CSS.escape ? CSS.escape(s) : s;
+    const el = document.querySelector(`#psi-lb .psi-canvas ${kind === 'flow' ? '.fnode[data-node="' + q(id) + '"]' : '[data-ps-el="' + q(id) + '"]'}`); if (!el) return null;
+    const r = el.getBoundingClientRect(), x = Math.round(r.left + r.width / 2), y = Math.round(r.top + r.height / 2), e = document.elementFromPoint(x, y);
+    return e && (e === el || el.contains(e)) && y < innerHeight - 90 ? { x, y } : null; }, [t.kind, ids[i]]);
+  if (pt) { await mpage.touchscreen.tap(pt.x, pt.y); await sleep(450); } else await mpage.evaluate(id => PSI.select(id), ids[0]);
+  const sh = await mpage.evaluate(() => { const lb = document.getElementById('psi-lb'), p = lb.querySelector('.psi-panel').getBoundingClientRect(), el = lb.querySelector('.psi-canvas .psi-on'), e = el && el.getBoundingClientRect();
+    return { open: lb.classList.contains('psi-sheet-open'), len: lb.querySelector('.psi-pb').textContent.trim().length, bottom: Math.round(innerHeight - p.bottom), top: Math.round(p.top), H: innerHeight,
+      elBottom: e ? Math.round(e.bottom) : null, elTop: e ? Math.round(e.top) : null, sw: document.documentElement.scrollWidth, W: innerWidth }; });
+  await shot(mpage, 'mobile-viewer-sheet');
+  if (!sh.open || sh.len < 20) bad.push('касание элемента не раскрыло нижний лист с подробностями');
+  else if (sh.bottom !== 0 || sh.top < sh.H * 0.3) bad.push(`лист не внизу экрана: ${JSON.stringify(sh)}`);
+  else if (sh.elTop != null && (sh.elBottom <= 0 || sh.elTop >= sh.top)) bad.push(`выбранный элемент закрыт листом: ${sh.elTop}–${sh.elBottom}, лист с ${sh.top}`);
+  if (sh.sw > sh.W + 1) bad.push(`горизонтальная прокрутка ${sh.sw} > ${sh.W}`);
+  await closeViewer(mpage);
+  if (bad.length) return FAIL(bad.slice(0, 10).join('; '));
+  return OK(`кнопки ${sizes.length} шт. ≥ 44×32 и не на заголовках; просмотр ${W}×${H} на весь экран, щипок и двойное касание, лист внизу, элемент над листом`);
 });
 await check(mpage, 'progress-gantt-390', async () => {
   if (!HAS_PG) return SKIP(NO_PG, true);
@@ -1390,7 +1758,8 @@ await check(page, 'lite-assets', async () => {
     if (f) f.setAttribute('data-smoke-lite', ''); return f ? f.dataset.key : null;
   });
   let info = '';
-  if (key) {
+  if (key && REPLACED.includes('lightbox')) info = ', просмотр картинок заменён расширением — открытие не проверялось';
+  else if (key) {
     const fig = page.locator('figure.lb[data-smoke-lite]');
     await fig.scrollIntoViewIfNeeded(); await sleep(400);
     const prev = await page.evaluate(() => { const im = document.querySelector('figure.lb[data-smoke-lite] img'); return { src: (im.currentSrc || im.src || '').slice(0, 40), w: im.naturalWidth }; });
@@ -1488,6 +1857,18 @@ await check(page, 'site-open-data', async () => {
 // Chromium — основной (все проверки выше); WebKit и Firefox — геометрия (WebKit) и эта проверка загрузки: скрипты и стили
 // выполнились (CSP 'self' на file://), данные подключены, нарушений CSP, ошибок консоли и внешних запросов нет, P-ссылка открывает карточку.
 const errLine = e => { const l = String((e && e.message) || e).split('\n'); const m = l.find(x => /\[err\]/.test(x) && !/headless mode/.test(x)); return (m ? m.replace(/^.*\[err\]\s*/, '') : l[0]).slice(0, 160); };
+// причина недоступности движка из <OUT>/build/env.json (check_env.py): первое поле reason|error|why|note у ключа с именем движка
+function envNote(name) {
+  try {
+    const e = JSON.parse(fs.readFileSync(path.join(OUT, 'build', 'env.json'), 'utf8')); let found = '';
+    (function walk(o, k) {
+      if (found || !o || typeof o !== 'object') return;
+      if (String(k).toLowerCase().includes(name)) { const r = o.reason || o.error || o.why || o.note; if (r) { found = String(r).split('\n')[0].slice(0, 160); return; } }
+      for (const [kk, v] of Object.entries(o)) walk(v, kk);
+    })(e, '');
+    return found;
+  } catch (x) { return ''; }
+}
 async function launchFirefox() {
   try { return { browser: await pw.firefox.launch({ headless: !args.headed }), how: 'playwright' }; } catch (e) { var first = errLine(e); }
   const bases = [process.env.PLAYWRIGHT_BROWSERS_PATH, path.join(os.homedir(), 'Library', 'Caches', 'ms-playwright'),
@@ -1550,6 +1931,35 @@ async function engineLoad(br, name) {
         }
         charts = `, график ${c.key}: клик, →, Esc${lk ? ', ссылка ' + lk.href : ''}`;
       }
+      if ((HAS_CH || HAS_FLOW) && name !== 'chromium') {    // просмотр в этом движке (в Chromium — полные проверки viewer-* выше) — по КАЖДОМУ графику и схеме (FB-036): кнопка видна, живой SVG, «+», клик элемента, Esc
+        if (REPLACED.includes('viewer')) { charts += ', просмотр заменён расширением'; }
+        else {
+          const ts = await p.evaluate(viewTargets), vbad = []; let vok = 0;
+          for (const t of ts) {
+            const i = await p.evaluate(viewInfo, t);
+            if (!i.zoom) { vbad.push(`${t.key}: нет видимой кнопки «🔍 Увеличить»`); continue; }
+            const zsel = t.kind === 'chart' ? `${t.sel} .psi-zoom` : `${t.sel} ~ .psi-zoom`;
+            await p.locator(zsel).first().scrollIntoViewIfNeeded(); await p.locator(zsel).first().click(); await sleep(150);
+            let v = await vstate(p);
+            if (!v.open || !v.live) { vbad.push(`${t.key}: просмотр ${v.open ? 'без живого SVG' : 'не открылся'}`); await closeViewer(p); continue; }
+            const t0 = v.transform; await p.click('#psi-lb [data-psi-z="in"]'); await sleep(40);
+            if ((await vstate(p)).transform === t0) vbad.push(`${t.key}: «+» не меняет масштаб`);
+            await p.click('#psi-lb [data-psi-z="reset"]'); await sleep(40);
+            const id = v.st.ids.find(Boolean);
+            const pt = id && await p.evaluate(([kind, id]) => { const q = s => window.CSS && CSS.escape ? CSS.escape(s) : s;
+              const els = [...document.querySelectorAll(`#psi-lb .psi-canvas ${kind === 'flow' ? '.fnode[data-node]' : '.ps-el[data-ps-el]'}`)];
+              for (const el of els) { const r = el.getBoundingClientRect(), x = Math.round(r.left + r.width / 2), y = Math.round(r.top + r.height / 2), e = document.elementFromPoint(x, y);
+                if (e && (e === el || el.contains(e))) return { x, y, id: el.getAttribute('data-ps-el') || el.getAttribute('data-node') }; } return null; }, [t.kind, id]);
+            if (pt) { await p.mouse.click(pt.x, pt.y); await sleep(60); const s = (await vstate(p)).st, pi = await panelInfo(p); if (s.sel !== pt.id || pi.len < 20) vbad.push(`${t.key}: клик по ${pt.id} не открыл панель`); }
+            else vbad.push(`${t.key}: ни один элемент не нажимается мышью`);
+            await p.keyboard.press('Escape'); await sleep(60);
+            v = await vstate(p); const back = await p.evaluate(z => document.activeElement === document.querySelector(z), zsel);
+            if (v.open || !back) vbad.push(`${t.key}: Esc ${v.open ? 'не закрыл' : 'не вернул фокус на кнопку'}`); else vok++;
+          }
+          if (vbad.length) return FAIL(`просмотр в ${name}: ${vbad.length} из ${ts.length}: ` + vbad.slice(0, 8).join('; '));
+          charts += `, просмотр: ${vok} из ${ts.length} графиков и схем (кнопка, живой SVG, «+», клик, Esc)`;
+        }
+      }
       return OK(`${r.site ? 'site' : 'single/lite'} по file://: разделов ${r.sections}, строк реестра ${r.rows}${modal}${charts}`);
     } finally { await c.close(); }
   });
@@ -1574,8 +1984,9 @@ if (args.engines.includes('firefox')) {
     await engineLoad(ff.browser, 'firefox');
     engines.push({ name: 'firefox', version: ff.browser.version(), status: 'tested', scope: ['загрузка по file://'].concat(HAS_CH ? ['графики: клик, клавиатура, ссылка'] : []) });
   } else {
-    await check(page, 'engine-load-firefox', async () => SKIP('Firefox не запустился: ' + ff.why, true));
-    engines.push({ name: 'firefox', status: 'unavailable', note: ff.why });
+    const note = envNote('firefox');      // причина из build/env.json (check_env.py), если записана — FB-039
+    await check(page, 'engine-load-firefox', async () => SKIP('Firefox не запустился: ' + ff.why + (note && note !== ff.why ? ' (check_env.py: ' + note + ')' : ''), true));
+    engines.push({ name: 'firefox', status: 'unavailable', note: ff.why + (note && note !== ff.why ? ' (check_env.py: ' + note + ')' : '') });
   }
 }
 

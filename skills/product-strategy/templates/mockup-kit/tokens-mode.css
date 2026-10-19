@@ -1,0 +1,18 @@
+/* Токены режима интерфейса «{{MODE}}» — набор макетов product-strategy 1.3. Файл: <OUT>/mockups/tokens-{{MODE}}.css
+   (создаёт mockup_kit.py init --modes …, если файла нет; значения заполняет агент дизайна).
+   Схема «набор токенов на режим»: общий ../tokens.css задаёт базу (шрифты, радиусы, нейтрали), а файл режима переопределяет
+   только то, чем режим отличается (плотность, акцент, фон, радиусы). Режимы — одна дизайн-система и одни данные, разные
+   компоновки; переключение — атрибут data-mode на <html> (или на контейнере):
+     <html data-mode="{{MODE}}" data-theme="light"> + <link rel="stylesheet" href="../tokens.css"> + <link rel="stylesheet" href="../tokens-{{MODE}}.css">
+   Правила: только переменные --c-* и общие (--radius, --radius-lg, --font, --font-heading, --font-size) — имена моста
+   (--primary, --bg …) под [data-mode] набор не пересчитывает; цвета — hex; тёмный блок первым, светлый последним (как в
+   tokens.css); контраст проверяется так же (скрипт из брифа concept-design.md, shoot_mockups.mjs --contrast). */
+[data-mode="{{MODE}}"][data-theme="dark"], [data-mode="{{MODE}}"] [data-theme="dark"] {
+  --c-bg: #111316; --c-surface: #191c20; --c-text: #e7e9ec; --c-muted: #a2a9b3; --c-border: #30353c;
+  --c-accent: #7ea2ff; --c-on-accent: #0b1020;
+}
+[data-mode="{{MODE}}"], [data-mode="{{MODE}}"] [data-theme="light"] {
+  --c-bg: #f6f7f9; --c-surface: #ffffff; --c-text: #1d2127; --c-muted: #59606b; --c-border: #d9dde3;
+  --c-accent: #2f5bd3; --c-on-accent: #ffffff;
+  --radius: 8px; --radius-lg: 14px; --font-size: 14px;
+}

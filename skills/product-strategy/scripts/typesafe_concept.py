@@ -18,6 +18,13 @@
   green  viability ≥ 0,60, risk < 0,40 и ни одна из семи не ниже 0,35 — можно идти дальше
   yellow всё остальное — продолжать с оговорками: проверить слабые места первыми экспериментами
 
+Личный режим (run-config project.audience = personal | circle | personal_then_public, SM 4.3) — свои вопросы без
+«достижимости аудитории» и «модели дохода»: pain (острота своей боли), faster (решит быстрее обходного пути), build_vs_buy
+(нет готового, которое проще взять), feasible, maintain (реально поддерживать в одиночку), payback (окупаемость личных
+усилий), data_risk (риск потери данных или решения; высокая вероятность — плохо), ban_risk; risk = max(ban_risk, data_risk).
+Выполнимость (feasible) в эвристике считается по единой ёмкости capacity.py (FB-028): дни разработки к сроку MVP против
+типового объёма MVP по ответу о составе (одна функция ≈ 10–20 дн., полная версия ≈ 60–120 дн.).
+
 Источник оценок: TypeSafe Jev (source: jev), если задан TYPESAFE_API_KEY и run-config tools.typesafe ≠ off (или --force);
 иначе — ЭВРИСТИКА по ответам владельца (source: heuristic, confidence: low), честно помеченная, поле skipped — причина,
 по которой Jev не спрашивали. Ошибка API → эвристика и поле api_error. Ключ — только из переменной окружения
@@ -62,6 +69,60 @@ QUESTIONS = {
 LABELS = {"pain": "Острота проблемы", "reach": "Достижимость аудитории", "switch": "Готовность переключиться", "distinct": "Отличие от аналогов",
           "feasible": "Выполнимость ресурсами владельца", "revenue": "Потенциал модели дохода", "timing": "Своевременность", "ban_risk": "Риск запрета и права"}
 VERDICT_LABELS = {"green": "можно идти дальше (go)", "yellow": "продолжать с оговорками", "red": "стоп: спросить владельца, продолжать ли"}
+# личный режим (SM 4.3): без вопросов про аудиторию и доход
+PERSONAL_AUDIENCES = ("personal", "circle", "personal_then_public")
+POSITIVE_PERSONAL = ["pain", "faster", "build_vs_buy", "feasible", "maintain", "payback"]
+CRITICAL_PERSONAL = ["pain", "feasible", "maintain"]
+RISKS_PERSONAL = ["ban_risk", "data_risk"]
+QUESTIONS_PERSONAL = {
+    "pain": QUESTIONS["pain"],
+    "faster": {"type": "noul", "instructions": "Решит ли продукт задачу владельца быстрее и надёжнее, чем его нынешний обходной путь (таблица, заметки, ручной труд)?",
+               "criteria": {"true": "Заметно быстрее или надёжнее обходного пути", "false": "Обходной путь не хуже"}},
+    "build_vs_buy": {"type": "noul", "instructions": "Стоит ли делать своё: нет ли готового продукта или библиотеки, которые решают ту же задачу дешевле по времени?",
+                     "criteria": {"true": "Своё оправдано: готовое не подходит или дороже", "false": "Проще взять готовое"}},
+    "feasible": QUESTIONS["feasible"],
+    "maintain": {"type": "noul", "instructions": "Сможет ли владелец в одиночку поддерживать продукт: обновления, данные, зависимости, внешние API?",
+                 "criteria": {"true": "Поддержка посильна одному", "false": "Поддержка съест всё время"}},
+    "payback": {"type": "noul", "instructions": "Окупятся ли личные усилия: сэкономленное время, деньги или ошибки владельца больше часов на разработку и поддержку?",
+                "criteria": {"true": "Усилия окупятся", "false": "Затраты больше пользы"}},
+    "data_risk": {"type": "noul", "instructions": "Есть ли существенный риск потери данных, неверного решения по данным продукта или зависимости от внешнего API, который могут закрыть?",
+                  "criteria": {"true": "Риск реален", "false": "Риск низкий или управляемый"}},
+    "ban_risk": QUESTIONS["ban_risk"],
+}
+LABELS.update({"faster": "Быстрее обходного пути", "build_vs_buy": "Своё вместо готового", "maintain": "Поддержка в одиночку",
+               "payback": "Окупаемость личных усилий", "data_risk": "Риск потери данных и зависимости от API"})
+MVP_DAYS = {"single_feature": (10, 20), "landing": (3, 7), "concierge": (7, 15), "full": (60, 120)}   # типовой объём MVP (FB-054)
+
+
+def audience(cfg):
+    a = str(((cfg or {}).get("project") or {}).get("audience") or "public").lower()
+    return a if a in PERSONAL_AUDIENCES + ("public",) else "public"
+
+
+def is_personal(cfg):
+    return audience(cfg) in PERSONAL_AUDIENCES
+
+
+def questions_for(cfg):
+    return QUESTIONS_PERSONAL if is_personal(cfg) else QUESTIONS
+
+
+def capacity_fit(cfg):
+    """FB-028/054: (поправка к feasible | None, пояснение) — дни разработки к сроку MVP (capacity.py) против объёма MVP."""
+    try:
+        import capacity as cap_mod
+    except ImportError:
+        return None, ""
+    fc = ((cfg.get("idea") or {}).get("facets") or {})
+    size = MVP_DAYS.get(fc.get("mvp"))
+    if not size:
+        return None, ""
+    weeks = fc.get("mvp_weeks")
+    months = (float(weeks) / (52 / 12.0)) if weeks else float(((cfg.get("strategy") or {}).get("horizon_months")) or 6)
+    c = cap_mod.capacity(cfg, months)
+    ratio = c["dev_days"] / ((size[0] + size[1]) / 2.0)
+    adj = 0.12 if ratio >= 1.5 else 0.05 if ratio >= 1 else -0.08 if ratio >= 0.5 else -0.18
+    return adj, "ёмкость ≈ %.0f дн. разработки к сроку MVP против %d–%d дн. объёма MVP" % (c["dev_days"], size[0], size[1])
 SECRET_RE = re.compile(r"(gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|sk_live_[A-Za-z0-9_]{10,}|"
                        r"AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{30,}|\b\d{8,10}:[A-Za-z0-9_-]{30,}\b|"
                        r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})")
@@ -92,10 +153,16 @@ def build_state(cfg):
         v = ", ".join(map(str, v)) if isinstance(v, list) else str(v or "")
         answers.append({"theme": a.get("theme"), "question": mask(a.get("question"))[:200], "answer": mask(v.replace(" (Recommended)", ""))[:300],
                         "default": bool(a.get("default"))})
-    return {"idea": mask(idea.get("pitch"))[:1500], "product_type": pr.get("type"), "markets": st.get("markets"),
-            "monetization": mask(st.get("monetization"))[:200], "budget": (st.get("budget") or {}).get("variants"),
-            "team_size": pj.get("team_size"), "horizon_months": st.get("horizon_months"), "answers": answers,
-            "unanswered_count": len(idea.get("unanswered") or [])}
+    state = {"idea": mask(idea.get("pitch_v2") or idea.get("pitch"))[:1500], "product_type": pr.get("type"), "markets": st.get("markets"),
+             "monetization": mask(st.get("monetization"))[:200], "budget": (st.get("budget") or {}).get("variants"),
+             "team_size": pj.get("team_size"), "horizon_months": st.get("horizon_months"), "answers": answers,
+             "unanswered_count": len(idea.get("unanswered") or []), "audience": audience(cfg)}
+    try:
+        import capacity as cap_mod
+        state["capacity"] = cap_mod.capacity(cfg, float(st.get("horizon_months") or 6))["line"]
+    except (ImportError, TypeError, ValueError):
+        pass
+    return state
 
 
 # ---------------------------------------------------------------- эвристика по ответам
@@ -160,11 +227,13 @@ def heuristic(cfg):
     put("distinct", ds, "отличие «%s», аналоги «%s», рынок «%s»" % (said("differentiator", fc.get("differentiator")), said("competitors_known", fc.get("competitors_known")), said("market", fc.get("market"))),
         ["c12", "c22", "c24"])
     team = pj.get("team_size") or 1
-    fe = 0.55 + (0.08 if team >= 2 else 0) + {40: 0.12, 15: 0.05, 4: -0.15}.get(fc.get("hours_week"), 0)
+    cap_adj, cap_note = capacity_fit(cfg)
+    fe = 0.55 + (0.08 if team >= 2 else 0) + (cap_adj if cap_adj is not None else {40: 0.12, 15: 0.05, 4: -0.15}.get(fc.get("hours_week"), 0))
     fe += {"landing": 0.12, "concierge": 0.08, "full": -0.15}.get(fc.get("mvp"), 0) + (-0.06 if pr.get("type") == "mobile" and team == 1 else 0)
     fe += (-0.07 if fc.get("ai") == "core" else 0) + (-0.08 if fc.get("network") == "two_sided" else 0)
     fe += (0.05 if "dev" in (fc.get("skills") or []) else -0.1 if fc.get("skills") else 0) + (-0.08 if fc.get("mvp_weeks") == 2 and fc.get("mvp") == "full" else 0)
-    put("feasible", fe, "команда %s, время «%s», MVP «%s», форма «%s», ИИ «%s»" % (team, said("hours_week", fc.get("hours_week")), said("mvp", fc.get("mvp")), said("product.type", pr.get("type")), said("ai", fc.get("ai"))),
+    put("feasible", fe, "команда %s, время «%s», MVP «%s», форма «%s», ИИ «%s»%s" % (team, said("hours_week", fc.get("hours_week")), said("mvp", fc.get("mvp")), said("product.type", pr.get("type")), said("ai", fc.get("ai")),
+                                                                                 "; " + cap_note if cap_note else ""),
         ["c30", "c32", "c17", "c16", "c21", "c33"])
     mon = str(st.get("monetization") or "")
     rv = {"freemium": 0.5, "one_time": 0.45, "commission": 0.45, "donations": 0.28}.get(mon, 0.42)
@@ -178,17 +247,39 @@ def heuristic(cfg):
     br += (0.08 if fc.get("main_risk") == "regulation" else 0) + (0.05 if pr.get("type") in ("bot", "mobile") else 0) + (0.05 if mon == "commission" else 0)
     put("ban_risk", br, "чувствительные области: %s; данные «%s»; форма «%s»%s" % (said("sensitive", sens) if sens else "нет", said("data", fc.get("data")), said("product.type", pr.get("type")),
         "; право в объёме" if sc.get("legal") else ""), ["c38", "c20", "c40", "c16"])
+    if is_personal(cfg):                               # SM 4.3: вопросы личного режима вместо аудитории и дохода
+        sw_p = out["switch"]["p"]
+        put("faster", sw_p + (0.08 if fc.get("current") == "manual" else 0) + (0.05 if fc.get("frequency") == "daily" else 0),
+            "сейчас решает «%s», частота «%s»" % (said("current", fc.get("current")), said("frequency", fc.get("frequency"))), ["c02", "c03"])
+        put("build_vs_buy", out["distinct"]["p"] + (0.05 if fc.get("competitors_known") == "none_claimed" else 0) - (0.08 if fc.get("current") == "paid_competitor" else 0),
+            "отличие «%s», аналоги «%s» — сравнить с готовым (build vs buy)" % (said("differentiator", fc.get("differentiator")), said("competitors_known", fc.get("competitors_known"))),
+            ["c12", "c22"])
+        put("maintain", 0.55 + (0.08 if team >= 2 else 0) - (0.1 if fc.get("ai") == "core" else 0) - (0.08 if fc.get("platform_dependency") else 0)
+            + (0.05 if "dev" in (fc.get("skills") or []) else 0), "команда %s, ИИ «%s», внешняя платформа: %s" % (
+                team, said("ai", fc.get("ai")), "да" if fc.get("platform_dependency") else "нет"), ["c30", "c21", "c33"])
+        put("payback", 0.5 + {"daily": 0.12, "monthly": 0.03, "rare": -0.05}.get(fc.get("frequency"), 0)
+            + {"money": 0.08, "time": 0.05}.get(fc.get("value"), 0) + (cap_adj or 0) / 2,
+            "частота «%s», польза «%s»%s" % (said("frequency", fc.get("frequency")), said("value", fc.get("value")), "; " + cap_note if cap_note else ""),
+            ["c03", "c11", "c32"])
+        put("data_risk", 0.2 + (0.2 if fc.get("data") in ("personal", "sensitive") else 0) + (0.15 if fc.get("platform_dependency") else 0)
+            + (0.1 if fc.get("ai") == "core" else 0), "данные «%s», внешняя платформа: %s, ИИ «%s»" % (
+                said("data", fc.get("data")), "да" if fc.get("platform_dependency") else "нет", said("ai", fc.get("ai"))), ["c20", "c21"])
+        for k in ("reach", "switch", "distinct", "revenue", "timing"):
+            out.pop(k, None)
     return out
 
 
 def verdict(items):
-    """Светофор по порогам THRESHOLDS (см. docstring): green | yellow | red, viability, risk, слабые места."""
-    pos = [items[k]["p"] for k in POSITIVE if k in items]
+    """Светофор по порогам THRESHOLDS (см. docstring): green | yellow | red, viability, risk, слабые места.
+    Личный режим узнаётся по ключам (faster, maintain …): свои «хорошие» вопросы и риск = max(ban_risk, data_risk)."""
+    personal = "maintain" in items or "faster" in items
+    positive, critical = (POSITIVE_PERSONAL, CRITICAL_PERSONAL) if personal else (POSITIVE, CRITICAL)
+    pos = [items[k]["p"] for k in positive if k in items]
     viability = round(sum(pos) / len(pos), 3) if pos else 0.0
-    risk = items.get("ban_risk", {}).get("p", 0.0)
-    weak = [k for k in POSITIVE if k in items and items[k]["p"] < THRESHOLDS["green_min"]]
+    risk = max([items.get(k, {}).get("p", 0.0) for k in (RISKS_PERSONAL if personal else ["ban_risk"])] or [0.0])
+    weak = [k for k in positive if k in items and items[k]["p"] < THRESHOLDS["green_min"]]
     t = THRESHOLDS
-    if viability < t["red_viability"] or risk >= t["red_risk"] or any(items.get(k, {}).get("p", 1) < t["red_critical"] for k in CRITICAL):
+    if viability < t["red_viability"] or risk >= t["red_risk"] or any(items.get(k, {}).get("p", 1) < t["red_critical"] for k in critical):
         v = "red"
     elif viability >= t["green_viability"] and risk < t["green_risk"] and not weak:
         v = "green"
@@ -199,24 +290,27 @@ def verdict(items):
 
 def doc_for(items, source, cfg, skipped=None, api_error=None, model=None):
     v, viability, risk, weak = verdict(items)
-    first = sorted([k for k in POSITIVE if k in items], key=lambda k: items[k]["p"])[:3]
+    personal = is_personal(cfg)
+    qs = questions_for(cfg)
+    first = sorted([k for k in (POSITIVE_PERSONAL if personal else POSITIVE) if k in items], key=lambda k: items[k]["p"])[:3]
     if risk >= THRESHOLDS["green_risk"]:
-        first = ["ban_risk"] + first[:2]
+        worst = max((k for k in (RISKS_PERSONAL if personal else ["ban_risk"]) if k in items), key=lambda k: items[k]["p"], default="ban_risk")
+        first = [worst] + first[:2]
     return {"version": 1, "date": date.today().isoformat(), "source": source, "model": model or ("jev" if source == "jev" else "heuristic"),
             "confidence": "medium" if source == "jev" else "low", "skipped": skipped, "api_error": api_error,
             "idea": ((cfg.get("idea") or {}).get("name") or (cfg.get("product") or {}).get("name") or ""),
-            "questions": [{"key": k, "label": LABELS[k], "text": q["instructions"], "good": "low" if k == "ban_risk" else "high"} for k, q in QUESTIONS.items()],
-            "items": {k: dict(items[k], label=LABELS[k]) for k in QUESTIONS if k in items},
+            "questions": [{"key": k, "label": LABELS[k], "text": q["instructions"], "good": "low" if k in ("ban_risk", "data_risk") else "high"} for k, q in qs.items()],
+            "items": {k: dict(items[k], label=LABELS[k]) for k in qs if k in items}, "audience": audience(cfg),
             "viability": viability, "risk": risk, "verdict": v, "verdict_label": VERDICT_LABELS[v], "weak": weak,
             "check_first": [LABELS[k] for k in first], "thresholds": THRESHOLDS,
             "note": ("Оценка Jev по обезличенной идее и ответам владельца" if source == "jev" else
                      "Эвристика по ответам владельца без модели: ориентир, не прогноз (confidence: low)")}
 
 
-def parse_jev(resp):
+def parse_jev(resp, questions=None):
     a = resp.get("answers") or {}
     out = {}
-    for k, q in QUESTIONS.items():
+    for k, q in (questions or QUESTIONS).items():
         ans = a.get(k)
         if isinstance(ans, dict) and "noul" in ans:
             p = round(float(ans["noul"]), 3)
@@ -242,8 +336,9 @@ def main(argv=None):
         return 1
     state = build_state(cfg)
     out_path = out_dir / "data" / "typesafe-concept.json"
+    qs = questions_for(cfg)
     if a.dry_run:
-        print("Вопросы (%d): %s" % (len(QUESTIONS), ", ".join(QUESTIONS)))
+        print("Вопросы (%d): %s" % (len(qs), ", ".join(qs)))
         print("Контекст (обезличенный):")
         print(json.dumps(state, ensure_ascii=False, indent=2))
         print("Запросов было бы: 1 (файл не записан)")
@@ -258,12 +353,12 @@ def main(argv=None):
     doc = None
     if not skipped:
         try:
-            resp = ask(state, key)
-            items = parse_jev(resp)
-            if len(items) == len(QUESTIONS):
+            resp = ask(state, key, questions=qs)
+            items = parse_jev(resp, qs)
+            if len(items) == len(qs):
                 doc = doc_for(items, "jev", cfg, model=resp.get("model") or "jev")
             else:
-                skipped = "ответ Jev неполный (%d из %d вопросов)" % (len(items), len(QUESTIONS))
+                skipped = "ответ Jev неполный (%d из %d вопросов)" % (len(items), len(qs))
         except urllib.error.HTTPError as e:
             skipped = "доступ отклонён (HTTP %d)" % e.code if e.code in (401, 403) else None
             api_error = "HTTP %d" % e.code
@@ -282,11 +377,11 @@ def main(argv=None):
     return 0
 
 
-def ask(state, key, url=None, timeout=typesafe_eval.TIMEOUT_S):
+def ask(state, key, url=None, timeout=typesafe_eval.TIMEOUT_S, questions=None):
     """Тот же запрос, что typesafe_eval.ask, но со своим набором вопросов; ключ уходит только в заголовок."""
     import time
     import urllib.request
-    body = json.dumps({"state": state, "model": typesafe_eval.MODEL, "questions": QUESTIONS}).encode("utf-8")
+    body = json.dumps({"state": state, "model": typesafe_eval.MODEL, "questions": questions or QUESTIONS}).encode("utf-8")
     last = None
     for attempt in range(typesafe_eval.RETRIES + 1):
         req = urllib.request.Request(url or typesafe_eval.API_URL, data=body, method="POST",

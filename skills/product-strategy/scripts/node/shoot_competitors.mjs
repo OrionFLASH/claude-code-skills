@@ -1,11 +1,16 @@
 #!/usr/bin/env node
 // Скриншоты главных страниц конкурентов из <OUT>/data/competitors.json (product-strategy).
 //
-//   node shoot_competitors.mjs <OUT> [--timeout 20000] [--only slug1,slug2] [--include-self] [--delay 1000] [--node-dir <dir>]
+//   node shoot_competitors.mjs <OUT> [--timeout 20000] [--only slug1,slug2] [--include-self] [--delay 1000]
+//                              [--accept-cookies] [--node-dir <dir>]
 //
-// Для каждой карточки с http(s) URL: открывает страницу (1440×900), ждёт отрисовки, закрывает cookie-баннер
-// только по безопасным селекторам (кнопки «Принять/Accept» внутри баннеров согласия), снимает
-// <OUT>/competitors/shots/<slug>.png и обновляет в карточке поля shot, shot_blocked, shot_error.
+// Для каждой карточки с http(s) URL: открывает страницу (1440×900), ждёт отрисовки, снимает
+// <OUT>/competitors/shots/<slug>.png и обновляет в карточке поля shot, shot_blocked, shot_error, cookie.
+// Cookie-баннеры (1.5, FB-031): по умолчанию НИЧЕГО НЕ НАЖИМАЕТСЯ — баннер согласия и его затемнение скрываются
+// стилем только в нашей копии страницы перед снимком (известные CMP и фиксированные блоки с текстом про cookie/согласие);
+// согласие от имени пользователя не даётся. Поле карточки cookie: hidden (баннер скрыт стилем) | accepted (нажато
+// «Принять» — только с --accept-cookies) | none (баннера не нашли). --accept-cookies — прежнее поведение (клик по
+// кнопке согласия известных CMP), только осознанно: см. references/safety.md и references/competitors.md.
 // shot_blocked=true — капча/анти-бот/HTTP 4xx-5xx (признаки по статусу, заголовку и короткому тексту страницы).
 // Без входа в аккаунты и без других кликов; навигации не-GET (формы) блокируются; загрузки запрещены.
 // Файл competitors.json перезаписывается после каждой карточки (устойчиво к обрыву).
@@ -18,7 +23,7 @@ import { createRequire } from 'node:module';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SKILL_DIR = path.resolve(HERE, '..', '..');
-const USAGE = 'node shoot_competitors.mjs <OUT> [--timeout 20000] [--only slug1,slug2] [--include-self] [--delay 1000] [--node-dir <dir>]';
+const USAGE = 'node shoot_competitors.mjs <OUT> [--timeout 20000] [--only slug1,slug2] [--include-self] [--delay 1000] [--accept-cookies] [--node-dir <dir>]';
 
 function parseArgs(argv, flags) {
   const pos = []; const opt = {};
@@ -46,7 +51,7 @@ function loadPlaywright(opt, out) {
   process.exit(3);
 }
 
-const { pos, opt } = parseArgs(process.argv.slice(2), new Set(['include-self']));
+const { pos, opt } = parseArgs(process.argv.slice(2), new Set(['include-self', 'accept-cookies']));
 if (opt.help || pos.length < 1) { console.log(USAGE); process.exit(opt.help ? 0 : 2); }
 const OUT = path.resolve(pos[0]);
 const jsonPath = path.join(OUT, 'data', 'competitors.json');
@@ -95,6 +100,43 @@ async function dismissCookies(page) {
   const el = handle && handle.asElement ? handle.asElement() : null;
   if (el) { if (await safeClick(page, el)) return 'текст кнопки'; }
   return null;
+}
+
+// Скрыть баннеры согласия стилем (без кликов): известные контейнеры CMP, их затемнения и фиксированные/липкие блоки
+// с текстом про cookie/согласие (не больше 70 % экрана). Возвращает число скрытых элементов.
+const CMP_CONTAINERS = ['#onetrust-banner-sdk', '#onetrust-consent-sdk', '.onetrust-pc-dark-filter', '#CybotCookiebotDialog',
+  '#CybotCookiebotDialogBodyUnderlay', '#didomi-host', '#didomi-notice', '.didomi-popup-backdrop', '.fc-consent-root', '.fc-dialog-overlay',
+  '#usercentrics-root', '#usercentrics-cmp-ui', '#truste-consent-track', '#truste-consent-content', '.truste_overlay', '.cc-window', '.cc-banner',
+  '#cookie-law-info-bar', '.cky-consent-container', '.cky-overlay', '#qc-cmp2-container', '.qc-cmp2-container', '#sp_message_container',
+  '[id^="sp_message_container"]', '.cmpbox', '#cmpbox', '#cmpwrapper', '#iubenda-cs-banner', '.osano-cm-window', '#klaro', '.klaro'];
+async function hideCookies(page) {
+  return page.evaluate((known) => {
+    const hide = new Set();
+    for (const sel of known) { try { document.querySelectorAll(sel).forEach((e) => hide.add(e)); } catch (e) { /* селектор */ } }
+    const RX = /cookie|куки|consent|согласи|gdpr|privacy|конфиденциальн|персональн/i;
+    const vw = innerWidth, vh = innerHeight;
+    for (const el of document.querySelectorAll('body *')) {
+      const s = getComputedStyle(el);
+      if (s.position !== 'fixed' && s.position !== 'sticky') continue;
+      if (s.display === 'none' || s.visibility === 'hidden') continue;
+      const r = el.getBoundingClientRect(); if (r.width < 40 || r.height < 20) continue;
+      const area = (Math.min(r.right, vw) - Math.max(r.left, 0)) * (Math.min(r.bottom, vh) - Math.max(r.top, 0));
+      const sig = ((el.id || '') + ' ' + (typeof el.className === 'string' ? el.className : '') + ' ' + (el.getAttribute('aria-label') || '')).toLowerCase();
+      const text = (el.innerText || '').slice(0, 600);
+      const byName = /cookie|consent|gdpr|cmp|cc-|privacy-banner|cookiebar|куки/.test(sig);
+      if ((byName || (RX.test(text) && text.length < 1500)) && area < vw * vh * 0.7) hide.add(el);
+      // затемнение под баннером: фиксированный полупрозрачный слой на весь экран без текста
+      if (area >= vw * vh * 0.9 && !text.trim() && /rgba?\([^)]*,\s*0?\.\d+\)/.test(s.backgroundColor) && byName) hide.add(el);
+    }
+    let n = 0;
+    hide.forEach((el) => { el.setAttribute('data-ps-hidden', 'cookie'); n++; });
+    if (n) {
+      const st = document.createElement('style'); st.setAttribute('data-ps', 'cookie-hide');
+      st.textContent = '[data-ps-hidden="cookie"]{display:none!important}html,body{overflow:auto!important}';
+      (document.head || document.documentElement).appendChild(st);
+    }
+    return n;
+  }, CMP_CONTAINERS).catch(() => 0);
 }
 
 async function safeClick(page, el) {
@@ -146,7 +188,7 @@ for (const [i, card] of cards.entries()) {
   });
   const page = await ctx.newPage();
   page.on('dialog', (d) => d.dismiss().catch(() => {}));
-  let status = null; let error = null; let title = ''; let blocked = false; let cookie = null;
+  let status = null; let error = null; let title = ''; let blocked = false; let cookie = null; let cookieMode = 'none';
   try {
     const resp = await page.goto(url.href, { waitUntil: 'domcontentloaded', timeout: TIMEOUT });
     status = resp ? resp.status() : null;
@@ -158,7 +200,16 @@ for (const [i, card] of cards.entries()) {
   if (status && status >= 400) blocked = true;
   if (BLOCK_TITLE.test(title)) blocked = true;
   if (probe.words < 200 && BLOCK_TEXT.test(probe.text)) blocked = true;
-  if (!blocked && !error) cookie = await dismissCookies(page);
+  if (!blocked && !error) {
+    if (opt['accept-cookies']) {
+      cookie = await dismissCookies(page);
+      if (cookie) { cookieMode = 'accepted'; }
+    }
+    if (cookieMode !== 'accepted') {
+      const n = await hideCookies(page);
+      if (n) { cookieMode = 'hidden'; cookie = `скрыто стилем: ${n}`; }
+    }
+  }
   try {
     await page.screenshot({ path: file, timeout: 15000 });
     if (fs.statSync(file).size < 2000) error = (error ? error + '; ' : '') + 'пустой скриншот';
@@ -171,6 +222,7 @@ for (const [i, card] of cards.entries()) {
   if (blocked) error = (error ? error + '; ' : '') + (status && status >= 400 ? `HTTP ${status}; ` : '') + `похоже на анти-бот/ошибку: «${title.slice(0, 60)}»`;
   card.shot_blocked = blocked;
   card.shot_error = error;
+  card.cookie = cookieMode;
   if (!card.shot) stats.fail++; else if (blocked) stats.blocked++; else stats.ok++;
   console.log(`${!card.shot ? 'FAIL' : blocked ? 'BLCK' : 'OK  '} ${slug} [${status ?? '-'}] ${title.slice(0, 50)}${cookie ? ' | cookie: ' + cookie : ''}${error ? ' | ' + error : ''}`);
   await ctx.close();

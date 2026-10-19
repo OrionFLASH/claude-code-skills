@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Прототип — название продукта</title>
+  <link rel="stylesheet" href="css/base.css">
+  <!-- Токены режимов: css/tokens-<режим>.css (из mockups/tokens-*.css), привязка по [data-mode]; стили режима — css/mode-<id>.css -->
+</head>
+<body>
+  <a class="pk-skip" href="#pk-view">К содержимому</a>
+  <header class="pk-top">
+    <strong class="pk-name">Название продукта</strong>
+    <nav id="pk-modes" class="pk-modes" aria-label="Режимы интерфейса"></nav>
+    <span class="pk-badge pk-badge-concept">Концепт продукта, не существующая функция</span>
+    <span class="pk-badge pk-badge-demo" id="pk-demo">демо-данные</span>
+    <button id="pk-theme" class="pk-btn" type="button">Тема: авто</button>
+  </header>
+  <main id="pk-view" class="pk-view" tabindex="-1"></main>
+  <footer class="pk-foot">Рабочий прототип концепции: расчёты — ядро <code>js/core.js</code>, данные вымышлены, внешних запросов нет.</footer>
+  <!-- Обычные скрипты, не ES-модули: прототип открывается двойным щелчком по file:// в Safari и Chrome. -->
+  <script src="js/core.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/modes.js"></script>
+  <script src="fixtures/llm-replies.js"></script>
+  <script src="js/llm.js"></script>
+  <script src="js/mode-example.js"></script>
+  <!-- режимы: <script src="js/mode-<id>.js"></script> — по строке на режим, до app.js -->
+  <script src="js/app.js"></script>
+</body>
+</html>

@@ -549,10 +549,15 @@ def build_output(rows, props_by_id, W, jev):
             o["n_" + k] = round(r["n_" + k], 4)
         o.update({"quadrant": r["quadrant"], "priority": r["priority"], "moscow": r["moscow"], "labels": r["labels"],
                   "typesafe": ts_item(items.get(r["id"]))})
+        if p.get("queue"):                       # очередь нарезки (slicing) — для Ганта и таблиц (1.5)
+            o["queue"] = p["queue"]
         if "dep_rank" in r:
             o.update({"blocked_by": r["blocked_by"], "unlocks": r["unlocks"], "dep_rank": r["dep_rank"],
                       "dep_bonus": round(r["dep_bonus"], 6), "critical_path": r["critical_path"]})
         out.append(o)
+    if any("queue" in o for o in out):
+        for o in out:
+            o.setdefault("queue", None)
     return out
 
 

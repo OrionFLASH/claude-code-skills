@@ -105,7 +105,8 @@ def test_concept_setup_card():
 
 
 def test_slug_and_name_from_first_phrase():
-    assert intake.idea_name_slug(IDEA) == ("Приложение для обмена книгами между соседями", "obmena-knigami-mezhdu-sosedyami")
+    # 1.5 (FB-022): рабочее имя ≤ 4 слов без слов формы («Приложение для …»), slug — из имени
+    assert intake.idea_name_slug(IDEA) == ("Обмен книгами между соседями", "obmen-knigami-mezhdu-sosedyami")
     assert intake.idea_name_slug(IDEA, "Книгообмен") == ("Книгообмен", "knigoobmen")
     assert intake.slugify("Щука ёж: test!") == "schuka-ezh-test"
 

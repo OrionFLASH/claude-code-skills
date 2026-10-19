@@ -12,7 +12,16 @@
   check_env.py --selftest [--out <OUT>] [--json FILE]
       самопроверка форматов (A-3.6): демо-прогон make_demo.py во временной папке → XLSX, PPTX, PDF; файлы открываются
       (zip-структура, число листов и слайдов, сигнатура и страницы PDF); код 1 — формат не собрался или битый
+  check_env.py --git-state [--repo <папка>] [--json - | --json FILE]
+      состояние git (FB-041, SM 6.5): no_repo | unborn (репозиторий без коммитов) | normal, ветка, есть ли origin,
+      план ветки и слияния для этого случая (references/orchestration.md → «Git: особые случаи»); только чтение
+  check_env.py --run-timeout N -- <команда …>
+      запасной `timeout` для macOS (SM 6.4): запускает команду с ограничением N секунд; по истечении — код 124, как у
+      coreutils timeout; в инструкциях вместо `timeout N cmd` — `python3 <SKILL_DIR>/scripts/check_env.py --run-timeout N -- cmd`
 
+В таблице (и в env.json) есть строки: git-репозиторий (состояние, origin), timeout (timeout / gtimeout / запасной
+--run-timeout), firefox (playwright) — запуск проверяется только с --probe-browsers (FB-039: причина отказа — в env.json,
+smoke ставит skip с этой причиной).
 Статусы: OK, WARN (есть замена или не обязательно), MISS (нет), FAIL (нет обязательного).
 Уровни: required — без него нельзя; recommended — без него хуже (меньше форматов или уверенности); optional — усилители.
 --session-skills — имена скиллов, которые видит текущая сессия Claude Code (агент передаёт свой список): по ним
@@ -158,7 +167,98 @@ def python_mod(name):
     return out.strip().splitlines()[-1] if code == 0 and out.strip() else None
 
 
-def collect(out=None, session=None):
+# ---------------------------------------------------------------- git: состояние репозитория (FB-041)
+def git_state(path):
+    """→ {state: no_repo|unborn|normal, top, branch, has_origin, commits, plan}. Только чтение (rev-parse, remote)."""
+    p = Path(path or ".").expanduser()
+    while not p.exists() and p != p.parent:
+        p = p.parent
+    res = {"state": "no_repo", "top": None, "branch": None, "has_origin": False, "commits": 0, "plan": ""}
+    if not shutil.which("git"):
+        res["plan"] = "git не установлен: работать вне репозитория или поставить git"
+        return res
+    code, top = run(["git", "-C", str(p), "rev-parse", "--show-toplevel"])
+    if code != 0 or not top.strip():
+        res["plan"] = ("папка не в git-репозитории: предложить владельцу `git init` (и `git remote add origin …`) вопросом "
+                       "или работать вне репозитория — результат не попадёт в git")
+        return res
+    res["top"] = str(Path(top.strip().splitlines()[-1]).resolve())
+    code, br = run(["git", "-C", res["top"], "symbolic-ref", "--short", "-q", "HEAD"])
+    res["branch"] = br.strip() if code == 0 and br.strip() else None
+    code, _h = run(["git", "-C", res["top"], "rev-parse", "--verify", "-q", "HEAD"])
+    code_r, remotes = run(["git", "-C", res["top"], "remote"])
+    res["has_origin"] = code_r == 0 and "origin" in remotes.split()
+    if code != 0:
+        res["state"] = "unborn"
+        main = res["branch"] or "main"
+        res["plan"] = ("репозиторий без коммитов (unborn %s): ветка задачи создаётся сразу (`git switch -c <ветка>` — от пустого "
+                       "состояния), первый коммит — в неё; %s создаётся при слиянии (`git switch -c %s` из ветки задачи или "
+                       "`git branch %s <ветка>`), затем %s" % (main, main, main, main,
+                                                                "`git push -u origin %s`" % main if res["has_origin"] else "push не нужен (origin нет)"))
+        return res
+    code, n = run(["git", "-C", res["top"], "rev-list", "--count", "HEAD"])
+    res["commits"] = int(n.strip()) if code == 0 and n.strip().isdigit() else 0
+    res["state"] = "normal"
+    res["plan"] = "обычный репозиторий: ветка задачи от основной до первой записи, слияние и push — по правилам владельца (CLAUDE.md)"
+    return res
+
+
+def git_state_label(gs):
+    return {"no_repo": "нет git-репозитория", "unborn": "пустой репозиторий (нет коммитов)",
+            "normal": "репозиторий с коммитами"}.get(gs.get("state"), gs.get("state") or "?") + ("; origin есть" if gs.get("has_origin") else
+                                                                                                   "; origin нет" if gs.get("state") != "no_repo" else "")
+
+
+# ---------------------------------------------------------------- timeout на macOS (SM 6.4)
+def timeout_tool():
+    """→ (имя команды | None, строка-совет). В macOS нет `timeout`: gtimeout (coreutils) или check_env.py --run-timeout."""
+    for name in ("timeout", "gtimeout"):
+        if shutil.which(name):
+            return name, ""
+    return None, "python3 %s --run-timeout N -- <команда>" % Path(__file__).resolve().name
+
+
+def run_with_timeout(seconds, cmd):
+    """Запуск команды с ограничением времени: код команды или 124 по истечении (как coreutils timeout)."""
+    if not cmd:
+        print("нужна команда после --", file=sys.stderr)
+        return 2
+    try:
+        return subprocess.run(cmd, timeout=float(seconds)).returncode
+    except subprocess.TimeoutExpired:
+        print("время вышло: %s с (код 124)" % seconds, file=sys.stderr)
+        return 124
+    except OSError as e:
+        print("не запустилось: %s" % e, file=sys.stderr)
+        return 127
+
+
+# ---------------------------------------------------------------- браузеры Playwright: запуск (FB-039)
+PROBE_JS = r"""
+import { createRequire } from 'node:module'; import path from 'node:path';
+const dir = process.argv[1]; const name = process.argv[2];
+let pw; try { pw = createRequire(path.join(dir, 'node_modules', '_r.cjs'))('playwright'); } catch (e) { console.log(JSON.stringify({ok:false, why:'нет playwright'})); process.exit(0); }
+try { const b = await pw[name].launch(); await b.close(); console.log(JSON.stringify({ok:true})); }
+catch (e) { console.log(JSON.stringify({ok:false, why: String(e && e.message || e).split('\n')[0].slice(0, 200)})); }
+"""
+
+
+def probe_browser(nd, name, timeout=60):
+    """Запуск движка Playwright (chromium | webkit | firefox) → {ok, why}. Без node/модулей — ok False с причиной."""
+    if not shutil.which("node"):
+        return {"ok": False, "why": "нет node"}
+    if not has_node_module(nd, "playwright"):
+        return {"ok": False, "why": "нет модуля playwright (check_env.py --install-node)"}
+    code, out = run(["node", "--input-type=module", "-e", PROBE_JS, str(nd), name], timeout=timeout)
+    for line in reversed(out.strip().splitlines()):
+        try:
+            return json.loads(line)
+        except ValueError:
+            continue
+    return {"ok": False, "why": ("код %d: %s" % (code, out.strip()[:160])) if out.strip() else "код %d" % code}
+
+
+def collect(out=None, session=None, probe=False):
     rows = []
 
     def add(name, level, status, version, why, fix=""):
@@ -169,6 +269,13 @@ def collect(out=None, session=None):
         "" if sys.version_info >= (3, 10) else "поставьте Python 3.10+ (python.org или brew install python)")
     gv = version_of(["git", "--version"])
     add("git", "required", "OK" if gv else "FAIL", gv, "история репозитория, ветка результата", "" if gv else "brew install git / https://git-scm.com")
+    if gv:
+        gs = git_state(out or ".")
+        add("git-репозиторий", "recommended", "OK" if gs["state"] == "normal" else "WARN", gs["state"],
+            "ветка результата и слияние: " + git_state_label(gs), "" if gs["state"] == "normal" else gs["plan"])
+    tt, tip = timeout_tool()
+    add("timeout", "optional", "OK" if tt else "WARN", tt or "", "ограничение времени команд в инструкциях",
+        "" if tt else "в macOS нет timeout: brew install coreutils (gtimeout) или " + tip)
     nv = version_of(["node", "--version"])
     ok_node = bool(nv) and vtuple(nv) >= (18,)
     add("node", "recommended", "OK" if ok_node else "MISS", nv, "скриншоты, smoke-тест страницы, PPTX, PDF",
@@ -184,6 +291,12 @@ def collect(out=None, session=None):
     ch = chromium_cached()
     add("chromium (playwright)", "recommended", "OK" if ch else "MISS", ch or "", "движок для скриншотов и PDF",
         "" if ch else fix_node + "  (ставит и браузер)")
+    if probe:
+        for eng, lvl in (("webkit", "optional"), ("firefox", "optional")):
+            pr = probe_browser(nd, eng)
+            add("%s (playwright)" % eng, lvl, "OK" if pr.get("ok") else "WARN", "запускается" if pr.get("ok") else "",
+                "движок smoke-теста (%s)" % ("Safari-подобный" if eng == "webkit" else "Firefox"),
+                "" if pr.get("ok") else "не запускается: %s — smoke ставит skip с этой причиной" % pr.get("why"))
     ghv = version_of(["gh", "--version"])
     if ghv:
         code, txt = run(["gh", "auth", "status"])
@@ -333,7 +446,20 @@ def selftest(out=None):
 
 
 def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if "--run-timeout" in argv:                          # запасной timeout: всё после «--» — команда, не наши флаги
+        i = argv.index("--run-timeout")
+        try:
+            secs = float(argv[i + 1])
+        except (IndexError, ValueError):
+            print("--run-timeout N -- <команда>", file=sys.stderr)
+            return 2
+        rest = argv[i + 2:]
+        return run_with_timeout(secs, rest[1:] if rest[:1] == ["--"] else rest)
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--git-state", action="store_true", help="состояние git: no_repo | unborn | normal, origin, план ветки и слияния")
+    ap.add_argument("--repo", help="с --git-state: папка (по умолчанию --out или текущая)")
+    ap.add_argument("--probe-browsers", action="store_true", help="проверить запуск WebKit и Firefox (Playwright); причина отказа — в env.json")
     ap.add_argument("--out", help="папка прогона <OUT> (для проверки локальных Node-модулей)")
     ap.add_argument("--json", help="сохранить результат в файл (обычно <OUT>/build/env.json)")
     ap.add_argument("--session-skills", default="", help="скиллы, видимые в текущей сессии, через запятую")
@@ -359,12 +485,27 @@ def main(argv=None):
     if a.print_node_dir:
         print(node_dir(a.out))
         return 0
+    if a.git_state:
+        gs = git_state(a.repo or a.out or ".")
+        shown = dict(gs, top=("~" + gs["top"][len(str(HOME)):]) if gs.get("top") and gs["top"].startswith(str(HOME)) else gs.get("top"))
+        text = json.dumps(shown, ensure_ascii=False, indent=2)
+        if a.json and a.json != "-":
+            Path(a.json).parent.mkdir(parents=True, exist_ok=True)
+            Path(a.json).write_text(text + "\n", encoding="utf-8")
+        print(text if a.json == "-" else
+              "git: %s%s\nплан: %s" % (git_state_label(gs), (", ветка %s" % gs["branch"]) if gs.get("branch") else "", gs["plan"]))
+        return 0
     if a.install_node is not None:
         return install_node(a.install_node or a.out)
-    rows = collect(a.out, load_session_skills(a.session_skills.split(","), a.out))
+    rows = collect(a.out, load_session_skills(a.session_skills.split(","), a.out), probe=a.probe_browsers)
     if a.json:
         Path(a.json).parent.mkdir(parents=True, exist_ok=True)
-        Path(a.json).write_text(json.dumps({"rows": rows, "plan": plan(rows)}, ensure_ascii=False, indent=2), encoding="utf-8")
+        gs = git_state(a.out or ".")
+        if gs.get("top") and gs["top"].startswith(str(HOME)):
+            gs["top"] = "~" + gs["top"][len(str(HOME)):]                   # без домашней папки в env.json
+        browsers = {r["name"].split(" ")[0]: {"ok": r["status"] == "OK", "why": r["fix"]} for r in rows if r["name"].endswith("(playwright)")}
+        Path(a.json).write_text(json.dumps({"rows": rows, "plan": plan(rows), "git": gs, "browsers": browsers}, ensure_ascii=False, indent=2),
+                                encoding="utf-8")
     if a.plan:
         p = plan(rows)
         print("Поставлю сам (локально, в папку прогона, без вопроса):")

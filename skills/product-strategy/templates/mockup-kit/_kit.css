@@ -1,4 +1,4 @@
-/* Набор компонентов для HTML-макетов product-strategy (префикс ps-). Версия набора: 1.2.
+/* Набор компонентов для HTML-макетов product-strategy (префикс ps-). Версия набора: 1.3.
    Подключение в макете (mockups/concepts/Mxx-*.html):
      <link rel="stylesheet" href="../tokens.css"> <link rel="stylesheet" href="_kit.css">
      (+ _icons.css — иконки ps-i-*, + _mobile.css — экран телефона pm-*, см. README набора)
@@ -11,7 +11,10 @@
    Значения моста должны быть цветами целиком (#hex, rgb(), hsl()); «голые» тройки HSL (shadcn) — пишите --c-* сами.
    Тёмная тема: <html data-theme="dark"> или любой контейнер с data-theme="dark" (тема применяется к поддереву).
    Мобильный вид: ширина ≤ 640 px (shoot_mockups берёт viewport из <html data-viewport="390x844">).
-   Контраст текста ≥ 4,5:1 для обеих тем проверяет kit-demo.html (console.error на каждое нарушение). */
+   Контраст текста ≥ 4,5:1 для обеих тем проверяет kit-demo.html (console.error на каждое нарушение).
+   Цели нажатия (1.3): --k-target — 32 px для мыши (десктоп), 44 px для касания (ширина ≤ 640 px или <html data-input="touch">);
+   кнопки, чипы, сегменты, тумблеры, чекбоксы, счётчик, ползунок не ниже --k-target (shoot_mockups.mjs --targets проверяет).
+   Режимы интерфейса: <html data-mode="<режим>"> + ../tokens-<режим>.css с переменными --c-* под [data-mode="<режим>"]. */
 
 @layer ps-defaults {
   :root, [data-theme="light"] {
@@ -51,8 +54,8 @@
   }
 }
 
-/* Производные цвета пересчитываются на каждом элементе с темой — тема работает и для поддерева */
-:root, [data-theme] {
+/* Производные цвета пересчитываются на каждом элементе с темой или режимом (data-mode, 1.3) — работает и для поддерева */
+:root, [data-theme], [data-mode] {
   --k-surface-2: color-mix(in srgb, var(--c-surface) 93%, var(--c-text));
   --k-accent-soft: color-mix(in srgb, var(--c-accent) 14%, var(--c-surface));
   --k-accent-ink: color-mix(in srgb, var(--c-accent) 72%, var(--c-text));
@@ -67,7 +70,10 @@
   /* приглушённый текст на цветных и градиентных подложках: ближе к основному, чтобы держать 4,5:1 */
   --k-muted-strong: color-mix(in srgb, var(--c-muted) 55%, var(--c-text));
   --k-new: #f2c46b; --k-on-new: #1b1500; --k-changed: #7fd8a8; --k-on-changed: #062414;
-  --k-rail: 232px; --k-bottom-nav-h: 64px;
+  --k-rail: 232px; --k-bottom-nav-h: 64px; --k-actionbar-h: 68px;
+  /* палитра графиков из токенов: порядок важен для дальтоников (акцент, успех, предупреждение, опасность, текст, приглушённый) */
+  --k-chart-1: var(--c-accent); --k-chart-2: var(--c-success); --k-chart-3: var(--c-warning); --k-chart-4: var(--c-danger);
+  --k-chart-5: var(--k-border-strong); --k-chart-6: var(--c-muted);
   color: var(--c-text);
 }
 
@@ -92,8 +98,12 @@ pre.ps-code, .ps-code { display: block; margin: 0; padding: 10px 12px; border-ra
 .ps-rail { position: relative; background: var(--c-surface); border-right: 1px solid var(--c-border); padding: 16px 12px;
   display: flex; flex-direction: column; gap: 4px; }
 .ps-brand { display: flex; gap: 10px; align-items: center; padding: 4px 8px 14px; }
+/* бренд в верхней панели или в шапке сайта: без отступов бокового меню */
+.ps-topbar .ps-brand, .ps-top .ps-brand, .ps-site-header .ps-brand, .ps-brand.is-inline { padding: 0; }
 .ps-brand-mark { width: 34px; height: 34px; flex: none; border-radius: 9px; background: var(--c-accent); color: var(--c-on-accent);
-  display: grid; place-items: center; font-weight: 800; }
+  display: grid; place-items: center; font-weight: 800; font-family: var(--font-heading); }
+/* знак из двух букв или иконки: одна «З»/«О»/«Ч» в жирном системном шрифте читается как цифра (3, 0, 4) */
+.ps-brand-mark.is-2 { font-size: 13px; letter-spacing: .02em; } .ps-brand-mark .ps-i { width: 20px; height: 20px; }
 .ps-brand b { display: block; font-family: var(--font-heading); font-size: 14px; }
 .ps-brand span { font-size: 12px; color: var(--c-muted); }
 .ps-nav { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 12px; border-radius: var(--radius);
@@ -121,6 +131,8 @@ pre.ps-code, .ps-code { display: block; margin: 0; padding: 10px 12px; border-ra
 .ps-card.is-gradient { background: linear-gradient(135deg, var(--k-accent-soft), var(--c-surface) 70%); border-color: color-mix(in srgb, var(--c-accent) 30%, var(--c-border)); }
 .is-gradient .ps-muted, .is-gradient .ps-hint, .is-gradient small, .is-gradient .ps-kpi span { color: var(--k-muted-strong); }
 .ps-card-title { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; }
+/* ссылка «Все» в заголовке карточки — отдельная цель нажатия, не ссылка в тексте */
+.ps-card-title > a { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; min-height: var(--k-target); min-width: var(--k-target); padding: 0 6px; }
 .ps-kpi { display: flex; flex-direction: column; gap: 2px; }
 .ps-kpi b { font: 700 24px var(--font-heading); color: var(--c-text); }
 .ps-kpi span { font-size: 12.5px; color: var(--c-muted); }
@@ -128,12 +140,12 @@ pre.ps-code, .ps-code { display: block; margin: 0; padding: 10px 12px; border-ra
 .ps-bar { height: 8px; border-radius: 99px; background: var(--k-surface-2); overflow: hidden; }
 .ps-bar > i { display: block; height: 100%; background: var(--c-accent); border-radius: 99px; }
 .ps-steps { display: flex; gap: 8px; list-style: none; margin: 0; padding: 0; }
-.ps-steps li { flex: 1; min-width: 0; padding: 8px 10px; border-radius: var(--radius); background: var(--k-surface-2); font-size: 12.5px; color: var(--c-muted); }
+.ps-steps li { flex: 1 1 0; min-width: 0; overflow-wrap: anywhere; padding: 8px 10px; border-radius: var(--radius); background: var(--k-surface-2); font-size: 12.5px; color: var(--c-muted); }
 .ps-steps li.is-done { background: var(--k-ok-soft); color: var(--k-ok-ink); }
 .ps-steps li.is-now { background: var(--k-accent-soft); color: var(--k-accent-ink); font-weight: 700; }
 
 /* --- кнопки --- */
-.ps-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 36px; padding: 0 16px;
+.ps-btn { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; gap: 8px; min-height: max(36px, var(--k-target)); padding: 0 16px;
   border-radius: var(--radius); border: 1px solid var(--k-border-strong); background: var(--c-surface); color: var(--c-text);
   font: 600 13.5px/1 var(--font); cursor: pointer; white-space: nowrap; text-decoration: none; }
 .ps-btn:hover { text-decoration: none; background: var(--k-surface-2); }
@@ -141,36 +153,38 @@ pre.ps-code, .ps-code { display: block; margin: 0; padding: 10px 12px; border-ra
 .ps-btn.is-secondary { background: var(--c-surface); }
 .ps-btn.is-danger { background: var(--c-danger); border-color: var(--c-danger); color: var(--c-on-danger); }
 .ps-btn.is-ghost { background: transparent; border-color: transparent; color: var(--k-accent-ink); }
-.ps-btn.is-small { min-height: 28px; padding: 0 10px; font-size: 12.5px; }
-.ps-btn.is-large { min-height: 44px; padding: 0 22px; font-size: 15px; }
+.ps-btn.is-small { min-height: var(--k-target); padding: 0 12px; font-size: 12.5px; }
+.ps-btn.is-large { min-height: max(44px, var(--k-target)); padding: 0 22px; font-size: 15px; }
 .ps-btn:disabled, .ps-btn.is-disabled { opacity: .55; cursor: not-allowed; }
 
 /* --- поля --- */
 .ps-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .ps-label, .ps-field > label { font-weight: 600; font-size: 13px; color: var(--c-text); }
-.ps-input, .ps-select { min-height: 38px; width: 100%; border: 1px solid var(--k-border-strong); border-radius: var(--radius); padding: 0 12px;
+.ps-input, .ps-select { min-height: max(38px, var(--k-target)); width: 100%; border: 1px solid var(--k-border-strong); border-radius: var(--radius); padding: 0 12px;
   background: var(--c-surface); color: var(--c-text); font: 14px var(--font); display: flex; align-items: center; }
 .ps-input.is-error { border-color: var(--c-danger); }
 .ps-hint { font-size: 12.5px; color: var(--c-muted); }
 .ps-error { font-size: 12.5px; color: var(--k-danger-ink); }
 
-/* --- сегментный переключатель --- */
-.ps-segmented { display: inline-flex; gap: 2px; padding: 3px; border-radius: calc(var(--radius) + 3px); background: var(--k-surface-2);
-  border: 1px solid var(--c-border); max-width: 100%; overflow-x: auto; }
-.ps-segmented > * { min-height: 30px; padding: 0 12px; border: 0; border-radius: var(--radius); background: transparent; color: var(--c-muted);
+/* --- сегментный переключатель: варианты переносятся, а не обрезаются (1.3: без overflow-x:auto — последний вариант
+   больше не прячется в .ps-topbar .ps-row); горизонтальная прокрутка по замыслу — .is-scroll --- */
+.ps-segmented { display: inline-flex; flex-wrap: wrap; min-width: 0; gap: 2px; padding: 3px; border-radius: calc(var(--radius) + 3px);
+  background: var(--k-surface-2); border: 1px solid var(--c-border); max-width: 100%; }
+.ps-segmented.is-scroll { flex-wrap: nowrap; flex-shrink: 1; overflow-x: auto; }
+.ps-segmented > * { min-height: var(--k-target); padding: 0 12px; border: 0; border-radius: var(--radius); background: transparent; color: var(--c-muted);
   font: 600 13px var(--font); cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; }
 .ps-segmented > .is-active, .ps-segmented > [aria-pressed="true"], .ps-segmented > [aria-selected="true"] {
   background: var(--c-surface); color: var(--c-text); box-shadow: 0 1px 2px rgba(0, 0, 0, .12); }
 
 /* --- чипы-фильтры --- */
 .ps-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.ps-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 12px; border-radius: 999px;
-  border: 1px solid var(--k-border-strong); background: var(--c-surface); color: var(--c-text); font: 500 13px var(--font); white-space: nowrap; cursor: pointer; }
+.ps-chip { display: inline-flex; align-items: center; gap: 6px; min-height: var(--k-target); padding: 0 12px; border-radius: 999px;
+  border: 1px solid var(--k-border-strong); background: var(--c-surface); color: var(--c-text); font: 500 13px var(--font); white-space: nowrap; cursor: pointer; flex-shrink: 0; }
 .ps-chip.is-active, .ps-chip[aria-pressed="true"] { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-on-accent); }
 .ps-chip .ps-count { font-size: 11.5px; font-weight: 700; opacity: .85; }
 
 /* --- тумблер, чекбокс, радио --- */
-.ps-switch, .ps-check, .ps-radio { display: inline-flex; align-items: center; gap: 10px; min-height: 28px; cursor: pointer; color: var(--c-text); }
+.ps-switch, .ps-check, .ps-radio { display: inline-flex; align-items: center; gap: 10px; min-height: var(--k-target); min-width: var(--k-target); cursor: pointer; color: var(--c-text); }
 .ps-switch input, .ps-check input, .ps-radio input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .ps-switch .ps-track { position: relative; flex: none; width: 40px; height: 24px; border-radius: 999px; background: var(--k-border-strong); transition: background .15s; }
 .ps-switch .ps-track::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%;
@@ -188,7 +202,7 @@ pre.ps-code, .ps-code { display: block; margin: 0; padding: 10px 12px; border-ra
 .ps-switch input:focus-visible + .ps-track, .ps-check input:focus-visible + .ps-box, .ps-radio input:focus-visible + .ps-box { outline: 2px solid var(--c-focus); outline-offset: 2px; }
 
 /* --- бейдж: текст не выходит из капсулы --- */
-.ps-badge { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; height: 22px; padding: 0 9px; border-radius: 999px;
+.ps-badge { display: inline-flex; flex-shrink: 0; align-items: center; gap: 4px; max-width: 100%; height: 22px; padding: 0 9px; border-radius: 999px;
   font-size: 12px; font-weight: 700; line-height: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle;
   background: var(--k-accent-soft); color: var(--k-accent-ink); }
 .ps-badge.is-success { background: var(--k-ok-soft); color: var(--k-ok-ink); }
@@ -226,7 +240,7 @@ pre.ps-code, .ps-code { display: block; margin: 0; padding: 10px 12px; border-ra
 .ps-empty b { display: block; color: var(--c-text); font-size: 15px; margin-bottom: 4px; }
 .ps-toast { position: relative; display: inline-flex; align-items: center; gap: 12px; max-width: 420px; padding: 10px 14px;
   border-radius: var(--radius); background: var(--c-text); color: var(--c-surface); box-shadow: var(--shadow); }
-.ps-toast .ps-toast-action { color: var(--c-surface); font-weight: 700; text-decoration: underline; }
+.ps-toast .ps-toast-action { display: inline-flex; align-items: center; flex-shrink: 0; min-height: var(--k-target); padding: 0 6px; color: var(--c-surface); font-weight: 700; text-decoration: underline; }
 .ps-toast.is-floating { position: absolute; z-index: 30; }
 .ps-alert { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: var(--radius); border: 1px solid transparent;
   background: var(--k-accent-soft); color: var(--k-accent-ink); }
@@ -270,7 +284,9 @@ pre.ps-code, .ps-code { display: block; margin: 0; padding: 10px 12px; border-ra
 .ps-concept-badge.is-above-nav { bottom: calc(var(--k-bottom-nav-h) + 10px); }
 /* длинная страница, раскадровка, полностраничный снимок: бейдж в потоке (fixed на полном снимке уезжает вниз) */
 .ps-concept-badge.is-inline { position: relative; right: auto; bottom: auto; top: auto; display: inline-block; vertical-align: middle;
-  max-width: 100%; margin: 0 0 12px; z-index: 1; }
+  max-width: 100%; margin: 0 0 12px; z-index: 1; white-space: normal; border-radius: 12px; }
+/* одно правило бейджа (1.3): телефон — .is-strip первым элементом .pm-phone (короткий текст, одна строка); десктоп с нижней
+   панелью — .is-above-nav; длинная страница/раскадровка — .is-inline (в потоке, переносится). Текст — константа из README. */
 
 /* --- метки «НОВОЕ» / «ИЗМЕНЕНО»: контур + ярлык в ::after (::before элементов набора не трогается).
    Ярлык выступает над рамкой на 9 px: у родителя с overflow:hidden используйте .is-inside (ярлык внутри рамки)
@@ -285,10 +301,130 @@ pre.ps-code, .ps-code { display: block; margin: 0; padding: 10px 12px; border-ra
 .ps-new[data-label]::after, .ps-changed[data-label]::after { content: attr(data-label); }
 .ps-new.is-inside::after, .ps-changed.is-inside::after { top: 6px; left: auto; right: 8px; }
 
+/* ===================== 1.3: компоненты, которых не хватало агентам (FB-032, SM 6.4) ===================== */
+
+/* --- шапка и подвал публичного сайта (посадочная, цены, «как это работает») --- */
+.ps-site-header { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  min-height: 64px; padding: 10px 32px; background: var(--c-surface); border-bottom: 1px solid var(--c-border); }
+.ps-site-nav { display: flex; align-items: center; gap: 4px 18px; flex-wrap: wrap; }
+.ps-site-nav a { display: inline-flex; align-items: center; justify-content: center; min-height: var(--k-target); min-width: var(--k-target); padding: 0 6px; color: var(--c-text); font-weight: 500; }
+.ps-site-nav a.is-active { color: var(--k-accent-ink); font-weight: 700; }
+.ps-site-footer { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 18px 28px; padding: 28px 32px;
+  background: var(--k-surface-2); border-top: 1px solid var(--c-border); color: var(--c-muted); font-size: 13px; }
+.ps-site-footer b { display: block; margin-bottom: 6px; color: var(--c-text); font-size: 13.5px; }
+.ps-site-footer a { display: flex; align-items: center; min-height: var(--k-target); color: var(--c-text); }
+.ps-site-footer .ps-legal { grid-column: 1 / -1; padding-top: 12px; border-top: 1px solid var(--c-border); }
+
+/* --- нижняя панель действий (форма, корзина, мастер): над ней не должно ничего прятаться --- */
+.ps-actionbar { position: sticky; bottom: 0; z-index: 30; display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap;
+  min-height: var(--k-actionbar-h); padding: 12px 20px; background: var(--c-surface); border-top: 1px solid var(--c-border);
+  box-shadow: 0 -8px 20px -16px rgba(0, 0, 0, .45); }
+.ps-actionbar .ps-grow { flex: 1; min-width: 0; color: var(--c-muted); font-size: 13px; }
+.ps-actionbar.is-fixed { position: fixed; left: 0; right: 0; }
+body:has(.ps-actionbar.is-fixed) .ps-concept-badge:not(.is-top):not(.is-inline) { bottom: calc(var(--k-actionbar-h) + 10px); }
+
+/* --- счётчик −/+ (кнопки не меньше цели нажатия; значение — моноширинные цифры) --- */
+.ps-counter { display: inline-flex; align-items: stretch; flex-shrink: 0; border: 1px solid var(--k-border-strong); border-radius: var(--radius);
+  background: var(--c-surface); overflow: hidden; }
+.ps-counter button { min-width: var(--k-target); min-height: var(--k-target); padding: 0 10px; border: 0; background: transparent; color: var(--c-text);
+  font: 700 16px/1 var(--font); cursor: pointer; }
+.ps-counter button:hover { background: var(--k-surface-2); }
+.ps-counter output, .ps-counter .ps-counter-value { display: grid; place-items: center; min-width: 44px; padding: 0 8px; border-left: 1px solid var(--c-border);
+  border-right: 1px solid var(--c-border); font-variant-numeric: tabular-nums; font-weight: 700; }
+
+/* --- ячейки сравнения «да / нет / не нашли»: значок + слово (не только цвет) --- */
+.ps-yes, .ps-no, .ps-unk { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; white-space: nowrap; }
+.ps-yes { color: var(--k-ok-ink); } .ps-no { color: var(--k-danger-ink); } .ps-unk { color: var(--c-muted); font-weight: 500; }
+.ps-yes::before, .ps-no::before, .ps-unk::before { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%;
+  font-size: 11px; font-weight: 800; }
+.ps-yes::before { content: "✓"; background: var(--k-ok-soft); } .ps-no::before { content: "✕"; background: var(--k-danger-soft); }
+.ps-unk::before { content: "?"; background: var(--k-surface-2); }
+.ps-table td.ps-cmp-us, .ps-table th.ps-cmp-us { background: var(--k-accent-soft); }
+
+/* --- график: обёртка, легенда, уровни (цель / вход / стоп), подписи осей. Сам график — inline SVG с fill/stroke из
+   var(--k-chart-N); текст в SVG — fill="currentColor" (контраст проверяет shoot_mockups --contrast, в т. ч. по заливке SVG) --- */
+.ps-chart { position: relative; display: flex; flex-direction: column; gap: 8px; min-width: 0; color: var(--c-text); }
+.ps-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.ps-chart .ps-axis { fill: var(--c-muted); font-size: 11.5px; font-family: var(--font); }
+.ps-chart .ps-grid-line { stroke: var(--c-border); stroke-width: 1; }
+.ps-chart-plot { position: relative; }
+.ps-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0; padding: 0; list-style: none; font-size: 12.5px; color: var(--c-text); }
+.ps-legend li, .ps-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.ps-swatch { flex: none; width: 12px; height: 12px; border-radius: 3px; background: var(--k-chart-1); }
+.ps-swatch.is-line { height: 3px; border-radius: 2px; } .ps-swatch.is-dash { height: 0; border-top: 2px dashed var(--k-chart-5); background: none; }
+.ps-swatch.is-2 { background: var(--k-chart-2); } .ps-swatch.is-3 { background: var(--k-chart-3); } .ps-swatch.is-4 { background: var(--k-chart-4); }
+.ps-swatch.is-5 { background: var(--k-chart-5); } .ps-swatch.is-6 { background: var(--k-chart-6); }
+/* уровни поверх области графика: <div class="ps-levels"><div class="ps-level is-target" style="top:22%"><span>Цель 312</span></div>…</div> */
+.ps-levels { position: absolute; inset: 0; pointer-events: none; }
+.ps-level { position: absolute; left: 0; right: 0; height: 0; border-top: 2px dashed var(--c-accent); }
+.ps-level > span { position: absolute; right: 0; top: -11px; padding: 1px 7px; border-radius: 6px; background: var(--c-surface);
+  border: 1px solid currentColor; font: 700 11px/18px var(--font); white-space: nowrap; }
+.ps-level.is-target { border-color: var(--c-success); color: var(--k-ok-ink); }
+.ps-level.is-stop { border-color: var(--c-danger); color: var(--k-danger-ink); }
+.ps-level.is-entry { border-color: var(--k-border-strong); border-top-style: solid; color: var(--c-text); }
+
+/* --- клавиша: подсказка-ускоритель (клавиатура — вторичный путь; рядом всегда есть кнопка) --- */
+kbd.ps-kbd, .ps-kbd { display: inline-block; min-width: 22px; padding: 1px 6px; border: 1px solid var(--k-border-strong); border-bottom-width: 2px;
+  border-radius: 5px; background: var(--c-surface); color: var(--c-text); font: 600 11.5px/18px var(--font-mono); text-align: center; white-space: nowrap; }
+
+/* --- ползунок: <label class="ps-slider"><span>Риск <output>2 %</output></span><input type="range" …></label> --- */
+.ps-slider { display: flex; flex-direction: column; gap: 4px; min-width: 0; font-size: 13px; }
+.ps-slider > span { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; }
+.ps-slider output { font-variant-numeric: tabular-nums; color: var(--k-accent-ink); }
+.ps-slider input[type="range"] { width: 100%; min-height: var(--k-target); margin: 0; accent-color: var(--c-accent); background: transparent; cursor: pointer; }
+.ps-slider .ps-hint { display: flex; justify-content: space-between; }
+
+/* --- свежесть данных: точка + текст «данные: 15 мин назад · источник» (не только цвет) --- */
+.ps-fresh { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; min-height: 24px; padding: 0 10px; border-radius: 999px;
+  background: var(--k-surface-2); color: var(--c-text); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.ps-fresh::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--c-muted); }
+.ps-fresh.is-live { background: var(--k-ok-soft); color: var(--k-ok-ink); } .ps-fresh.is-live::before { background: var(--c-success); }
+.ps-fresh.is-delayed { background: var(--k-warn-soft); color: var(--k-warn-ink); } .ps-fresh.is-delayed::before { background: var(--c-warning); }
+.ps-fresh.is-stale { background: var(--k-danger-soft); color: var(--k-danger-ink); } .ps-fresh.is-stale::before { background: var(--c-danger); }
+
+/* --- степпер с линиями: <ol class="ps-stepper"><li class="is-done"><b>1</b>Вход</li><li class="is-now"><b>2</b>Ключи</li><li><b>3</b>…</li></ol> --- */
+.ps-stepper { display: flex; margin: 0; padding: 0; list-style: none; counter-reset: ps-step; }
+.ps-stepper li { position: relative; flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
+  font-size: 12.5px; color: var(--c-muted); overflow-wrap: anywhere; }
+.ps-stepper li::before { content: ""; position: absolute; top: 13px; right: 50%; left: -50%; height: 2px; background: var(--c-border); z-index: 0; }
+.ps-stepper li:first-child::before { display: none; }
+.ps-stepper li > b { position: relative; z-index: 1; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
+  border: 2px solid var(--k-border-strong); background: var(--c-surface); color: var(--c-text); font-size: 12.5px; }
+.ps-stepper li.is-done, .ps-stepper li.is-now { color: var(--c-text); }
+.ps-stepper li.is-done > b { background: var(--c-success); border-color: var(--c-success); color: var(--c-surface); }
+.ps-stepper li.is-done::before, .ps-stepper li.is-now::before { background: var(--c-success); }
+.ps-stepper li.is-now > b { border-color: var(--c-accent); color: var(--k-accent-ink); box-shadow: 0 0 0 4px var(--k-accent-soft); }
+.ps-stepper li.is-now { font-weight: 700; }
+
+/* --- «пузырь» чата: ассистент/бот слева, пользователь справа; метка «ИИ» — словом, не только цветом --- */
+.ps-chat { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.ps-msg { position: relative; align-self: flex-start; max-width: min(78%, 560px); padding: 10px 14px; border-radius: 16px 16px 16px 4px;
+  background: var(--k-surface-2); color: var(--c-text); border: 1px solid var(--c-border); overflow-wrap: anywhere; }
+.ps-msg.is-me { align-self: flex-end; border-radius: 16px 16px 4px 16px; background: var(--c-accent); border-color: var(--c-accent); color: var(--c-on-accent); }
+.ps-msg-meta { display: block; margin-top: 4px; font-size: 11.5px; color: var(--c-muted); }
+.ps-msg.is-me .ps-msg-meta { color: inherit; }
+.ps-msg-who { display: inline-block; margin-bottom: 2px; font-size: 11.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--k-accent-ink); }
+.ps-msg.is-typing { color: var(--c-muted); font-style: italic; }
+
+/* --- сноски: <sup class="ps-fn"><a href="#fn1">1</a></sup> … <ol class="ps-footnotes"><li id="fn1">…</li></ol> --- */
+.ps-fn { font-size: .72em; line-height: 0; vertical-align: super; }
+.ps-fn a { display: inline-block; min-width: 14px; padding: 0 2px; font-weight: 700; color: var(--k-accent-ink); }
+.ps-footnotes { margin: 8px 0 0; padding: 10px 0 0 18px; border-top: 1px solid var(--c-border); font-size: 12px; color: var(--c-muted); }
+.ps-footnotes li { margin: 2px 0; }
+
+/* цели нажатия: касание — 44 px (ширина ≤ 640 px или data-input="touch"), мышь — 32 px (data-input="pointer" — принудительно) */
+:root { --k-target: 32px; }
+@media (max-width: 640px) { :root { --k-target: 44px; } }
+[data-input="touch"] { --k-target: 44px; }
+[data-input="pointer"] { --k-target: 32px; }
+
 @media (max-width: 640px) {
   .ps-app { grid-template-columns: minmax(0, 1fr); }
   .ps-rail { display: none; }
   .ps-topbar, .ps-top { padding: 10px 16px; min-height: 52px; flex-wrap: wrap; gap: 10px; }
+  .ps-topbar .ps-row, .ps-top .ps-row, .ps-site-header .ps-row { flex-wrap: wrap; }
+  .ps-site-header { padding: 10px 16px; } .ps-site-footer { padding: 20px 16px; }
+  .ps-actionbar { padding: 10px 16px; }
   .ps-page { padding: 14px 16px calc(var(--k-bottom-nav-h) + 56px); gap: 14px; }
   .ps-g2, .ps-g3, .ps-g4 { grid-template-columns: minmax(0, 1fr); }
   .ps-g4.is-keep-2, .ps-g3.is-keep-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -296,5 +432,5 @@ pre.ps-code, .ps-code { display: block; margin: 0; padding: 10px 12px; border-ra
   body:has(.ps-bottom-nav) .ps-concept-badge:not(.is-top):not(.is-inline) { bottom: calc(var(--k-bottom-nav-h) + 10px); }
   .ps-concept-badge { font-size: 11px; padding: 6px 12px; }
   .ps-modal { padding: 18px; }
-  .ps-steps { flex-wrap: wrap; } .ps-steps li { flex: 1 1 40%; }
+  .ps-steps li { padding: 8px 6px; font-size: 12px; }
 }

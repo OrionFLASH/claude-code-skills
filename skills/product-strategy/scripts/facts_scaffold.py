@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Каркас факт-листа для авторов стратегии: build/strategy-facts.md.
 
-  facts_scaffold.py <OUT> [--force] [--top 20] [--stdout] [--json]
+  facts_scaffold.py <OUT> [--force] [--top 20] [--stdout] [--json] [--draft] [--demo-canon]
 
 Собирает из файлов прогона то, что оркестратор раньше переписывал вручную (references/orchestration.md, фаза 7):
   - цель, ограничения и допущения (build/run-config.json), параметры стратегии;
@@ -13,7 +13,15 @@
   - число предложений по категориям и классам доказательств, «что уже есть» (data/repo-scan.json);
   - режим идеи (mode: concept): идея и светофор предпроверки (data/idea.json, data/typesafe-concept.json), без репозитория;
   - три сценария модели (data/model.json), развилки владельца (research/questions-owner.md);
-  - заготовки `<заполнить>`: три ставки, North Star, критерии отказа, pre-mortem, анти-цели, запреты.
+  - заготовки `<заполнить>`: три ставки, North Star, критерии отказа, pre-mortem, анти-цели, запреты;
+  - ёмкость — одна строка scripts/capacity.py (`{capacity}`), сроки и состав MVP — data/plan-baseline.json (`{plan:…}`),
+    ключи схем — data/flows-plan.json (если есть), канон демо-данных — data/demo-canon.json (если есть).
+--draft (FB-048/049): если data/decisions.json нет — пишет черновик `decisions.py --init --draft` (ставки, критерии отказа,
+  North Star, анти-цели, развилки, ёмкость — из данных прогона), а в факт-листе у каждого предложенного значения стоит метка
+  `[черновик: источник]`; цель, ограничения, допущения и запреты тоже предлагаются из run-config, досье идеи и legal.md.
+  Подтвердили — удалите поле draft в decisions.json и перезапустите (метки станут «[решение: decisions.json]»).
+--demo-canon: черновик data/demo-canon.json — единый набор демо-данных для макетов и прототипа (числа модели, вехи плана,
+  названия ставок, валюта); не перезаписывает существующий файл.
 Только факты из файлов — ничего не выдумывается; нет файла — раздел помечается «нет данных». Метки достоверности: [факт: …], [оценка: …], [допущение].
 
 Защита: если build/strategy-facts.md уже есть, он не перезаписывается (там обычно уже ручная правка); свежий каркас
@@ -30,6 +38,8 @@ from datetime import date
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+if str(HERE) not in sys.path:
+    sys.path.insert(0, str(HERE))
 MARKER = "<!-- generated-by: facts_scaffold.py -->"
 NO_DATA = "_нет данных_"
 FILL = "<заполнить>"
@@ -106,17 +116,151 @@ def sec_product(cfg):
     return L + [table(["параметр", "значение"], rows), ""]
 
 
-def sec_goal(cfg):
+def derived_constraints(cfg):
+    """Ограничения из ответов run-config (команда, ёмкость, бюджет, профиль) — для черновика."""
+    import capacity as capmod
+    st, pj = cfg.get("strategy") or {}, cfg.get("project") or {}
+    c = capmod.capacity(cfg, st.get("horizon_months") or 12)
+    parts = ["команда %s чел." % c["team_size"], "ёмкость %s" % c["line"]]
+    bv = (st.get("budget") or {}).get("variants") or []
+    if bv:
+        parts.append("бюджет: %s" % ", ".join(bv))
+    if st.get("profile"):
+        parts.append("профиль %s" % st["profile"])
+    if pj.get("audience"):
+        parts.append("для кого: %s" % pj["audience"])
+    return "; ".join(parts)
+
+
+def sec_goal(cfg, draft=False, out=None):
     st = cfg.get("strategy") or {}
     L = ["## Цель и допущения", ""]
-    L.append("**Цель стратегии:** %s [факт: run-config.json]" % (st.get("goal") or FILL))
+    goal = st.get("goal")
+    if not goal and draft:
+        pitch = (cfg.get("idea") or {}).get("pitch") or st.get("success_criteria")
+        goal = ("%s [черновик: run-config idea.pitch / success_criteria]" % pitch) if pitch else None
+        L.append("**Цель стратегии:** %s" % (goal or FILL))
+    else:
+        L.append("**Цель стратегии:** %s [факт: run-config.json]" % (goal or FILL))
     L.append("")
-    L.append("**Ограничения:** %s [факт: run-config.json]" % (st.get("constraints") or FILL))
+    if st.get("constraints"):
+        L.append("**Ограничения:** %s [факт: run-config.json]" % st["constraints"])
+    elif draft:
+        L.append("**Ограничения:** %s [черновик: run-config project/strategy, capacity.py]" % derived_constraints(cfg))
+    else:
+        L.append("**Ограничения:** %s [факт: run-config.json]" % FILL)
     if (cfg.get("product") or {}).get("known_facts"):
         L += ["", "**Известные факты от владельца:** %s [факт: run-config.json]" % cfg["product"]["known_facts"]]
     assume = cfg.get("assumptions") or []
-    L += ["", "**Допущения прогона:**", ""] + (["- %s [допущение]" % a for a in assume] if assume else ["- " + FILL])
+    rows = ["- %s [допущение]" % (a if isinstance(a, str) else json.dumps(a, ensure_ascii=False)) for a in assume]
+    if not rows and draft and out is not None:
+        idea = load_json(out / "data" / "idea.json", {}) or {}
+        oq = [q for q in (idea.get("open_questions") or []) if q][:3]
+        rows = ["- %s [черновик: открытый вопрос data/idea.json]" % (q.get("text") if isinstance(q, dict) else q) for q in oq]
+        m = load_json(out / "data" / "model.json", {}) or {}
+        if m.get("mode") == "sensitivity-only":
+            rows.append("- входы модели — допущения, денежные итоги — иллюстрация [черновик: data/model.json mode = sensitivity-only]")
+        import capacity as capmod
+        cp = capmod.params(cfg)
+        if not cp["explicit"]:
+            rows.append("- ёмкость по умолчанию (%s) [черновик: capacity.py, project.capacity не задана]" % capmod.capacity(cfg, 1)["line"])
+    L += ["", "**Допущения прогона:**", ""] + (rows or ["- " + FILL])
     return L + [""]
+
+
+def sec_capacity_plan(out, cfg):
+    """Ёмкость (capacity.py) и базовая линия плана (data/plan-baseline.json): одни числа для всех авторов."""
+    import capacity as capmod
+    st = cfg.get("strategy") or {}
+    c = capmod.capacity(cfg, st.get("horizon_months") or 12)
+    L = ["## Ёмкость и базовая линия плана", "",
+         "**Ёмкость** `{capacity}` / `{plan:capacity}`: %s [оценка: scripts/capacity.py]. Другого определения рабочего дня в тексте не "
+         "использовать — сборка отметит `workday_mismatch`." % c["line"], ""]
+    b = load_json(out / "data" / "plan-baseline.json", None)
+    if not isinstance(b, dict):
+        return L + [NO_DATA + ": нет data/plan-baseline.json — запустите `plan_baseline.py <OUT>` после `gantt.json` и до авторов разделов; "
+                    "сроки в тексте — только плейсхолдерами `{plan:beta}`, `{plan:launch}`, `{plan:mvp_ids}`, `{plan:kill.N.date}`.", ""]
+    ms = b.get("milestones") or {}
+    rows = [[k, "`{plan:%s}`" % k, v.get("month"), v.get("text"), v.get("id") or "—"] for k, v in ms.items() if isinstance(v, dict)]
+    L += ["Сроки и состав — из `data/plan-baseline.json` (старт %s, горизонт %s мес.) [факт: plan_baseline.py]; в тексте — плейсхолдеры:"
+          % (b.get("start_date"), b.get("horizon_months")), "", table(["веха", "плейсхолдер", "месяц", "дата", "задача Ганта"], rows), ""]
+    mvp = b.get("mvp") or {}
+    L.append("**Состав MVP** `{plan:mvp_ids}` (%s): %s; середина усилий %s дн. против ёмкости до запуска %s дн." % (
+        mvp.get("by"), ", ".join(mvp.get("ids") or []) or "—", mvp.get("effort_days_mid"), mvp.get("capacity_days_to_launch")))
+    if mvp.get("only_in_registry"):
+        L.append("С тегом `mvp` в реестре, но не в Ганте до запуска (не называть составом MVP): %s." % ", ".join(mvp["only_in_registry"][:30]))
+    L.append("")
+    for k in b.get("kill") or []:
+        L.append("- Критерий отказа ставки %s — дата `{plan:kill.%s.date}` = %s" % (k.get("bet"), k.get("bet"), k.get("text")))
+    gc = b.get("gantt_contract") or {}
+    for m in gc.get("messages") or []:
+        L.append("- Гант: %s" % m)
+    if b.get("architecture"):
+        a = b["architecture"]
+        L.append("- Архитектура `{plan:arch}`: %s (%s дн.; %s) [факт: data/integration-options.json]" % (a.get("name"), a.get("days"), a.get("why")))
+    return L + [""]
+
+
+def sec_flows_plan(out):
+    """Ключи схем из data/flows-plan.json — до авторов текста (FB-006)."""
+    fp = load_json(out / "data" / "flows-plan.json", None)
+    if fp is None:
+        return []
+    items = fp.get("flows") if isinstance(fp, dict) else fp
+    rows = [[x.get("key"), cell(x.get("title"), 60), x.get("agent") or "—"] for x in items or [] if isinstance(x, dict) and x.get("key")]
+    if not rows:
+        return []
+    return ["## Ключи схем (data/flows-plan.json)", "",
+            "Схемы `![[flow:ключ]]` — только эти ключи (план создан до авторов, схемы рисуются параллельно):", "",
+            table(["ключ", "название", "агент"], rows), ""]
+
+
+def sec_demo_canon(out):
+    c = load_json(out / "data" / "demo-canon.json", None)
+    if not isinstance(c, dict):
+        return []
+    vals = c.get("values") or {}
+    rows = [[k, cell(v.get("value") if isinstance(v, dict) else v, 50), (v.get("source") if isinstance(v, dict) else "") or "—"] for k, v in list(vals.items())[:40]]
+    return ["## Канон демо-данных (data/demo-canon.json)", "",
+            "Макеты, прототип и примеры в тексте берут демо-числа только отсюда (одни и те же у всех агентов); демо помечается «демо».", "",
+            table(["ключ", "значение", "источник"], rows), ""]
+
+
+def demo_canon(out, cfg):
+    """Черновик data/demo-canon.json: числа модели (базовый сценарий), вехи плана, ставки, валюта — один набор для макетов."""
+    import capacity as capmod
+    m = load_json(out / "data" / "model.json", {}) or {}
+    b = load_json(out / "data" / "plan-baseline.json", {}) or {}
+    d = load_json(out / "data" / "decisions.json", {}) or {}
+    vals = {}
+
+    def put(k, v, src):
+        if v not in (None, "", []):
+            vals[k] = {"value": v, "source": src}
+    put("product.name", (cfg.get("product") or {}).get("name") or (cfg.get("idea") or {}).get("name"), "run-config")
+    put("currency", m.get("currency_symbol") or (cfg.get("project") or {}).get("currency"), "data/model.json")
+    base = (m.get("scenarios") or {}).get("base") or {}
+    for k in ("price_month", "price_one_time", "visitors_month", "hourly_rate", "hours_saved_per_week"):
+        a = (base.get("assumptions") or {}).get(k)
+        if isinstance(a, dict):
+            put("model.%s" % k, a.get("value"), "data/model.json base.assumptions (%s)" % a.get("label"))
+    for k in ("ltv", "net_revenue", "users_last", "paying_last", "net_value"):
+        v = base.get(k) if base.get(k) is not None else (base.get("totals") or {}).get(k)
+        if v is None and k.endswith("_last") and base.get("monthly"):
+            v = base["monthly"][-1].get(k[:-5])
+        put("model.%s" % k, v, "data/model.json base" + (" [иллюстрация]" if m.get("mode") == "sensitivity-only" else ""))
+    for k, v in (b.get("milestones") or {}).items():
+        if isinstance(v, dict):
+            put("plan.%s" % k, v.get("text"), "data/plan-baseline.json")
+    for x in d.get("bets") or []:
+        put("bet.%s.name" % x.get("id"), x.get("name"), "data/decisions.json")
+    ns = (d.get("north_star") or {}).get("metric")
+    put("north_star", ns, "data/decisions.json")
+    put("capacity", capmod.capacity(cfg, (cfg.get("strategy") or {}).get("horizon_months") or 12)["line"], "scripts/capacity.py")
+    return {"version": 1, "generated": date.today().isoformat(), "generated_by": "facts_scaffold.py --demo-canon",
+            "rule": "одни демо-числа для всех макетов, прототипа и примеров текста; в макете — атрибут data-canon=\"ключ\" у элемента с числом; "
+                    "демо-данные помечаются «демо»; новые сущности (имена, предметы, тикеры) — в entities",
+            "values": vals, "entities": [], "screens": {}}
 
 
 def sec_top(scores, props, n, by, title):
@@ -182,6 +326,21 @@ def load_decisions(out):
     return d, crit
 
 
+def draft_mark(d, key, default="решение: decisions.json"):
+    """Метка значения: [черновик: источник] для черновика decisions.json, иначе [решение: decisions.json]."""
+    dr = (d or {}).get("draft")
+    if not dr:
+        return "[%s]" % default
+    srcs = dr.get("sources") or {}
+    src = srcs.get(key)
+    if src is None:
+        head = key.rsplit(".", 1)[0]
+        while head and head not in srcs and "." in head:
+            head = head.rsplit(".", 1)[0]
+        src = srcs.get(head) or "данные прогона"
+    return "[черновик: %s]" % src
+
+
 def sec_bets_from_decisions(d, crit):
     import decisions as dm
     L = ["## Три главные ставки (из data/decisions.json)", "",
@@ -191,16 +350,18 @@ def sec_bets_from_decisions(d, crit):
     for b in dm.bets(d):
         i = str(b["id"])
         share = b.get("attention_share")
-        L.append("**Ставка %s. «%s».** Что: %s. Почему: %s. Ожидаемый эффект: %s. P-id: %s. Доля внимания команды: %s. [решение: decisions.json]"
+        L.append("**Ставка %s. «%s».** Что: %s. Почему: %s. Ожидаемый эффект: %s. P-id: %s. Доля внимания команды: %s. %s"
                  % (i, b.get("name") or FILL, b.get("what") or FILL, b.get("why") or FILL, b.get("effect") or FILL,
-                    ", ".join(b.get("proposals") or []) or FILL, dm.fmt_pct(share) if dm.is_num(share) else FILL))
+                    ", ".join(b.get("proposals") or []) or FILL, dm.fmt_pct(share) if dm.is_num(share) else FILL,
+                    draft_mark(d, "bets.%s" % i)))
         L.append("")
         k = b.get("kill")
         if isinstance(k, dict):
             c = cmap.get(i) or {}
             meas = ("; измеримость: %s — n %s, %s нед. (%s)" % (c.get("status_text"), dm.fmt_num(c["n"]) if c.get("n") is not None else "—",
                                                              c.get("weeks", "—"), c.get("reason", ""))) if c else ""
-            L.append("- Критерий отказа `{bet:%s.kill}`: %s%s" % (i, dm.kill_text(k), meas))
+            L.append("- Критерий отказа `{bet:%s.kill}`: %s%s%s" % (i, dm.kill_text(k), meas, (" " + draft_mark(d, "bets.%s.kill.threshold" % i)
+                                                                                         + " " + draft_mark(d, "bets.%s.kill.date" % i)) if d.get("draft") else ""))
         pm = [dm.item_text(x) for x in b.get("premortem") or []]
         L.append("- Pre-mortem `{bet:%s.premortem}`: %s" % (i, "; ".join(pm) if pm else FILL))
         L.append("")
@@ -212,11 +373,17 @@ def sec_bets_from_decisions(d, crit):
 def sec_northstar_from_decisions(d):
     import decisions as dm
     ns = d.get("north_star") if isinstance(d.get("north_star"), dict) else {}
-    L = ["## North Star, анти-цели, развилки, ёмкость (из data/decisions.json)", "",
-         "**North Star Metric** `{north_star}`: %s. Определение: %s. Цель `{north_star.target}`: %s. Входные метрики: %s." % (
-             ns.get("metric") or FILL, ns.get("definition") or FILL, ns.get("target") or FILL, "; ".join(ns.get("inputs") or []) or FILL), ""]
+    dr = bool(d.get("draft"))
+    L = ["## North Star, анти-цели, развилки, ёмкость (из data/decisions.json)", ""]
+    if dr:
+        L += ["> **Черновик решений** (`data/decisions.json → draft`): значения предложены `decisions.py --init --draft` по данным "
+              "прогона, у каждого — источник. Подтвердите или поправьте их в `data/decisions.json`, затем удалите поле `draft`.", ""]
+    L += ["**North Star Metric** `{north_star}`: %s. Определение: %s. Цель `{north_star.target}`: %s. Входные метрики: %s.%s" % (
+             ns.get("metric") or FILL, ns.get("definition") or ("—" if dr else FILL), ns.get("target") or ("—" if dr else FILL),
+             "; ".join(ns.get("inputs") or []) or ("—" if dr else FILL), (" " + draft_mark(d, "north_star")) if dr else ""), ""]
     ag = [dm.item_text(x) for x in d.get("anti_goals") or []]
-    L += ["**Анти-цели** `{anti_goals}`:", ""] + (["%d. %s" % (k, t) for k, t in enumerate(ag, 1)] if ag else ["- " + FILL]) + [""]
+    L += ["**Анти-цели** `{anti_goals}`%s:" % ((" " + draft_mark(d, "anti_goals")) if dr and ag else ""), ""] + \
+        (["%d. %s" % (k, t) for k, t in enumerate(ag, 1)] if ag else ["- " + FILL]) + [""]
     forks = [f for f in d.get("forks") or [] if isinstance(f, dict)]
     if forks:
         L += ["**Развилки владельца** (`{fork:F1}`, `{fork:F1.default}`):", "",
@@ -224,7 +391,9 @@ def sec_northstar_from_decisions(d):
                     [[f.get("id"), f.get("question"), f.get("default"), f.get("cost"), f.get("decision") or "открыто"] for f in forks]), ""]
     cap = d.get("capacity")
     if isinstance(cap, dict) and cap:
-        L += ["**Ёмкость** `{capacity}`: %s" % "; ".join("%s: %s" % (k, v) for k, v in cap.items()), ""]
+        L += ["**Ёмкость** `{capacity}`: %s" % (cap.get("text") or "; ".join("%s: %s" % (k, v) for k, v in cap.items())), ""]
+    if d.get("bans"):
+        L += ["**Запреты** `{bans}`%s: %s" % ((" " + draft_mark(d, "bans")) if dr else "", "; ".join(dm.item_text(x) for x in d["bans"])), ""]
     return L
 
 
@@ -343,6 +512,10 @@ def sec_model(out):
         t = s.get("totals")
         return t.get(k) if isinstance(t, dict) else None
     rows = [[k] + [num(sc[n].get(k), 3) for n in names] for k in metrics if any(sc[n].get(k) is not None for n in names)]
+    if m.get("capacity", {}).get("line"):
+        notes_cap = m["capacity"]["line"]
+    else:
+        notes_cap = None
     for k in ("revenue", "net", "cost", "paying"):
         if any(tot(sc[n], k) is not None for n in names):
             rows.append(["итого " + k] + [num(tot(sc[n], k), 1) for n in names])
@@ -350,12 +523,24 @@ def sec_model(out):
     for k in ("users", "paying"):
         if any(isinstance(v, dict) and v.get(k) is not None for v in last.values()):
             rows.append(["%s в последнем месяце" % k] + [num((last[n] or {}).get(k), 1) for n in names])
-    L.append("Валюта %s, модель выручки %s, горизонт %s мес. [оценка: model.py, допущения]" % (m.get("currency", "—"), m.get("revenue_model", "—"), m.get("horizon_months", "—")))
+    L.append("Валюта %s, модель выручки %s, профиль %s, горизонт %s мес. [оценка: model.py, допущения]" % (
+        m.get("currency", "—"), m.get("revenue_model", "—"), m.get("model_profile", "—"), m.get("horizon_months", "—")))
+    if m.get("mode") == "sensitivity-only":
+        L.append("")
+        L.append("**Режим sensitivity-only:** денежные итоги — иллюстрация; в тексте — только `{model:…}` (сборка добавит метку "
+                 "«%s») или буквально с этой меткой." % ((m.get("illustration") or {}).get("label") or "[иллюстрация при допущениях]"))
+    if m.get("model_profile") == "personal":
+        metrics = ["value", "cost", "net_value", "hours_spent", "hours_saved", "breakeven_month", "hours_breakeven_month", "roi",
+                   "hours_saved_per_week_to_break_even"]
     L.append("")
     L.append(table(["метрика"] + names, rows))
     notes = m.get("notes") or []
     if notes:
         L += ["", "Примечания модели:"] + ["- %s" % n for n in notes[:6]]
+    if notes_cap:
+        L += ["- ёмкость в модели: %s" % notes_cap]
+    for it in (m.get("reconciliation") or {}).get("items") or []:
+        L.append("- ! сверка модели с планом: %s" % it.get("message"))
     return L + [""]
 
 
@@ -400,8 +585,10 @@ def sec_keys(out):
     return L
 
 
-def sec_questions(out):
+def sec_questions(out, forks_in_decisions=False):
     L = ["## Развилки владельца", ""]
+    if forks_in_decisions:
+        return L + ["Развилки — в data/decisions.json (`{fork:F1}`, блок выше); исходные вопросы — research/questions-owner.md.", ""]
     f = out / "research" / "questions-owner.md"
     if not f.is_file():
         return L + [NO_DATA + ": research/questions-owner.md нет. Каждую развилку описывать как «вариант по умолчанию + цена альтернативы»: %s" % FILL, ""]
@@ -415,12 +602,20 @@ def sec_questions(out):
     return L + ["Из `research/questions-owner.md`; описывать как развилки с вариантом по умолчанию:", ""] + ["%s. %s" % (n, cell(t, 320)) for n, t in qs[:12]] + [""]
 
 
-def sec_bans(cfg):
-    return ["## Запреты", "", "Из ограничений прогона: %s [факт: run-config.json]" % ((cfg.get("strategy") or {}).get("constraints") or FILL), "",
+def sec_bans(cfg, d=None, draft=False):
+    cons = (cfg.get("strategy") or {}).get("constraints")
+    bans = [x if isinstance(x, str) else json.dumps(x, ensure_ascii=False) for x in ((d or {}).get("bans") or [])]
+    if draft and (bans or cons):
+        L = ["## Запреты", ""]
+        if cons:
+            L.append("Из ограничений прогона: %s [факт: run-config.json]" % cons)
+        L += ["- %s %s" % (x, draft_mark(d, "bans")) for x in bans if x != cons]
+        return L + [""]
+    return ["## Запреты", "", "Из ограничений прогона: %s [факт: run-config.json]" % (cons or FILL), "",
             "Дополнить: %s" % FILL, ""]
 
 
-def build(out, n):
+def build(out, n, draft=False):
     cfg = load_json(out / "build" / "run-config.json", {}) or {}
     props_l = load_json(out / "data" / "proposals.json", []) or []
     props = {p["id"]: p for p in props_l if isinstance(p, dict) and p.get("id")}
@@ -438,11 +633,13 @@ def build(out, n):
     dec, crit = load_decisions(out)
     bets_part = sec_bets_from_decisions(dec, crit) if dec else sec_bets_template()
     ns_part = sec_northstar_from_decisions(dec) if dec else sec_northstar()
-    for part in (sec_product(cfg), sec_goal(cfg), sec_concept(out) if cfg.get("mode") == "concept" else [],
+    for part in (sec_product(cfg), sec_goal(cfg, draft, out), sec_concept(out) if cfg.get("mode") == "concept" else [],
+                 sec_capacity_plan(out, cfg),
                  sec_top(scores, props, n, "rank", "Топ-%d по рангу" % n),
                  sec_top(scores, props, n, "dep_rank", "Топ-%d по рангу с учётом зависимостей (dep_rank)" % n),
                  sec_bets(scores, props), bets_part, ns_part, sec_exists(out, cfg), sec_factcheck(out, cfg), sec_counts(props),
-                 sec_model(out), sec_keys(out), sec_questions(out), sec_bans(cfg)):
+                 sec_model(out), sec_keys(out), sec_flows_plan(out), sec_demo_canon(out), sec_questions(out, draft and bool(dec)),
+                 sec_bans(cfg, dec, draft)):
         L += part
     return "\n".join(L).rstrip() + "\n"
 
@@ -454,12 +651,26 @@ def main(argv=None):
     ap.add_argument("--force", action="store_true", help="перезаписать build/strategy-facts.md, даже если он уже есть")
     ap.add_argument("--stdout", action="store_true", help="напечатать каркас, файл не писать")
     ap.add_argument("--json", action="store_true", help="печатать краткий отчёт JSON")
+    ap.add_argument("--draft", action="store_true", help="предложить значения из данных (черновик decisions.json, метки [черновик: …])")
+    ap.add_argument("--demo-canon", action="store_true", help="записать черновик data/demo-canon.json (если его нет)")
     a = ap.parse_args(argv)
     out = Path(a.out).resolve()
     if not (out / "data" / "proposals.json").exists():
         print("ошибка: нет %s/data/proposals.json" % out, file=sys.stderr)
         return 2
-    text = build(out, max(1, a.top))
+    if a.draft and not (out / "data" / "decisions.json").exists():
+        import decisions as dm
+        (out / "data" / "decisions.json").write_text(json.dumps(dm.draft(out), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print("создан черновик data/decisions.json (decisions.py --init --draft): подтвердите значения и удалите поле draft", file=sys.stderr)
+    if a.demo_canon:
+        dc = out / "data" / "demo-canon.json"
+        if dc.exists():
+            print("data/demo-canon.json уже есть — не перезаписываю", file=sys.stderr)
+        else:
+            cfg0 = load_json(out / "build" / "run-config.json", {}) or {}
+            dc.write_text(json.dumps(demo_canon(out, cfg0), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            print("записан черновик %s — дополните entities/screens до волны макетов" % dc, file=sys.stderr)
+    text = build(out, max(1, a.top), a.draft)
     if a.stdout:
         sys.stdout.write(text)
         return 0

@@ -474,7 +474,9 @@ def test_relocate_run(tmp_path):
     assert "strategy/2026-10-10/data/proposals.json" in x and "build_all.py strategy/2026-10-10\n" in x
     assert "%s-other" % old in x                                                                    # соседний путь с общим префиксом не задет
     cfg = jload(new / "build" / "run-config.json")
-    assert cfg["output"] == {"dir": str(new.resolve()), "inside_repo": True, "git_branch": "docs/strategy-test"} and cfg["repo"]["path"] == str(repo.resolve())
+    # 1.5.0 (FB-017): output.dir_rel — путь от корня репозитория рядом с абсолютным output.dir
+    assert cfg["output"] == {"dir": str(new.resolve()), "inside_repo": True, "git_branch": "docs/strategy-test",
+                             "dir_rel": "strategy/2026-10-10"} and cfg["repo"]["path"] == str(repo.resolve())
     assert "build/node/" in (new / ".gitignore").read_text(encoding="utf-8")
     assert "Перенос папки прогона" in (new / "build" / "STATUS.md").read_text(encoding="utf-8")
     # ни одного упоминания старого пути в обработанных файлах и в отчёте (кроме больших файлов)

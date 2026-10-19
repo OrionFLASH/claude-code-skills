@@ -1,0 +1,165 @@
+/* ps-layer.css — стили слоёв страницы 1.5 (ps-interact.js, ps-search.js, ps-ents.js; build_html.py встраивает их в app.css /
+   <style> страницы). Цвета — токены темы --ps-* (светлая, тёмная, авто); хром просмотра тёмный в любой теме. */
+
+/* --- обёртки на странице: видимая кнопка увеличения, курсор zoom-in на фоне, плашка при наведении --- */
+.psi-wrap{position:relative}
+.psi-wrap > .ps-svg,.psi-wrap > .flowsvg{cursor:zoom-in}
+.psi-wrap .ps-svg .ps-el,.psi-wrap .ps-svg [data-ps-ref],.psi-wrap .flowsvg .fnode{cursor:pointer}
+.psi-zoom{position:absolute;top:8px;right:8px;z-index:3;display:inline-flex;align-items:center;gap:5px;min-height:32px;padding:4px 11px;
+  border-radius:999px;border:1px solid #9aa3ad;background:rgba(255,255,255,.96);color:#1d2127;font:600 13px/1.2 var(--ps-font,system-ui,sans-serif);
+  cursor:zoom-in;box-shadow:0 1px 4px rgba(0,0,0,.18)}
+.psi-zoom:hover{background:#fff;border-color:#1d2127;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.psi-zoom:focus-visible{outline:3px solid #0b3d91;outline-offset:2px}
+.psi-flow > .psi-zoom{top:14px;right:14px}
+.psi-cue{position:absolute;left:8px;bottom:8px;z-index:2;max-width:calc(100% - 16px);padding:3px 9px;border-radius:999px;background:rgba(29,33,39,.88);color:#fff;
+  font:12px/1.35 var(--ps-font,system-ui,sans-serif);pointer-events:none;opacity:0;transition:opacity .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.psi-wrap:hover > .psi-cue,.psi-wrap:focus-within > .psi-cue{opacity:1}
+@media (hover:none){.psi-cue{display:none}}
+.psi-hint{margin:10px 0 14px;padding:7px 12px;border-radius:10px;background:var(--ps-surface-2);color:var(--ps-text);border:1px solid var(--ps-border);font-size:13.5px;line-height:1.45}
+/* ленивая заглушка графика (site): размер = размер графика (aspect-ratio из viewBox), страница не прыгает при подгрузке */
+.ps-svg.ps-wait[style*="--ps-ar"]{aspect-ratio:var(--ps-ar);min-height:0;min-width:0}
+@media (max-width:699px){.ps-svg.ps-wait[style*="--ps-ar"]{aspect-ratio:auto;min-height:var(--ps-mh,180px)}}
+
+/* контуры наведения и выбора: <g class="psi-ovl"> внутри SVG */
+.psi-ovl rect{fill:none;pointer-events:none}
+.psi-ring-halo{stroke:#fff;stroke-opacity:.95}
+.psi-ring-line{stroke:#0b3d91}
+.psi-hov.psi-ring-line{stroke:#b0502a}
+.flowsvg .fnode:focus-visible,.psi-svg .fnode:focus-visible,.psi-svg .ps-el:focus-visible{outline:none}
+
+/* подсказки (просмотр и блоки схем — .psi-tip; элементы графиков на странице — #cp-tip с тем же оформлением) */
+.psi-tip,#cp-tip.ps-tip{position:fixed;z-index:1990;max-width:320px;padding:6px 10px;border-radius:8px;background:#1d2127;color:#fff;font:12.5px/1.4 var(--ps-font,system-ui,sans-serif);
+  pointer-events:none;box-shadow:0 3px 12px rgba(0,0,0,.3)}
+.psi-tip b,#cp-tip b{display:block;font-weight:650}
+.psi-tip span,#cp-tip span{display:block;color:#d6dae0;margin-top:2px}
+.psi-tip em,#cp-tip em{display:block;font-style:normal;color:#ffd38a;margin-top:3px;font-size:11.5px}
+.psi-tip[hidden]{display:none}
+
+/* --- просмотр --- */
+html.psi-locked,html.psi-locked body{overflow:hidden}
+.psi-lb{position:fixed;inset:0;z-index:900;display:flex;flex-direction:column;background:#0e0f12;color:#eceef1;font-family:var(--ps-font,system-ui,sans-serif)}
+.psi-lb[hidden]{display:none}
+.psi-bar{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#1b1c20;border-bottom:1px solid #34363c;flex:none}
+.psi-title{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+.psi-tools{display:flex;align-items:center;gap:6px;flex:none}
+.psi-tools button{min-width:40px;min-height:36px;padding:4px 11px;border-radius:8px;border:1px solid #50535b;background:#2a2c32;color:#f3f4f6;font:600 15px/1 var(--ps-font,system-ui,sans-serif);cursor:pointer}
+.psi-tools button:hover{border-color:#c9ccd2}
+.psi-tools button[aria-pressed="true"]{background:#eceef1;color:#111;border-color:#eceef1}
+.psi-tools button:focus-visible,.psi-panel button:focus-visible,.psi-panel a:focus-visible,.psi-stage:focus-visible{outline:3px solid #ffcc33;outline-offset:2px}
+.psi-pct{min-width:54px;text-align:center;font-size:12.5px;color:#c4c7cd;font-variant-numeric:tabular-nums}
+.psi-close{background:#3a3d44!important}
+.psi-main{flex:1 1 auto;min-height:0;display:flex;position:relative}
+.psi-stage{position:relative;flex:1 1 auto;min-width:0;overflow:hidden;touch-action:none;cursor:grab;-webkit-user-select:none;user-select:none;outline:none}
+.psi-stage.psi-grabbing{cursor:grabbing}
+.psi-canvas{position:absolute;left:0;top:0;transform-origin:0 0}
+.psi-canvas .psi-svg{display:block;background:#fff;color:#111;border-radius:6px;box-shadow:0 6px 30px rgba(0,0,0,.55);font-family:var(--ps-font,system-ui,sans-serif);max-width:none;max-height:none}
+.psi-canvas .ps-el,.psi-canvas [data-ps-ref],.psi-canvas .fnode{cursor:pointer}
+.psi-canvas .fnode:hover{opacity:.85}
+.psi-canvas .fnode.psi-on{stroke:#111;stroke-width:3}
+.psi-wait{color:#ddd;font-size:15px;padding:30px;white-space:nowrap}
+.psi-help{position:absolute;left:10px;bottom:8px;margin:0;padding:4px 10px;border-radius:999px;background:rgba(0,0,0,.6);color:#d9dce1;font-size:12px;pointer-events:none;max-width:calc(100% - 20px)}
+.psi-panel{flex:none;width:380px;max-width:42vw;display:flex;flex-direction:column;background:var(--ps-surface,#191c20);color:var(--ps-text,#e7e9ec);border-left:1px solid #34363c;min-height:0}
+.psi-nopanel .psi-panel{display:none}
+.psi-ph{flex:none;border-bottom:1px solid var(--ps-border,#30353c)}
+.psi-grip{display:block;width:100%;text-align:left;background:none;border:0;border-radius:0;padding:12px 16px 10px;color:inherit;font:inherit;cursor:default}
+.psi-kicker{display:block;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ps-muted,#a2a9b3)}
+.psi-ptitle{display:block;font-size:16px;font-weight:650;line-height:1.3;margin-top:2px;overflow-wrap:anywhere}
+.psi-chev{display:none}
+.psi-pb{flex:1 1 auto;min-height:0;overflow:auto;padding:4px 16px 14px;font-size:13.5px;line-height:1.5;overscroll-behavior:contain;outline:none}
+.psi-pb h4{margin:12px 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--ps-muted,#a2a9b3)}
+.psi-pb p{margin:4px 0}
+.psi-pb ul{margin:4px 0;padding-left:18px}
+.psi-pb li{margin:3px 0}
+.psi-pb a{color:var(--ps-link)}
+.psi-pb .psi-tipline{margin-top:12px;color:var(--ps-muted,#a2a9b3);font-size:12.5px}
+.psi-pb dl.ps-legend,.psi-pb dl{margin:6px 0}
+.psi-mx{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,auto);gap:3px 12px}
+.psi-mx dt{color:var(--ps-muted,#a2a9b3)}
+.psi-mx dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
+.psi-all summary{cursor:pointer;margin:10px 0 6px;font-weight:600}
+.psi-chips{list-style:none;padding:0!important;display:flex;flex-wrap:wrap;gap:6px}
+.psi-chips li{margin:0!important}
+.psi-chip{border:1px solid var(--ps-border,#30353c);background:var(--ps-surface-2,#23272c);color:var(--ps-text,#e7e9ec);border-radius:999px;padding:4px 10px;font:12.5px/1.3 var(--ps-font,system-ui,sans-serif);cursor:pointer;text-align:left}
+.psi-chip:hover{border-color:var(--ps-accent,#f0916a)}
+.psi-back{margin-top:14px}
+.psi-pnav{flex:none;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;border-top:1px solid var(--ps-border,#30353c)}
+.psi-pnav button{min-height:34px;padding:4px 10px;border-radius:8px;border:1px solid var(--ps-border,#30353c);background:var(--ps-surface-2,#23272c);color:var(--ps-text,#e7e9ec);font:13px var(--ps-font,system-ui,sans-serif);cursor:pointer}
+.psi-pnav button:disabled{opacity:.45;cursor:default}
+.psi-pos{font-size:12.5px;color:var(--ps-muted,#a2a9b3);font-variant-numeric:tabular-nums}
+
+/* телефон: просмотр на весь экран, панель — нижний лист, компактная панель инструментов; кнопка над картинкой */
+@media (max-width:699px){
+  .psi-bar{padding:6px 8px;gap:6px;flex-wrap:wrap}
+  .psi-title{flex-basis:100%;font-size:13px}
+  .psi-tools{width:100%;justify-content:space-between}
+  .psi-tools button{min-width:44px;min-height:40px;padding:4px 8px}
+  .psi-close-t{display:none}
+  [data-psi-panel]{display:none}
+  .psi-panel{position:absolute;left:0;right:0;bottom:0;width:auto;max-width:none;max-height:58vh;border-left:0;border-top:1px solid #34363c;border-radius:14px 14px 0 0;box-shadow:0 -6px 24px rgba(0,0,0,.45)}
+  .psi-lb:not(.psi-sheet-open) .psi-pb,.psi-lb:not(.psi-sheet-open) .psi-pnav{display:none}
+  .psi-grip{cursor:pointer;position:relative;padding:14px 44px 10px 16px}
+  .psi-grip::before{content:"";position:absolute;top:5px;left:50%;width:40px;height:4px;margin-left:-20px;border-radius:2px;background:#6b6f78}
+  .psi-chev{display:block;position:absolute;right:16px;top:50%;transform:translateY(-50%) rotate(180deg);font-size:16px;color:var(--ps-muted,#a2a9b3)}
+  .psi-sheet-open .psi-chev{transform:translateY(-50%)}
+  .psi-help{display:none}
+  .psi-wrap{padding-top:42px}
+  .psi-zoom,.psi-flow > .psi-zoom{top:0;right:0;min-height:36px;min-width:44px;padding:4px 12px;font-size:13px}
+}
+
+/* --- поиск по странице (ps-search.js) --- */
+.pss-nav{margin:0 0 6px}
+.pss-open{display:flex;align-items:center;gap:8px;width:calc(100% - 4px);margin:0 2px;text-align:left;color:var(--ps-muted);font-size:13px}
+.pss-open kbd,.pss-box kbd{font:11px ui-monospace,Menlo,monospace;border:1px solid var(--ps-border);border-bottom-width:2px;border-radius:4px;padding:0 4px;color:var(--ps-muted);margin-left:auto}
+.mbar .pss-open{width:auto;margin:0;flex:none}
+.mbar .pss-open .pss-t,.mbar .pss-open kbd{display:none}
+#pss .mbox{width:min(980px,100%)}
+.pss-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 18px 4px}
+.pss-bar input[type=search]{flex:1 1 320px;min-width:0;font-size:15px;padding:8px 12px}
+.pss-bar .chk{font-size:13px;white-space:nowrap;color:var(--ps-muted)}
+.pss-filters{display:flex;flex-wrap:wrap;gap:6px;padding:6px 18px 0}
+.pss-filters button{font-size:12.5px;padding:3px 10px;border-radius:999px}
+.pss-filters button[aria-pressed=true]{background:var(--ps-accent-soft);border-color:var(--ps-accent);color:var(--ps-text);font-weight:600}
+.pss-count{padding:8px 18px 0;font-size:13px;color:var(--ps-muted)}
+.pss-help{padding:4px 18px 0;font-size:12.5px;color:var(--ps-muted)}
+ol.pss-res{list-style:none;margin:6px 0 0;padding:0 10px 16px}
+.pss-res li{margin:0}
+.pss-res button{display:block;width:100%;text-align:left;border:1px solid transparent;background:none;border-radius:10px;padding:8px 10px;color:var(--ps-text);font-size:13.5px;line-height:1.45}
+.pss-res button:hover,.pss-res button.on{background:var(--ps-surface-2);border-color:var(--ps-border)}
+.pss-res .pss-where{display:block;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ps-muted)}
+.pss-res .pss-ttl{display:block;font-weight:600}
+.pss-res .pss-snip{display:block;color:var(--ps-muted);overflow-wrap:anywhere}
+.pss-res mark,mark.pss-hit{background:#ffe08a;color:#111;border-radius:3px;padding:0 1px}
+:root[data-theme=dark] mark.pss-hit,:root[data-theme=dark] .pss-res mark{background:#ffd34d}
+mark.pss-hit.pss-cur{outline:2px solid #b0502a;outline-offset:1px}
+
+/* --- сущности текста и глоссарий (ps-ents.js) --- */
+a.ps-ent{text-decoration:none;border-bottom:1px dotted currentColor}
+a.ps-ent:hover{border-bottom-style:solid}
+a.ps-term{color:inherit;text-decoration:none;border-bottom:1px dashed var(--ps-muted)}
+a.ps-term:hover{color:var(--ps-link);border-bottom-color:currentColor}
+#ps-etip{position:fixed;z-index:1990;max-width:340px;padding:6px 10px;border-radius:8px;background:#1d2127;color:#fff;font:12.5px/1.4 var(--ps-font,system-ui,sans-serif);pointer-events:none;box-shadow:0 3px 12px rgba(0,0,0,.3)}
+#ps-etip b{display:block;font-weight:650}#ps-etip span{display:block;color:#d6dae0;margin-top:2px}
+#ps-etip[hidden]{display:none}
+tr.ps-row-target{scroll-margin-top:80px}
+.gl-table td:first-child{font-weight:600;white-space:nowrap}
+
+/* --- просмотр макетов: интерактивный макет, тема, связанные предложения --- */
+#lbpids{font-size:12.5px;color:#ccc}#lbpids a{color:#a8c7ff}
+#lbbar a.lbopen{color:#9cc3ff;font-size:13px;white-space:nowrap}
+#lbbar a.lbopen[hidden]{display:none}
+#lbside .hs-sec{font-size:12px;color:#a8a8b0}
+
+/* --- Гант: пробелы плана (месяцы без задач) --- */
+.gin.has-gaps{position:relative;--glw:280px}
+.ggap{position:absolute;top:0;bottom:0;left:calc(var(--glw) + (100% - var(--glw) - 12px) * var(--x0));width:calc((100% - var(--glw) - 12px) * (var(--x1) - var(--x0)));
+  background:repeating-linear-gradient(45deg,rgba(180,35,24,.10) 0 6px,transparent 6px 12px);border-left:1px dashed #b42318;border-right:1px dashed #b42318;pointer-events:none;z-index:0}
+.gscale b.ggap-l{position:absolute;bottom:1px;height:14px;line-height:14px;font-size:10px;font-weight:600;text-align:center;color:var(--ps-bad,#9f1f14);
+  background:var(--ps-surface-2);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;pointer-events:none}
+.gaps-note{color:var(--ps-bad,#9f1f14)}
+@media (max-width:900px){.gin.has-gaps{--glw:150px}}
+
+/* --- карточка реестра: свёрнутые секции на узком экране --- */
+div.detail>details.dsec>summary .dsec-n{font-weight:400;color:var(--ps-muted);text-transform:none;letter-spacing:0}
+
+@media print{.psi-zoom,.psi-cue,.psi-hint,.psi-lb,.psi-tip,.psi-ovl,.pss-nav,.pss-open,#pss,#ps-etip{display:none!important}a.ps-term,a.ps-ent{border-bottom:0}}
+@media (prefers-reduced-motion:reduce){.psi-cue,.psi-zoom{transition:none}}

@@ -9,7 +9,7 @@
 {PRODUCT_FACTS}
 
 ## Входы (только чтение, кроме своего файла)
-- `{OUT}/data/competitors.json` — карточки от исследователя; поля `shot`, `shot_blocked`, `features`, `features_labels`.
+- `{OUT}/data/competitors.json` — карточки от исследователя; поля `shot`, `shot_blocked`, `cookie`, `features`, `features_labels`. `cookie: hidden` — баннер согласия на снимке скрыт стилем (`shoot_competitors.mjs` ничего не нажимает): не делать выводов «у них нет cookie-баннера»; `accepted` — снят после нажатия «Принять» (только с `--accept-cookies`).
 - `{OUT}/competitors/shots/*.png` — скриншоты (смотреть через Read).
 - `{OUT}/research/competitors.md` — обзор и матрица функций.
 - `{OUT}/research/product-understanding.md`, `{OUT}/mockups/current/*.png` — наш продукт для сравнения.
