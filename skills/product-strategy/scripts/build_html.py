@@ -2523,8 +2523,7 @@ class Builder:
     def mock_fig(self, m, inline=False, group="mockups"):
         title = text_of(m.get("title")) or m["key"]
         concept = str(m.get("kind") or "concept") != "current"
-        badge = ('<span class="badge-concept">' + ("Концепт продукта, не существующая функция" if self.concept else "Концепт, не существующая функция")
-                 + "</span>") if concept else '<span class="tag">факт</span>'
+        badge = ('<span class="badge-concept ps-concept-badge">Концепт, не существующая функция</span>') if concept else '<span class="tag">факт</span>'
         pr = self.chips(m.get("proposals"))
         html_rel = self.rel_link(str(m.get("html"))) if m.get("html") else ""
         open_html = ' · <a href="' + esc(html_rel) + '" target="_blank" rel="noopener">HTML-макет</a>' if html_rel else ""

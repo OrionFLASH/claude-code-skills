@@ -204,6 +204,15 @@ def wanted_forms(cfg, arg):
         forms = d.get("forms") or []
         if isinstance(forms, str):
             forms = [x.strip() for x in forms.split(",") if x.strip()]
+        prod = cfg.get("product") if isinstance(cfg.get("product"), dict) else {}
+        pf = [str(x) for x in (prod.get("forms") or []) if x]
+        if not forms and pf:
+            forms = ["mobile" if x == "mobile" else "web" for x in pf if x in ("web", "mobile_web", "pwa", "saas", "mobile", "desktop")]
+            if any(x == "mobile" for x in pf) and "web" in forms:
+                forms = [x for x in forms if x != "mobile"] + ["mobile"]
+        if prod.get("future_forms") and "mobile" not in forms and "mobile-later" not in forms:
+            if any(str(x) in ("mobile", "mobile_web", "ios", "android", "app") for x in prod["future_forms"]):
+                forms.append("mobile-later")
         if not forms:
             ptype = str((cfg.get("product") or {}).get("type") or "").lower()
             forms = ["mobile"] if ptype == "mobile" else ["web"]

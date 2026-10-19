@@ -397,13 +397,16 @@ product-strategy 1.0.0 влит в main, тег запушен, плагин у�
 ## 2026-10-19 (24) product-strategy 1.5.0 — доработка по двум фидбэкам реальных прогонов product-concept
 План и контракты: docs/plans/2026-10-19-concept-feedback-plan.md (источники: smart_market_lens_ai и QA-ArcRiders-site-tracker, 58 карточек FB + 20 изменений SM). Ветка feature/concept-feedback-2026-10-19. Исполнители — opus по триажу TypeSafe, пакеты с непересекающимися файлами.
 - [x] Разбор обоих фидбэков, план, контракты данных, единый модуль ёмкости scripts/capacity.py (+тест)
-- [ ] WP-A: опрос и вход прогона (intake.py, concept_dossier.py, новые банки вопросов, личный режим, предзаполнение, противоречия)
-- [ ] WP-B: модель, ёмкость, plan-baseline, согласованность, факт-лист и резюме
-- [ ] WP-C: реестр (ёмкость now, зависимости), fact-check, ретро
-- [ ] WP-D: оркестрация и ворота (status, preview, completeness, pivot, report.py, render_brief --auto)
-- [ ] WP-E: сайт (интерактивность графиков и схем, smoke видимости, поиск, просмотрщик макетов)
-- [ ] WP-F: дизайн-этап и макеты (чекпоинт, режимы, галерея, kit, съёмка)
-- [ ] WP-G: брифы, фаза «Рабочий прототип», личный режим в outline, модули ИИ и админки
-- [ ] Интеграция: SKILL.md, product-concept/SKILL.md, concept-mode.md, CHANGELOG, README, INSTALL, plugin.json 1.5.0
-- [ ] Полный прогон тестов, validate.sh, claude plugin validate, обновление установленного плагина
+- [x] WP-A: опрос и вход прогона (intake.py, concept_dossier.py, новые банки вопросов, личный режим, предзаполнение, противоречия)
+- [x] WP-B: модель, ёмкость, plan-baseline, согласованность, факт-лист и резюме
+- [x] WP-C: реестр (ёмкость now, зависимости), fact-check, ретро
+- [x] WP-D: оркестрация и ворота (status, preview, completeness, pivot, report.py, render_brief --auto)
+- [x] WP-E: сайт (интерактивность графиков и схем, smoke видимости, поиск, просмотрщик макетов)
+- [x] WP-F: дизайн-этап и макеты (чекпоинт, режимы, галерея, kit, съёмка)
+- [x] WP-G: брифы, фаза «Рабочий прототип», личный режим в outline, модули ИИ и админки
+- [x] Интеграция: SKILL.md, product-concept/SKILL.md, concept-mode.md, CHANGELOG, README, INSTALL, plugin.json 1.5.0
+- [x] Полный прогон тестов, validate.sh, claude plugin validate, обновление установленного плагина
 - [ ] Влитие в main, push, вопрос об удалении веток
+
+### Где остановился
+Все WP и волна 2 внесены, 821 тест зелёный, validate.sh и claude plugin validate чисто. Осталось: влитие в main, тег product-strategy/v1.5.0, обновление установленного плагина, удаление влитых веток (запрошено владельцем). Не сделано осознанно: шаг глоссария в build_all (`build_appendix.py <OUT> --only glossary` — ручной шаг, описан), `model.py --profile` как флаг (профиль выбирается автоматически или через strategy.model_profile).

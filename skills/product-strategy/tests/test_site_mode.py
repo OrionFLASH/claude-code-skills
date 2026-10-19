@@ -379,7 +379,7 @@ def test_concept_demo_build_all(tmp_path, flags):
     d = out / "deliverables"
     page = (d / "index.html").read_text(encoding="utf-8")
     assert "<title>Концепция продукта Книжная полка (демо)</title>" in page
-    assert 'id="viability"' in page and "Концепт продукта, не существующая функция" in page and 'id="current"' not in page
+    assert 'id="viability"' in page and "Концепт, не существующая функция" in page and 'id="current"' not in page
     if flags:
         assert not (d / "assets").exists() and "sha256-" in page
     else:

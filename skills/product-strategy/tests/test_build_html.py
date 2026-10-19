@@ -869,6 +869,7 @@ def ps15_norm(x):
     элементы просмотра (P-id, интерактивный макет, тема), ширины колонок таблиц. Всё остальное — байт в байт."""
     x = re.sub(r"/\* ps-1\.5:start.*?/\* ps-1\.5:end \*/", "", x, flags=re.S)
     x = re.sub(r'<p class="psi-hint"[^>]*>.*?</p>', "", x, flags=re.S)
+    x = x.replace('badge-concept ps-concept-badge', 'badge-concept').replace('Концепт продукта, не существующая функция', 'Концепт, не существующая функция')
     x = re.sub(r'<div class="psi-wrap psi-(?:chart|flow)">', "", x)
     x = re.sub(r'<button type="button" class="psi-zoom".*?</button><span class="psi-cue"[^>]*>[^<]*</span></div>', "", x, flags=re.S)
     x = re.sub(r'(<p class="muted small">Нажмите на блок схемы — откроется расшифровка: что это, как сейчас, что сделать, как измерять и связанные предложения)'
