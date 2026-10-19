@@ -14,7 +14,9 @@
     иначе первое число месяца;
   - mvp — P-id задач Ганта до вехи launch (иначе фаза «MVP/сборка», иначе весь горизонт) против тегов `mvp` реестра;
   - kill — критерии отказа ставок с датами (data/decisions.json), north_star и goal (decisions.json, run-config);
-  - events — окна событий в горизонте (data/events.json); architecture — выбранный вариант data/integration-options.json;
+  - events — окна событий в горизонте (data/events.json); architecture — вариант data/integration-options.json (схема брифа
+    research-integration: recommended = id варианта, options[].{id, title, effort_days [min, max], risks[], value, mvp, queue},
+    platform_risks[]): chosen → recommended → лучшее «ценность / дни»; mvp_options и mvp_days — сроки интеграции в составе MVP;
   - months — все месяцы горизонта и видения (plan | gap | vision) с задачами, вехами, нагрузкой (середина effort_days,
     равномерно по месяцам задачи) и ёмкостью месяца; gantt_contract — пропуски месяцев (контракт Ганта на весь горизонт:
     месяцы 1…горизонт и видение до горизонт + 12 × vision_years без «дыр», например 7–12 при горизонте 6 и видении с 13).
@@ -27,7 +29,9 @@
   capacity_mismatch — «ёмкость … N дн.» не совпадает с ёмкостью базовой линии (за горизонт или накопленной к месяцу);
   workday_mismatch — другое определение рабочего дня («6-часовой день», «день по 6 ч»), чем capacity.day_hours;
   mvp_mismatch — абзац про состав MVP называет P-id, которых нет в mvp.ids.
-С --strict любое расхождение — код выхода 1. Только стандартная библиотека.
+Код выхода --check: 0 — даты и числа вех согласованы (или заданы {plan:…}), 1 — есть расхождения (последняя строка —
+сводка); --strict — ещё и отсутствие базовой линии — код 1, строки помечены «ОШИБКА». Шаг consistency в build_all.py:
+код 1 — предупреждение, в --strict — провал. Только стандартная библиотека.
 """
 import argparse
 import calendar
@@ -303,16 +307,32 @@ def build(out):
     opts = io.get("options") if isinstance(io, dict) else io
     opts = [o for o in opts or [] if isinstance(o, dict)]
     if opts:
-        pick = next((o for o in opts if o.get("chosen") or o.get("recommended")), None)
+        rec = io.get("recommended") if isinstance(io, dict) else None      # схема research-integration.md: recommended = id варианта
+        pick = next((o for o in opts if o.get("chosen")), None) or \
+            next((o for o in opts if rec not in (None, "") and str(o.get("id")) == str(rec)), None) or \
+            next((o for o in opts if o.get("recommended") is True), None)
         if pick is None:
             def ratio(o):
                 v, dd = o.get("value"), o.get("days") or o.get("effort_days")
                 dd = (sum(dd) / 2.0) if isinstance(dd, list) and dd else dd
                 return (v or 0) / dd if isinstance(v, (int, float)) and isinstance(dd, (int, float)) and dd > 0 else 0
             pick = max(opts, key=ratio)
+        def span(o):
+            dd = o.get("days") or o.get("effort_days")
+            if isinstance(dd, list) and dd:
+                return float(dd[0]), float(dd[-1])
+            return (float(dd), float(dd)) if isinstance(dd, (int, float)) else None
+        # сроки интеграции в составе MVP: рекомендованный вариант и варианты с mvp: true (G9)
+        in_mvp = [o for o in opts if o is pick or o.get("mvp") is True]
+        spans = [span(o) for o in in_mvp if span(o)]
         arch = {"id": pick.get("id"), "name": pick.get("name") or pick.get("title"), "days": pick.get("days") or pick.get("effort_days"),
                 "risks": pick.get("risks"), "value": pick.get("value"), "options": len(opts),
-                "why": "chosen/recommended в файле" if (pick.get("chosen") or pick.get("recommended")) else "лучшее отношение ценность / дни",
+                "why": "chosen/recommended в файле" if (pick.get("chosen") or pick.get("recommended") is True or
+                                                         (rec not in (None, "") and str(pick.get("id")) == str(rec))) else "лучшее отношение ценность / дни",
+                "mvp_options": [o.get("id") for o in in_mvp],
+                "mvp_days": [round(sum(s[0] for s in spans), 1), round(sum(s[1] for s in spans), 1)] if spans else None,
+                "queue": pick.get("queue"),
+                "platform_risks": (io.get("platform_risks") if isinstance(io, dict) else None) or [],
                 "source": "data/integration-options.json"}
     months, contract = month_grid(rows, props, start, horizon, vision_years, cap, ms)
     return {"version": 1, "generated": date.today().isoformat(), "generated_by": "plan_baseline.py",
@@ -484,7 +504,7 @@ def text_sources(out):
     files = sorted((out / "build" / "parts").glob("strategy-*.md")) + sorted((out / "research").glob("strategy-part*.md"))
     if not files and (out / "research" / "strategy.md").exists():
         files = [out / "research" / "strategy.md"]
-    for extra in (out / "build" / "strategy-facts.md", out / "build" / "strategy-summary.md"):
+    for extra in (out / "build" / "strategy-facts.md", out / "build" / "summary-draft.md", out / "build" / "strategy-summary.md"):
         if extra.exists():
             files.append(extra)
     res = []
@@ -653,9 +673,9 @@ def main(argv=None):
             print(json.dumps(rep, ensure_ascii=False, indent=2))
         else:
             for i in issues[:40]:
-                print("%s [%s] %s:%s — %s" % ("ОШИБКА" if a.strict else "предупреждение", i["code"], i["file"], i["line"], i["message"]))
+                print("%s [%s] %s:%s — %s" % ("ОШИБКА" if a.strict else "расхождение", i["code"], i["file"], i["line"], i["message"]))
             print("итог: расхождений с plan-baseline %d%s; отчёт build/consistency-report.json" % (len(issues), "" if issues else " — тексты согласованы"))
-        return 1 if (issues and a.strict) else 0
+        return 1 if issues else 0                      # D7: код 0 — согласовано, 1 — расхождения (build_all: WARN, --strict — провал)
     b = build(out)
     (out / "data" / "plan-baseline.json").write_text(json.dumps(b, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     if a.json:

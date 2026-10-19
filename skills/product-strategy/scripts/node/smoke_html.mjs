@@ -458,7 +458,11 @@ await check(page, 'lightbox', async () => {
 // ---------------------------------------------------------------- зоны референсов
 await check(page, 'hotspot', async () => {
   if (replacedSkip('lightbox')) return replacedSkip('lightbox');
-  const fig = page.locator('figure.lb[data-ref]:not([data-ref=""]):visible').first();
+  // фигура, у референса (или подсказок макета m:<ключ>) которой есть зоны с координатами; описания без координат — только список
+  await page.evaluate(() => { const refs = window.__psData('d-refs') || {}; document.querySelectorAll('[data-smoke-hs]').forEach(x => x.removeAttribute('data-smoke-hs'));
+    const f = [...document.querySelectorAll('figure.lb[data-ref]')].find(x => x.offsetParent && ((refs[x.dataset.ref] || {}).hotspots || []).some(h => h.l != null));
+    if (f) f.setAttribute('data-smoke-hs', ''); });
+  const fig = page.locator('figure.lb[data-smoke-hs]').first();
   if (!await fig.count()) return SKIP('нет референсов с картинкой');
   await fig.scrollIntoViewIfNeeded();
   await fig.click();

@@ -258,9 +258,12 @@ def demo_canon(out, cfg):
     put("north_star", ns, "data/decisions.json")
     put("capacity", capmod.capacity(cfg, (cfg.get("strategy") or {}).get("horizon_months") or 12)["line"], "scripts/capacity.py")
     return {"version": 1, "generated": date.today().isoformat(), "generated_by": "facts_scaffold.py --demo-canon",
+            "label": "демо-данные",
             "rule": "одни демо-числа для всех макетов, прототипа и примеров текста; в макете — атрибут data-canon=\"ключ\" у элемента с числом; "
-                    "демо-данные помечаются «демо»; новые сущности (имена, предметы, тикеры) — в entities",
-            "values": vals, "entities": [], "screens": {}}
+                    "демо-данные помечаются «демо»; новые сущности (имена, предметы, тикеры) — в entities; кейсы ядра прототипа "
+                    "(data-canon=\"<кейс>.<поле>\") — в cases: {id, title, fn, inputs, expected, mockups}",
+            "values": vals, "entities": [], "screens": {},
+            "cases": []}   # формат prototype/js/core.test.js и prototype/tools/check_canon.py (WP-G): заполняет агент ядра / оркестратор
 
 
 def sec_top(scores, props, n, by, title):
@@ -437,6 +440,43 @@ def sec_concept(out):
             L.append("Проверить в первую очередь: %s." % ", ".join(ts["check_first"]))
     else:
         L.append(NO_DATA + " (нет data/typesafe-concept.json — запустите typesafe_concept.py).")
+    return L + [""] + sec_findings(out, idea if isinstance(idea, dict) else {})
+
+
+PREMISE_RU = {"confirmed": "подтверждена", "refuted": "опровергнута", "partial": "частично"}
+
+
+def sec_findings(out, idea):
+    """FB-044/FB-048: блок «Выводы исследования» из data/idea.json (pitch_v2, premises[], request_questions[]) — без ручного
+    блока «ВЫВОДЫ» в факт-листе; запасной путь предпосылок — data/premises.json, вопросов запроса — run-config."""
+    cfg = load_json(out / "build" / "run-config.json", {}) or {}
+    ic = cfg.get("idea") or {}
+    pitch_v2 = idea.get("pitch_v2") or ic.get("pitch_v2")
+    prem = idea.get("premises")
+    pdoc = load_json(out / "data" / "premises.json", None)
+    if not isinstance(prem, list) or not prem:
+        prem = (pdoc or {}).get("premises") if isinstance(pdoc, dict) else []
+    prem = [p for p in prem or [] if isinstance(p, dict)]
+    rqs = [q for q in (idea.get("request_questions") or ic.get("request_questions") or []) if isinstance(q, dict) and q.get("id")]
+    if not (pitch_v2 or prem or rqs):
+        return []
+    L = ["## Выводы исследования", ""]
+    if pitch_v2:
+        L.append("Идея v%s после пересмотра (C4.5): %s [факт: решение владельца, data/premises.json]." % (
+            idea.get("version") or ic.get("version") or 2, cell(pitch_v2, 400)))
+    if prem:
+        L.append("")
+        L.append(table(["предпосылка", "вид", "статус", "источник"],
+                       [[cell(p.get("text"), 160), p.get("kind") or "—", PREMISE_RU.get(p.get("status"), p.get("status") or "не проверена"),
+                         cell(p.get("source") or "—", 80)] for p in prem]))
+        dec = (pdoc or {}).get("decision") if isinstance(pdoc, dict) else idea.get("pivot_decision")
+        if dec:
+            L.append("")
+            L.append("Решение владельца по пересмотру: %s." % {"keep": "продолжить с исходной идеей", "narrow": "принять сужение",
+                                                              "stop": "остановиться"}.get(dec, dec))
+    if rqs:
+        L += ["", "**Вопросы запроса** — ответ на каждый в тексте с маркером `[RQnn]` (сборка проверяет):", ""]
+        L += ["- `[%s]` (%s) %s" % (q["id"], q.get("kind") or "research", cell(q.get("text"), 220)) for q in rqs]
     return L + [""]
 
 

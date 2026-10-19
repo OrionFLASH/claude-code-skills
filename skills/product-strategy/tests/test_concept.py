@@ -390,8 +390,9 @@ def test_concept_demo_files(tmp_path):
     swot = json.loads((out / "data" / "swot.json").read_text(encoding="utf-8"))
     assert all(len(swot[k]) >= 4 for k in ("strengths", "weaknesses", "opportunities", "threats"))
     assert len(json.loads((out / "data" / "personas.json").read_text(encoding="utf-8"))) == 3
-    for f in (out / "mockups" / "concepts").glob("M*.html"):
-        assert "Концепт продукта, не существующая функция" in f.read_text(encoding="utf-8")
+    for f in (out / "mockups" / "concepts").glob("M*.html"):         # FB-033: единый бейдж набора — класс и текст-константа
+        html = f.read_text(encoding="utf-8")
+        assert 'class="ps-concept-badge"' in html and "Концепт, не существующая функция · Книжная полка" in html
     assert len(list((out / "mockups" / "concepts").glob("M*.html"))) >= cfg["scope"]["mockups_min"] == 8
 
 

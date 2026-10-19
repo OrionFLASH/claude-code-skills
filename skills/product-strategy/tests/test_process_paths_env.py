@@ -133,7 +133,7 @@ def test_git_state_no_repo_unborn_normal(tmp_path):
     assert "git: пустой репозиторий (нет коммитов); origin есть" in r.stdout
     write(repo / "a.txt", "x")
     git(repo, "add", "a.txt")
-    git(repo, "-c", "user.email=t@e.st", "-c", "user.name=t", "commit", "-q", "-m", "init")
+    git(repo, "-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-q", "-m", "init")
     d = json.loads(run("check_env.py", "--git-state", "--repo", repo, "--json", "-").stdout)
     assert d["state"] == "normal" and d["commits"] == 1
     r = run("check_env.py", "--out", repo, "--json", tmp_path / "env.json", "--quiet")

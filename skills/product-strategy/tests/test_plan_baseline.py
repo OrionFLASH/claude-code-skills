@@ -123,7 +123,8 @@ def test_consistency_check_and_plan_placeholders(out):
           body10="**В MVP:** P001, P002, P009 [оценка].\n\nСостав по Ганту: {plan:mvp_ids}.",
           body14="Закрытая бета — 15.05.2027 [допущение].\n\nЁмкость — 72 дн. разработки за полгода [оценка].\n\nСчитаем день по 6 ч [допущение].")
     r = run("plan_baseline.py", out, "--check")
-    assert r.returncode == 0, r.stdout
+    assert r.returncode == 1, r.stdout                                  # D7 (1.5): код 1 — расхождения, последняя строка — сводка
+    assert r.stdout.strip().splitlines()[-1].startswith("итог: расхождений с plan-baseline")
     rep = jload(out / "build" / "consistency-report.json")
     codes = {i["code"] for i in rep["issues"]}
     assert {"plan_mismatch", "mvp_mismatch", "capacity_mismatch", "workday_mismatch"} <= codes, rep["issues"]
@@ -207,7 +208,8 @@ def test_summary_scaffold_uses_only_placeholders(out):
     a = run("assemble_strategy.py", out)
     assert a.returncode == 0, a.stdout + a.stderr
     assert not [i for i in jload(out / "build" / "assemble-report.json")["plan_consistency"]["issues"] if i["file"].endswith("strategy-01.md")]
-    run("summary_scaffold.py", out)                                                   # без --to-part — build/strategy-summary.md
+    run("summary_scaffold.py", out)                                                   # без --to-part — build/summary-draft.md (G10)
+    assert (out / "build" / "summary-draft.md").exists() and not (out / "build" / "parts" / "strategy-summary.md").exists()
     run("plan_baseline.py", out, "--check")
     assert not [i for i in jload(out / "build" / "consistency-report.json")["issues"] if "summary" in i["file"] or "01" in i["file"]]
 

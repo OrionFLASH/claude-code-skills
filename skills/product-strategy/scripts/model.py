@@ -360,7 +360,8 @@ def select_profile(cfg):
         return "oss", "strategy.payment_channel = donations"
     forms = {str(f).lower() for f in (pr.get("forms") or []) if f}
     if str(pr.get("type") or "").lower() in ("mobile", "mobile-app", "android", "ios"):
-        if forms & {"web", "pwa", "site", "web-app"}:
+        # mobile_web (адаптивный веб, PWA) — тоже оплата на сайте; формы «на потом» (product.future_forms) не считаются
+        if forms & {"web", "mobile_web", "mobile-web", "pwa", "site", "web-app"}:
             return "web-direct", "product.type = %s, но есть веб-форма (%s): оплата на сайте без комиссии магазина; уточните " \
                                  "strategy.payment_channel" % (pr.get("type"), ", ".join(sorted(forms)))
         return "mobile-app", "product.type = %s" % pr.get("type")

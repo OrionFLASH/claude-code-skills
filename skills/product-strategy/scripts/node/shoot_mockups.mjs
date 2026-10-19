@@ -41,7 +41,9 @@
 // --other-theme — после основного снимка переключить <html data-theme> на противоположную тему и снять
 //   <ключ>.theme-<тема>.png: переполнение, запасные цвета и (с --contrast) контраст второй темы — тоже замечания.
 // --contrast учитывает текст в SVG (цвет — fill) и заливку SVG-фигур под текстом (elementsFromPoint).
-// Подсветка элементов (data-hs, data-hs-title/-what/-why/-p/-sec, шаблон _hotspots.js): в mockups-check.<ключ>.json —
+// Подсветка элементов (data-hs, data-hs-title/-what/-why/-p/-sec, шаблон _hotspots.js): запуск без --only пишет ещё
+//   mockups/hotspots.json {version, mockups: {<ключ>: {items: [{n, id, title, what, why, p, sec, r: [x, y, w, h] — доли PNG]}}}}
+//   (для просмотра макетов на странице); в mockups-check.<ключ>.json —
 //   hotspots {count, untitled, duplicates, zones[{id,n,title,what,why,p,sec,x,y,w,h}]} (CSS px от угла страницы, scale =
 //   deviceScaleFactor); --hotspots N — замечание, если у концепта размечено меньше N элементов.
 // data-proposals/ps:proposals принимают P-id и id черновиков (G8-01): --only их больше не отбрасывает.
@@ -55,6 +57,13 @@ import { createRequire } from 'node:module';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SKILL_DIR = path.resolve(HERE, '..', '..');
+function pngSize(file) {   // ширина и высота PNG из заголовка IHDR (без зависимостей)
+  try {
+    const fd = fs.openSync(file, 'r'); const buf = Buffer.alloc(24); fs.readSync(fd, buf, 0, 24, 0); fs.closeSync(fd);
+    if (buf.readUInt32BE(0) !== 0x89504e47) return null;
+    return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
+  } catch (e) { return null; }
+}
 const USAGE = 'node shoot_mockups.mjs <OUT> [--only key1,key2] [--no-index] [--full-page] [--contrast] [--no-fail] [--no-discover] [--kit] [--targets[=auto|pointer|touch]] [--no-targets] [--layout] [--other-theme] [--hotspots N] [--node-dir <dir>]';
 
 function parseArgs(argv, flags) {
@@ -656,6 +665,21 @@ if (!opt.kit && !WRITE_SHARED) {
       external: merged.filter((r) => (r.external_requests || []).length).length, overflow: merged.filter((r) => r.overflow_x).length,
       console: merged.filter((r) => (r.console_errors || []).length).length, not_shot: keys.length - merged.length };
     writeAtomic(path.join(DATA, 'mockups-check.json'), JSON.stringify({ date: DATE, tool: 'shoot_mockups.mjs', summary, items: merged }, null, 2) + '\n');
+    // координаты подсказок для просмотра макетов на странице (E): mockups/hotspots.json, r — доли ширины и высоты PNG (0…1)
+    const hsOut = { version: 1, date: DATE, tool: 'shoot_mockups.mjs', mockups: {} };
+    for (const r of merged) {
+      const zs = (r.hotspots && r.hotspots.zones) || [];
+      const dim = zs.length ? pngSize(path.resolve(OUT, r.png || '')) : null;
+      if (!dim) continue;
+      const sc = (r.hotspots && r.hotspots.scale) || 1, W = dim.w / sc, H = dim.h / sc, f = (v) => Math.round(v * 10000) / 10000;
+      const items = zs.filter((z) => z.w && z.h).map((z) => ({ n: z.n, id: z.id, title: z.title, what: z.what, why: z.why, p: z.p, sec: z.sec,
+        r: [f(z.x / W), f(z.y / H), f(z.w / W), f(z.h / H)] }));
+      if (items.length) hsOut.mockups[r.key] = { items };
+    }
+    if (Object.keys(hsOut.mockups).length) {
+      fs.mkdirSync(path.join(OUT, 'mockups'), { recursive: true });
+      writeAtomic(path.join(OUT, 'mockups', 'hotspots.json'), JSON.stringify(hsOut, null, 1) + '\n');
+    }
     console.log(`итого в этом запуске: ${runSummary.ok}/${runSummary.total} без замечаний; в агрегате ${summary.ok}/${summary.total}` +
       `${summary.not_shot ? ` (не снято ${summary.not_shot})` : ''} → data/mockups-check.json`);
   });

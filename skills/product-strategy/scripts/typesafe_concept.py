@@ -122,7 +122,12 @@ def capacity_fit(cfg):
     c = cap_mod.capacity(cfg, months)
     ratio = c["dev_days"] / ((size[0] + size[1]) / 2.0)
     adj = 0.12 if ratio >= 1.5 else 0.05 if ratio >= 1 else -0.08 if ratio >= 0.5 else -0.18
-    return adj, "ёмкость ≈ %.0f дн. разработки к сроку MVP против %d–%d дн. объёма MVP" % (c["dev_days"], size[0], size[1])
+    note = "ёмкость ≈ %.0f дн. разработки к сроку MVP против %d–%d дн. объёма MVP" % (c["dev_days"], size[0], size[1])
+    dec = ((cfg.get("idea") or {}).get("decisions") or {}).get("mvp_capacity")   # решение владельца до старта (concept_checks)
+    if dec:                                            # single_feature / extend уже применены к facets (mvp, mvp_weeks)
+        note += "; решение владельца: %s" % {"single_feature": "одна ключевая функция", "extend": "продлить срок",
+                                              "risk": "оставить как есть (риск срыва срока принят)"}.get(dec, dec)
+    return adj, note
 SECRET_RE = re.compile(r"(gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|sk_live_[A-Za-z0-9_]{10,}|"
                        r"AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{30,}|\b\d{8,10}:[A-Za-z0-9_-]{30,}\b|"
                        r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})")

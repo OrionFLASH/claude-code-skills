@@ -1,20 +1,29 @@
 #!/usr/bin/env python3
-"""Сквозная проверка «числа макетов = числа канона = числа ядра» для рабочего прототипа.
+"""Сквозная проверка «числа макетов = числа канона = числа ядра» для рабочего прототипа и макетов C8.
 
-  python3 tools/check_canon.py <папка prototype> [--canon PATH] [--mockups DIR ...] [--html FILE ...] [--core] [--json]
+  python3 tools/check_canon.py <папка prototype | папка прогона OUT> [--canon PATH] [--mockups DIR ...] [--html FILE ...]
+                               [--core] [--json]
 
-Канон демо-данных: --canon, иначе <OUT>/data/demo-canon.json (папка прототипа — <OUT>/prototype), иначе
-<prototype>/fixtures/canon.json. Формат: {"label": "демо-данные", "cases": [{"id": "C01", "fn": "payback",
-"inputs": {…}, "expected": {"поле": число|строка|null}, "mockups": ["M01-…"]}]} (или просто список кейсов).
+Первый аргумент — папка прототипа (<OUT>/prototype) или сама папка прогона <OUT> (так проверяют макеты C8, когда
+прототипа ещё нет; --core тогда недоступен). Канон демо-данных: --canon, иначе <OUT>/data/demo-canon.json, иначе
+<prototype>/fixtures/canon.json. Канон прогона и фикстура прототипа читаются вместе: значения показа (`values`) — из
+канона прогона, кейсы ядра (`cases`) — из канона прогона, а если их там нет — из fixtures/canon.json.
+
+Формат канона (оба вида в одном файле допустимы):
+  - значения показа (facts_scaffold.py --demo-canon): {"rule": "… демо …", "values": {"model.price_month": {"value": 12,
+    "source": "…"}, …}, "entities": [...], "screens": {...}} — в макете data-canon="model.price_month";
+  - кейсы ядра (prototype-core): {"label": "демо-данные", "cases": [{"id": "C01", "fn": "payback", "inputs": {…},
+    "expected": {"поле": число|строка|null}, "mockups": ["M01-…"]}]} (или просто список кейсов) — data-canon="C01.поле".
 
 Что проверяется:
-  1. канон: кейсы с уникальными id и непустым expected; пометка демо-данных (label) — иначе предупреждение;
-  2. макеты (--mockups, по умолчанию <OUT>/mockups/concepts; --html — отдельные файлы): каждый элемент
-     с атрибутом data-canon="<id>.<поле>" показывает значение канона (числа — с допуском по округлению показа:
-     «15,07 %» ≈ 15.0712; строки — точное совпадение без учёта регистра и пробелов); неизвестный кейс или поле —
-     ошибка; число элементов с data-canon-item="<id>.<поле>" (значки, точки, строки на графике) равно значению
-     канона — так ловится «4 значка на графике, а в подписи 3»;
-  3. --core: node js/core.test.js <канон> — ядро воспроизводит канон (код выхода node).
+  1. канон: есть значения или кейсы; у кейсов уникальные id и непустой expected; пометка демо-данных (label, rule или
+     note со словом «демо») — иначе предупреждение;
+  2. макеты (--mockups, по умолчанию <OUT>/mockups/concepts без служебных _*.html; --html — отдельные файлы): каждый
+     элемент с атрибутом data-canon="<ключ>" показывает значение канона (ключ ищется сначала в values, затем как
+     <id кейса>.<поле>; числа — с допуском по округлению показа: «15,07 %» ≈ 15.0712; строки — точное совпадение без
+     учёта регистра и пробелов); неизвестный ключ — ошибка; число элементов с data-canon-item="<ключ>" (значки, точки,
+     строки на графике) равно значению канона — так ловится «4 значка на графике, а в подписи 3»;
+  3. --core: node js/core.test.js <канон с кейсами> — ядро воспроизводит канон (код выхода node).
 Код выхода: 0 — расхождений нет; 1 — есть ошибки; 2 — нет канона или папки. Только стандартная библиотека.
 """
 import argparse
@@ -44,17 +53,41 @@ def parse_number(s):
         return None
 
 
-def load_canon(path):
-    d = json.loads(Path(path).read_text(encoding="utf-8"))
-    cases = d if isinstance(d, list) else d.get("cases") or []
-    label = "" if isinstance(d, list) else str(d.get("label") or "")
-    return cases, label
+def read_json(path):
+    return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
-def check_canon_schema(cases, label):
+def split_canon(d):
+    """→ (кейсы, значения {ключ: значение}, пометка демо)."""
+    if isinstance(d, list):
+        return d, {}, ""
+    if not isinstance(d, dict):
+        return [], {}, ""
+    vals = {}
+    for k, v in (d.get("values") or {}).items():
+        vals[str(k)] = v.get("value") if isinstance(v, dict) and "value" in v else v
+    label = " ".join(str(d.get(k) or "") for k in ("label", "rule", "note"))
+    return list(d.get("cases") or []), vals, label
+
+
+def load_canon(path, fallback=None):
+    """Канон прогона (+ кейсы фикстуры прототипа, если в каноне прогона их нет) → (кейсы, значения, пометка, файл кейсов)."""
+    cases, vals, label = split_canon(read_json(path))
+    cases_file = Path(path) if cases else None
+    if not cases and fallback and Path(fallback).exists() and Path(fallback).resolve() != Path(path).resolve():
+        fc, fv, fl = split_canon(read_json(fallback))
+        if fc:
+            cases, cases_file = fc, Path(fallback)
+            label = label or fl
+        for k, v in fv.items():
+            vals.setdefault(k, v)
+    return cases, vals, label, cases_file
+
+
+def check_canon_schema(cases, label, vals=None):
     errs, warns, seen = [], [], set()
-    if not cases:
-        errs.append("канон пуст: нет кейсов")
+    if not cases and not vals:
+        errs.append("канон пуст: нет кейсов и значений")
     for c in cases:
         cid = c.get("id") if isinstance(c, dict) else None
         if not cid:
@@ -68,6 +101,20 @@ def check_canon_schema(cases, label):
     if "демо" not in label.lower() and "demo" not in label.lower():
         warns.append("в каноне нет пометки демо-данных (поле label) — числа вымышлены, пометьте их")
     return errs, warns
+
+
+MISSING = object()
+
+
+def lookup(ref, by_id, vals):
+    """data-canon="<ключ>": сначала values канона, затем <id кейса>.<поле>; нет — MISSING."""
+    if ref in vals:
+        return vals[ref]
+    cid, _, key = ref.partition(".")
+    c = by_id.get(cid)
+    if c and key in (c.get("expected") or {}):
+        return c["expected"][key]
+    return MISSING
 
 
 def compare(shown_text, expected):
@@ -91,27 +138,26 @@ def compare(shown_text, expected):
     return None if norm(text) == norm(expected) else "ожидалось «%s», показано «%s»" % (expected, text)
 
 
-def check_html(files, cases):
+def check_html(files, cases, vals=None):
     by_id = {c["id"]: c for c in cases if isinstance(c, dict) and c.get("id")}
+    vals = vals or {}
     errs, checked, items = [], 0, {}
     for f in files:
         src = f.read_text(encoding="utf-8", errors="replace")
         for m in ATTR_RE.finditer(src):
             ref = m.group("ref")
-            cid, _, key = ref.partition(".")
             checked += 1
-            c = by_id.get(cid)
-            if not c or key not in (c.get("expected") or {}):
+            exp = lookup(ref, by_id, vals)
+            if exp is MISSING:
                 errs.append("%s: data-canon=\"%s\" — нет в каноне" % (f.name, ref))
                 continue
-            why = compare(m.group("body"), c["expected"][key])
+            why = compare(m.group("body"), exp)
             if why:
                 errs.append("%s: %s — %s" % (f.name, ref, why))
         for ref in ITEM_RE.findall(src):
             items[(f.name, ref)] = items.get((f.name, ref), 0) + 1
     for (fname, ref), n in sorted(items.items()):
-        cid, _, key = ref.partition(".")
-        exp = (by_id.get(cid) or {}).get("expected", {}).get(key)
+        exp = lookup(ref, by_id, vals)
         checked += 1
         if not isinstance(exp, (int, float)) or isinstance(exp, bool):
             errs.append("%s: data-canon-item=\"%s\" — в каноне нет числа" % (fname, ref))
@@ -122,43 +168,55 @@ def check_html(files, cases):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Числа макетов = числа канона = числа ядра (рабочий прототип).")
-    ap.add_argument("prototype", help="папка прототипа (<OUT>/prototype)")
+    ap.add_argument("prototype", help="папка прототипа (<OUT>/prototype) или папка прогона <OUT> (макеты без прототипа)")
     ap.add_argument("--canon", help="канон демо-данных (по умолчанию data/demo-canon.json прогона или fixtures/canon.json)")
     ap.add_argument("--mockups", action="append", default=[], help="папка макетов (по умолчанию <OUT>/mockups/concepts)")
     ap.add_argument("--html", action="append", default=[], help="отдельный HTML-файл для проверки")
     ap.add_argument("--core", action="store_true", help="ещё и node js/core.test.js <канон>")
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args(argv)
-    proto = Path(a.prototype).resolve()
-    if not proto.is_dir():
-        print("нет папки %s" % proto, file=sys.stderr)
+    root = Path(a.prototype).resolve()
+    if not root.is_dir():
+        print("нет папки %s" % root, file=sys.stderr)
         return 2
-    out = proto.parent
-    canon = Path(a.canon) if a.canon else next((p for p in (out / "data" / "demo-canon.json", proto / "fixtures" / "canon.json") if p.exists()), None)
+    if (root / "js" / "core.js").exists() or (root / "fixtures").is_dir():
+        proto, out = root, root.parent                       # папка прототипа
+    elif (root / "prototype").is_dir():
+        proto, out = root / "prototype", root                # папка прогона с прототипом
+    else:
+        proto, out = None, root                              # папка прогона без прототипа (макеты C8)
+    fixture = proto / "fixtures" / "canon.json" if proto else None
+    canon = Path(a.canon) if a.canon else next((p for p in (out / "data" / "demo-canon.json", fixture) if p and p.exists()), None)
     if not canon or not canon.exists():
         print("нет канона демо-данных (data/demo-canon.json или prototype/fixtures/canon.json)", file=sys.stderr)
         return 2
-    cases, label = load_canon(canon)
-    errs, warns = check_canon_schema(cases, label)
-    dirs = [Path(d) for d in a.mockups] or ([out / "mockups" / "concepts"] if (out / "mockups" / "concepts").is_dir() else [])
-    files = sorted(f for d in dirs for f in d.glob("*.html")) + [Path(h) for h in a.html]
-    herrs, checked = check_html(files, cases)
+    cases, vals, label, cases_file = load_canon(canon, None if a.canon else fixture)
+    errs, warns = check_canon_schema(cases, label, vals)
+    dirs = [Path(d) for d in a.mockups] or ([out / "mockups" / "concepts"] if (out / "mockups" / "concepts").is_dir() and not a.html else [])
+    files = sorted(f for d in dirs for f in d.glob("*.html") if not f.name.startswith("_")) + [Path(h) for h in a.html]
+    herrs, checked = check_html(files, cases, vals)
     errs += herrs
     if files and not checked:
         warns.append("в %d HTML нет ни одного data-canon — макеты не связаны с каноном" % len(files))
     core_rc = None
     if a.core:
-        r = subprocess.run(["node", str(proto / "js" / "core.test.js"), str(canon)], capture_output=True, text=True)
-        core_rc = r.returncode
-        if r.returncode != 0:
-            errs.append("ядро не воспроизводит канон: " + (r.stdout.strip().splitlines() or ["node: код %d" % r.returncode])[0])
-    res = {"canon": str(canon.name), "cases": len(cases), "html": len(files), "checked": checked, "core_rc": core_rc,
-           "errors": errs, "warnings": warns}
+        if not proto:
+            errs.append("--core: нет папки прототипа (prototype/js/core.test.js)")
+        elif not cases_file:
+            errs.append("--core: в каноне нет кейсов ядра (cases) — их пишет агент prototype-core")
+        else:
+            r = subprocess.run(["node", str(proto / "js" / "core.test.js"), str(cases_file)], capture_output=True, text=True)
+            core_rc = r.returncode
+            if r.returncode != 0:
+                errs.append("ядро не воспроизводит канон: " + (r.stdout.strip().splitlines() or ["node: код %d" % r.returncode])[0])
+    res = {"canon": str(canon.name), "cases": len(cases), "values": len(vals), "cases_from": cases_file.name if cases_file else None,
+           "html": len(files), "checked": checked, "core_rc": core_rc, "errors": errs, "warnings": warns}
     if a.json:
         print(json.dumps(res, ensure_ascii=False, indent=2))
     else:
-        print("канон %s: кейсов %d; HTML %d, сверено значений %d%s" % (canon.name, len(cases), len(files), checked,
-                                                                        "" if core_rc is None else "; ядро: %s" % ("ок" if core_rc == 0 else "ошибка")))
+        extra = (", значений %d" % len(vals) if vals else "") + (" (кейсы — %s)" % cases_file.name if cases_file and cases_file.name != canon.name else "")
+        print("канон %s: кейсов %d%s; HTML %d, сверено значений %d%s" % (canon.name, len(cases), extra, len(files), checked,
+                                                                          "" if core_rc is None else "; ядро: %s" % ("ок" if core_rc == 0 else "ошибка")))
         for w in warns:
             print("  ! " + w)
         for e in errs:

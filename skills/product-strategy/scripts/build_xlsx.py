@@ -29,6 +29,13 @@ from xml.sax.saxutils import escape
 CATS = {"product": "Продукт", "acquisition": "Привлечение", "conversion": "Конверсия", "retention": "Удержание",
         "monetization": "Монетизация", "analytics": "Аналитика", "partnerships": "Партнёрства",
         "localization": "Локализация", "new_lines": "Новые линии", "platform": "Платформа"}
+
+try:                                                   # подписи личного режима и новых категорий — из check_registry (WP-C)
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from check_registry import CATEGORY_LABELS_RU as _CAT_ALL
+    CATS = dict(_CAT_ALL, **CATS)                      # свои подписи важнее; неизвестная категория — как есть (CATS.get(c, c))
+except Exception:                                      # noqa: BLE001 — без check_registry — прежние подписи
+    pass
 SUBSCALES = ["reach", "impact", "acquisition", "activation", "conversion", "retention", "revenue",
              "virality", "seo", "trust", "moat", "fit", "demand", "season"]
 DEFAULT_COMPOSITE = {"rice": 0.30, "ice": 0.20, "wsjf": 0.25, "risk_adj": 0.25}

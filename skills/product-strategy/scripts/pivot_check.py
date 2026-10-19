@@ -9,12 +9,15 @@
                                                 («продолжить с исходной / принять сужение / остановиться»); код 0 — решение не
                                                 нужно или уже принято, 3 — нужен вопрос, 2 — нет файла или не заполнен
   pivot_check.py <OUT> --decide keep|narrow|stop [--pitch-v2 "…"] [--name "…"] [--type saas] [--forms web,mobile_web]
-                       [--kind …] [--reason "…"] [--by owner|default] [--no-refresh]
+                       [--kind …] [--reason "…"] [--by owner|default] [--topic-en "<перевод новой темы>"] [--no-refresh]
                                                 записать решение: premises.json (decision, decided, by); narrow — идея v2:
                                                 run-config idea.version/pitch_v2/history[] (+ product.name/type/forms, idea.kind)
                                                 и data/idea.json; затем concept_dossier.py <OUT> [--refresh] (затравки, досье,
                                                 план поиска по новой идее; правленное вручную — в *.generated.md) и
-                                                typesafe_concept.py <OUT> (светофор), если не --no-refresh
+                                                typesafe_concept.py <OUT> (светофор), если не --no-refresh; --topic-en
+                                                (тема изменилась) — run-config idea.topic_en и idea.topic_en_for = новая
+                                                версия, досье строит английские запросы по нему (иначе — заглушки <EN: …>
+                                                и предупреждение «перевод относится к прежней версии»)
 
 Схема data/premises.json:
   {"version": 1, "idea_version": 1, "created": "…", "pitch": "…",
@@ -126,11 +129,13 @@ def question(doc):
             "question": ("Исследование изменило идею: %s. Как продолжаем?" % summary(doc))[:480], "options": opts}
 
 
-def refresh(out):
+def refresh(out, topic_en=None):
     """Пересобрать досье, затравки, план поиска (новая идея) и светофор."""
     res = []
     dossier = HERE / "concept_dossier.py"
     flag = ["--refresh"] if dossier.exists() and "--refresh" in dossier.read_text(encoding="utf-8", errors="replace") else []
+    if topic_en:
+        flag += ["--topic-en", topic_en]
     for script, extra in (("concept_dossier.py", flag), ("typesafe_concept.py", [])):
         if not (HERE / script).exists():
             continue
@@ -142,7 +147,8 @@ def refresh(out):
     return res
 
 
-def decide(out, doc, decision, pitch_v2=None, name=None, ptype=None, forms=None, kind=None, reason=None, by="owner", do_refresh=True):
+def decide(out, doc, decision, pitch_v2=None, name=None, ptype=None, forms=None, kind=None, reason=None, by="owner", do_refresh=True,
+           topic_en=None):
     cfgp = out / "build" / "run-config.json"
     cfg = jload(cfgp, {}) or {}
     idea = cfg.setdefault("idea", {})
@@ -172,6 +178,10 @@ def decide(out, doc, decision, pitch_v2=None, name=None, ptype=None, forms=None,
         if kind:
             idea["kind"] = kind
             changed.append("idea.kind")
+        if topic_en and str(topic_en).strip():             # FB-044: перевод темы относится к новой версии идеи
+            idea["topic_en"] = str(topic_en).strip()
+            idea["topic_en_for"] = idea["version"]
+            changed += ["idea.topic_en", "idea.topic_en_for"]
     else:
         idea.setdefault("history", []).append({"version": int(idea.get("version") or 1), "pitch": idea.get("pitch_v2") or idea.get("pitch"),
                                                "date": now[:10], "reason": "пересмотр C4.5: %s" % DECISIONS[decision]})
@@ -179,7 +189,7 @@ def decide(out, doc, decision, pitch_v2=None, name=None, ptype=None, forms=None,
     jsave(cfgp, cfg)
     jsave(out / "data" / "premises.json", doc)
     sync_idea_json(out, idea)
-    ref = refresh(out) if (do_refresh and decision == "narrow") else []
+    ref = refresh(out, idea.get("topic_en") if topic_en else None) if (do_refresh and decision == "narrow") else []
     if ref:
         sync_idea_json(out, idea)                          # досье пересобирает idea.json из run-config — вернуть версию и историю
     return changed, ref
@@ -209,6 +219,7 @@ def main(argv=None):
     ap.add_argument("--reason")
     ap.add_argument("--by", default="owner", choices=("owner", "default"))
     ap.add_argument("--no-refresh", action="store_true")
+    ap.add_argument("--topic-en", help="--decide narrow: перевод новой темы идеи на английский (idea.topic_en для версии v2)")
     a = ap.parse_args(argv)
     out = Path(a.out).expanduser().resolve()
     cfg = jload(out / "build" / "run-config.json", None)
@@ -232,13 +243,17 @@ def main(argv=None):
     doc = jload(pp, {}) or {}
     if a.decide:
         try:
-            changed, ref = decide(out, doc, a.decide, a.pitch_v2, a.name, a.ptype, a.forms, a.kind, a.reason, a.by, not a.no_refresh)
+            changed, ref = decide(out, doc, a.decide, a.pitch_v2, a.name, a.ptype, a.forms, a.kind, a.reason, a.by, not a.no_refresh,
+                                  a.topic_en)
         except ValueError as e:
             print("ошибка: %s" % e, file=sys.stderr)
             return 2
         print("решение записано: %s (%s); изменено: %s" % (DECISIONS[a.decide], a.by, ", ".join(changed)))
         for script, code, tail in ref:
             print("  %s: код %d — %s" % (script, code, tail[0][:160] if tail else ""))
+        if a.decide == "narrow" and not a.topic_en:
+            print("тема изменилась? перевод для идеи v2 — pivot_check.py <OUT> --decide narrow … --topic-en \"<перевод>\" "
+                  "или concept_dossier.py <OUT> --topic-en \"<перевод>\" (иначе в плане поиска останутся <EN: …>)")
         if a.decide == "narrow":
             print("дальше: брифы следующих фаз — render_brief.py … --auto (контекст идеи учтёт сужение); init_run.py <OUT> --done C4.5")
         elif a.decide == "stop":

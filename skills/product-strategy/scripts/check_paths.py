@@ -170,12 +170,14 @@ def outputs_section(text):
 
 
 def to_glob(token, orel):
-    t = token.strip().strip(".,;:")
+    # только хвостовая пунктуация: ведущая точка — часть пути («./research/…» при {OUT} = «.», «.gitignore»)
+    t = token.strip().rstrip(".,;:").lstrip(",;:")
     for pre in ("{OUT}/", "<OUT>/", "./"):
         if t.startswith(pre):
             t = t[len(pre):]
-    if orel and t.startswith(orel + "/"):
+    if orel and orel != "." and t.startswith(orel + "/"):
         t = t[len(orel) + 1:]
+    t = t.lstrip("/")                                   # папка прогона — корень репозитория: «/research/x.md» → «research/x.md»
     t = re.sub(r"<[^>]*>|\{[^}]*\}|…|\.\.\.", "*", t)
     t = re.sub(r"\bNN\b", "*", t)
     t = re.sub(r"(?<=[A-Z])xx\b", "*", t)

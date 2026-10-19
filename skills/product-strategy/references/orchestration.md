@@ -36,10 +36,12 @@
 | гант и канбан из готового плана | sonnet | механическое преобразование |
 | макеты, design-refs, рисование схем (`MODE=draw`) | opus | дизайн и точность зон |
 | узлы схем (`MODE=describe`), механические правки, починка по списку дефектов | sonnet | работа по готовому списку |
+| новые брифы 1.5: `research-integration`, `research-ai`, `research-owner-refs`, `concept-ai-observability`, `concept-admin`, `prototype-core`, `prototype-shell`, `strategy-summary` | opus | синтез, архитектура, цена ошибки |
+| `research-datasources`, `prototype-mode`, `prototype-regression` | sonnet | работа по готовому контракту |
 
 3. **Всегда указывать `model` у Agent явно** — иначе агент наследует модель сессии. Параметр `effort` ставить, только если этого явно требует пользователь, его CLAUDE.md или заметка триажа; иначе глубину задавать словами в брифе («проверь каждую ссылку», «перечитай перед сдачей»).
 4. Фактическую модель каждого агента (из уведомления о завершении) записывать в `STATUS.md` — в отчёте указывается то, что работало на деле, а не то, что планировалось.
-5. **Политика агентов — параметр прогона** (FB-003): `run-config → tools.agents = {model_policy: triage | default | custom, effort_policy: explicit | none}` (спрашивает опрос). `dispatch.py ready` выдаёт `effort` только при `effort_policy = explicit`; при `model_policy = triage` напоминает про `dispatch.py <OUT> triage <волна>` для заданий без триажа. Нет поля — поведение 1.4 (effort, если задан).
+5. **Политика агентов — параметр прогона** (FB-003): `run-config → tools.agents = {model_policy: triage | default | custom, effort_policy: explicit | none, note?}` (спрашивает опрос, карточка «Начало»). `dispatch.py ready` выдаёт `effort` только при `effort_policy = explicit` (иначе печатает «effort не задаётся»); модель — по `model_policy`: `triage` — typesafe-triage (`ready` напоминает про `dispatch.py <OUT> triage <волна>` для заданий без триажа), `default` — таблица выше, `custom` — правила владельца из `tools.agents.note` (`ready` печатает их). Нет поля — поведение 1.4 (effort, если задан).
 6. **`isolation` не ставить никогда** (FB-013): агенты пишут в общий `<OUT>`, пути разведены брифами; из worktree результат не вернётся. `build/triage-<волна>.json` несёт `"shared_out": true` (триаж не должен предлагать worktree), а `isolation` из ответа триажа `dispatch.py` снимает с пометкой в задании. Лимит параллельности держит `dispatch.py ready --max N` (по умолчанию `tools.max_parallel_agents` = 5): шесть заданий волны выходят как 5 + 1 без ручного разбиения.
 
 ## Самодостаточный бриф
@@ -140,11 +142,13 @@ for f in data/communities.json research/legal.md data/issues.json data/keywords.
 - Ручные правки реестра (калибровка, зависимости, горизонты, удаление неприменимых подшкал) — не в `data/proposals.json`, а в `build/overrides.json`: `{"P012": {"scores": {"value": 4, "_delete": ["seo"]}, "horizon": "next"}}`. Файл применяется после каждого слияния и переживает перезапуски; патч калибровщика к готовому реестру без слияния — `merge_proposals.py <OUT> --apply-overrides build/calibration-patch.json` (тот же формат, понимает `_delete`; чтобы правка пережила следующее слияние, перенесите её в `overrides.json`).
 
 - После `merge_proposals.py --append G7` команда `gap_audit.py <OUT> --remap` не нужна: ссылки уже переведены (FB-021); `--remap` — только для ручных правок `gap-audit-deps.json`.
-- Правка текстового поля, которая должна пережить следующее слияние (например, длинная цитата в `description`, FB-029): `build/overrides.json` → `{"P064": {"description": "новый текст без длинной цитаты"}}`, затем `merge_proposals.py <OUT>`.
+- Правка текстового поля, которая должна пережить следующее слияние (например, длинная цитата в `description`, FB-029): `build/overrides.json` → `{"P064": {"description": "…короткая цитата… [факт: URL]"}}`, затем `merge_proposals.py <OUT>`; заготовка — `check_registry.py <OUT> --suggest-overrides` (→ `build/overrides.suggested.json`). Дописать в список без повторов — `_add`: `{"P038": {"_add": {"dependencies": ["P033"]}}}`.
+- После `merge_proposals.py --append G7` команда `gap_audit.py --remap` не нужна и для зависимостей, названных текстом: строки «P035 ← G7-02» в `research/gap-audit.md`, таблица «Предпосылки» и поле `unlocks` черновика переводятся при слиянии. Черновики G9 (ИИ и наблюдаемость), G10 (администрирование), G11 (референсы владельца) — `--append G9,G10,G11`, как G7.
 
 ### Один проход или два (`registry.passes`, FB-005)
-- `registry.passes = 1` — один проход `details` с разведением тем: quick всегда; standard и deep — когда групп ≤ 4 и квоты по категориям не пересекаются (группы — по смежным категориям: продукт + платформа; привлечение + партнёрства + локализация; конверсия + удержание + монетизация + аналитика + новые направления; право). Бриф — `render_brief.py registry-generator --out <OUT> --group G<k> --auto` (PASS = details; `{OTHER_TITLES}` — категории и затравки других групп; `--auto-other-titles` — то же без остального `--auto`). Слияние — `merge_proposals.py --suggest`, отвергнутые пары — `merge_proposals.py --suggest --write-distinct` (C), ручная правка `merge-map.json` не нужна.
-- `registry.passes = 2` (по умолчанию для standard/deep/exhaustive при 5+ группах) — двухпроходная схема выше.
+- Правило выбора (`intake.py concept-apply` пишет `registry.passes` сам; `--set registry.passes=…` — вручную): **1 проход** (только `details`, группы с разведением тем через `{OTHER_TITLES}`) — quick и deep, если групп ≤ 5 и темы разведены квотами (группы — по смежным категориям: продукт + платформа; привлечение + партнёрства + локализация; конверсия + удержание + монетизация + аналитика + новые направления; право); **2 прохода** (titles → details) — standard и exhaustive, а также deep с пересекающимися группами.
+- Один проход: бриф — `render_brief.py registry-generator --out <OUT> --group G<k> --auto` (PASS = details; `{OTHER_TITLES}` — категории и затравки других групп; `--auto-other-titles` — то же без остального `--auto`; `{QUOTAS}` — `check_registry.quotas`, в личном режиме — личные категории).
+- Решения по парам в обоих режимах: `merge_proposals.py <OUT> --dry-run` (или `--suggest > build/suggest.txt`) → отметки `[x]` (слить) / `[ ]` (разные) в `build/merge-candidates.json` или в сохранённом выводе → `merge_proposals.py <OUT> --write-distinct [файл]` (пишет `build/merge-map.json`: `[ ]` → `distinct`, `[x]` → `merge`; ручная правка не нужна) → слияние (`merge_proposals.py <OUT>` или `--pairs-from-dry-run`).
 - quick — один проход `details`: `{OTHER_TITLES}` = затравки из `build/seeds.md`, розданные другим группам.
 
 ## Лимиты слов и повторы
@@ -165,6 +169,8 @@ python3 -I -c 'import re,sys; t=open(sys.argv[1]).read(); [print(h[:50], len(b.s
 - Решение: проверить по первоисточнику (код — `путь:строка`, страница — 1–2 запроса); исправить исходный файл (`product-understanding.md`, `market.md`, `competitors.json`…), а не только факт-лист; записать `resolved_value` и `note`.
 - До раздачи авторов стратегии (фаза 7) нерешённых записей нет; иначе — консервативный вариант с `[допущение]` в факт-листе и «Открытые вопросы».
 - Сводка — раздел REPORT «Расхождения фактов».
+- **Сверка фактов скриптами (1.5, FB-052)**: `collect_reports.py <OUT> --fact-check` (кандидаты из отчётов агентов → `data/fact-check.json` с `fix: null`, подсказка `fix_hint`) → подтверждение (`resolved_value`) → для каждой записи `fix {file, path, value}` (что поправить в JSON-источнике) или `text_only: true` → `apply_fact_check.py <OUT>` (ставит `applied: true`). `build_all.py --strict` (шаг `factcheck`, `apply_fact_check.py --check`) падает на подтверждённой записи без `applied` и без `text_only`.
+- **Второй раунд зависимостей (C7.5, FB-051)**: после волны авторов — `collect_reports.py <OUT> --deps` (строки `ПРЕДПОСЫЛКА: P038 ← P033 | почему` → `build/deps-patch.json`) → `merge_proposals.py <OUT> --apply-overrides build/deps-patch.json` → `score.py <OUT>` → Гант.
 
 ## Параллельность
 
@@ -200,6 +206,7 @@ python3 -I -c 'import re,sys; t=open(sys.argv[1]).read(); [print(h[:50], len(b.s
 - План запросов — `build/search-plan.md` (без повторов, сначала первоисточники: официальные сайты, документация, правила площадок; отправной список площадок — пакет локали).
 - Каждый агент возвращает число использованных вызовов; оркестратор ведёт счётчик в `STATUS.md`. Бюджет исчерпан — оставшееся помечается «не проверено», класс понижается.
 - В поисковые запросы не попадает код, внутренние имена, секреты и непубличные факты о продукте (`references/safety.md`).
+- Бюджеты новых брифов 1.5 (зашиты в текст брифов, поиски / открытия): `research-integration` 35/60, `research-datasources` 40/60, `research-ai` 30/50; `research-owner-refs`, `concept-ai-observability`, `concept-admin`, `prototype-*`, `strategy-summary` — без веб-поиска; авторы разделов — до 5/10 только для руководств к шагам (FB-011).
 
 ## Режим идеи: диспетчер обязателен (FB-014, SM 6.3)
 
@@ -208,10 +215,10 @@ python3 -I -c 'import re,sys; t=open(sys.argv[1]).read(); [print(h[:50], len(b.s
 | Фаза | Команды |
 |---|---|
 | до «Начинаю?» | `dispatch.py <OUT> forecast` (или `--fast`) — показать владельцу прогноз агентов, токенов и часов |
-| C4 | брифы `render_brief.py … --auto` → `dispatch.py <OUT> add --id … --brief build/briefs/… --wave C4 --phase C4 --kind research` (право — `--kind legal`, интеграция — `--kind integration`) → `ready --start` → `done <id> --tokens … --minutes … --model-actual …` → `close-wave C4` |
+| C4 | брифы `render_brief.py … --auto` → `dispatch.py <OUT> add --id … --brief build/briefs/… --wave C4 --phase C4 --kind research` (право — `--kind legal`; новые брифы `research-integration`, `research-datasources`, `research-ai`, `research-owner-refs` — вид и волна по имени брифа: `integration`, `datasources`, `ai`, `owner_refs`) → `ready --start` → `done <id> --tokens … --minutes … --model-actual …` → `close-wave C4` |
 | C5 / C5.5 | то же с `--wave C5` (`--kind titles|details`), аудит — `--kind audit` |
-| C7 | `--wave C7`: разделы (`section`), канвасы (`canvas`), спеки (`specs`), эксперименты (`experiments`), схемы (`flows`) |
-| C8 / C8.5 | `--wave C8`: направления (`design`), макеты (`mockups`), карточки (`refs`); прототип — `--wave C8.5 --kind prototype` |
+| C7 | `--wave C7`: разделы (`section`), канвасы (`canvas`), спеки (`specs`), эксперименты (`experiments`), схемы (`flows`), модули `concept-ai-observability` / `concept-admin` (`module`), резюме `strategy-summary` (`summary`, последним) |
+| C8 / C8.5 | `--wave C8`: направления (`design`), макеты (`mockups`), карточки (`refs`); прототип — `--wave C8.5`: `prototype-core` → `prototype-shell` → `prototype-mode-*` (параллельно, общих путей нет) → `prototype-regression` (виды `prototype_core`, `prototype_shell`, `prototype_mode`, `prototype_regression` — по имени брифа; прежний `--kind prototype` тоже работает) |
 | C9 | `dispatch.py <OUT> report --write` → раздел 11 REPORT (по волнам, прогноз против факта) |
 
 `init_run.py <OUT> --show` показывает волны («C7: 5 агентов, готово 3, ждём S2, S4»), `init_run.py <OUT> --status` — таблицу «фаза → статус → что открыть → ETA → кто работает». `build_all.py --strict` в режиме идеи требует непустой `build/agents.json` (ворота полноты, код `agents`).
@@ -233,11 +240,11 @@ python3 -I -c 'import re,sys; t=open(sys.argv[1]).read(); [print(h[:50], len(b.s
 - **Один чек-лист** (FB-040): если в корне репозитория есть `TASKS.md` или его требует CLAUDE.md владельца, `init_run.py` не создаёт `STRATEGY_TASKS.md`, а дописывает в `TASKS.md` блок фаз между метками `<!-- product-strategy:phases <OUT> -->` и синхронизирует его со `STATUS.md` в обе стороны (`--sync`, `--done`, `--show`); явно — `init_run.py <OUT> --tasks-file TASKS.md | STRATEGY_TASKS.md`.
 
 ## Git: особые случаи (FB-041, FB-034, SM 6.5)
-Состояние — `check_env.py --git-state [--repo <папка>]` (`no_repo | unborn | normal`, ветка, есть ли origin, план) и строка «git-репозиторий» в `build/env.json`; `init_run.py <OUT> --show` сверяет текущую ветку с `output.git_branch`.
-- **Обычный репозиторий:** ветка задачи (`docs/concept-<slug>` из подтверждённого имени) создаётся от основной **до первой записи в репозиторий** — до `concept-apply`, пишущего run-config внутрь репозитория (или конфиг пишется во временную папку и переносится после создания ветки).
-- **Пустой репозиторий (unborn main, нет коммитов):** `git switch -c docs/concept-<slug>` (ветка от пустого состояния), первый коммит — в неё; основная ветка создаётся при слиянии: `git switch -c main` из ветки задачи (или `git branch main docs/concept-<slug>`), затем `git push -u origin main` (если есть origin) и `git push -u origin docs/concept-<slug>`. Альтернатива по выбору владельца — стартовый коммит (`.gitignore`) в main, затем ветка от него. В сводке «Начинаю?» — строка «git: пустой репозиторий (нет коммитов)» и этот план.
-- **Нет репозитория:** предложить владельцу вопросом `git init` (и `git remote add origin …`) или работать вне репозитория (результат не попадёт в git).
-- Слияние, push и удаление веток — по правилам владельца (CLAUDE.md); субагенты git не запускают (ветку им называет бриф).
+Состояние — `run-config.git.state` (пишет `intake.py concept-apply`: `no_repo | unborn | normal`, `has_origin`, `branch`, `default_branch`, `visibility`); то же отдельно — `check_env.py --git-state [--repo <папка>]` (и строка «git-репозиторий» в `build/env.json`). `init_run.py <OUT> --show` и `--status` сверяют текущую ветку (`git symbolic-ref --short HEAD`) с `output.git_branch` и показывают `output.branch_status` / `branch_note`. Правила владельца — `run-config.owner_rules` (из CLAUDE.md: ветка на задачу, слияние, push, удаление веток, чек-лист `tasks_file`).
+- **Обычный репозиторий (`normal`):** ветку прогона `docs/concept-<slug>` (из подтверждённого имени) `concept-apply` создаёт и включает сам **до первой записи** — только с основной ветки или в пустом репозитории (`output.branch_status: created | switched | current`); иначе (`skipped | failed`, «ВНИМАНИЕ, ветка» в сводке) — вручную: `git switch <основная> && git switch -c docs/concept-<slug>` и повторить `concept-apply`.
+- **Пустой репозиторий (`unborn`, нет коммитов):** первый коммит — в ветку прогона (`concept-apply` уже включил её); основная ветка создаётся при слиянии: `git switch -c main` от ветки прогона (или `git branch main docs/concept-<slug>`), затем `git push -u origin main` (если есть origin), ветка прогона сохраняется по правилам владельца. Альтернатива по выбору владельца — стартовый коммит (`.gitignore`) в main, затем ветка от него. В сводке «Начинаю?» — строка «git: пустой репозиторий (нет коммитов)» и этот план.
+- **Нет репозитория (`no_repo`):** работать вне git или `git init` (и `git remote add origin …`) по решению владельца — и повторить `concept-apply`.
+- Слияние, push и удаление веток — по правилам владельца (`owner_rules`); субагенты git не запускают (ветку им называет бриф).
 
 ## Ворота полноты (FB-058)
 `build_all.py <OUT> --strict` после шагов печатает таблицу «проверка → статус → подробности → что сделать»: скриншоты конкурентов, фазы, материалы владельца, fact-check применён, согласованность с `plan-baseline.json`, интерактивность (smoke — сборка сдачи без `--skip smoke`), вопросы запроса (`[RQnn]`), REPORT.md (все разделы, 0 мест `<заполнить`), учёт агентов (режим идеи), PDF без пустых страниц, выбор направления дизайна владельцем, пересмотр идеи (C4.5), направления рынка (выполнены или явно «пропущено, потому что…» в STATUS.md). Любое «нет» — провал; осознанное исключение — `--accept-known <код,…>` (попадает в REPORT, раздел 19). Каркас REPORT.md — `report.py <OUT>`, README сдачи — `report.py <OUT> --readme`.

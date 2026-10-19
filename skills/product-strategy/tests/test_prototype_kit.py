@@ -54,7 +54,8 @@ def test_browser_files_work_offline_by_file_url():
     srcs = re.findall(r'<script src="([^"]+)"', html)
     assert srcs and srcs[-1] == "js/app.js" and all((KIT / s).exists() for s in srcs)
     assert srcs.index("js/modes.js") < srcs.index("js/mode-example.js")
-    assert "Концепт продукта, не существующая функция" in html and "демо-данные" in html
+    assert "Концепт, не существующая функция" in html and "ps-concept-badge" in html and "демо-данные" in html
+    assert "Концепт продукта" not in html                                       # FB-033: одна константа бейджа
 
 
 def test_core_has_no_dom_or_network():
@@ -139,6 +140,73 @@ def test_check_canon_schema_errors(tmp_path):
     r = canon_check(out, "--canon", bad)
     assert r.returncode == 1 and "A: нет expected" in r.stdout and "повтор id кейса A" in r.stdout
     assert "нет пометки демо-данных" in r.stdout
+
+
+VALUES_CANON = {"version": 1, "generated_by": "facts_scaffold.py --demo-canon",
+                "rule": "одни демо-числа для всех макетов; демо-данные помечаются «демо»",
+                "values": {"model.price_month": {"value": 12.5, "source": "data/model.json"},
+                           "plan.beta": {"value": "2027-01-15", "source": "data/plan-baseline.json"},
+                           "model.users_last": {"value": 3, "source": "data/model.json"}},
+                "entities": [], "screens": {}}
+MOCKUP_VALUES = """<html><body><b data-canon="model.price_month">12,5 ₽</b> <i data-canon="plan.beta">2027-01-15</i>
+<span data-canon="C01.paybackWeeks">20</span>
+<svg><circle data-canon-item="model.users_last"/><circle data-canon-item="model.users_last"/><circle data-canon-item="model.users_last"/></svg>
+</body></html>"""
+
+
+def write_values_canon(out):
+    (out / "data").mkdir(parents=True, exist_ok=True)
+    (out / "data" / "demo-canon.json").write_text(json.dumps(VALUES_CANON, ensure_ascii=False), encoding="utf-8")
+
+
+def test_check_canon_values_format_with_fixture_cases(tmp_path):
+    """Канон прогона facts_scaffold --demo-canon (values) + кейсы ядра из fixtures/canon.json: оба вида ключей data-canon."""
+    out = copy_kit(tmp_path)
+    write_values_canon(out)
+    write_mockup(out, MOCKUP_VALUES)
+    write_mockup(out, '<html><body><p data-canon="nope.x">1</p></body></html>', name="_base.html")   # служебный — не проверяется
+    r = canon_check(out, "--json")
+    assert r.returncode == 0, r.stdout + r.stderr
+    res = json.loads(r.stdout)
+    assert res["values"] == 3 and res["cases"] == 3 and res["cases_from"] == "canon.json" and res["checked"] == 4
+    assert not [w for w in res["warnings"] if "демо" in w]                    # пометка демо — в поле rule
+    html = MOCKUP_VALUES.replace("12,5 ₽", "14 ₽").replace("<circle data-canon-item=\"model.users_last\"/></svg>", "</svg>")
+    write_mockup(out, html)
+    errs = "\n".join(json.loads(canon_check(out, "--json").stdout)["errors"])
+    assert "model.price_month — ожидалось 12.5, показано «14»" in errs
+    assert 'элементов data-canon-item="model.users_last" 2, в каноне 3' in errs
+    if NODE:
+        write_mockup(out, MOCKUP_VALUES)
+        r = canon_check(out, "--core")
+        assert r.returncode == 0 and "ядро: ок" in r.stdout and "(кейсы — canon.json)" in r.stdout, r.stdout
+
+
+def test_check_canon_out_dir_without_prototype(tmp_path):
+    """Макеты C8 до прототипа: check_canon.py <OUT> [--html файл]; ключ кейса без кейсов — ошибка, --core — ошибка."""
+    out = tmp_path / "OUT"
+    write_values_canon(out)
+    write_mockup(out, MOCKUP_VALUES.replace('<span data-canon="C01.paybackWeeks">20</span>', ""))
+    r = subprocess.run([sys.executable, "-I", str(KIT / "tools" / "check_canon.py"), str(out)], capture_output=True, text=True, timeout=120)
+    assert r.returncode == 0 and "значений 3" in r.stdout, r.stdout + r.stderr
+    one = out / "mockups" / "concepts" / "M02-one.html"
+    one.write_text('<html><body><b data-canon="C01.paybackWeeks">20</b></body></html>', encoding="utf-8")
+    r = subprocess.run([sys.executable, "-I", str(KIT / "tools" / "check_canon.py"), str(out), "--html", str(one), "--core"],
+                       capture_output=True, text=True, timeout=120)
+    assert r.returncode == 1 and 'data-canon="C01.paybackWeeks" — нет в каноне' in r.stdout and "нет папки прототипа" in r.stdout
+    assert "HTML 1" in r.stdout                                                  # --html без --mockups: только этот файл
+    r = subprocess.run([sys.executable, "-I", str(KIT / "tools" / "check_canon.py"), str(tmp_path / "empty")], capture_output=True, text=True)
+    assert r.returncode == 2
+
+
+@pytest.mark.skipif(not NODE, reason="нет node")
+def test_core_test_uses_fixture_cases_for_values_canon(tmp_path):
+    out = copy_kit(tmp_path)
+    write_values_canon(out)
+    r = subprocess.run([NODE, "js/core.test.js", str(out / "data" / "demo-canon.json")], cwd=out / "prototype", capture_output=True, text=True, timeout=120)
+    assert r.returncode == 0 and "кейсы: canon.json, кейсов 3" in r.stdout, r.stdout
+    (out / "prototype" / "fixtures" / "canon.json").unlink()
+    r = subprocess.run([NODE, "js/core.test.js", str(out / "data" / "demo-canon.json")], cwd=out / "prototype", capture_output=True, text=True, timeout=120)
+    assert r.returncode == 1 and "нет кейсов ядра (cases)" in r.stdout
 
 
 def find_playwright():

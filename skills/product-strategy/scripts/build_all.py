@@ -25,9 +25,17 @@
   charts     charts.py                SVG-графики (сам проверяет пояснения графиков — charts --check-meta)
   flowcheck  node/check_flow.mjs      пересечения блоков и подписей в схемах (есть data/flows.json и playwright) → data/flows-check.json
   mockups    node/shoot_mockups.mjs   PNG макетов (нужен playwright)
-  assemble   assemble_strategy.py     части разделов → strategy.md (есть build/parts) либо только проверка маркеров и P-id
-  consistency plan_baseline.py --check  даты и числа вех против data/plan-baseline.json (FB-046; есть baseline): предупреждение,
+  kitverify  mockup_kit.py verify     агенты не меняли набор макетов после init (FB-008; есть build/kit.lock): код 1 — предупреждение,
                                       в --strict — провал
+  prototype  (встроено)               рабочий прототип (SM 7; есть prototype/js/core.test.js): node core.test.js [demo-canon.json],
+                                      node kit.test.js, check_canon.py --core — «числа макетов = числа ядра»; провал — предупреждение,
+                                      в --strict — ошибка
+  baseline   plan_baseline.py         data/plan-baseline.json, если есть data/gantt.json, а базовой линии нет или она старше Ганта/решений
+  assemble   assemble_strategy.py     части разделов → strategy.md (есть build/parts) либо только проверка маркеров и P-id
+  consistency plan_baseline.py --check [--strict]  даты и числа вех против data/plan-baseline.json (FB-046; есть baseline):
+                                      код 1 — предупреждение, в --strict — провал
+  factcheck  apply_fact_check.py --check  подтверждённые записи data/fact-check.json применены к источникам (FB-052; нет файла — н/п):
+                                      код 1 — предупреждение, в --strict — провал
   method     build_methodology.py     research/methodology.md из данных (рукописный не затирается)
   handoff    handoff.py                    deliverables/CLAUDE_CODE_TASKS.md (если handoff.enabled и состав уже выбран)
   refsreadme build_design_refs_readme.py  design-refs/README.md (если есть карточки)
@@ -51,7 +59,9 @@
   track      strategy_track.py check  сверка с репозиторием и GitHub → data/progress.json (только с --track; нужен gh для issues;
                                       в режиме идеи не выполняется — продукта и репозитория ещё нет)
 После шагов полного прогона: фазы отмечаются по артефактам (init_run.py --sync, FB-015) и печатается таблица «ворот полноты»
-(FB-058) «проверка → статус → что сделать»: скриншоты, фазы, материалы владельца, fact-check применён, согласованность с
+(FB-058) «проверка → статус → что сделать»: скриншоты, фазы, материалы владельца (записи sources.owner_docs[] со статусом
+not_attempted — «нет», шаг C0.6; строки формата 1.4 пропускаются), решения владельца до старта (находки idea.checks[] без
+idea.decisions — только предупреждение, код start_decisions), fact-check применён, согласованность с
 baseline, интерактивность (smoke), вопросы запроса, REPORT.md, учёт агентов (режим идеи), PDF, выбор направления дизайна,
 пересмотр идеи. В --strict любое «нет» — провал (кроме демо-прогона); осознанное исключение — --accept-known <код,…>
 (записывается в build-all-last.json и в REPORT, раздел 19). Таблица сохраняется в build/build-all-last.json → completeness.
@@ -81,9 +91,11 @@ sys.path.insert(0, str(HERE))
 STEPS = ["dossier", "viability", "registry", "score", "validate", "typesafe", "model", "charts", "flowcheck", "mockups", "handoff", "html", "smoke",
          "xlsx", "deck", "pptx", "pdf", "disclosure", "links"]
 LAST = "build-all-last.json"
-WARN_STEPS = {"shots", "consistency", "pdfcheck"}           # код 1 — предупреждение; в --strict (не демо) — провал
+WARN_STEPS = {"shots", "consistency", "pdfcheck", "factcheck", "kitverify", "prototype"}   # код 1 — предупреждение; в --strict (не демо) — провал
+WARN_ACCEPT = {"shots": "shots", "consistency": "consistency", "pdfcheck": "pdf", "factcheck": "fact_check", "kitverify": "kit",
+               "prototype": "prototype"}
 ACCEPT_CODES = ("shots", "phases", "owner_materials", "fact_check", "consistency", "interactivity", "request_questions", "report",
-                "agents", "pdf", "design_choice", "pivot", "market")
+                "agents", "pdf", "design_choice", "pivot", "market", "kit", "prototype", "start_decisions")
 MARKET_DIRS = [("communities", "data/communities.json", "сообщества"), ("keywords", "data/keywords.json", "поисковые запросы"),
                ("events", "data/events.json", "события"), ("market", "research/market.md", "синтез рынка")]
 
@@ -180,12 +192,22 @@ def plan(out, cfg, a):
          ["node", str(HERE / "node" / "check_flow.mjs"), str(out)] + nd),
         ("mockups", bool(have_pw) and (data / "mockups-index.json").exists() or (bool(have_pw) and (Path(out) / "mockups" / "concepts").is_dir()), "нет playwright или макетов (mockups/concepts)",
          ["node", str(HERE / "node" / "shoot_mockups.mjs"), str(out)] + nd),
+        ("kitverify", (root / "build" / "kit.lock").exists() and (HERE / "mockup_kit.py").exists(),
+         "не нужно: нет build/kit.lock (mockup_kit.py init не запускался)", py + [str(HERE / "mockup_kit.py"), "verify", str(out)]),
+        ("prototype", (root / "prototype" / "js" / "core.test.js").exists() and bool(node),
+         "не нужно: нет prototype/js/core.test.js (фаза C8.5 не выбрана)" if not (root / "prototype" / "js" / "core.test.js").exists() else "нет node",
+         py + [me, str(out), "--check-prototype"]),
+        ("baseline", baseline_stale(root) and (HERE / "plan_baseline.py").exists(),
+         "не нужно: data/plan-baseline.json свежее data/gantt.json" if baseline else "не нужно: нет data/gantt.json",
+         py + [str(HERE / "plan_baseline.py"), str(out)]),
         ("assemble", has_strategy, "нет research/strategy.md и частей разделов",
          py + [str(HERE / "assemble_strategy.py"), str(out)] + ([] if parts else ["--check"]) + (["--lenient"] if not a.strict else [])),
-        ("consistency", baseline and (HERE / "plan_baseline.py").exists(),
+        ("consistency", (baseline or baseline_stale(root)) and (HERE / "plan_baseline.py").exists(),
          ("нет data/plan-baseline.json (plan_baseline.py <OUT> — до авторов разделов)" if concept else "не нужно: нет data/plan-baseline.json")
          if not baseline else "нет plan_baseline.py",
-         py + [str(HERE / "plan_baseline.py"), str(out), "--check"]),
+         py + [str(HERE / "plan_baseline.py"), str(out), "--check"] + (["--strict"] if a.strict else [])),
+        ("factcheck", (data / "fact-check.json").exists() and (HERE / "apply_fact_check.py").exists(),
+         "не нужно: нет data/fact-check.json", py + [str(HERE / "apply_fact_check.py"), str(out), "--check"]),
         ("method", (data / "proposals.json").exists(), "нет реестра", py + [str(HERE / "build_methodology.py"), str(out)]),
         ("handoff", bool((cfg.get("handoff") or {}).get("enabled")) and not (cfg.get("handoff") or {}).get("ask_at_end") and (data / "proposals.json").exists(),
          "выключено выбором (handoff.enabled=false)" if not (cfg.get("handoff") or {}).get("enabled")
@@ -211,6 +233,46 @@ def plan(out, cfg, a):
 
 
 # ---------------------------------------------------------------- встроенные шаги
+def baseline_stale(root):
+    """FB-046: есть data/gantt.json, а data/plan-baseline.json нет или он старше Ганта (или решений) — пересобрать до assemble."""
+    root = Path(root)
+    g = root / "data" / "gantt.json"
+    b = root / "data" / "plan-baseline.json"
+    if not g.exists():
+        return False
+    if not b.exists():
+        return True
+    newest = max(p.stat().st_mtime for p in (g, root / "data" / "decisions.json") if p.exists())
+    return b.stat().st_mtime + 1e-6 < newest
+
+
+def check_prototype(out):
+    """SM 7, «числа макетов = числа ядра»: тесты ядра, контракт оболочки и сверка канона рабочего прототипа → (код, строка)."""
+    out = Path(out)
+    proto = out / "prototype"
+    canon = out / "data" / "demo-canon.json"
+    core, kit, chk = proto / "js" / "core.test.js", proto / "js" / "kit.test.js", proto / "tools" / "check_canon.py"
+    cmds = [("ядро", core, ["node", str(core)] + ([str(canon)] if canon.exists() else [])),
+            ("оболочка", kit, ["node", str(kit)]),
+            ("канон", chk, [sys.executable, "-I", str(chk), str(proto), "--core"])]
+    done, bad = [], []
+    for name, script, cmd in cmds:
+        if not script.exists():
+            continue
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=600, cwd=str(out))
+        except (OSError, subprocess.SubprocessError) as e:
+            bad.append("%s: %s" % (name, type(e).__name__))
+            continue
+        tail = ((r.stdout or "") + (r.stderr or "")).strip().splitlines()
+        (done if r.returncode == 0 else bad).append("%s%s" % (name, "" if r.returncode == 0 else " (код %d: %s)" % (r.returncode, tail[-1][:100] if tail else "")))
+    if not done and not bad:
+        return 0, "прототип: проверять нечего (нет тестов ядра)"
+    if bad:
+        return 1, "прототип: не прошло — %s; прошло — %s (references/prototype.md)" % ("; ".join(bad), ", ".join(done) or "—")
+    return 0, "прототип: тесты прошли — %s" % ", ".join(done)
+
+
 def check_shots(out, shoot=False):
     """FB-012: карточки конкурентов с http-URL без shot и без shot_blocked → (код, строка)."""
     out = Path(out)
@@ -412,23 +474,35 @@ def completeness(out, cfg, results, a):
     else:
         add("phases", "Все фазы отмечены (STATUS.md)", "н/п", "в build/STATUS.md нет чек-листа фаз")
     # 3. материалы владельца
-    docs = [d for d in ((cfg.get("sources") or {}).get("owner_docs") or []) if isinstance(d, (dict, str))]
+    # FB-002: записи-объекты 1.5 {url|path, role, status}; строки формата 1.4 — пропускаются (статуса у них нет)
+    docs = [d for d in ((cfg.get("sources") or {}).get("owner_docs") or []) if isinstance(d, dict)]
     if docs:
         om = out / "build" / "owner-materials.md"
         omt = om.read_text(encoding="utf-8", errors="replace") if om.exists() else ""
         bad = []
         for d in docs:
-            d = d if isinstance(d, dict) else {"url": d}
+            ref = str(d.get("url") or d.get("path") or "?")
             stt = d.get("status")
-            if not stt:
-                stt = owner_status(omt, str(d.get("url")))
+            if not stt or (stt == "not_attempted" and omt):
+                stt = owner_status(omt, ref) if omt else (stt or "not_attempted")
             if stt == "not_attempted":
-                bad.append(str(d.get("url")))
+                bad.append(ref)
         add("owner_materials", "Материалы владельца прочитаны", "нет" if bad else "да",
             ("статус not_attempted: %s" % ", ".join(bad[:4])) if bad else "%d ссылок — read/blocked" % len(docs),
-            "прочитать доступным инструментом (веб, чтение артефактов) и записать build/owner-materials.md (статус, инструмент, выжимка)")
+            "шаг C0.6: прочитать каждую ссылку доступным инструментом (веб, чтение артефактов) и записать build/owner-materials.md "
+            "(статус read|blocked, инструмент, выжимка) и status в run-config sources.owner_docs[]")
     else:
-        add("owner_materials", "Материалы владельца прочитаны", "н/п", "sources.owner_docs пуст")
+        add("owner_materials", "Материалы владельца прочитаны", "н/п", "sources.owner_docs пуст или в формате 1.4 (строки)")
+    # FB-053/FB-058: решения владельца до старта — находки проверок idea.checks[] с вариантами без idea.decisions[id]
+    idea_c = cfg.get("idea") or {}
+    chk = [x for x in idea_c.get("checks") or [] if isinstance(x, dict) and x.get("options") and x.get("id")]
+    if chk:
+        dec = idea_c.get("decisions") or {}
+        open_ = [x["id"] for x in chk if x["id"] not in dec and not x.get("resolved")]
+        rows.append({"code": "start_decisions", "check": "Решения владельца до старта (idea.checks)", "status": "нет" if open_ else "да",
+                     "detail": ("решение владельца до старта не получено: %s" % ", ".join(open_[:6])) if open_ else "%d находок решено" % len(chk),
+                     "todo": "intake.py update <OUT> --from-askuser '{\"<заголовок>\": \"<вариант>\"}' (или intake.py concept-check)",
+                     "warn_only": True})
     # 4. fact-check применён
     fr, has = fact_rows(out)
     if has:
@@ -599,8 +673,13 @@ def main(argv=None):
     ap.add_argument("--merge-flows", action="store_true", help=argparse.SUPPRESS)
     ap.add_argument("--check-shots", action="store_true", help=argparse.SUPPRESS)
     ap.add_argument("--check-pdf", action="store_true", help=argparse.SUPPRESS)
+    ap.add_argument("--check-prototype", action="store_true", help=argparse.SUPPRESS)
     a = ap.parse_args(argv)
     out = Path(a.out).resolve()
+    if a.check_prototype:
+        code, line = check_prototype(out)
+        print(line)
+        return code
     if a.merge_flows:
         code, line = merge_flows(out)
         print(line)
@@ -647,7 +726,7 @@ def main(argv=None):
         tail = ((r.stdout or "") + (r.stderr or "")).strip().splitlines()
         okc = (0, 1) if name == "track" else (0,)         # check возвращает 1 при предупреждениях (нет gh, нет сканов) — не провал
         if name in WARN_STEPS and r.returncode == 1:
-            accepted = {"shots": "shots", "consistency": "consistency", "pdfcheck": "pdf"}[name] in a.accept_known
+            accepted = WARN_ACCEPT[name] in a.accept_known
             status = "FAIL" if (strict_gate and not accepted) else "WARN"
         else:
             status = "OK" if r.returncode in okc else "FAIL"
@@ -677,11 +756,16 @@ def main(argv=None):
             except Exception as e:                     # noqa: BLE001
                 print("init_run --sync не выполнен: %s" % e, file=sys.stderr)
         comp_rows = completeness(out, cfg, results, a)
-        bad = [r for r in comp_rows if r["status"] == "нет" and not r["accepted"]]
+        bad = [r for r in comp_rows if r["status"] == "нет" and not r["accepted"] and not r.get("warn_only")]
+        soft = [r for r in comp_rows if r["status"] == "нет" and not r["accepted"] and r.get("warn_only")]
+        for r in soft:
+            print("ПРЕДУПРЕЖДЕНИЕ: %s — %s" % (r["check"], r["detail"]), file=sys.stderr)
         if strict_gate and bad:
             results.append(("completeness", "FAIL", "нет: %s" % ", ".join(r["code"] for r in bad), 0))
         elif bad:
             results.append(("completeness", "WARN", "нет: %s%s" % (", ".join(r["code"] for r in bad), " (демо — не строго)" if demo and a.strict else ""), 0))
+        elif soft:
+            results.append(("completeness", "WARN", "предупреждения: %s" % ", ".join(r["code"] for r in soft), 0))
         else:
             results.append(("completeness", "OK", "все проверки «да» или н/п", 0))
     w = max(len(n) for n, *_ in results)

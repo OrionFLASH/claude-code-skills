@@ -2,7 +2,7 @@
 // проходит все режимы в светлой и тёмной теме, снимает PNG и проверяет:
 //   - нет ошибок консоли и необработанных исключений;
 //   - нет внешних запросов (разрешены file:, data:, blob:, about:) — запросы наружу блокируются и считаются ошибкой;
-//   - есть бейджи «Концепт продукта…» и «демо-данные»; переключатель режимов; каждый режим рисует непустой экран;
+//   - есть бейджи «Концепт, не существующая функция» (.ps-concept-badge) и «демо-данные»; переключатель режимов; каждый режим рисует непустой экран;
 //   - тема переключается (data-theme light → dark); цели нажатия ≥ 32 px (мышь) и ≥ 44 px (тач, 390×844).
 // Запуск: node tests/smoke.mjs [--webkit] [--mode <id>] [--no-shots] [--node-dir DIR]
 // Результат: shots/smoke-results.json (+ shots/<браузер>-<режим>-<тема>.png). Пишет только в shots/ своего прототипа.
@@ -74,9 +74,9 @@ async function run(name, type) {
     await page.goto(url);
     await page.waitForSelector('#pk-view');
     if (!touch) {
-      const concept = await page.locator('.pk-badge-concept').innerText().catch(() => '');
+      const concept = await page.locator('.ps-concept-badge, .pk-badge-concept').first().innerText().catch(() => '');
       const demo = await page.locator('#pk-demo').innerText().catch(() => '');
-      if (!/Концепт/.test(concept)) problem(name, 'нет бейджа «Концепт продукта, не существующая функция»');
+      if (!/Концепт/.test(concept)) problem(name, 'нет бейджа «Концепт, не существующая функция»');
       if (!/демо/.test(demo)) problem(name, 'нет бейджа «демо-данные»');
     }
     let modes = await page.$$eval('#pk-modes [data-mode]', (bs) => bs.map((b) => b.getAttribute('data-mode')));

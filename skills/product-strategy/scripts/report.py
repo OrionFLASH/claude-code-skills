@@ -12,7 +12,12 @@
 data/proposals.json, data/scores.json, data/decisions.json, data/fact-check.json, build/merge-report.json,
 data/gap-audit-deps.json, build/deps-patch.json, data/proposals-draft-G8.json, data/sources-*.json, build/agents.json
 (dispatch.py), build/interventions.jsonl (init_run.py --intervention), build/build-all-last.json (ворота и completeness),
-build/owner-materials.md и sources.owner_docs[], idea.request_questions[] (маркеры [RQ01] в тексте), build/env.json.
+build/owner-materials.md и sources.owner_docs[], idea.request_questions[] (маркеры [RQ01] в тексте, короткий ответ — фраза с
+маркером), idea.checks[]/idea.decisions (решения до старта), slicing.queues (нарезка), build/env.json; 1.5: build/retro.json
+(collect_reports.py --retro), build/fact-check-apply.json (apply_fact_check.py), build/merge-report.json → cap_now.demoted и
+added при --append G8, build/collect-gaps.json (link_mockups.py --collect-gaps), data/fact-check.json kind mockup_vs_registry,
+data/sources-s*.json (источники авторов), data/prototype.json (рабочий прототип), data/model.json → reconciliation.items и
+data/plan-baseline.json → gantt_contract.messages (открытые пункты сверки).
 Правленный вручную REPORT.md не затирается: без --force пишется deliverables/REPORT.generated.md (метка
 `<!-- generated-by: report.py -->` + sha256 — по ней скрипт видит, что файл не правили). Пути в отчёте — относительные.
 Только стандартная библиотека.
@@ -228,9 +233,28 @@ def s_failed(r):
     if blocked:
         L.append("| скриншоты конкурентов (%d) | анти-бот защита | описание по тексту страницы: %s |" % (len(blocked), esc(", ".join(blocked[:6]))))
         n += 1
+    for it in open_items(r):
+        L.append("| %s | %s | %s |" % (esc(it[0]), esc(it[1])[:160], esc(it[2])))
+        n += 1
     if not n:
         L.append("| — | ворота сборки не нашли пропусков | — |")
     return L
+
+
+def open_items(r):
+    """B9: расхождения модели с планом и реестром (model.json → reconciliation.items) и дыры Ганта
+    (plan-baseline.json → gantt_contract.messages) → [(что, почему, что сделать)]."""
+    res = []
+    m = r.j("data/model.json", {}) or {}
+    for it in ((m.get("reconciliation") or {}).get("items") or []) if isinstance(m, dict) else []:
+        msg = it.get("message") if isinstance(it, dict) else it
+        if msg:
+            res.append(("сверка модели с планом и реестром", msg, "model.py <OUT> после правки плана или реестра (data/model.json → reconciliation)"))
+    b = r.j("data/plan-baseline.json", {}) or {}
+    for msg in ((b.get("gantt_contract") or {}).get("messages") or []) if isinstance(b, dict) else []:
+        res.append(("контракт Ганта (весь горизонт)", msg if isinstance(msg, str) else (msg.get("message") if isinstance(msg, dict) else msg),
+                    "дописать задачи в data/gantt.json → plan_baseline.py <OUT>"))
+    return res
 
 
 def s_questions(r):
@@ -268,6 +292,26 @@ def s_decided(r):
     if isinstance(d, dict) and d.get("chosen"):
         L.append("| направление дизайна: %s | %s | `init_run.py <OUT> --impact \"дизайн\"` |" % (
             esc(d["chosen"]), "выбрал владелец" if d.get("chosen_by") == "owner" else "по умолчанию — рекомендованное"))
+    # FB-053/FB-054: решения владельца до старта (idea.decisions по находкам idea.checks)
+    idea = r.c("idea") or {}
+    checks = {x.get("id"): x for x in idea.get("checks") or [] if isinstance(x, dict) and x.get("id")}
+    dec = idea.get("decisions") or {}
+    for cid, key in dec.items():
+        x = checks.get(cid) or {}
+        lab = next((o.get("label") for o in x.get("options") or [] if o.get("key") == key), key)
+        L.append("| решение до старта «%s»: %s | %s | `intake.py update <OUT> --from-askuser …` |" % (
+            esc(x.get("header") or cid), esc(lab), esc(x.get("message") or "ответ владельца до «Начинаю?»")[:120]))
+    for cid, x in checks.items():
+        if cid not in dec and x.get("options"):
+            L.append("| **решение до старта не получено**: %s | %s | `intake.py concept-check <OUT>` → вопрос владельцу |" % (
+                esc(x.get("header") or cid), esc(x.get("message"))[:120]))
+    sl = r.c("slicing") or {}
+    if isinstance(sl, dict) and sl.get("enabled"):
+        qs = [q for q in sl.get("queues") or [] if isinstance(q, dict)]
+        L.append("| нарезка на очереди: %s | %s | `intake.py update <OUT> --from-askuser '{\"Светофор\": …}'` |" % (
+            esc("; ".join("%s — %s%s" % (q.get("name") or q.get("id"), q.get("goal") or "—",
+                                         " (вход: %s)" % q["enter_when"] if q.get("enter_when") else "") for q in qs))[:300],
+            "светофор %s: %s" % (esc(sl.get("source") or "—"), esc(sl.get("decision") or "slice"))))
     if len(L) == 2:
         L.append("| " + FILL % "решения за владельца" + " | | |")
     return L
@@ -312,9 +356,26 @@ def s_factcheck(r):
         return ["Записей нет (`data/fact-check.json`)."]
     solved = [x for x in rows if x.get("resolved_value") not in (None, "") or str(x.get("status", "")).lower() in ("resolved", "решено")]
     L = ["Всего записей: %d (решено %d, открыто %d; применено к источникам: %d) — `data/fact-check.json`." % (
-        len(rows), len(solved), len(rows) - len(solved), sum(1 for x in rows if x.get("applied"))), "",
-         "| Факт | Было | Агент | Источник | Принято | Где исправлено |", "|---|---|---|---|---|---|"]
+        len(rows), len(solved), len(rows) - len(solved), sum(1 for x in rows if x.get("applied")))]
+    ap = r.j("build/fact-check-apply.json", None)
+    if isinstance(ap, dict):
+        L.insert(1, "fact-check: применено %d, только текст %d, открыто %d (`build/fact-check-apply.json`, %s)." % (
+            len(ap.get("applied") or []) + len(ap.get("already") or []), len(ap.get("text_only") or []),
+            len(ap.get("pending") or []) + len(ap.get("unconfirmed") or []), ap.get("date") or "—"))
+    mk = [x for x in rows if x.get("kind") in ("mockup_vs_registry", "mockup")]
+    if mk:
+        L += ["", "Расхождения макетов и реестра (`kind: mockup_vs_registry`): %d, открыто %d." % (
+            len(mk), sum(1 for x in mk if str(x.get("status") or "open") == "open")), "",
+              "| P-id | Макет | Суть | Статус | Решение |", "|---|---|---|---|---|"]
+        for x in mk[:20]:
+            L.append("| %s | %s | %s | %s | %s |" % (esc(x.get("proposal")), esc(x.get("mockup")), esc(x.get("summary"))[:100],
+                                                  esc(x.get("status") or "open"), esc(x.get("decision") or FILL % "решение")))
+    if len(mk) == len(rows):
+        return L
+    L += ["", "| Факт | Было | Агент | Источник | Принято | Где исправлено |", "|---|---|---|---|---|---|"]
     for x in rows[:30]:
+        if x.get("kind") in ("mockup_vs_registry", "mockup"):
+            continue
         fix = x.get("fix") or {}
         L.append("| %s | %s | %s | %s | %s | %s |" % (esc(x.get("fact") or x.get("claim")), esc(x.get("phase1_value") or x.get("was")),
                                                   esc(x.get("agent_value") or x.get("now")), esc(x.get("source"))[:80], esc(x.get("resolved_value")),
@@ -329,13 +390,39 @@ def s_changes(r):
     patch = r.j("build/deps-patch.json", None)
     g8 = rows_of(r.j("data/proposals-draft-G8.json", []), "proposals")
     srcs = [f.name for f in (r.out / "data").glob("sources-*.json")] if (r.out / "data").is_dir() else []
+    added2 = ((patch or {}).get("_summary") or {}).get("added") if isinstance(patch, dict) else None
+    mr = r.j("build/merge-report.json", {}) or {}
+    cap = (mr.get("cap_now") or {}) if isinstance(mr, dict) else {}
+    dem = [x for x in cap.get("demoted") or [] if isinstance(x, dict)]
+    g8_added = mr.get("added") if isinstance(mr, dict) and "G8" in (mr.get("groups") or []) else None
+    cg = r.j("build/collect-gaps.json", None)
+    authors = sorted(f.name for f in (r.out / "data").glob("sources-s*.json")) if (r.out / "data").is_dir() else []
     L = ["- Добавлено аудитом пробелов: %d%s." % (len(g7), " (%s)" % ", ".join(g7[:12]) if g7 else ""),
          "- Записано предпосылок: %d (`data/gap-audit-deps.json`)." % (sum(len(v) for v in deps.values() if isinstance(v, list)) if isinstance(deps, dict) else 0),
          "- Зависимости от авторов разделов (C7.5): %s." % (
              "%d пар (`build/deps-patch.json`)" % len(rows_of(patch, "deps", "items") or (patch if isinstance(patch, list) else [])) if patch is not None else "не собирались"),
          "- Расхождения макетов и реестра (G8): черновиков %d (`data/proposals-draft-G8.json`)." % len(g8),
          "- Фрагменты источников агентов: %d (%s)." % (len(srcs), ", ".join(sorted(srcs)[:8]) or "—"),
-         "- " + FILL % "конфликты, устаревшие допущения, как сдвинулись ставки и топ-20"]
+         "- Источники от авторов разделов: %d (фрагменты `data/sources-s*.json`)." % len(authors)]
+    if added2 is not None:
+        L.append("- Зависимостей добавлено вторым раундом (C7.5): %s (`build/deps-patch.json → _summary.added`)." % added2)
+    if dem:
+        L.append("- Перенесено из now по ёмкости: %d предложений, ≈ %s дн. (`build/merge-report.json → cap_now.demoted`)." % (
+            len(dem), round(sum(float(x.get("effort_mid") or 0) for x in dem), 1)))
+    if g8_added is not None:
+        L.append("- G8 из макетов: добавлено в реестр %d (`merge_proposals.py --append G8`)." % (len(g8_added) if isinstance(g8_added, list) else g8_added))
+    if isinstance(cg, dict):
+        da, fa = cg.get("drafts_added"), cg.get("fact_check_added")
+        L.append("- Пробелы макетов (`link_mockups.py --collect-gaps`): черновиков G8 добавлено %s, записей fact-check %s, открытых "
+                 "расхождений %s (`build/collect-gaps.json`)." % (len(da) if isinstance(da, list) else da or 0,
+                                                                  len(fa) if isinstance(fa, list) else fa or 0, cg.get("mismatches_open", 0)))
+    pj = r.j("data/prototype.json", None)
+    if isinstance(pj, dict):
+        ct = pj.get("core_tests") or {}
+        L.append("- Рабочий прототип: %s; режимы: %s; тесты ядра — прошло %s, упало %s; канон — ошибок %s (`data/prototype.json`)." % (
+            pj.get("status") or "—", ", ".join(map(str, pj.get("modes") or [])) or "—", ct.get("passed", "—"), ct.get("failed", "—"),
+            (pj.get("canon") or {}).get("errors", "—")))
+    L.append("- " + FILL % "конфликты, устаревшие допущения, как сдвинулись ставки и топ-20")
     return L
 
 
@@ -350,13 +437,32 @@ def s_rq(r):
     L = ["| RQ | Вопрос | Где ответ | Коротко |", "|---|---|---|---|"]
     for q in rqs:
         qid = q.get("id")
-        where = []
+        where, short = [], None
         for rel, t in texts.items():
             if "[%s]" % qid in t:
                 secs = [m.group(1) for m in re.finditer(r"(?m)^## (\d+)\.", t[:t.index("[%s]" % qid)])]
                 where.append("%s%s" % (rel, (" § %s" % secs[-1]) if secs else ""))
-        L.append("| %s | %s | %s | %s |" % (qid, esc(q.get("text"))[:120], ", ".join(where[:2]) or "**нет маркера [%s]**" % qid, FILL % "ответ в одну строку"))
+                if short is None:
+                    short = rq_answer(t, qid)
+        kind = str(q.get("kind") or "research")
+        cell = short or (FILL % "ответ в одну строку" if kind != "format" else "формат сдачи — см. deliverables/")
+        L.append("| %s | %s | %s | %s |" % (qid, esc(q.get("text"))[:120], ", ".join(where[:2]) or "**нет маркера [%s]**" % qid, esc(cell)))
     return L
+
+
+def rq_answer(text, qid):
+    """Короткий ответ на вопрос запроса: предложение с маркером [RQnn] (без маркера и разметки), ≤ 200 знаков."""
+    for line in text.splitlines():
+        if "[%s]" % qid not in line or line.lstrip().startswith("#"):
+            continue
+        t = re.sub(r"\[%s\]" % re.escape(qid), "", line)
+        t = re.sub(r"^\s*(?:[-*]|\d+[.)])\s+|\*\*|`", "", t).strip(" |—-:")
+        if len(t) < 8:
+            continue
+        parts = re.split(r"(?<=[.!?])\s+", t)
+        t = parts[0] if len(parts[0]) >= 40 or len(parts) == 1 else " ".join(parts[:2])
+        return t if len(t) <= 200 else t[:197].rsplit(" ", 1)[0] + "…"
+    return None
 
 
 def s_owner(r):
@@ -364,8 +470,10 @@ def s_owner(r):
     if not docs:
         return ["Материалов владельца нет (`sources.owner_docs` пуст)."]
     L = ["| Ссылка | Роль | Статус | Инструмент | Как использовано |", "|---|---|---|---|---|"]
+    head_at = 0
     om = (r.out / "build" / "owner-materials.md")
     omt = om.read_text(encoding="utf-8", errors="replace") if om.exists() else ""
+    stats = {}
     for d in docs:
         d = d if isinstance(d, dict) else {"url": d}
         st = d.get("status")
@@ -375,8 +483,12 @@ def s_owner(r):
                 st = build_all.owner_status(omt, str(d.get("url")))
             except Exception:                          # noqa: BLE001
                 st = "not_attempted"
-        L.append("| %s | %s | %s | %s | %s |" % (esc(d.get("url"))[:90], esc(d.get("role")), "**%s**" % st if st == "not_attempted" else st,
+        L.append("| %s | %s | %s | %s | %s |" % (esc(d.get("url") or d.get("path"))[:90], esc(d.get("role")), "**%s**" % st if st == "not_attempted" else st,
                                               esc(d.get("tool")), esc(d.get("note") or FILL % "как использовано")))
+        stats[st] = stats.get(st, 0) + 1
+    L.insert(head_at, "Материалы владельца: %d (прочитано %d / заблокировано %d / не прочитано %d) — `build/owner-materials.md`." % (
+        len(docs), stats.get("read", 0), stats.get("blocked", 0), stats.get("not_attempted", 0)))
+    L.insert(head_at + 1, "")
     return L
 
 
@@ -411,6 +523,16 @@ def s_interventions(r):
                 recs.append(json.loads(line))
             except ValueError:
                 continue
+    retro = r.j("build/retro.json", None)
+    if isinstance(retro, dict) and retro.get("entries"):      # FB-004: ретроспектива collect_reports.py --retro (журнал + автообнаружение)
+        ents = [e for e in retro["entries"] if isinstance(e, dict)]
+        L = ["Всего: %d (владелец %d, оркестратор %d; из журнала %s, найдено автоматически %s) — `build/retro.md`." % (
+            len(ents), retro.get("by_owner", 0), retro.get("by_orchestrator", 0), retro.get("journal", "—"), retro.get("auto", "—")),
+             "", "| Когда | Кто | Что | Почему | Файл |", "|---|---|---|---|---|"]
+        for x in ents[:40]:
+            L.append("| %s | %s | %s | %s | %s |" % (esc(x.get("ts"))[:16], esc(x.get("by")), esc(x.get("what"))[:100], esc(x.get("why"))[:80],
+                                                  esc(x.get("file"))))
+        return L
     if not recs:
         return ["Журнал пуст (`build/interventions.jsonl`): ручных вмешательств не записано — " + FILL % "подтвердить, что их не было"]
     by = Counter(x.get("by") for x in recs)

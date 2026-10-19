@@ -2,6 +2,72 @@
 
 Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/), версии — SemVer, теги `product-strategy/vX.Y.Z`.
 
+## [1.5.0] — 2026-10-19
+По двум отзывам о боевых прогонах `product-concept` на 1.4.0 (58 карточек FB-001…FB-058 и 20 приоритизированных изменений с 15 ручными вмешательствами; план и контракты — `docs/plans/2026-10-19-concept-feedback-plan.md`). Цель — перенести ручную работу оркестратора в скрипты, шаблоны и проверки. Прогоны 1.4.0 собираются без изменений: новые поля run-config необязательны.
+
+### Добавлено — опрос и вход прогона (режим идеи)
+- **Карточка «Начало»** (`intake.py concept-intro`): для кого приложение — **личный режим** (`project.audience`: personal / circle / personal_then_public / public), режим опроса (по темам / быстро / глубоко), модели и effort субагентов (`tools.agents`, FB-003). В личном режиме вопросы о рынке и деньгах заменены вопросами о себе, поиск запросов и событий не запускается, модель — стоимость владения.
+- **Разбор текста идеи (C0.0)**: предзаполнение ответов из `--request` и `--prefill` с цитатами, одна карточка «Из запроса понял…», освободившиеся места — вопросам блоков, «живых» вопросов ≥ 15; «по умолчанию для всей карточки»; быстрый режим — таблица на тему (FB-055).
+- **Условные блоки вопросов** (`intake.py concept-blocks`): внешняя платформа (FB-056), данные и интеграции, ИИ в продукте, предметная область и право, администрирование, интерфейс (число направлений, режимы, pointer-first), прототип, контекст владельца, канал оплаты.
+- **Вопросы и материалы из запроса**: `idea.request_questions[]` (RQ01…, FB-001) и `sources.owner_docs[]` с ролью и статусом чтения (FB-002); шаг **C0.6 «Материалы владельца»** (`init_run.py --owner-materials` → `build/owner-materials.md`).
+- **Проверки до «Начинаю?»**: противоречия ответов, ёмкость MVP против срока, взаимоисключающий мультивыбор (FB-053, FB-054); `concept-apply --dry-run` → `follow_up`, пересчёт — `intake.py concept-check`.
+- **Нарезка на очереди** после жёлтого/красного светофора: `intake.py concept-verdict` → `slicing` (очереди α/β/v1/v2 с условиями входа); очереди проходят в реестр и Гант.
+- Имя ≤ 4 слов без «Рабочее:», `--name/--slug`, ключевые слова без слов формы, `--topic-en` и `concept_dossier.py --topic-en` вместо заглушек `<EN: …>` (FB-022, FB-023); свободные ответы «Форма» и «Рынки» (FB-024, FB-025).
+- **Git**: состояние `no_repo | unborn | normal` и план для пустого репозитория (`check_env.py --git-state`), ветка `docs/concept-<slug>` создаётся до первой записи (FB-034, FB-041); правила владельца из CLAUDE.md в сводке (FB-040).
+
+### Добавлено — фазы и оркестрация
+- **C4.5 «Пересмотр идеи»** — новый `pivot_check.py`: предпосылки `data/premises.json`, вопрос владельцу «продолжить / сузить / остановиться», идея v2 в run-config, пересборка досье (`concept_dossier.py --refresh`) и светофора (FB-044).
+- **C7.5 «Второй раунд зависимостей»**: `collect_reports.py --deps` → `build/deps-patch.json` → `merge_proposals.py --apply-overrides` (FB-051).
+- **C8a → C8-ask → C8b**: чекпоинт выбора направления дизайна владельцем (`design.chosen`, `design.chosen_by`); без выбора шаги 2–3 брифа дизайна не рендерятся (FB-007).
+- **C8.5 «Рабочий прототип»** (по выбору): брифы `prototype-core/shell/mode/regression`, набор `templates/prototype-kit/` (ядро с тестами канона, реестр режимов, ИИ на фикстурах, смоук в Chromium и WebKit, `tools/check_canon.py`: числа макетов = числа канона = числа ядра), справочник `references/prototype.md`.
+- **Статус и процесс**: `init_run.py --status` (фаза → статус → что открыть → ETA → кто работает), журнал вмешательств `--intervention` (FB-004), протокол смены решения `--impact [--reopen]`, один чек-лист в `TASKS.md` владельца (`--tasks-file`, FB-040), сверка ветки и волны агентов в `--show`.
+- **Сборка**: `build_all.py --preview` (черновик без ворот, FB-057), **ворота полноты** `completeness` в `--strict` с `--accept-known` (FB-015, FB-058), шаги `shots` (`--shoot`, FB-012), `consistency`, `pdfcheck` (FB-018), `flowsmerge` (FB-006), `factcheck`, `kitverify`, `prototype`; статусы WARN и «н/п».
+- Новый `report.py`: каркас `REPORT.md` и README сдачи из данных, `--check`; в отчёте разделы 15–19 — вопросы запроса, материалы владельца, пересмотр идеи, ручные вмешательства, ворота полноты (FB-016).
+- **Диспетчер обязателен** в режиме идеи: `dispatch.py` — effort только при `effort_policy: explicit`, без `isolation` при общем `<OUT>` (FB-003, FB-013), суммы по волнам и «прогноз против факта» (FB-014), `forecast --fast` / `fast-plan` — «быстрая концепция» ≈ 10 агентов, `owners` — общие пути волны.
+- `render_brief.py --auto` для всех брифов (FB-050), значения новых плейсхолдеров из `brief_facets.py`, ворота `<EN: …>` и выбора дизайна, условные строки по точному номеру раздела, входы без «файла нет» (SM 6.2), блок «Общие правила прогона»; `check_paths.py`: временные файлы агента — только `build/tmp/<имя брифа>/` (FB-006).
+- `check_env.py --run-timeout N -- <cmd>` (запасной `timeout` для macOS), `--probe-browsers` (причина отказа Firefox в `env.json`, FB-039); `check_gitignore.py`: `.DS_Store`/`Thumbs.db` не считаются потерей, `--shots git|local|previews` (FB-042), `.playwright-mcp/` (FB-017); `relocate_run.py --portable-config`.
+
+### Добавлено — план, модель, согласованность
+- **Одна ёмкость** (`scripts/capacity.py`, `--line`): одно определение рабочего дня во всех скриптах, брифах и тексте (FB-028, SM 6.1).
+- **Базовая линия плана** — новый `plan_baseline.py` → `data/plan-baseline.json` (вехи, MVP по Ганту, критерии отказа, North Star, архитектура, все месяцы горизонта и видения, контракт Ганта); `--check` → `build/consistency-report.json`; плейсхолдеры `{plan:beta}`, `{plan:launch}`, `{plan:mvp_ids}`, `{plan:kill.N.date}`, `{plan:capacity}` (FB-046).
+- **Профили модели** `web-direct` (оплата на сайте, комиссия и налог из пакета локали, FB-026) и `personal` (стоимость владения и окупаемость личных усилий); выручка с платной вехи плана; `reconciliation` — сверка модели с планом и реестром; метка «[иллюстрация при допущениях]» в режиме sensitivity-only (FB-027).
+- Черновики: `decisions.py --init --draft` и `facts_scaffold.py --draft` (решения из данных прогона с источниками, FB-048, FB-049), `summary_scaffold.py` и бриф `strategy-summary.md` — раздел 1 из плейсхолдеров (FB-047), `facts_scaffold.py --demo-canon` — канон демо-данных для макетов и прототипа.
+- Числа без метки и повторы считаются по контексту: значения факт-листа и решений, числа реестра рядом с P-id и таблицы с колонкой «Источник» больше не попадают в список (FB-030).
+
+### Добавлено — реестр и отчёты агентов
+- `merge_proposals.py --write-distinct` (решения пар без ручной правки `merge-map.json`, FB-005), `--cap-now` / `registry.capacity_cap` (сумма now ≤ ёмкость × 1,3, перенос в next с причиной), `--sync-decisions` (горизонты из `data/decisions.json`), очереди `slicing` → `proposals[].queue`; `_add` в `build/overrides.json`.
+- Зависимости от G7 из текста аудита сами попадают в `data/gap-audit-deps.json` при `--append`; `--append G8` переводит ссылки G8-NN в макетах, референсах и fact-check (FB-009); группы G9 (ИИ), G10 (администрирование), G11 (референсы владельца).
+- `collect_reports.py --fact-check` с полями `fix`/`applied` и новый `apply_fact_check.py` — исправление JSON-источников, `--check` для `build_all --strict` (FB-052); `collect_reports.py --retro` → `build/retro.md` (FB-004).
+- Личный режим реестра: категории core, data-sources, reliability, privacy-security, ux, ai-quality, maintenance, personal-analytics, минимумы по приоритету, порог A+B 40 %; `evidence.kind: owner_prior_work` (класс не выше C); `check_registry.py --quotas` и `--suggest-overrides` (FB-029).
+
+### Добавлено — брифы и содержание концепции
+- Новые брифы: `research-integration` (варианты интеграции с платформой → `data/integration-options.json`, FB-045), `research-datasources`, `research-ai` (эталонный эксперимент до выбора модели), `research-owner-refs`, модули C7 `concept-ai-observability` и `concept-admin`, `strategy-summary`.
+- Личный режим и модули в `concept-outline.md` и брифах: build vs buy, стоимость владения, личные KPI, эксперименты N = 1, «Если захочется выпустить наружу»; подразделы ИИ, администрирования, интеграции.
+- Брифы `specs` (`{ARCH}` из базовой линии, FB-010), `experiments` (`sample_size.py --add` → `data/experiments.json`), `strategy-section` (источники авторов `data/sources-s<часть>.json`, FB-011; ключи схем из `data/flows-plan.json`, FB-006), `flows`, `gap-audit`; плейсхолдеры `{AUDIENCE}`, `{REQUEST_QUESTIONS}` и др.; правила содержимого — новизна только как гипотеза с протоколом опровержения, «явно пропущено, потому что…».
+
+### Добавлено — дизайн и макеты
+- Новый `mockup_kit.py`: `init` (набор, `M00-design-language.html`, `tokens-<режим>.css`, `build/kit.lock`; агенты набор не копируют), `verify`, `directions` / `choose` / `gate`, `gallery` (`mockups/gallery.html` — 2–3 рабочих экрана на вариант), `params` (FB-007, FB-008).
+- `link_mockups.py --collect-gaps` (строки `НУЖНО-ПРЕДЛОЖЕНИЕ:` / `РАСХОЖДЕНИЕ:` → черновики G8 и fact-check), `--index-only`, `--remap-drafts` (FB-009).
+- Набор макетов 1.3: цели нажатия 32/44 px, режимы интерфейса и токены на режим (`data-mode`), новые компоненты (график с уровнями, `kbd`, ползунок, «свежесть данных», степпер, «пузырь» чата, сноски и др.), шаблоны `_hotspots.js` (подсветка `data-hs-*`), `gallery.html`; один текст бейджа «Концепт, не существующая функция» с классом `.ps-concept-badge` (FB-032, FB-033).
+- `shoot_mockups.mjs`: `--targets` (pointer/touch-first), `--layout`, `--other-theme`, `--hotspots N`, контраст текста в SVG, бейдж по классу, `--only` с G8-xx; `shoot_competitors.mjs` скрывает cookie-баннеры стилем без кликов, клик — только `--accept-cookies` (FB-031).
+
+### Добавлено — страница-сайт
+- **Слой интерактивности в генераторе** (FB-035): кнопка «🔍 Увеличить» у каждого графика и схемы, просмотр на весь экран с живым SVG (масштаб колесом, щипком, пальцами; клавиатура; панель пояснений по каждому элементу; нижний лист на телефоне), мгновенные подсказки при наведении и фокусе (`templates/site/ps-interact.js`, `ps-layer.css`).
+- **Сквозной поиск** (`ps-search.js`): «/», Ctrl/Cmd+K, `#q=`; разделы, реестр, конкуренты, схемы, план, глоссарий и исследования; формы слова, фразы, е/ё, фильтры, подсветка.
+- **Кликабельные сущности** (`ps-ents.js`): «раздел N», G-id, ключи макетов, конкуренты, ID строк таблиц, термины глоссария (раздел «Глоссарий» из `build_appendix.py --only glossary`).
+- **Просмотр макетов**: «Открыть интерактивный макет», вторая тема, подсказки элементов (`mockups/hotspots.json` или `data-hs-*`), ссылки на галерею и прототип.
+- **Хуки расширения во всех режимах**: `build/extra.css|js` и `build/extra/*.css|js` встраиваются и в `--single/--lite`; API `window.PS` (`replace`, `on/emit`, окна, роутер).
+- **Гант на весь горизонт**: месяцы плана и видение до конца года последней задачи; пробелы плана заштрихованы на странице и на графике `charts.py`.
+
+### Исправлено
+- Страница: стабильная высота ленивых заглушек графиков на телефоне (FB-037); доступность схем — `role="group"`, `<title>` у каждого блока, `check_flow.mjs` падает на описанном блоке без `<title>` (FB-038); карточки реестра на узком экране свёрнуты, пустые колонки таблиц не выводятся, Firefox — «skip» с причиной (FB-039).
+- smoke: проверки видимости и интерактивности по каждому графику в Chromium и WebKit (FB-036), без жёстко зашитых фраз; поиск в реестре и фильтрах понимает несколько слов.
+- `gap_audit.py` без `SyntaxWarning`, черновики G7 без ложных «нет merged_from», понятный `--remap` (FB-019…FB-021); подсказка про `build/overrides.json` при длинной цитате (FB-029).
+- Ёмкость считалась по-разному в модели, решениях и тексте: теперь одно определение (дефолт 10 ч/нед × 70 % ÷ 8 ч вместо 12 дн. × 6 ч) — осознанное изменение чисел.
+
+### Тесты
+- ≈ 860 тестов (было ≈ 500); новые файлы: `test_concept_intake_{text,banks,checks,dossier}`, `test_plan_baseline`, `test_capacity`, `test_model_web_direct_personal`, `test_registry_fb_{gap,check,merge,reports}`, `test_process_{init_run,dispatch,build_all,render_brief,paths_env,pivot}`, `test_site_{interactive,viewer_ui,flow_a11y}`, `test_charts_gantt_horizon`, `test_design_fb_{kit,competitors}`, `test_mockups_fb_tools`, `test_briefs_concept`, `test_briefs_wave2`, `test_prototype_kit`. Осознанно изменены ожидания в `test_concept`, `test_render_brief`, `test_registry2`, `test_decisions`, `test_dispatch`, `test_build_html`, `test_site_mode`, `test_charts_ui`. Как запускать — `tests/README.md`.
+
 ## [1.4.0] — 2026-10-11
 По двум отзывам пользователей о боевых прогонах (всего 100 пунктов; сверка с кодом — `docs/plans/2026-10-11-feedback-triage.md`) и просьбам: интерактивные графики, страница без единого тяжёлого HTML, файл задач для Claude Code.
 

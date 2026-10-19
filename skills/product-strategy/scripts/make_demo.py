@@ -180,10 +180,10 @@ def main(argv=None):
                                     "cards": [{"id": p["id"], "title": p["title"], "column": cols[k % 6], "goal": "демо-цель", "steps": ["шаг 1", "шаг 2"],
                                                "kpi": "активация", "links": [], "tags": [], "priority": "P1", "effort_days": p["effort_days"]}
                                               for k, p in enumerate(props[:20])]})
-    # узел — <g data-node> с фигурой и подписью внутри (как в брифе flows.md): check_flow.mjs считает подпись своей
+    # узел — <g data-node> с <title> первым (текст из nodes[].what, FB-038), фигурой и подписью внутри (бриф flows.md)
     svg = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 120">'
-           + "".join('<g data-node="user-journey:%d"><rect x="%d" y="30" width="180" height="60" rx="8" fill="%s"/>'
-                     '<text x="%d" y="65" text-anchor="middle">%s</text></g>' % (k + 1, 10 + 220 * k, fill, 100 + 220 * k, lab)
+           + "".join('<g data-node="user-journey:%d"><title>%s: демо</title><rect x="%d" y="30" width="180" height="60" rx="8" fill="%s"/>'
+                     '<text x="%d" y="65" text-anchor="middle">%s</text></g>' % (k + 1, lab, 10 + 220 * k, fill, 100 + 220 * k, lab)
                      for k, (lab, fill) in enumerate(zip(('Первый визит', 'Активация', 'Оплата'), ("#eef", "#efe", "#fee"))))
            + "</svg>")
     write(out, "charts/flows/user-journey.svg", svg)
@@ -196,7 +196,7 @@ def main(argv=None):
     for k in range(1, 7):
         write(out, "mockups/concepts/M%02d-demo.html" % k,
               '<!doctype html><meta charset="utf-8"><title>Демо %d</title><body style="font:16px system-ui;margin:0">'
-              '<div style="position:fixed;top:8px;right:8px;background:#c00;color:#fff;padding:4px 8px">Концепт, не существующая функция</div>'
+              '<div class="ps-concept-badge" style="position:fixed;top:8px;right:8px;background:#c00;color:#fff;padding:4px 8px">Концепт, не существующая функция</div>'
               '<h1 style="padding:40px">Демо-концепт %d</h1></body>' % (k, k))
     write(out, "design-refs/01-demo.json", {"file": "mockups/concepts/M01-demo.html", "png": "design-refs/01-demo.png", "scale": 1,
                                             "width": 1440, "height": 900, "title": "Демо-референс", "proposals": [props[0]["id"]],

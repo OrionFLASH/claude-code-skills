@@ -5102,6 +5102,9 @@ function kv(pairs) { var h = pairs.filter(function (p) { return p[1] !== '' && p
 function asObj(x, key) { if (x && typeof x === 'object') return x; var o = {}; o[key] = x; return o; }
 function conceptsHtml(r, inModal) {
   if (!r.concepts || !r.concepts.length) return '';
+  /* много концептов (10–20 макетов на предложение) — первые три видны, остальные под «Ещё» (иначе карточка 3 тыс. px и на 1440) */
+  if (r.concepts.length > 3) { var head = { concepts: r.concepts.slice(0, 3) }, rest = { concepts: r.concepts.slice(3) };
+    return conceptsHtml(head, inModal) + '<details class="more-concepts"><summary>Ещё концептов: ' + rest.concepts.length + '</summary>' + conceptsHtml(rest, inModal) + '</details>'; }
   return '<div class="concepts">' + r.concepts.map(function (c) {
     var html = c.html ? ' · <a href="' + esc(c.html) + '" target="_blank" rel="noopener">HTML-макет</a>' : '';
     if (c.img && IMG[c.img]) { var d = DIMS[c.img] || []; return '<figure class="lb' + (c.mobile ? ' mobile' : '') + '" data-key="' + esc(c.img) + '" data-group="mockups" data-ref="' + esc(c.ref || '') + '" data-cap="' + esc(c.title) + '" tabindex="0" role="button"><img data-img="' + esc(c.img) + '" alt="' + esc(c.title) + '"' + (d[0] ? ' width="' + d[0] + '" height="' + d[1] + '"' : '') + '><figcaption><b>' + esc(c.title) + '</b> <span class="badge-concept">концепт</span>' + (c.ref ? ' · <a href="#ref-' + esc(c.ref) + '">референс →</a>' : '') + html + '</figcaption></figure>'; }

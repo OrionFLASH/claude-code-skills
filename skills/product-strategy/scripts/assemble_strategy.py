@@ -51,7 +51,10 @@
   - числа без метки (FB-030): не считаются числа, совпадающие со значениями плейсхолдеров и факт-листа (build/strategy-facts.md),
     и строки таблиц с колонкой «Источник»/«Метка»; повторы чисел между разделами 2/3/6/7 — только при совпадении контекста
     (±5 слов, `repeats.numbers`), прежний список по одному значению — `repeats.numbers_value_only`;
-  - черновик решений (decisions.json с полем draft) → предупреждение `decisions_draft`.
+  - черновик решений (decisions.json с полем draft) → предупреждение `decisions_draft`;
+  - вопросы запроса (FB-001): у каждого run-config idea.request_questions[] с kind research или deliverable в тексте должен
+    быть маркер `[RQ01]` (id вопроса) — нет → ошибка `request_question_unanswered` (в --lenient — предупреждение); вопросы
+    kind format не проверяются; отчёт — `request_questions` (id, разделы с маркером).
 
 Результат: research/strategy.md (без --check), отчёт build/assemble-report.json. Если существующий strategy.md отличается от
 собранного из частей, прежний сохраняется в build/strategy.prev.md.
@@ -1086,6 +1089,25 @@ def unlabeled_items(raw_neutral, pre_neutral, owner, starts, pre_src, known=None
     return items
 
 
+def check_request_questions(text, cfg, rep, section_of):
+    """FB-001: у каждого вопроса запроса kind ∈ {research, deliverable} (run-config idea.request_questions[].id) в собранном
+    тексте есть маркер [RQ01]; нет — ошибка request_question_unanswered (в --lenient — предупреждение).
+    → [{id, kind, text, sections: [N…], found}]."""
+    rqs = [q for q in ((cfg.get("idea") or {}).get("request_questions") or []) if isinstance(q, dict) and q.get("id")]
+    rows = []
+    lines = text.splitlines()
+    for q in rqs:
+        kind = str(q.get("kind") or "research")
+        mark = "[%s]" % q["id"]
+        secs = sorted({section_of(i) for i, line in enumerate(lines, 1) if mark in line} - {None})
+        found = any(mark in line for line in lines)
+        rows.append({"id": q["id"], "kind": kind, "text": q.get("text"), "sections": secs, "found": found})
+        if kind in ("research", "deliverable") and not found:
+            rep.error("request_question_unanswered", "вопрос запроса %s («%s») без маркера %s в тексте: ответ — в разделе-владельце "
+                      "с маркером %s" % (q["id"], str(q.get("text") or "")[:90], mark, mark))
+    return rows
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0], formatter_class=argparse.RawDescriptionHelpFormatter,
                                  epilog="Подробности — в docstring скрипта, references/data-contract.md и references/decisions.md.")
@@ -1177,6 +1199,7 @@ def main(argv=None):
                 cur = n
         return cur
     stats, n_urls = check_text(text, data, rep, section_of)
+    rq_rows = check_request_questions(text, data.cfg, rep, section_of)
     depth = (data.cfg.get("strategy") or {}).get("depth")
     wc = {n: words(sections[n]) for n in order}
     for n in order:
@@ -1213,6 +1236,7 @@ def main(argv=None):
         "plan_consistency": {"baseline": reg.plan is not None, "issues": plan_issues},
         "illustration": {"mode": (reg.model or {}).get("mode"), "unlabeled": ill},
         "repeats": repeats,
+        "request_questions": rq_rows,
         "errors": rep.errors, "warnings": rep.warnings, "notes": rep.notes,
         "counts": {"errors": len(rep.errors), "warnings": len(rep.warnings), "notes": len(rep.notes)},
     }

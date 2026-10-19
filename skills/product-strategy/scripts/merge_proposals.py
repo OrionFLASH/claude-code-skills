@@ -1677,6 +1677,13 @@ def run_append(out_dir, a, cfg, reqs):
         p["merged_from"] = list(dict.fromkeys([orig] + it["absorbed"])) if it["absorbed"] else []
         added.append(p)
     warns += remap_dependencies(added, id_map, alias, keep_ids=old_ids | set(id_map.values()), fallback=prior)
+    for p in added:                                   # черновики G8 от link_mockups.py --collect-gaps: оценки дописываются до --append
+        if p.get("needs_details"):
+            orig = next((k for k, v in id_map.items() if v == p["id"] and k != p["id"]), "?")
+            w = ("%s (%s) — оценки не дописаны: черновик с needs_details: true (scores/effort_days/steps — дописать в "
+                 "data/proposals-draft-%s.json или build/overrides.json, затем score.py)" % (p["id"], orig, p.get("source_group") or "G8"))
+            warns.append(w)
+            print("  ! " + w)
     run_map = {}
     for it in new_kept:
         run_map[it["p"]["id"]] = id_map[it["p"]["id"]]

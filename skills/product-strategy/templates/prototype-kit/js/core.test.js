@@ -52,11 +52,21 @@ test('checkForbidden: запретные формулировки', function () 
 });
 
 // ---------------------------------------------------------------- канон: числа макетов = числа ядра
-var canonPath = process.argv[2] || process.env.PK_CANON || path.join(__dirname, '..', 'fixtures', 'canon.json');
-var canon;
+var fixturePath = path.join(__dirname, '..', 'fixtures', 'canon.json');
+var canonPath = process.argv[2] || process.env.PK_CANON || fixturePath;
+var canon, casesFrom = canonPath;
 try { canon = JSON.parse(fs.readFileSync(canonPath, 'utf8')); } catch (e) { failed += 1; failures.push('канон ' + canonPath + ': ' + e.message); }
 var cases = canon ? (Array.isArray(canon) ? canon : canon.cases || []) : [];
-test('канон не пуст', function () { assert.ok(cases.length > 0, 'в каноне нет кейсов'); });
+// Канон прогона из facts_scaffold.py --demo-canon — только значения показа (values) без кейсов ядра:
+// кейсы берутся из fixtures/canon.json прототипа (их пишет агент prototype-core).
+if (!cases.length && canon && !Array.isArray(canon) && canon.values && path.resolve(canonPath) !== path.resolve(fixturePath)) {
+  try {
+    var fx = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
+    cases = Array.isArray(fx) ? fx : fx.cases || [];
+    casesFrom = fixturePath;
+  } catch (e) { /* нет фикстуры — тест «канон не пуст» скажет об этом */ }
+}
+test('канон не пуст', function () { assert.ok(cases.length > 0, 'в каноне нет кейсов ядра (cases) — их пишет агент prototype-core'); });
 cases.forEach(function (c) {
   test('канон ' + c.id + ' (' + (c.title || c.fn || '') + ')', function () {
     var r = core.computeCase(c);
@@ -64,6 +74,6 @@ cases.forEach(function (c) {
   });
 });
 
-console.log((failed ? 'FAILED' : 'OK') + ': ' + passed + ' passed, ' + failed + ' failed (канон: ' + path.basename(canonPath) + ', кейсов ' + cases.length + ')');
+console.log((failed ? 'FAILED' : 'OK') + ': ' + passed + ' passed, ' + failed + ' failed (канон: ' + path.basename(canonPath) + (casesFrom !== canonPath ? ', кейсы: ' + path.basename(casesFrom) : '') + ', кейсов ' + cases.length + ')');
 failures.forEach(function (f) { console.log('  ✗ ' + f); });
 process.exit(failed ? 1 : 0);

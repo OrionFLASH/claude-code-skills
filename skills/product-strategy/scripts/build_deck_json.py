@@ -27,6 +27,13 @@ from pathlib import Path
 CATS = {"product": "Продукт", "acquisition": "Привлечение", "conversion": "Конверсия", "retention": "Удержание",
         "monetization": "Монетизация", "analytics": "Аналитика", "partnerships": "Партнёрства",
         "localization": "Локализация", "new_lines": "Новые линии", "platform": "Платформа"}
+
+try:                                                   # подписи личного режима и новых категорий — из check_registry (WP-C)
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from check_registry import CATEGORY_LABELS_RU as _CAT_ALL
+    CATS = dict(_CAT_ALL, **CATS)                      # свои подписи важнее; неизвестная категория — как есть (CATS.get(c, c))
+except Exception:                                      # noqa: BLE001 — без check_registry — прежние подписи
+    pass
 HORIZONS = {"now": "Сейчас (0–3 мес)", "next": "Дальше (3–12 мес)", "later": "Позже (1–2 года)", "vision": "Видение (2+ года)"}
 DEFAULT_THEME = {"bg": "FFFFFF", "surface": "F3F5F8", "text": "1F2933", "muted": "5F6B7A", "accent": "2563EB",
                  "accent2": "D97706", "border": "D5DBE3", "font": "Calibri"}

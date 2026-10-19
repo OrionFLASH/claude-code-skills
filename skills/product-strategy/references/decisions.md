@@ -122,7 +122,7 @@
 
 ## 3б. Черновик раздела 1: `summary_scaffold.py` (FB-047)
 
-`summary_scaffold.py <OUT>` → `build/strategy-summary.md`; `--to-part` — `build/parts/strategy-01.md` (если части нет, иначе
+`summary_scaffold.py <OUT>` → `build/summary-draft.md` (вход брифа `strategy-summary.md`; не в `build/parts/`); `--to-part` — `build/parts/strategy-01.md` (если части нет, иначе
 `--force`). Структура по `concept-outline.md` (идея, пересмотр идеи по `premises.json` / `idea.pitch_v2`, вердикт светофора,
 цель горизонта, план, три ставки с критериями отказа и pre-mortem, анти-цели, развилки, топ-10, деньги или стоимость владения,
 вставки графиков, первые 30 дней); все числа и даты — плейсхолдеры `{plan:…}`, `{bet:…}`, `{model:…}`, `{deprank:…}`, поэтому

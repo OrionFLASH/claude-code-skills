@@ -78,6 +78,15 @@ CATEGORY_SECTION = {"product": "product", "new_lines": "product", "platform": "p
 CATEGORY_RU = {"product": "продукт", "new_lines": "новые линии", "platform": "платформа", "acquisition": "привлечение",
                "partnerships": "партнёрства", "conversion": "конверсия", "retention": "удержание", "analytics": "аналитика",
                "monetization": "монетизация", "localization": "локализация"}
+# личный режим (SM разд. 4, категории check_registry.PERSONAL_CATEGORIES): раздел эпика и подпись
+CATEGORY_SECTION.update({"core": "product", "data-sources": "platform", "reliability": "platform", "privacy-security": "compliance",
+                         "ux": "ui", "ai-quality": "product", "maintenance": "platform", "personal-analytics": "analytics"})
+try:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from check_registry import CATEGORY_LABELS_RU as _CAT_ALL
+    CATEGORY_RU = dict({k: v.lower() if k != "ux" else v for k, v in _CAT_ALL.items()}, **CATEGORY_RU)
+except Exception:                                      # noqa: BLE001
+    pass
 # Признаки интерфейсной работы — единственное место со списком слов.
 UI_TAGS = {"ui", "ux", "design"}
 UI_TEXT_CATEGORIES = {"conversion", "product"}
@@ -636,6 +645,40 @@ def render_epic(m, sid):
     return L
 
 
+def prototype_block(ctx):
+    """SM 7, п. 5 «связка с handoff»: есть prototype/HANDOFF.md и data/prototype.json → раздел «Перенос рабочего прототипа»
+    (ядро, тесты канона, режимы, расхождения прототип ↔ боевая версия из HANDOFF.md). Нет файлов — пустой список."""
+    out = ctx.out
+    pj = jload(out / "data" / "prototype.json", None)
+    hand = out / "prototype" / "HANDOFF.md"
+    if not isinstance(pj, dict) or not hand.exists():
+        return []
+    L = ["## Перенос рабочего прототипа", "",
+         "Рабочий прототип (фаза C8.5) — статический HTML+JS: ядро расчётов с тестами канона демо-данных и режимы интерфейса. "
+         "Переносить ядро в боевой стек вместе с тестами: числа макетов = числа ядра = канон (`references/prototype.md`).", "",
+         "| Что | Где |", "|---|---|"]
+    for what, rel in (("Инструкция переноса", "prototype/HANDOFF.md"), ("Прототип", pj.get("path") or "prototype/index.html"),
+                      ("Ядро расчётов", "prototype/js/core.js"), ("Тесты ядра (канон)", "prototype/js/core.test.js"),
+                      ("Контракт оболочки", "prototype/js/kit.test.js"), ("Сверка канона", "prototype/tools/check_canon.py"),
+                      ("Канон демо-данных", "data/demo-canon.json")):
+        if ctx.exists(rel):
+            L.append("| %s | %s |" % (what, ctx.path(rel)))
+    ct, cn = pj.get("core_tests") or {}, pj.get("canon") or {}
+    L += ["", "Статус: %s; режимы: %s; тесты ядра: %s прошло, %s упало; канон: кейсов %s, ошибок %s; смоук: %s." % (
+        clean(pj.get("status") or "—", 20), ", ".join(map(str, pj.get("modes") or [])) or "—", ct.get("passed", "—"), ct.get("failed", "—"),
+        cn.get("cases", "—"), cn.get("errors", "—"),
+        ", ".join("%s — %s" % kv for kv in (pj.get("smoke") or {}).items()) or "—"), ""]
+    text = tload(hand) or ""
+    m = re.search(r"(?ms)^#{2,4}[^\n]*расхожден[^\n]*\n(.*?)(?=^#{1,4}\s|\Z)", text, re.I)
+    items = [re.sub(r"^\s*[-*]\s+", "", x).strip() for x in (m.group(1).splitlines() if m else []) if re.match(r"^\s*[-*]\s+", x)]
+    if items:
+        L += ["**Расхождения прототип ↔ боевая версия** (из `HANDOFF.md`; в боевой версии решить явно):", ""]
+        L += ["- %s" % clean(x, 200) for x in items[:20]] + [""]
+    else:
+        L += ["Расхождения прототип ↔ боевая версия — раздел «Расхождения» в `HANDOFF.md` (не найден — уточнить у агента регрессии).", ""]
+    return L
+
+
 def render(m, cfg, template_text):
     ctx, d = m["ctx"], m["ctx"].d
     out = ctx.out
@@ -749,6 +792,7 @@ def render(m, cfg, template_text):
             L.append("| %s | %s | %s | %s | %s |" % (e["id"], ", ".join(e["pids"]) or "—", clean(e["hypothesis"], 160) or "—",
                                                    clean(e["metric"], 100) or "—", ctx.path(e["path"])))
         L.append("")
+    L += prototype_block(ctx)
     # (з) приложение
     L += ["## Приложение", "", "### Таблица соответствия", "",
           "Заполняет Claude Code после создания issues: номера эпиков — в первой таблице, номера задач — в столбце «Issue №» второй.", "",

@@ -11,7 +11,8 @@ data/scores.json (топ-10 — {rank:P…}), data/model.json (сценарии 
 Текст — каркас для оркестратора или агента резюме (бриф strategy-summary.md, если есть): связки пишет человек, но ни одно
 число и ни одна дата не набираются руками — проверка согласованности (plan_baseline.py --check) проходит без расхождений.
 
-Выход: build/strategy-summary.md (по умолчанию); --to-part — build/parts/strategy-01.md (если части нет или --force);
+Выход: build/summary-draft.md (по умолчанию; не в build/parts/ — сборщик взял бы его как часть и раздел 1 задвоился бы;
+его читает бриф strategy-summary.md); --to-part — build/parts/strategy-01.md (если части нет или --force);
 --stdout — только напечатать. Код выхода 0; 2 — нет папки <OUT>/data.
 Только стандартная библиотека.
 """
@@ -138,10 +139,10 @@ def main(argv=None):
     if a.stdout:
         sys.stdout.write(text)
         return 0
-    target = out / "build" / ("parts/strategy-01.md" if a.to_part else "strategy-summary.md")
+    target = out / "build" / ("parts/strategy-01.md" if a.to_part else "summary-draft.md")
     if a.to_part and target.exists() and not a.force:
-        target = out / "build" / "strategy-summary.md"
-        print("build/parts/strategy-01.md уже есть — черновик записан в build/strategy-summary.md (--force перезапишет часть)", file=sys.stderr)
+        target = out / "build" / "summary-draft.md"
+        print("build/parts/strategy-01.md уже есть — черновик записан в build/summary-draft.md (--force перезапишет часть)", file=sys.stderr)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(text, encoding="utf-8")
     print("записано %s (мест «%s»: %d)" % (target, FILL, text.count(FILL)))

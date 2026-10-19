@@ -35,9 +35,16 @@
   dispatch.py <OUT> owners [--json]             общие пути: шаблоны выдачи, которые есть у двух и более заданий одной
                                                 волны (два агента не пишут в один файл — назначьте владельца)
 
-Политика агентов (FB-003) — run-config tools.agents {model_policy: triage | default | custom, effort_policy: explicit | none}:
+Политика агентов (FB-003) — run-config tools.agents {model_policy: triage | default | custom, effort_policy: explicit | none, note}:
 effort выдаётся в `ready` только при effort_policy = explicit (нет поля tools.agents — как в 1.4: effort, если задан);
-model_policy = triage — `ready` напоминает про `triage <волна>` для заданий без триажа. Агенты пишут в общий <OUT>:
+model_policy = triage — `ready` напоминает про `triage <волна>` для заданий без триажа, custom — печатает tools.agents.note,
+default — модели по правилам скилла.
+Новые брифы 1.5 (WP-G): вид и волна выводятся из имени брифа, если --kind/--model не заданы (research-integration →
+integration/C4, research-datasources → datasources, research-ai → ai, research-owner-refs → owner_refs,
+concept-ai-observability и concept-admin → module/C7, strategy-summary → summary/C7, prototype-core|shell|mode-*|regression →
+prototype_core|prototype_shell|prototype_mode|prototype_regression/C8.5); прогноз режима идеи добавляет модули C4/C7 по
+idea.facets (ai_role, data_sources_needed, owner_repos/owner_docs, admin_needed) и шаги C8.5 (ядро → оболочка → режимы × N →
+регрессия). Агенты пишут в общий <OUT>:
 isolation (worktree) не ставится никогда — build/triage-<волна>.json несёт "shared_out": true, а isolation из ответа
 триажа снимается (FB-013).
 Прогноз: таблица глубины (references/phases.md) × типовые затраты на задание; калибровка — два реальных прогона
@@ -67,13 +74,28 @@ KINDS = {
     "plan": ("sonnet", 120, 15), "mockups": ("opus", 230, 30), "flows": ("opus", 140, 20), "refs": ("opus", 180, 25),
     "fixes": ("sonnet", 100, 15), "integration": ("opus", 280, 30), "canvas": ("opus", 180, 20), "design": ("opus", 200, 25),
     "prototype": ("opus", 300, 40),
+    # 1.5.0 (WP-G): модули C4/C7, резюме, фаза C8.5 по шагам — references/orchestration.md, «Модель по умолчанию»
+    "datasources": ("sonnet", 230, 25), "ai": ("opus", 260, 30), "owner_refs": ("opus", 180, 20), "module": ("opus", 200, 25),
+    "summary": ("opus", 120, 15), "prototype_core": ("opus", 300, 40), "prototype_shell": ("opus", 260, 35),
+    "prototype_mode": ("sonnet", 200, 30), "prototype_regression": ("sonnet", 220, 30),
 }
+# бриф → вид задания (для add без --kind; G7): новые брифы 1.5.0 и их волны
+BRIEF_KINDS = {"research-integration": ("integration", "C4"), "research-datasources": ("datasources", "C4"), "research-ai": ("ai", "C4"),
+               "research-owner-refs": ("owner_refs", "C4"), "concept-ai-observability": ("module", "C7"), "concept-admin": ("module", "C7"),
+               "strategy-summary": ("summary", "C7"), "prototype-core": ("prototype_core", "C8.5"),
+               "prototype-shell": ("prototype_shell", "C8.5"), "prototype-mode": ("prototype_mode", "C8.5"),
+               "prototype-regression": ("prototype_regression", "C8.5")}
+# порядок шагов C8.5: ядро → оболочка → режимы (параллельно, общих путей нет) → регрессия
+PROTO_ORDER = ["prototype_core", "prototype_shell", "prototype_mode", "prototype_regression"]
 KIND_TITLES = {"research": "сбор данных фазы 4", "legal": "правовой обзор", "cards": "карточки конкурентов", "readers": "инвентарь функций по папкам",
                "ux": "UX-разбор скриншотов", "titles": "реестр, проход 1", "details": "реестр, проход 2", "audit": "аудит пробелов",
                "scorer": "второй оценщик", "section": "разделы стратегии", "specs": "спецификации", "experiments": "эксперименты",
                "plan": "Гант и Kanban", "mockups": "макеты", "flows": "блок-схемы", "refs": "design-refs", "fixes": "правки по дефектам",
                "integration": "техническая интеграция с платформой", "canvas": "канвасы и SWOT", "design": "направления дизайна",
-               "prototype": "рабочий прототип"}
+               "prototype": "рабочий прототип", "datasources": "источники данных и лицензии", "ai": "ИИ в продукте",
+               "owner_refs": "референсы владельца", "module": "модули C7 (ИИ-наблюдаемость, администрирование)",
+               "summary": "резюме (раздел 1)", "prototype_core": "прототип: ядро", "prototype_shell": "прототип: оболочка",
+               "prototype_mode": "прототип: режим", "prototype_regression": "прототип: регрессия"}
 # режим идеи (mode: concept): фазы C4…C8.5; аналоги/сообщества/запросы/события — research, право и интеграция — по run-config
 CONCEPT_AGENTS = {
     "quick": {"C4": {"research": 2}, "C5": {"details": 3}, "C7": {"canvas": 1, "section": 2, "specs": 1, "experiments": 1},
@@ -232,14 +254,28 @@ def split_list(v):
     return [x.strip() for x in str(v).split(",") if x.strip()]
 
 
+def brief_kind(brief):
+    """build/briefs/prototype-mode-pro.md → ("prototype_mode", "C8.5"); не новый бриф 1.5.0 → None."""
+    stem = Path(str(brief or "")).stem
+    for name in sorted(BRIEF_KINDS, key=len, reverse=True):
+        if stem == name or stem.startswith(name + "-"):
+            return BRIEF_KINDS[name]
+    return None
+
+
 def make_task(out, d):
     if not d.get("id"):
         raise ValueError("у задания нет id")
     kind = d.get("kind")
     if kind and kind not in KINDS:
         raise ValueError("неизвестный kind %s (есть: %s)" % (kind, ", ".join(KINDS)))
-    model = d.get("model") or (KINDS[kind][0] if kind else "sonnet")
     brief = d.get("brief") or ""
+    bk = brief_kind(brief)
+    if not kind and not d.get("model") and bk:          # новые брифы 1.5.0: вид и волна по имени брифа (G7)
+        kind = bk[0]
+        if not d.get("wave") and not d.get("phase"):
+            d = dict(d, wave=bk[1])
+    model = d.get("model") or (KINDS[kind][0] if kind else "sonnet")
     paths = split_list(d.get("paths")) or (brief_paths(out, brief) if brief else [])
     return {"id": str(d["id"]), "wave": str(d.get("wave") or d.get("phase") or "1"), "phase": str(d.get("phase") or ""),
             "kind": kind, "brief": brief, "task": d.get("task") or (brief_goal(out, brief) if brief else ""),
@@ -519,7 +555,15 @@ def concept_flags(cfg):
     platform = bool(fc.get("platform_dependency"))
     proto = (cfg.get("phases") or {}).get("prototype") is True or bool(fc.get("prototype_needed"))
     one_pass = str((cfg.get("registry") or {}).get("passes") or "") == "1"
-    return {"legal": legal, "platform": platform, "prototype": proto, "one_pass": one_pass}
+    ai_role = fc.get("ai_role") if fc.get("ai_role") is not None else fc.get("ai")
+    ai = bool(ai_role) and str(ai_role).lower() not in ("none", "no", "нет", "без ии", "false", "[]")
+    datasrc = bool(fc.get("data_sources_needed"))
+    docs = [x for x in (cfg.get("sources") or {}).get("owner_docs") or [] if isinstance(x, dict)]
+    owner_refs = bool(fc.get("owner_repos")) or any(str(x.get("role") or "") in ("base", "follow", "ref") for x in docs)
+    admin = fc.get("admin_needed") is True or bool(fc.get("admin_who") or fc.get("admin_settings"))
+    modes = [m for m in ((cfg.get("design") or {}).get("modes") or []) if m]
+    return {"legal": legal, "platform": platform, "prototype": proto, "one_pass": one_pass, "ai": ai, "datasources": datasrc,
+            "owner_refs": owner_refs, "admin": admin, "modes": len(modes) or 1}
 
 
 def concept_agents(depth, cfg, fast=False):
@@ -537,6 +581,18 @@ def concept_agents(depth, cfg, fast=False):
         c4.pop("legal", None)
     if fl["platform"]:
         c4["integration"] = 1
+    if not fast:                                          # модули C4/C7 по признакам идеи (G7, WP-G)
+        if fl["datasources"]:
+            c4["datasources"] = 1
+        if fl["ai"]:
+            c4["ai"] = 1
+        if fl["owner_refs"]:
+            c4["owner_refs"] = 1
+        c7 = plan.setdefault("C7", {})
+        if fl["ai"]:
+            c7["module"] = c7.get("module", 0) + 1
+        if fl["admin"]:
+            c7["module"] = c7.get("module", 0) + 1
     if sc.get("competitors") is False:
         c4.pop("cards", None)
     if fl["one_pass"] and "titles" in plan.get("C5", {}):
@@ -551,8 +607,12 @@ def concept_agents(depth, cfg, fast=False):
         c8.pop("refs", None)
     if sc.get("experiments") == 0:
         plan.get("C7", {}).pop("experiments", None)
-    if fl["prototype"] and not fast:
-        plan["C8.5"] = {"prototype": 4 if depth in ("deep", "exhaustive") else 3}
+    if fl["prototype"] and not fast:                      # ядро → оболочка → режимы × N → регрессия (references/prototype.md)
+        if depth == "quick":
+            plan["C8.5"] = {"prototype_core": 1}
+        else:
+            plan["C8.5"] = {"prototype_core": 1, "prototype_shell": 1,
+                            "prototype_mode": fl["modes"] if depth in ("deep", "exhaustive") else 1, "prototype_regression": 1}
     return {ph: {k: v for k, v in kinds.items() if v} for ph, kinds in plan.items()}
 
 
@@ -581,6 +641,9 @@ def forecast(depth, parallel, cfg, fast=False):
         elif ph in ("7", "8", "C7", "C8"):                # фазы 7 и 8 идут общими волнами
             pool78 += mins_list
             mins = None
+        elif ph == "C8.5" and any(k in kinds for k in PROTO_ORDER):   # шаги прототипа последовательно, режимы — параллельно
+            mins = sum(wave_minutes([KINDS[k][2] * mm] * kinds.get(k, 0), parallel) for k in PROTO_ORDER) + \
+                wave_minutes([KINDS[k][2] * mm for k, c in kinds.items() if k not in PROTO_ORDER for _ in range(c)], parallel)
         else:
             mins = wave_minutes(mins_list, parallel)
         if mins is not None:
@@ -815,7 +878,9 @@ def main(argv=None):
             untriaged = [t["id"] for t in res if not t.get("triage")] if mp == "triage" else []
             if a.json:
                 print(json.dumps({"ready": items, "blocked": [{"id": i, "why": w} for i, w in blocked], "free_slots": slots,
-                                  "started": started, "policy": {"model": mp, "effort": ep}, "untriaged": untriaged,
+                                  "started": started, "policy": {"model": mp, "effort": ep,
+                                                                 "note": ((cfg.get("tools") or {}).get("agents") or {}).get("note") if mp == "custom" else None},
+                                  "untriaged": untriaged,
                                   "isolation": "не ставить: агенты пишут в общий <OUT>"}, ensure_ascii=False, indent=2))
             else:
                 running = sum(1 for t in st["tasks"] if t["status"] == "running")
@@ -826,6 +891,12 @@ def main(argv=None):
                     print("  isolation не ставить: агенты пишут в общий <OUT>, пути разведены брифами")
                 if untriaged:
                     print("  политика моделей triage: без триажа — %s → dispatch.py <OUT> triage <волна> --run <typesafe_triage.py>" % ", ".join(untriaged))
+                if items and mp == "custom":
+                    print("  политика моделей custom: %s" % (((cfg.get("tools") or {}).get("agents") or {}).get("note") or "правила владельца не записаны (tools.agents.note)"))
+                elif items and mp == "default":
+                    print("  политика моделей default: модели по правилам скилла (references/orchestration.md, «Выбор модели»)")
+                if items and ep not in (None, "explicit"):
+                    print("  effort не задаётся (tools.agents.effort_policy = %s)" % ep)
                 for i, w in blocked:
                     print("  ждёт %s: %s" % (i, w))
                 if not items and not running and all(t["status"] in ("done", "failed") for t in st["tasks"]):

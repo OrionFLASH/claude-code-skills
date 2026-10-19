@@ -660,7 +660,7 @@ def apply_product_mode(cfg):
     if cfg.get("mode") == "concept":
         return cfg
     pr, sc, src = cfg["product"], cfg["scope"], cfg["sources"]
-    repo = cfg["repo"]["path"]
+    repo = _xp(cfg["repo"]["path"])
     mode = pr.get("mode") or "repo"
     if mode == "auto":
         mode, why = detect_product_mode(repo)
@@ -757,7 +757,7 @@ def resolve_capacity(cfg):
 
 def resolve_auto(cfg):
     """Значения auto → конкретные (product.mode, markets, product.type, project.currency, strategy.profile); решения — в assumptions."""
-    repo = cfg["repo"]["path"]
+    repo = _xp(cfg["repo"]["path"])
     apply_product_mode(cfg)
     s, pr, prj = cfg["strategy"], cfg["product"], cfg["project"]
     external = pr.get("mode") == "external"
@@ -859,7 +859,7 @@ def finalize(cfg):
             cfg["scope"][k] = depth[k]
     cfg["strategy"]["proposals_min"] = max(50, int(cfg["strategy"]["proposals_min"]))
     if not cfg["output"]["dir"]:
-        top = Path(cfg["repo"]["path"])
+        top = Path(cfg["repo"]["path"]).expanduser()
         today = cfg["created"]
         cfg["output"]["dir"] = str(top / "strategy" / today) if cfg["output"]["inside_repo"] \
             else str(top.parent / ("%s-strategy" % top.name) / today)
@@ -1173,7 +1173,7 @@ def apply_from_askuser(cfg, answers, strict=True):
                             why="выбрано «Есть выгрузка» без пути")
                     continue
                 if kind == "__git__":
-                    name = _git_user(cfg["repo"]["path"])
+                    name = _git_user(_xp(cfg["repo"]["path"]))
                     if name:
                         cfg["author"]["name"] = name
                     continue
@@ -1390,8 +1390,13 @@ def _yn(v):
     return "да" if v else "нет"
 
 
+def _xp(v):
+    """Путь из run-config с «~» (relocate_run.py --portable-config, FB-017) → абсолютная строка; пусто — как есть."""
+    return str(Path(str(v)).expanduser()) if v not in (None, "") else v
+
+
 def write_config(cfg):
-    out = Path(cfg["output"]["dir"])
+    out = Path(cfg["output"]["dir"]).expanduser()     # FB-017: пути run-config могут быть с «~» (--portable-config)
     (out / "build").mkdir(parents=True, exist_ok=True)
     p = out / "build" / "run-config.json"
     p.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -3058,12 +3063,13 @@ def concept_finish(cfg, cwd, request="", name=None, slug=None, topic_en=None, ke
     ag = cfg["tools"].setdefault("agents", {})
     ag.setdefault("model_policy", "triage")
     ag.setdefault("effort_policy", "none")
-    gs = cc.git_state(cfg["output"]["dir"])
+    gs = cc.git_state(_xp(cfg["output"]["dir"]))
     cfg["git"] = {"state": gs["state"], "has_origin": gs["has_origin"], "branch": gs.get("branch"), "default_branch": gs.get("default_branch"),
                   "visibility": cfg["project"].get("repo_visibility") or "unknown"}
     rules = cc.owner_rules(gs.get("top") or cwd, home)
     if rules.get("sources"):
         cfg["owner_rules"] = rules
+    ask_competitor_shots(cfg)
     notes += concept_run_checks(cfg)
     if idea["name_source"] == "auto" and "name" not in dec:
         _follow(cfg, "idea.decisions.name", "Имя и папка",
@@ -3072,6 +3078,24 @@ def concept_finish(cfg, cwd, request="", name=None, slug=None, topic_en=None, ke
                  ("Придумать варианты позже", "Оставить рабочее имя до выбора названия", "later")],
                 "имя выведено из текста идеи (FB-022); своё — concept-apply --name/--slug")
     return notes
+
+
+SHOTS_OPTIONS = [("Только локально (Recommended)", "PNG в .gitignore: в git не попадут, на странице — уменьшенные копии", "local"),
+                 ("Сжатые превью в git", "В репозиторий — только превью до 800 px (права на скриншоты — references/safety.md)", "previews"),
+                 ("В git целиком", "Скриншоты коммитятся как есть (только если репозиторий приватный или права ясны)", "git")]
+
+
+def ask_competitor_shots(cfg):
+    """FB-042: папка внутри репозитория, видимость не private и конкуренты включены → вопрос «Скриншоты конкурентов: в git /
+    только локально / сжатые превью» до «Начинаю?» (output.competitor_shots читает check_gitignore.py). Уже задано — не спрашивать."""
+    o = cfg.get("output") or {}
+    if o.get("competitor_shots") or not o.get("inside_repo") or (cfg.get("scope") or {}).get("competitors") is False:
+        return
+    if str((cfg.get("project") or {}).get("repo_visibility") or "unknown") == "private":
+        return
+    _follow(cfg, "output.competitor_shots", "Скриншоты",
+            "Репозиторий не приватный (видимость: %s). Скриншоты чужих сайтов — куда?" % ((cfg.get("project") or {}).get("repo_visibility") or "unknown"),
+            "choice", SHOTS_OPTIONS, "права на скриншоты конкурентов в публичном репозитории (FB-042); check_gitignore.py --shots")
 
 
 def concept_run_checks(cfg):
@@ -3193,6 +3217,20 @@ def _concept_extra_lines(cfg):
     rules = cfg.get("owner_rules") or {}
     if rules.get("lines"):
         lines.append("Правила владельца (%s): %s" % (", ".join(rules.get("sources") or []), "; ".join(rules["lines"])))
+    tf = rules.get("tasks_file") or (cfg["output"].get("tasks_file") if cfg["output"].get("tasks_file") not in (None, "auto") else None)
+    lines.append("Чек-лист: %s" % ("%s владельца — блок фаз (init_run.py --tasks-file %s); STRATEGY_TASKS.md не создаётся" % (tf, tf) if tf else
+                                   "TASKS.md в корне репозитория, если он есть или его требует CLAUDE.md, иначе STRATEGY_TASKS.md (init_run.py)"))
+    shots = cfg["output"].get("competitor_shots")
+    if shots:
+        lines.append("Скриншоты конкурентов: %s" % {"local": "только локально", "previews": "сжатые превью в git", "git": "в git целиком"}.get(shots, shots))
+    try:
+        import dispatch as _dispatch                              # D: прогноз агентов до «Начинаю?» (dispatch.py <OUT> forecast)
+        depth = cfg["strategy"].get("depth") if cfg["strategy"].get("depth") in _dispatch.DEPTH_AGENTS else "standard"
+        fc = _dispatch.forecast(depth, _dispatch.max_parallel(cfg), cfg, fast=bool(cfg["strategy"].get("fast_concept")))
+        lines.append("Прогноз объёма: агентов ≈ %d, токенов ≈ %.1f млн, ≈ %.1f ч (±30 %%; dispatch.py <OUT> forecast%s)" % (
+            fc["agents"], fc["tokens_m"], fc["hours"], " --fast" if cfg["strategy"].get("fast_concept") else ""))
+    except Exception:                                             # noqa: BLE001 — сводка не должна падать
+        pass
     reg = cfg.get("registry") or {}
     if reg:
         lines.append("Реестр: проходов %s, потолок ёмкости для now — %s" % (reg.get("passes"), _yn(reg.get("capacity_cap"))))
@@ -3585,7 +3623,7 @@ def main(argv=None):
         if a.branch_name and cfg["output"]["inside_repo"]:
             cfg["output"]["git_branch"] = a.branch_name
         if cfg["output"]["inside_repo"] and not a.dry_run:
-            st, msg = cc.ensure_branch(cfg["repo"]["path"], cfg["output"]["git_branch"], a.branch)
+            st, msg = cc.ensure_branch(_xp(cfg["repo"]["path"]), cfg["output"]["git_branch"], a.branch)
             cfg["output"]["branch_status"], cfg["output"]["branch_note"] = st, msg
             if st in ("created", "switched", "current"):
                 cfg.setdefault("git", {})["branch"] = cfg["output"]["git_branch"]

@@ -96,17 +96,22 @@ https://github.com/OrionFLASH/claude-code-skills (папка skills/product-stra
 ### Что нового в 1.4 после обновления
 Ничего ставить дополнительно не нужно: новые скрипты используют только стандартную библиотеку; Node-модули прежние (`check_env.py --install-node`). Страница теперь собирается как **сайт из файлов** (`deliverables/index.html` + `assets/` + `data/`): пересылайте папку `deliverables/` целиком (или `--zip`), для одного файла — `build_all.py <OUT> --single`. Старые прогоны пересобираются командой `build_all.py <OUT>`; чтобы получить интерактивные графики, после обновления выполните её один раз (`charts.py` пересоздаст разметку и пояснения). Firefox для проверки страницы не обязателен.
 
+### Что нового в 1.5 после обновления
+Ставить дополнительно ничего не нужно: новые скрипты (`plan_baseline.py`, `pivot_check.py`, `report.py`, `mockup_kit.py`, `apply_fact_check.py`, `summary_scaffold.py`, `capacity.py` и др.) используют только стандартную библиотеку, Node-модули прежние (`check_env.py --install-node`). Прогоны 1.4.0 собираются как раньше: новые поля run-config необязательны; чтобы получить на странице «🔍 Увеличить», поиск и Гант на весь горизонт, выполните `build_all.py <OUT>` ещё раз (глоссарий и кликабельные термины — после `build_appendix.py <OUT> --only glossary`). Числа ёмкости в старых прогонах после пересчёта могут измениться: теперь одно определение рабочего дня (`capacity.py`). Smoke проверяет интерактивность в Chromium и WebKit (по каждому графику и схеме); Firefox — если запускается, иначе «skip» с причиной (в том числе из `build/env.json`, `check_env.py --probe-browsers`). Для смоука рабочего прототипа (C8.5) нужен тот же Playwright; WebKit — `npx playwright install webkit` в папке Node-модулей (её печатает `check_env.py --print-node-dir`; необязательно — без него проверка WebKit пропускается с пометкой).
+
 ### Промпт: проверка режима «идея → концепция» после установки или обновления
 
 ````text
 Проверь, что в установленном плагине product-strategy работает режим «идея → концепция» (версия 1.3.0 и выше).
 Отвечай по-русски, ничего не ставь без моего «да».
-1) Версия: claude plugin list -> product-strategy (нужна >= 1.3.0). Если старее - выполни промпт «обновление» выше.
+1) Версия: claude plugin list -> product-strategy (нужна >= 1.3.0; личный режим, пересмотр идеи, выбор дизайна
+   и рабочий прототип - с 1.5.0). Если старее - выполни промпт «обновление» выше.
 2) В НОВОЙ сессии (или после /reload-plugins) проверь, что видны скилл product-strategy:product-concept и команда
    /product-strategy:concept. Не видны - покажи вывод `claude plugin validate <папка плагина>` и скажи, что исправить.
 3) Демо без сети и без моих данных: python3 <SKILL_DIR>/scripts/make_concept_demo.py /tmp/pc-demo
    && python3 <SKILL_DIR>/scripts/build_all.py /tmp/pc-demo --skip links; покажи итоговую строку.
-4) Покажи, как запускать: /product-strategy:concept <идея>, метки !concept / concept: / !идея.
+4) Покажи, как запускать: /product-strategy:concept <идея>, метки !concept / concept: / !идея; как смотреть статус
+   прогона: init_run.py <OUT> --status, черновик страницы: build_all.py <OUT> --preview.
 ````
 
 ### Промпт: отслеживание выполнения стратегии
@@ -147,7 +152,7 @@ https://github.com/OrionFLASH/claude-code-skills (папка skills/product-stra
 |---|---|---|
 | Python 3.10+ | все скрипты (только стандартная библиотека) | да |
 | git | история репозитория, ветка результата | да |
-| Node.js 18+ и npm | скриншоты, smoke-тест страницы, PPTX, PDF | рекомендуется |
+| Node.js 18+ и npm | скриншоты, smoke-тест страницы (Chromium и WebKit), PPTX, PDF, тесты рабочего прототипа | рекомендуется |
 | Playwright + Chromium | аудит сайта, макеты в PNG, скриншоты конкурентов, PDF; ставится в кэш пользователя `~/.cache/product-strategy/node` командой `check_env.py --install-node` | рекомендуется |
 | pptxgenjs | PPTX; ставится туда же | рекомендуется |
 | gh (авторизованный) | Issues и PR репозитория, только чтение; для отслеживания выполнения стратегии — основной источник статусов (без него — только git и код) | рекомендуется |
@@ -207,7 +212,7 @@ python3 "$S/scripts/check_env.py" --install-node && python3 "$S/scripts/build_al
 claude plugin marketplace update claude-code-skills
 claude plugin update product-strategy@claude-code-skills       # затем новая сессия или /reload-plugins
 ```
-При установке клоном достаточно `git -C ~/dev/claude-code-skills pull --ff-only`. Если скил поставлен ссылками (`tools/install.sh`), после обновления клона выполните `tools/install.sh product-strategy` ещё раз: он создаст и вторую ссылку `~/.claude/skills/product-concept` (при установке плагином она не нужна — оба скилла приходят вместе). Обновление до 1.3.0 ничего не меняет в прежних прогонах: режим идеи — отдельный вход, данные совместимы. Изменения по версиям описаны в `CHANGELOG.md`, релизы помечены тегами `product-strategy/vX.Y.Z`.
+При установке клоном достаточно `git -C ~/dev/claude-code-skills pull --ff-only`. Если скил поставлен ссылками (`tools/install.sh`), после обновления клона выполните `tools/install.sh product-strategy` ещё раз: он создаст и вторую ссылку `~/.claude/skills/product-concept` (при установке плагином она не нужна — оба скилла приходят вместе). Обновление до 1.3.0 ничего не меняет в прежних прогонах: режим идеи — отдельный вход, данные совместимы. Обновление до 1.5.0 тоже совместимо: прогоны 1.4.0 пересобираются `build_all.py <OUT>`, новые поля run-config необязательны (см. «Что нового в 1.5 после обновления»). Изменения по версиям описаны в `CHANGELOG.md`, релизы помечены тегами `product-strategy/vX.Y.Z`.
 
 ## Переменные окружения
 | Переменная | Что делает |
@@ -228,4 +233,5 @@ claude plugin update product-strategy@claude-code-skills       # затем но
 - **Папка прогона в репозитории не попала в коммит.** Корневое правило `.gitignore` вроде `build/` молча исключает `<OUT>/build`: `check_gitignore.py <OUT> --fix`.
 - **Страница слишком тяжёлая (> 12 МБ) для пересылки или Artifact.** `build_all.py <OUT> --lite` (картинки отдельными файлами рядом, страница ≈ 3–4 МБ).
 - **Нужно перенести готовую папку прогона.** `init_run.py <OUT> --relocate <NEW>`, затем `build_all.py <NEW>`.
-- **На macOS нет `timeout`.** Используйте `gtimeout` (coreutils) или `subprocess` с таймаутом; скрипты скилла от этого не зависят.
+- **На macOS нет `timeout`.** `brew install coreutils` (`gtimeout`) или запасной вариант скилла: `python3 <SKILL_DIR>/scripts/check_env.py --run-timeout N -- <команда>`; скрипты скилла от `timeout` не зависят.
+- **Firefox в Playwright не запускается** («Could not find profile folder»). `check_env.py --probe-browsers` запишет причину в `build/env.json`; проверка страницы идёт в Chromium и WebKit, Firefox — «skip» с причиной.

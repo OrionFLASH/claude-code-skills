@@ -11,14 +11,17 @@
                                      (или run-config tools.strict_phases: true) — отказ (код 2), пока не будет --force;
                                      после фазы оценки (6 / C6) создаёт data/decisions.json (decisions.py --init), если его нет
   init_run.py <OUT> --show           фазы по чек-листу и по артефактам, следующая фаза по факту, волны агентов (agents.json),
-                                     сверка ветки с run-config output.git_branch, чек-лист, последние чекпоинты;
+                                     сверка ветки с run-config output.git_branch (+ output.branch_status / branch_note от
+                                     concept-apply), чек-лист, открытые пункты сверки (data/model.json → reconciliation.items,
+                                     data/plan-baseline.json → gantt_contract.messages), последние чекпоинты;
                                      фазы, чьи артефакты уже есть, отмечаются автоматически (--no-sync — только показать)
   init_run.py <OUT> --sync           только отметить фазы по артефактам (и синхронизировать блок фаз в TASKS.md владельца)
   init_run.py <OUT> --tasks-file TASKS.md | STRATEGY_TASKS.md | auto
                                      один чек-лист (FB-040): TASKS.md в корне репозитория — блок фаз дописывается туда и
                                      синхронизируется со STATUS.md, STRATEGY_TASKS.md не создаётся; auto (по умолчанию) —
                                      TASKS.md, если он есть в корне или его требует CLAUDE.md владельца (корень репозитория,
-                                     .claude/CLAUDE.md, ~/.claude/CLAUDE.md), иначе STRATEGY_TASKS.md в <OUT>
+                                     .claude/CLAUDE.md, ~/.claude/CLAUDE.md) или run-config owner_rules.tasks_file (внутри
+                                     git-репозитория), иначе STRATEGY_TASKS.md в <OUT>
   init_run.py <OUT> --intervention "что | почему | файл" --by owner|orchestrator|agent [--why …] [--file …] [--kind …]
                                      журнал ручных вмешательств (FB-004) → build/interventions.jsonl (ретроспектива —
                                      collect_reports.py --retro, раздел REPORT «Ручные вмешательства» — report.py)
@@ -297,8 +300,15 @@ def claude_requires_tasks(top):
 
 def tasks_target(out, cfg, explicit=None):
     """Куда вести чек-лист: (Path | None, причина). None — STRATEGY_TASKS.md в <OUT> (поведение 1.4)."""
-    choice = (explicit or (cfg.get("output") or {}).get("tasks_file") or "auto").strip()
+    # FB-040: явный выбор → output.tasks_file → правило владельца из CLAUDE.md (run-config owner_rules.tasks_file) → auto
     top = repo_top(out)
+    rule_file = (cfg.get("owner_rules") or {}).get("tasks_file") if isinstance(cfg.get("owner_rules"), dict) else None
+    if not top:
+        rule_file = None                                # вне git-репозитория правило «TASKS.md в корне проекта» не применяется
+    choice = (explicit or (cfg.get("output") or {}).get("tasks_file") or rule_file or "auto").strip()
+    if rule_file and choice == str(rule_file).strip() and not explicit and not (cfg.get("output") or {}).get("tasks_file"):
+        p = Path(choice).expanduser()
+        return (p if p.is_absolute() else top / p), "правило владельца (run-config owner_rules.tasks_file): чек-лист в %s" % choice
     if choice in ("STRATEGY_TASKS.md", "own", "strategy"):
         return None, "выбрано: STRATEGY_TASKS.md в папке прогона"
     if choice != "auto":
@@ -592,18 +602,46 @@ def current_branch(top):
     return r.stdout.strip() or None
 
 
+BRANCH_STATUS = {"created": "создана скриптом", "switched": "переключена", "current": "уже была текущей", "skipped": "не создавалась",
+                 "failed": "не удалось создать", "planned": "запланирована (dry-run)"}
+
+
 def branch_line(out, cfg):
     top = repo_top(out)
-    want = (cfg.get("output") or {}).get("git_branch")
+    o = cfg.get("output") or {}
+    want = o.get("git_branch")
     if not top:
         return None
     cur = current_branch(top)
+    st = o.get("branch_status")
+    tail = ""
+    if st or o.get("branch_note"):                      # FB-034: как intake.py concept-apply обошёлся с веткой прогона
+        tail = "; при создании прогона: %s%s" % (BRANCH_STATUS.get(st, st or "—"), " — %s" % o["branch_note"] if o.get("branch_note") else "")
     if not want:
-        return "Ветка: %s (в run-config output.git_branch не задана)" % (cur or "?")
+        return "Ветка: %s (в run-config output.git_branch не задана)%s" % (cur or "?", tail)
     if cur == want:
-        return "Ветка: %s — совпадает с run-config" % cur
+        return "Ветка: %s — совпадает с run-config%s" % (cur, tail)
     return ("ВНИМАНИЕ: текущая ветка %s, а в run-config output.git_branch = %s — переключитесь (git switch %s) "
-            "или исправьте run-config (intake.py update <OUT> --set output.git_branch=%s)" % (cur or "?", want, want, cur or "<ветка>"))
+            "или исправьте run-config (intake.py update <OUT> --set output.git_branch=%s)%s" % (cur or "?", want, want, cur or "<ветка>", tail))
+
+
+def open_items(out):
+    """Открытые пункты сверки (B9): расхождения модели с планом и реестром (data/model.json → reconciliation.items) и дыры
+    Ганта (data/plan-baseline.json → gantt_contract.messages) → [строка]."""
+    res = []
+    for rel, getter, label in (("data/model.json", lambda d: (d.get("reconciliation") or {}).get("items") or [], "модель ↔ план/реестр"),
+                               ("data/plan-baseline.json", lambda d: (d.get("gantt_contract") or {}).get("messages") or [], "Гант")):
+        try:
+            d = json.loads((Path(out) / rel).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if not isinstance(d, dict):
+            continue
+        for it in getter(d):
+            msg = it.get("message") if isinstance(it, dict) else it
+            if msg:
+                res.append("%s: %s (%s)" % (label, msg, rel))
+    return res
 
 
 def show(out, do_sync=True):
@@ -646,6 +684,11 @@ def show(out, do_sync=True):
     n_int = count_interventions(out)
     if n_int:
         print("Ручных вмешательств в журнале: %d (build/interventions.jsonl)" % n_int)
+    oi = open_items(out)
+    if oi:
+        print("Открытые пункты сверки (%d):" % len(oi))
+        for x in oi[:10]:
+            print("  - " + x)
     s = status_path(out).read_text(encoding="utf-8")
     cps = re.findall(r"^- \d{4}-\d\d-\d\d .*$", s, re.M)
     for c in cps[-5:]:
@@ -729,7 +772,8 @@ def status_table(out):
     hint = None
     if "build/preview/index.html" not in can_open and (Path(out) / "data" / "proposals.json").exists():
         hint = "черновую страницу можно собрать: build_all.py <OUT> --preview → build/preview/index.html"
-    return {"rows": table, "remaining_min": total, "can_open": can_open, "hint": hint,
+    return {"rows": table, "remaining_min": total, "can_open": can_open, "hint": hint, "open_items": open_items(out),
+            "branch": branch_line(out, cfg),
             "basis": "агенты — прогноз dispatch.py forecast (±30 %), фазы без агентов — типовые минуты оркестратора"}
 
 
@@ -745,6 +789,10 @@ def print_status_table(st):
         print("Можно открыть уже сейчас: %s" % ", ".join(st["can_open"]))
     if st.get("hint"):
         print(st["hint"])
+    if st.get("open_items"):
+        print("Открытые пункты сверки: %s" % "; ".join(st["open_items"][:6]))
+    if st.get("branch"):
+        print(st["branch"])
     m = st["remaining_min"]
     print("Осталось ≈ %d ч %02d мин (%s)" % (m // 60, m % 60, st["basis"]))
 

@@ -71,14 +71,18 @@ BADGE_RE = re.compile(r"Концепт(?:\s+продукта)?,\s*не\s+сущ�
 
 
 def test_fb033_single_badge_text_in_templates():
-    # файлы WP-F: набор и брифы дизайна (прочие шаблоны — запрос к их владельцам в docs/plans/wp-f-requests.md)
+    # весь templates/: набор макетов, брифы, набор прототипа, шаблоны страницы и документов — одна константа бейджа
     found = {}
-    own = [f for f in KIT.rglob("*")] + [BRIEFS / n for n in ("concept-design.md", "mockups.md", "design-refs.md", "competitor-cards.md")]
-    for f in own:
-        if f.is_file() and f.suffix in (".md", ".html", ".css", ".js"):
-            for m in BADGE_RE.finditer(f.read_text(encoding="utf-8")):
+    for f in (SKILL / "templates").rglob("*"):
+        if f.is_file() and f.suffix in (".md", ".html", ".css", ".js", ".mjs", ".json", ".py"):
+            for m in BADGE_RE.finditer(f.read_text(encoding="utf-8", errors="replace")):
                 found.setdefault(m.group(0), set()).add(str(f.relative_to(SKILL)))
     assert set(found) == {"Концепт, не существующая функция"}, found
+    # прототип: тот же текст и тот же класс, что у макетов
+    proto = SKILL / "templates" / "prototype-kit"
+    assert 'class="pk-badge pk-badge-concept ps-concept-badge"' in (proto / "index.html").read_text(encoding="utf-8")
+    shell = (BRIEFS / "prototype-shell.md").read_text(encoding="utf-8")
+    assert "ps-concept-badge" in shell and "Концепт продукта" not in shell
     readme = (KIT / "README.md").read_text(encoding="utf-8")
     assert "одна константа" in readme.lower() or "одно правило и одна константа" in readme.lower()
     assert "is-strip" in readme and "is-above-nav" in readme and "is-inline" in readme

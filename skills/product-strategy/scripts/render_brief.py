@@ -44,7 +44,10 @@ MODE схем (draw), GENERIC/LIMIT (charts.py --list-generic), KIT_CLASSES (к�
 предупреждение и «нет данных», бриф пишется.
 Значения новых брифов 1.5.0 (AUDIENCE, PLATFORM, DATA_NEEDS, REQUEST_QUESTIONS, ARCH, FLOWS, PROTO_*, …) — из
 scripts/brief_facets.py (подключается автоматически); {CAPACITY} — одна строка ёмкости (capacity.py, FB-028);
-{IDEA_FACTS} дополняется выводами пересмотра идеи (data/premises.json, FB-044) и ёмкостью.
+{PLAN_BASELINE} — сводка data/plan-baseline.json (FB-046) или подсказка plan_baseline.py; {IDEA_FACTS} дополняется выводами
+пересмотра идеи (data/premises.json, FB-044) и ёмкостью. Личный режим (project.audience personal | circle): data/keywords.json,
+research/keywords.md, data/events.json, research/events.md — в {MISSING_INPUTS} «явно пропущено: личный режим»; в {WORDS_MAX}
+(personal | circle | personal_then_public) — заголовки разделов из таблицы «Личный режим» references/concept-outline.md.
 Ворота: брифы рынка (C4) режима идеи не пишутся, пока в build/search-plan.md есть непереведённые `<EN: …>` (FB-023;
 --allow-untranslated — записать; демо — предупреждение); concept-design с шагами 2–3 вне автопилота — только при
 run-config design.chosen (FB-007: сначала показать направления владельцу); strategy-section — проверка
@@ -124,7 +127,41 @@ DIRECTIONS = [
       "mockups/current/*"], "режим идеи: продукта и репозитория ещё нет (код, скриншоты и Issues не анализировались)"),
     (lambda c: c.get("mode") != "concept" and not _scope(c, "repo_analysis"), ["data/repo-scan.json", "data/repo-facts.json"],
      "анализ репозитория выключен (scope.repo_analysis=false)"),
+    (lambda c: audience(c) in ("personal", "circle"), ["data/keywords.json", "research/keywords.md", "data/events.json", "research/events.md"],
+     "явно пропущено: личный режим (аудитории и продвижения нет; references/concept-outline.md, «Личный режим»)"),
 ]
+PERSONAL_AUDIENCES = ("personal", "circle", "personal_then_public")
+
+
+def audience(cfg):
+    return str(((cfg or {}).get("project") or {}).get("audience") or "public").lower()
+
+
+def is_personal(cfg):
+    """Личный режим (SM разд. 4): project.audience personal | circle | personal_then_public."""
+    return audience(cfg) in PERSONAL_AUDIENCES
+
+
+def personal_titles():
+    """Таблица «Личный режим» references/concept-outline.md → {номер раздела: личный заголовок}."""
+    res = {}
+    try:
+        lines = (SKILL / "references" / "concept-outline.md").read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return res
+    on = False
+    for line in lines:
+        if line.startswith("## Личный режим"):
+            on = True
+            continue
+        if on and line.startswith("## "):
+            break
+        if on and line.startswith("| Раздел "):
+            cells = [x.strip() for x in line.strip().strip("|").split("|")]
+            m = re.match(r"Раздел (\d+)$", cells[0])
+            if m and len(cells) >= 3 and cells[2]:
+                res[int(m.group(1))] = cells[2]
+    return res
 
 
 # ---------------------------------------------------------------- утилиты
@@ -557,11 +594,15 @@ def r_words(ctx):
         if head and len(cells) == len(head) and cells[0].isdigit():
             rows[int(cells[0])] = dict(zip(head, cells))
     depth = ctx.depth
+    own = personal_titles() if (ctx.concept and is_personal(ctx.cfg)) else {}   # личный режим: заголовок из таблицы «Личный режим»
     out = []
     for n in nums:
         r = rows.get(n)
         if not r:
             continue
+        if n in own:
+            r = dict(r)
+            r["Раздел"] = own[n]
         if depth in r:
             val, scale = r[depth], 1.0
         else:                                         # concept-outline: только standard — масштаб по глубине
@@ -633,6 +674,19 @@ def r_capacity(ctx):
         return capacity.capacity(ctx.cfg, float(months))["line"]
     except (TypeError, ValueError, KeyError):
         return None
+
+
+def r_plan_baseline(ctx):
+    """FB-046: краткая сводка data/plan-baseline.json (вехи, MVP, ёмкость) или подсказка, как её получить."""
+    try:
+        sys.path.insert(0, str(HERE))
+        import plan_baseline
+        b = plan_baseline.load(ctx.out)
+        if b:
+            return "; ".join(x.strip(" -") for x in plan_baseline.summary_lines(b) if x.strip())[:900]
+    except Exception:                                  # noqa: BLE001 — нет модуля или кривой файл: подсказка вместо сводки
+        pass
+    return "нет data/plan-baseline.json — запустите plan_baseline.py <OUT> (после data/gantt.json)"
 
 
 def design_chosen(ctx):
@@ -737,7 +791,7 @@ def r_missing(ctx):
             lines.append("- %s — нет на момент подготовки брифа (фаза ещё не наступила или не выполнялась): не искать и не "
                          "писать в отчёте «файла нет» — работать без них;" % ", ".join(absent))
     if ctx.name == "strategy-section" and ctx.out and not (ctx.out / "data" / "decisions.json").exists():
-        lines.append("- data/decisions.json — решений ещё нет (decisions.py --init не запускался): вставки ставок, North Star "
+        lines.append("- data/decisions.json — решений ещё нет (facts_scaffold.py <OUT> --draft не запускался): вставки ставок, North Star "
                      "и критериев отказа не использовать, писать по факт-листу;")
     kw = jload(ctx.out / "data" / "keywords.json", None)
     if isinstance(kw, list) and kw and all(isinstance(k, dict) and k.get("volume") in (None, "") for k in kw) and "keywords.json" in text:
@@ -1020,9 +1074,10 @@ def a_generic(ctx):
 def a_kit_classes(ctx):
     for p in (ctx.out / "mockups" / "concepts" / "_kit.css", SKILL / "templates" / "mockup-kit" / "_kit.css"):
         if p.exists():
-            cls = list(dict.fromkeys(re.findall(r"\.(ps-[a-z0-9-]+)", p.read_text(encoding="utf-8", errors="replace"))))
+            # все классы набора (1.3: ps-chart, ps-level, ps-kbd, ps-slider, ps-fresh, ps-stepper, ps-msg, pm-actionbar …) — без обрезки
+            cls = list(dict.fromkeys(re.findall(r"\.((?:ps|pm)-[a-z0-9-]+)", p.read_text(encoding="utf-8", errors="replace"))))
             if cls:
-                return ", ".join(cls[:60]) + (" …" if len(cls) > 60 else "")
+                return ", ".join(cls[:160]) + (" …" if len(cls) > 160 else "")
     return None
 
 
@@ -1120,6 +1175,7 @@ RESOLVERS = {
     "CHOSEN": ("run-config design.chosen (+ chosen_by) или «нет»", r_chosen),
     "DIRECTIONS_COUNT": ("run-config design.directions_count или 3", r_directions_count),
     "CAPACITY": ("вычисляется: capacity.py — одна строка ёмкости (project.capacity / ответ «часов в неделю»)", r_capacity),
+    "PLAN_BASELINE": ("data/plan-baseline.json → plan_baseline.summary_lines (вехи, MVP, ёмкость) или подсказка", r_plan_baseline),
     "DESIGN_ANSWERS": ("ответы темы «дизайн» из data/idea.json", r_design_answers),
     "NAME_HINTS": ("ответ «Название» из data/idea.json или «нет»", r_name_hints),
     "STEPS": ("autopilot — «1-3»; --auto (concept-design) — «1» без design.chosen, «2-3» с ним; иначе --set", r_steps),
@@ -1384,8 +1440,8 @@ def gates(ctx, allow_untranslated=False):
     if ctx.concept and uses_plan and "KEYWORDS" not in ctx.sets and "SEED_KEYWORDS" not in ctx.sets:
         n = untranslated(ctx)
         if n:
-            msg = ("в build/search-plan.md %d непереведённых английских запросов `<EN: …>` — передайте перевод темы "
-                   "(intake.py concept-apply --topic-en \"…\" или замените вручную) и повторите (FB-023)" % n)
+            msg = ("в плане поиска заглушки <EN: …> (build/search-plan.md: %d непереведённых английских запросов) — "
+                   "`concept_dossier.py <OUT> --topic-en \"<перевод темы>\"` и повторите (FB-023)" % n)
             if allow_untranslated or is_demo(ctx.cfg):
                 warns.append(msg)
             else:
@@ -1395,7 +1451,8 @@ def gates(ctx, allow_untranslated=False):
         chosen = design_chosen(ctx) or (ctx.sets.get("CHOSEN") not in (None, "", "нет") and ctx.sets.get("CHOSEN"))
         if re.search(r"[23]", steps) and not chosen:
             errors.append("шаги 2–3 concept-design без выбора владельца: сначала шаг 1 (directions.md), затем вопрос владельцу "
-                          "с направлениями (рекомендованное первым) и запись run-config design.chosen / design.chosen_by (FB-007)")
+                          "с направлениями (рекомендованное первым): `mockup_kit.py directions <OUT>` → AskUserQuestion → "
+                          "`mockup_kit.py choose <OUT> --direction <id> --by owner` (пишет run-config design.chosen / design.chosen_by) (FB-007)")
     if ctx.name == "strategy-section" and (ctx.out / "data" / "decisions.json").exists() and (HERE / "decisions.py").exists():
         try:
             r = subprocess.run([sys.executable, "-B", str(HERE / "decisions.py"), str(ctx.out), "--check"], capture_output=True, text=True, timeout=120)
@@ -1404,6 +1461,9 @@ def gates(ctx, allow_untranslated=False):
                 warns.append("decisions.py --check: %s — исправьте data/decisions.json до раздачи авторов (FB-049)" % (tail[-1] if tail else "ошибки схемы"))
         except (OSError, subprocess.SubprocessError):
             pass
+    elif ctx.name == "strategy-section" and not (ctx.out / "data" / "decisions.json").exists():
+        warns.append("нет data/decisions.json — черновик решений: facts_scaffold.py <OUT> --draft (подтвердить с владельцем и удалить "
+                     "поле draft) до раздачи авторов (FB-049)")
     return errors, warns
 
 

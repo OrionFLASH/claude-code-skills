@@ -617,7 +617,7 @@ def collect_targets(out, paths):
         cfg = json.loads((Path(out) / "build" / "run-config.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         cfg = {}
-    repo = Path((cfg.get("repo") or {}).get("path") or ".")
+    repo = Path((cfg.get("repo") or {}).get("path") or ".").expanduser()      # FB-017: путь с «~» (--portable-config)
     for rel in ((cfg.get("sources") or {}).get("external") or {}).get("apk") or []:
         p = (repo / rel) if not Path(rel).is_absolute() else Path(rel)
         if p.is_file():

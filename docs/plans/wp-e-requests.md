@@ -1,6 +1,9 @@
 # WP-E → правки чужих файлов (для оркестратора)
 
 ## 1. Демо-генераторы: `<title>` у блоков схем (обязательно — иначе падают 4 существующих теста)
+
+> Статус на момент отчёта WP-E: в рабочей копии `make_demo.py` и `make_concept_demo.py` `<title>` уже есть (кто-то внёс правку) —
+> с ней `test_concept_demo_build_all[site|single]` проходят. Ниже — описание на случай отката.
 `check_flow.mjs` 1.5 (FB-038) падает на блоке схемы без `<title>`, если блок описан в `data/flows.json` (есть `label` или `what`).
 Демо-схемы `make_demo.py` и `make_concept_demo.py` описаны (`label`, `what`), а `<title>` в SVG нет → шаг `flowcheck` в `build_all.py`
 (когда есть Playwright, например `~/.cache/product-strategy/node`) возвращает код 1, и падают:
