@@ -105,7 +105,8 @@ def test_concept_setup_card():
 
 
 def test_slug_and_name_from_first_phrase():
-    assert intake.idea_name_slug(IDEA) == ("Приложение для обмена книгами между соседями", "obmena-knigami-mezhdu-sosedyami")
+    # 1.5 (FB-022): рабочее имя ≤ 4 слов без слов формы («Приложение для …»), slug — из имени
+    assert intake.idea_name_slug(IDEA) == ("Обмен книгами между соседями", "obmen-knigami-mezhdu-sosedyami")
     assert intake.idea_name_slug(IDEA, "Книгообмен") == ("Книгообмен", "knigoobmen")
     assert intake.slugify("Щука ёж: test!") == "schuka-ezh-test"
 
@@ -389,8 +390,9 @@ def test_concept_demo_files(tmp_path):
     swot = json.loads((out / "data" / "swot.json").read_text(encoding="utf-8"))
     assert all(len(swot[k]) >= 4 for k in ("strengths", "weaknesses", "opportunities", "threats"))
     assert len(json.loads((out / "data" / "personas.json").read_text(encoding="utf-8"))) == 3
-    for f in (out / "mockups" / "concepts").glob("M*.html"):
-        assert "Концепт продукта, не существующая функция" in f.read_text(encoding="utf-8")
+    for f in (out / "mockups" / "concepts").glob("M*.html"):         # FB-033: единый бейдж набора — класс и текст-константа
+        html = f.read_text(encoding="utf-8")
+        assert 'class="ps-concept-badge"' in html and "Концепт, не существующая функция · Книжная полка" in html
     assert len(list((out / "mockups" / "concepts").glob("M*.html"))) >= cfg["scope"]["mockups_min"] == 8
 
 
@@ -401,7 +403,7 @@ def test_concept_demo_build_all_strict(tmp_path):
     assert "всё собрано" in r.stdout and "режим идеи" in r.stdout and "dossier" in r.stdout and "Папка концепции" in r.stdout
     page = (out / "deliverables" / "index.html").read_text(encoding="utf-8")
     assert "<title>Концепция продукта Книжная полка (демо)</title>" in page
-    assert 'id="viability"' in page and "Жизнеспособность идеи" in page and "Концепт продукта, не существующая функция" in page
+    assert 'id="viability"' in page and "Жизнеспособность идеи" in page and "Концепт, не существующая функция" in page
     assert "Концепция нового продукта" in page and 'id="current"' not in page
     import re
     visible = re.sub(r"<script.*?</script>|<style>.*?</style>", "", page, flags=re.S)

@@ -506,9 +506,12 @@ def test_model_zero_budget_solo(tmp_path):
         assert sc["roi"] == "неприменимо (нулевой бюджет)" and sc["cac"] is None and sc["roi_note"]
         assert sc["assumptions"]["paid_share"]["value"] == 0.0
     b = M["solo"]["scenarios"]["base"]
-    assert b["hours_per_activated"] > 0 and b["dev_hours"] == 12 * 12 * 6 and "time_breakeven_month" in b
+    # 1.5: ёмкость — одна функция capacity.py (10 ч/нед × 70 % ÷ 8 ч по умолчанию), а не solo 12 дн. × 6 ч (FB-028)
+    import capacity
+    c12 = capacity.capacity({"project": {"team_size": 1}}, 12)
+    assert b["hours_per_activated"] > 0 and abs(b["dev_hours"] - c12["hours_month"] * 12) < 0.2 and "time_breakeven_month" in b
     cap = M["capacity"]
-    assert cap["dev_days_total"] == 144 and cap["p0_p1"]["count"] >= 1
+    assert cap["dev_days_total"] == c12["dev_days"] and cap["day_hours"] == 8 and cap["line"] == c12["line"] and cap["p0_p1"]["count"] >= 1
     assert cap["p0_p1"]["fits_count"] + len(cap["p0_p1"]["not_fit_ids"]) == cap["p0_p1"]["count"]
     assert cap["p0_p1"]["order_by"] == "dep_rank"
     assert {"support_eats_revenue", "margin_after_support"} <= set(M["solo"]["support"])

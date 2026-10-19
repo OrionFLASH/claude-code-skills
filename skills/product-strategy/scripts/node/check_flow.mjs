@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Проверка блок-схем (charts/flows/*.svg) на пересечения блоков и подписей (product-strategy).
 //
-//   node check_flow.mjs <OUT> [--only key1,key2] [--draw <папка>] [--tolerance 2] [--no-fail] [--node-dir <dir>]
+//   node check_flow.mjs <OUT> [--only key1,key2] [--draw <папка>] [--tolerance 2] [--strict-titles] [--no-fail] [--node-dir <dir>]
 //
 // Схемы — из data/flows.json (key, svg); нет файла — все charts/flows/*.svg. Каждый SVG открывается в Chromium
 // (только file:// внутри <OUT>, внешние запросы блокируются), рамки берутся из getBoundingClientRect:
@@ -14,7 +14,10 @@
 //   text_overflow  — подпись блока выходит за его рамку;
 //   text_overlap   — две подписи накладываются (по высоте больше четверти строки);
 //   label_on_node  — подпись стрелки или заголовок лежит на чужом блоке;
-//   text_clipped   — подпись выходит за край рисунка (viewBox).
+//   text_clipped   — подпись выходит за край рисунка (viewBox);
+//   node_no_title  — у блока нет своего <title> (FB-038: подсказка при наведении и имя для экранного диктора вне страницы) —
+//                    для блоков, описанных в data/flows.json (label или what), с --strict-titles — для всех блоков.
+//                    build_html.py подставляет <title> из nodes[].what сам, но SVG-файл схемы должен быть самодостаточным.
 // Предупреждения: data-node без записи в nodes[] схемы и наоборот; повтор data-node; в схеме нет ни одного data-node.
 // Итог: data/flows-check.json {date, tool, summary, items: [{key, svg, ok, nodes, texts, problems[], warnings[]}]}.
 // --draw <папка> — PNG <key>.png со схемой и красными рамками замечаний (для проверки глазами через Read).
@@ -27,7 +30,7 @@ import { createRequire } from 'node:module';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SKILL_DIR = path.resolve(HERE, '..', '..');
-const USAGE = 'node check_flow.mjs <OUT> [--only key1,key2] [--draw <папка>] [--tolerance 2] [--no-fail] [--node-dir <dir>]';
+const USAGE = 'node check_flow.mjs <OUT> [--only key1,key2] [--draw <папка>] [--tolerance 2] [--strict-titles] [--no-fail] [--node-dir <dir>]';
 
 function parseArgs(argv, flags) {
   const pos = []; const opt = {};
@@ -55,7 +58,7 @@ function loadPlaywright(opt, out) {
   process.exit(3);
 }
 
-const { pos, opt } = parseArgs(process.argv.slice(2), new Set(['no-fail']));
+const { pos, opt } = parseArgs(process.argv.slice(2), new Set(['no-fail', 'strict-titles']));
 if (opt.help || pos.length < 1) { console.log(USAGE); process.exit(opt.help ? 0 : 2); }
 const OUT = path.resolve(pos[0]);
 if (!fs.existsSync(OUT)) { console.error('ошибка: нет папки ' + OUT); process.exit(2); }
@@ -76,7 +79,8 @@ const flowsPath = path.join(OUT, 'data', 'flows.json');
 if (fs.existsSync(flowsPath)) {
   let d; try { d = JSON.parse(fs.readFileSync(flowsPath, 'utf8')); } catch (e) { console.error('ошибка: data/flows.json не разобран: ' + e.message); process.exit(2); }
   if (!Array.isArray(d)) { console.error('ошибка: data/flows.json должен быть списком'); process.exit(2); }
-  flows = d.filter((f) => f && f.key).map((f) => ({ key: String(f.key), svg: f.svg || `charts/flows/${f.key}.svg`, nodes: (f.nodes || []).map((n) => n && n.id).filter(Boolean), json: true }));
+  flows = d.filter((f) => f && f.key).map((f) => ({ key: String(f.key), svg: f.svg || `charts/flows/${f.key}.svg`, nodes: (f.nodes || []).map((n) => n && n.id).filter(Boolean),
+    described: new Set((f.nodes || []).filter((n) => n && n.id && (n.what || n.label)).map((n) => String(n.id))), json: true }));
 } else {
   const dir = path.join(OUT, 'charts', 'flows');
   if (fs.existsSync(dir)) flows = fs.readdirSync(dir).filter((f) => /\.svg$/i.test(f)).sort().map((f) => ({ key: f.replace(/\.svg$/i, ''), svg: `charts/flows/${f}`, nodes: null, json: false }));
@@ -127,7 +131,8 @@ for (const f of flows) {
       const root = document.documentElement; const rb = box(root);
       const nodes = [...document.querySelectorAll('[data-node]')].map((g) => {
         const shape = g.matches('rect, ellipse, circle, polygon, path') ? g : g.querySelector('rect, ellipse, circle, polygon, path');
-        return { id: g.getAttribute('data-node'), box: box(shape || g) };
+        const title = [...g.children].some((c) => c.localName === 'title' && (c.textContent || '').trim());
+        return { id: g.getAttribute('data-node'), box: box(shape || g), title };
       });
       const texts = [...document.querySelectorAll('text')].filter((t) => (t.textContent || '').trim()).map((t) => {
         const g = t.closest('[data-node]');
@@ -160,6 +165,11 @@ for (const f of flows) {
       const o = ov(T[i].box, T[j].box);
       if (o.w > TOL && o.h > Math.max(TOL, 0.25 * Math.min(T[i].box.h, T[j].box.h))) add('text_overlap', `подписи «${T[i].text}» и «${T[j].text}» накладываются`, [T[i].box, T[j].box]);
     }
+    // FB-038: у каждого блока — свой <title> (описанные в flows.json; с --strict-titles — все)
+    const needTitle = (n) => opt['strict-titles'] || (f.described && f.described.has(n.id));
+    const untitled = N.filter((n) => !n.title && needTitle(n));
+    if (untitled.length) add('node_no_title', `у ${untitled.length} из ${N.length} блоков нет <title> (подсказка и экранный диктор): ${untitled.slice(0, 6).map((n) => n.id).join(', ')}`
+      + ' — добавьте <title>что это</title> первым дочерним элементом <g data-node> (текст — из nodes[].what)', untitled.slice(0, 6).map((n) => n.box));
     const ids = N.map((n) => n.id);
     const dupl = [...new Set(ids.filter((x, k) => ids.indexOf(x) !== k))];
     if (dupl.length) rec.warnings.push('повтор data-node: ' + dupl.join(', '));

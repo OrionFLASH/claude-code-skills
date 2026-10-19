@@ -249,7 +249,9 @@ def test_repeats_between_sections(out):
     pairs = rep["repeats"]["paragraphs"]
     assert len(pairs) == 1 and {pairs[0]["a"]["section"], pairs[0]["b"]["section"]} == {2, 6} and pairs[0]["similarity"] >= 0.9
     assert "repeated_text" in codes(rep, "warnings") and "раздел 2 ↔ раздел 6" in r.stdout
-    assert {"value": "12%", "sections": [2, 3]} in rep["repeats"]["numbers"]
+    # 1.5 (FB-030): общее число без общего контекста («Рост 12 %» и «Доля 12 %») — не повтор; прежний список — numbers_value_only
+    assert {"value": "12%", "sections": [2, 3]} in rep["repeats"]["numbers_value_only"]
+    assert not any(x["value"] == "12%" for x in rep["repeats"]["numbers"])
 
 
 # ---------------------------------------------------------------- facts_scaffold и collect_reports

@@ -24,7 +24,11 @@
   6. Остатки (--scan-leftovers; при переносе — всегда): любые абсолютные пути (/Users/…, /home/…, /var/folders/…,
      C:\\Users\\…, развёрнутая домашняя папка) во всех текстовых файлах — файл:строка; build/run-config.json (output.dir,
      repo.path абсолютны по контракту) идёт отдельной строкой. --fix-leftovers заменяет домашнюю папку на `~` (кроме
-     run-config.json). Остатки не меняют код выхода.
+     run-config.json). Остатки не меняют код выхода. Там же — посторонние служебные папки инструментов (`.playwright-mcp/`
+     в <OUT> и в корне репозитория; FB-017): перенести/удалить и добавить в корневой .gitignore — `check_gitignore.py <OUT> --fix`.
+  7. run-config: output.dir_rel — путь <OUT> от корня репозитория (пишется при переносе внутри репозитория);
+     --portable-config — output.dir и repo.path в форме с `~` (без имени пользователя; скрипты скилла раскрывают `~`),
+     тогда --scan-leftovers не показывает строку run-config.json.
 Отчёт сохраняется в <NEW_OUT>/build/relocate-report.json (кроме --dry-run); домашняя папка в нём — `~`, папка скилла — <SKILL_DIR>.
 Код выхода: 0 — готово, упоминаний старого пути в обработанных файлах нет; 1 — остались упоминания; 2 — ошибка аргументов
 (нет <OLD_OUT> и <NEW_OUT>, <NEW_OUT> уже существует и не пуст при копировании).
@@ -143,11 +147,63 @@ def scan_leftovers(root, with_node=False, fix=False):
             if m:
                 rec = {"file": rel, "line": i, "text": tilde(m.group(0))[:120]}
                 (contract if rel in CONTRACT_ABS else hits).append(rec)
-    return {"files": hits, "contract": contract, "fixed": fixed}
+    return {"files": hits, "contract": contract, "fixed": fixed, "tool_dirs": tool_dirs(root)}
+
+
+TOOL_DIRS = (".playwright-mcp", "test-results", "playwright-report")
+
+
+def tool_dirs(root):
+    """Служебные папки инструментов в <OUT> и в корне его репозитория (FB-017) → относительные имена."""
+    found = []
+    root = Path(root)
+    top = git_toplevel(root)
+    for base, label in ((root, ""), (top, "<repo>/")):
+        if not base:
+            continue
+        for d in TOOL_DIRS:
+            if (Path(base) / d).exists():
+                found.append(label + d)
+    return sorted(set(found))
+
+
+def portable(value):
+    """Абсолютный путь → форма с ~ (если внутри домашней папки)."""
+    return tilde(str(value)) if value else value
+
+
+def make_portable_config(cfgp, repo=None):
+    """run-config: output.dir и repo.path — с ~, output.dir_rel — от корня репозитория. → список изменённых полей."""
+    try:
+        cfg = json.loads(cfgp.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    changed = []
+    o = cfg.setdefault("output", {})
+    if o.get("dir") and str(o["dir"]).startswith(str(Path.home())):
+        o["dir"] = portable(o["dir"])
+        changed.append("output.dir")
+    rp = (cfg.get("repo") or {}).get("path")
+    if rp and str(rp).startswith(str(Path.home())):
+        cfg["repo"]["path"] = portable(rp)
+        changed.append("repo.path")
+    root = Path(os.path.expanduser(str(o.get("dir") or cfgp.parent.parent))).resolve()
+    top = Path(os.path.expanduser(str(repo or (cfg.get("repo") or {}).get("path") or ""))).resolve() if (repo or (cfg.get("repo") or {}).get("path")) else git_toplevel(root)
+    if top and (top == root or top in root.parents):
+        rel = root.relative_to(top).as_posix() if root != top else "."
+        if o.get("dir_rel") != rel:
+            o["dir_rel"] = rel
+            changed.append("output.dir_rel")
+    if changed:
+        cfgp.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return changed
 
 
 def print_leftovers(lo, limit=20):
     print("абсолютных путей в файлах прогона: %d%s" % (len(lo["files"]), (" (заменено на ~ в %d файлах)" % lo["fixed"]) if lo["fixed"] else ""))
+    if lo.get("tool_dirs"):
+        print("  посторонние папки инструментов: %s — убрать из <OUT>/корня, в корневой .gitignore: check_gitignore.py <OUT> --fix"
+              % ", ".join(lo["tool_dirs"]))
     for h in lo["files"][:limit]:
         print("  %s:%d  %s" % (h["file"], h["line"], h["text"]))
     if len(lo["files"]) > limit:
@@ -177,16 +233,21 @@ def main(argv=None):
     ap.add_argument("--branch", help="output.git_branch")
     ap.add_argument("--scan-leftovers", action="store_true", help="найти абсолютные пути во всех текстовых файлах (без переноса, если нет NEW_OUT)")
     ap.add_argument("--fix-leftovers", action="store_true", help="заменить домашнюю папку на ~ в текстовых файлах (кроме run-config.json)")
+    ap.add_argument("--portable-config", action="store_true",
+                    help="run-config: output.dir и repo.path с ~ вместо домашней папки, output.dir_rel — от корня репозитория")
     ap.add_argument("--dry-run", action="store_true", help="ничего не менять, только посчитать")
     ap.add_argument("--json", action="store_true", help="печатать отчёт JSON")
     a = ap.parse_args(argv)
     if a.new_out is None:
-        if not a.scan_leftovers:
+        if not a.scan_leftovers and not a.portable_config:
             ap.error("нужна NEW_OUT (или --scan-leftovers для проверки одной папки)")
         root = Path(a.old_out).expanduser().resolve()
         if not root.is_dir():
             print("ошибка: нет папки %s" % root, file=sys.stderr)
             return 2
+        if a.portable_config and not a.dry_run:
+            ch = make_portable_config(root / "build" / "run-config.json", a.repo)
+            print("run-config: %s" % (", ".join(ch) + " — без домашней папки" if ch else "уже переносимый"))
         lo = scan_leftovers(root, a.with_node, fix=a.fix_leftovers and not a.dry_run)
         if a.json:
             print(json.dumps(lo, ensure_ascii=False, indent=2))
@@ -292,7 +353,11 @@ def main(argv=None):
                         else "docs/strategy-%s" % date.today().isoformat()
                 if repo:
                     cfg.setdefault("repo", {})["path"] = str(repo)
+                if inside:
+                    o["dir_rel"] = replacement if mode != "абсолютный" else (new.relative_to(repo).as_posix() if new != repo else ".")
                 cfgp.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+                if a.portable_config:
+                    make_portable_config(cfgp, repo)
                 extra.append("build/run-config.json: output.dir=%s, inside_repo=%s, git_branch=%s" % (
                     tilde(str(new)), o.get("inside_repo"), o.get("git_branch") or "—") + (", repo.path" if repo else "")
                     + (" (репозиторий найден по git: %s)" % tilde(str(repo)) if repo_auto else ""))

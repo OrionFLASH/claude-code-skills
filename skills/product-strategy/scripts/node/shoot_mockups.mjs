@@ -2,7 +2,8 @@
 // Снимки макетов из <OUT>/data/mockups-index.json и их проверка (product-strategy).
 //
 //   node shoot_mockups.mjs <OUT> [--only M01-x,M02-y] [--no-index] [--full-page] [--contrast] [--no-fail] [--no-discover]
-//                          [--kit] [--node-dir <dir>]
+//                          [--kit] [--targets[=auto|pointer|touch]] [--no-targets] [--layout] [--other-theme] [--hotspots N]
+//                          [--node-dir <dir>]
 //
 // Автообнаружение: каждый <OUT>/mockups/concepts/*.html (кроме имён с «_») без записи в индексе добавляется в
 // data/mockups-index.json: key — имя файла без .html; метаданные — атрибуты <html>/<body> или <meta name="ps:…">:
@@ -28,6 +29,25 @@
 // --contrast — проверка контраста текста на любой странице (как в kit-demo; нарушения — замечания).
 // --kit: снять служебные _*.html (набор компонентов, kit-demo, мобильный слой) полностраничными PNG; в индекс не
 //   добавляются, результаты — data/mockups-check.<_key>.json; data-viewports="1440x900,390x844" — снимок на каждой ширине.
+// 1.5 (дизайн-этап, WP-F):
+// Бейдж концепта ищется по классу .ps-concept-badge (текст бейджа не важен); старые макеты без класса — по тексту
+//   «Концепт|Concept» с предупреждением. Обрезанный текст бейджа (scrollWidth > clientWidth) — замечание.
+// --targets — цели нажатия: pointer — ≥ 32 px, touch — ≥ 44 px (auto: touch при ширине < 600, иначе pointer);
+//   ссылки внутри строки текста не считаются (WCAG 2.5.8); [draggable=true]/[data-drag] без data-drag-alt="<селектор
+//   кнопок>" — замечание «перетаскивание без дублирования кнопками». Включается само при run-config design.pointer_first
+//   (--no-targets — выключить) и в --kit.
+// --layout — дочерние элементы, вылезающие из однострочных flex-рядов, и скрытая горизонтальная прокрутка (кроме
+//   .is-scroll, [data-scroll], .ps-table-wrap): «обрезанные кнопки». Само включается в --kit.
+// --other-theme — после основного снимка переключить <html data-theme> на противоположную тему и снять
+//   <ключ>.theme-<тема>.png: переполнение, запасные цвета и (с --contrast) контраст второй темы — тоже замечания.
+// --contrast учитывает текст в SVG (цвет — fill) и заливку SVG-фигур под текстом (elementsFromPoint).
+// Подсветка элементов (data-hs, data-hs-title/-what/-why/-p/-sec, шаблон _hotspots.js): запуск без --only пишет ещё
+//   mockups/hotspots.json {version, mockups: {<ключ>: {items: [{n, id, title, what, why, p, sec, r: [x, y, w, h] — доли PNG]}}}}
+//   (для просмотра макетов на странице); в mockups-check.<ключ>.json —
+//   hotspots {count, untitled, duplicates, zones[{id,n,title,what,why,p,sec,x,y,w,h}]} (CSS px от угла страницы, scale =
+//   deviceScaleFactor); --hotspots N — замечание, если у концепта размечено меньше N элементов.
+// data-proposals/ps:proposals принимают P-id и id черновиков (G8-01): --only их больше не отбрасывает.
+// Поле date — локальная дата (не UTC).
 // Код выхода: 0 — всё чисто (или --no-fail), 1 — есть замечания, 2 — ошибка аргументов/индекса, 3 — нет playwright/Chromium.
 // Модули: --node-dir | $PS_NODE_DIR | <OUT>/build/node | ~/.cache/product-strategy/node | папка скрипта.
 import fs from 'node:fs';
@@ -37,7 +57,14 @@ import { createRequire } from 'node:module';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SKILL_DIR = path.resolve(HERE, '..', '..');
-const USAGE = 'node shoot_mockups.mjs <OUT> [--only key1,key2] [--no-index] [--full-page] [--contrast] [--no-fail] [--no-discover] [--kit] [--node-dir <dir>]';
+function pngSize(file) {   // ширина и высота PNG из заголовка IHDR (без зависимостей)
+  try {
+    const fd = fs.openSync(file, 'r'); const buf = Buffer.alloc(24); fs.readSync(fd, buf, 0, 24, 0); fs.closeSync(fd);
+    if (buf.readUInt32BE(0) !== 0x89504e47) return null;
+    return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
+  } catch (e) { return null; }
+}
+const USAGE = 'node shoot_mockups.mjs <OUT> [--only key1,key2] [--no-index] [--full-page] [--contrast] [--no-fail] [--no-discover] [--kit] [--targets[=auto|pointer|touch]] [--no-targets] [--layout] [--other-theme] [--hotspots N] [--node-dir <dir>]';
 
 function parseArgs(argv, flags) {
   const pos = []; const opt = {};
@@ -89,7 +116,7 @@ const readJson = (p, dflt) => { try { return JSON.parse(fs.readFileSync(p, 'utf8
 const safeKey = (k) => String(k).replace(/[^\w.-]+/g, '_');
 
 // ------------------------------------------------------------ аргументы
-const { pos, opt } = parseArgs(process.argv.slice(2), new Set(['full-page', 'no-fail', 'no-discover', 'kit', 'no-index', 'contrast']));
+const { pos, opt } = parseArgs(process.argv.slice(2), new Set(['full-page', 'no-fail', 'no-discover', 'kit', 'no-index', 'contrast', 'targets', 'no-targets', 'layout', 'other-theme']));
 if (opt.help || pos.length < 1) { console.log(USAGE); process.exit(opt.help ? 0 : 2); }
 const OUT = path.resolve(pos[0]);
 if (!fs.existsSync(OUT)) { console.error('ошибка: нет папки ' + OUT); process.exit(2); }
@@ -102,6 +129,14 @@ const OUT_REAL = fs.realpathSync(OUT);
 const only = new Set((opt.only || '').split(',').map((s) => s.trim()).filter(Boolean));
 // общие файлы (индекс и агрегат) пишет только полный запуск оркестратора
 const WRITE_SHARED = !opt.kit && !only.size && !opt['no-index'];
+// run-config: design.pointer_first → проверка целей нажатия по умолчанию
+const RUN_CFG = readJson(path.join(OUT, 'build', 'run-config.json'), {}) || {};
+const POINTER_FIRST = !!(RUN_CFG.design && RUN_CFG.design.pointer_first);
+const TARGETS = opt['no-targets'] ? null : (typeof opt.targets === 'string' ? opt.targets : (opt.targets || opt.kit || POINTER_FIRST) ? 'auto' : null);
+if (TARGETS && !['auto', 'pointer', 'touch'].includes(TARGETS)) { console.error('ошибка: --targets=auto|pointer|touch'); process.exit(2); }
+const LAYOUT = !!(opt.layout || opt.kit);
+const HS_MIN = opt.hotspots ? parseInt(opt.hotspots, 10) : 0;
+if (opt.hotspots && !(HS_MIN >= 0)) { console.error('ошибка: --hotspots N — число'); process.exit(2); }
 
 function htmlMeta(file) {
   let src = '';
@@ -120,7 +155,7 @@ function htmlMeta(file) {
   if (vpRaw && /^\d{2,5}x\d{2,5}$/.test(vpRaw)) viewport = vpRaw; else if (vpRaw && /mobile|phone|390/i.test(vpRaw)) viewport = '390x844';
   const vps = (get('data-viewports', 'viewports') || '').split(',').map((s) => s.trim()).filter((s) => /^\d{2,5}x\d{2,5}$/.test(s));
   const title = (meta.title || (/<title[^>]*>([^<]*)<\/title>/i.exec(src) || [])[1] || '').replace(/\s+/g, ' ').trim();
-  const props = (get('data-proposals', 'proposals') || '').split(/[,\s]+/).map((s) => s.trim()).filter((s) => /^P\d{3,}$/.test(s));
+  const props = (get('data-proposals', 'proposals') || '').split(/[,\s]+/).map((s) => s.trim()).filter((s) => /^(P\d{3,}|G\d+-\d{2,})$/.test(s));
   const kindRaw = (get('data-kind', 'kind') || '').toLowerCase();
   // kit — копия демо набора (M00-design-language из _kit-demo): в индексе это служебный component
   const kind = kindRaw === 'kit' ? 'component' : ['concept', 'component', 'current'].includes(kindRaw) ? kindRaw : 'concept';
@@ -251,19 +286,23 @@ const declared = (decl, theme, role) => {
   return names.some((n) => set.has(n));
 };
 
-// Проверка контраста для --contrast (та же логика, что в kit-demo: градиенты — худший цвет, картинки пропускаются)
+// Проверка контраста для --contrast (та же логика, что в kit-demo: градиенты — худший цвет, картинки пропускаются).
+// 1.5: текст в SVG — цвет из fill; фон — заливка SVG-фигуры под центром текста (elementsFromPoint), если она ближе
+// предка с непрозрачным фоном; HTML-подпись поверх SVG-графика — так же.
 const CONTRAST_JS = `(() => {
   const cv = document.createElement('canvas'); cv.width = cv.height = 1;
   const cx = cv.getContext('2d', { willReadFrequently: true });
   const COLOR_RE = /(?:rgba?|hsla?|color|oklab|oklch|lab|lch)\\((?:[^()]|\\([^()]*\\))*\\)|#[0-9a-fA-F]{3,8}\\b/g;
-  const rgba = (c) => { if (!c || c === 'transparent') return [0, 0, 0, 0]; cx.clearRect(0, 0, 1, 1); cx.fillStyle = '#000'; cx.fillStyle = c; cx.fillRect(0, 0, 1, 1);
+  const rgba = (c) => { if (!c || c === 'transparent' || c === 'none') return [0, 0, 0, 0]; cx.clearRect(0, 0, 1, 1); cx.fillStyle = '#000'; cx.fillStyle = c; cx.fillRect(0, 0, 1, 1);
     const d = cx.getImageData(0, 0, 1, 1).data; return [d[0], d[1], d[2], d[3] / 255]; };
   const over = (t, u) => { const a = t[3]; return [t[0] * a + u[0] * (1 - a), t[1] * a + u[1] * (1 - a), t[2] * a + u[2] * (1 - a), 1]; };
   const lum = (c) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
   const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  const SHAPES = new Set(['rect', 'circle', 'ellipse', 'path', 'polygon', 'polyline']);
   const backgrounds = (el) => {
     const layers = [];
     for (let e = el; e && e.nodeType === 1; e = e.parentElement) {
+      if (e instanceof SVGElement && !(e instanceof SVGSVGElement)) continue;          // внутри SVG фон HTML не задаётся
       const s = getComputedStyle(e), img = s.backgroundImage; let done = false;
       if (img && img !== 'none') { if (!/gradient/.test(img) || /url\\(/.test(img)) return null;
         const g = (img.match(COLOR_RE) || []).map(rgba); if (!g.length) return null; layers.push(g); done = g.every((x) => x[3] >= 0.999); }
@@ -274,27 +313,171 @@ const CONTRAST_JS = `(() => {
     for (let i = layers.length - 1; i >= 0; i--) { const n = []; bases.forEach((b) => layers[i].forEach((l) => n.push(over(l, b)))); bases = n.slice(0, 32); }
     return bases;
   };
-  const fails = []; let checked = 0;
+  // заливка SVG-фигуры под текстом: первая фигура в стопке под точкой, которая не является предком el и лежит выше
+  // ближайшего предка el с фоном; null — фигуры нет (обычный путь по предкам)
+  const svgUnder = (el, r) => {
+    const x = r.left + r.width / 2, y = r.top + r.height / 2;
+    if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) return null;
+    const stack = document.elementsFromPoint(x, y); const i = stack.indexOf(el);
+    const from = i >= 0 ? i + 1 : 0;
+    for (let k = from; k < stack.length; k++) {
+      const e = stack[k];
+      if (e === el || e.contains(el)) { if (!(e instanceof SVGElement) || e instanceof SVGSVGElement) return null; continue; }
+      if (!SHAPES.has(e.tagName.toLowerCase()) || !(e instanceof SVGElement)) { if (i < 0) continue; return null; }
+      const cs = getComputedStyle(e); const f = rgba(cs.fill);
+      const a = f[3] * (parseFloat(cs.fillOpacity) || (cs.fillOpacity === '0' ? 0 : 1)) * (parseFloat(cs.opacity) || (cs.opacity === '0' ? 0 : 1));
+      if (a <= 0.02) continue;
+      const svg = e.ownerSVGElement; const base = backgrounds(svg ? svg.parentElement : document.body) || [[255, 255, 255, 1]];
+      return base.map((b) => over([f[0], f[1], f[2], a], b));
+    }
+    return null;
+  };
+  const fails = []; let checked = 0, svg = 0;
   document.querySelectorAll('body *').forEach((el) => {
-    if (el.closest('[aria-hidden="true"], script, style, template, .ps-lock-body')) return;
+    if (el.closest('[aria-hidden="true"], script, style, template, .ps-lock-body, #hs-ui')) return;
     let own = false; for (let n = el.firstChild; n; n = n.nextSibling) if (n.nodeType === 3 && n.textContent.trim()) { own = true; break; }
     if (!own) return;
     const r = el.getBoundingClientRect(); if (!r.width || !r.height) return;
     const s = getComputedStyle(el);
-    if (s.visibility === 'hidden' || +s.opacity === 0 || el.matches(':disabled, .is-disabled')) return;
-    const bgs = backgrounds(el); if (!bgs) return;
-    const col = rgba(s.color); let k = Infinity; bgs.forEach((bg) => { k = Math.min(k, ratio(over(col, bg), bg)); });
+    if (s.visibility === 'hidden' || s.display === 'none' || +s.opacity === 0 || el.matches(':disabled, .is-disabled')) return;
+    const inSvg = el instanceof SVGElement;
+    if (inSvg && !/^(text|tspan|textPath)$/i.test(el.tagName)) return;
+    let col = inSvg ? rgba(s.fill) : rgba(s.color);
+    if (inSvg) { if (/url\\(/.test(s.fill) || col[3] === 0) return; col = [col[0], col[1], col[2], col[3] * (parseFloat(s.fillOpacity) || 1)]; svg++; }
+    const bgs = svgUnder(el, r) || backgrounds(el); if (!bgs) return;
+    let k = Infinity; bgs.forEach((bg) => { k = Math.min(k, ratio(over(col, bg), bg)); });
     const size = parseFloat(s.fontSize), bold = parseInt(s.fontWeight, 10) >= 700;
     const need = (size >= 24 || (bold && size >= 18.66)) ? 3 : 4.5; checked++;
     if (k + 1e-6 < need) {
       const theme = (el.closest('[data-theme]') || document.documentElement).getAttribute('data-theme') || 'light';
-      const cls = (el.className && typeof el.className === 'string') ? '.' + el.className.trim().split(/\\s+/).join('.') : el.tagName.toLowerCase();
-      const rec = { theme, el: cls, text: el.textContent.trim().slice(0, 40), ratio: Math.round(k * 100) / 100, need };
+      const cn = typeof el.className === 'string' ? el.className : (el.className && el.className.baseVal) || '';
+      const cls = cn.trim() ? '.' + cn.trim().split(/\\s+/).join('.') : el.tagName.toLowerCase();
+      const rec = { theme, el: cls, text: el.textContent.trim().slice(0, 40), ratio: Math.round(k * 100) / 100, need, svg: inSvg };
       fails.push(rec); console.error('контраст ' + rec.ratio + ':1 < ' + need + ' — ' + rec.el + ' «' + rec.text + '» (' + theme + ')');
     }
   });
-  window.psContrast = { checked, fails };
+  window.psContrast = { checked, fails, svg };
 })()`;
+
+// Описание элемента для замечаний: tag.class1.class2 «текст»
+const DESC_JS = `const desc = (el) => { const cn = typeof el.className === 'string' ? el.className : (el.className && el.className.baseVal) || '';
+  return el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (cn.trim() ? '.' + cn.trim().split(/\\s+/).slice(0, 3).join('.') : ''); };`;
+
+// Цели нажатия: интерактивные элементы меньше min × min CSS px; ссылки в строке текста — исключение (WCAG 2.5.8)
+const TARGETS_JS = `(min) => { ${DESC_JS}
+  const SEL = 'button, a[href], input:not([type=hidden]), select, textarea, summary, [role=button], [role=tab], [role=switch], [role=checkbox], [role=radio], [role=slider], [role=menuitem], [role=option], [tabindex]:not([tabindex="-1"])';
+  const inText = (el) => { let e = el; while (e.parentElement && getComputedStyle(e.parentElement).display === 'inline') e = e.parentElement;
+    const d = getComputedStyle(el).display; if (d !== 'inline' && d !== 'inline-block' && e === el) return false;
+    const p = e.parentElement; if (!p) return false;
+    for (const n of p.childNodes) if (n !== e && n.nodeType === 3 && n.textContent.trim()) return true; return false; };
+  const seen = new Set(); const small = []; let checked = 0;
+  for (const el0 of document.querySelectorAll(SEL)) {
+    let el = el0;
+    if (el0.matches('input, select, textarea')) { const lab = el0.closest('label'); if (lab) el = lab; }
+    if (seen.has(el)) continue; seen.add(el);
+    if (el.closest('[aria-hidden="true"], [data-hs-ui], #hs-ui, .ps-concept-badge, template, [inert]')) continue;
+    const s = getComputedStyle(el);
+    if (s.visibility === 'hidden' || s.display === 'none' || +s.opacity === 0 || s.pointerEvents === 'none' || el0.disabled) continue;
+    const r = el.getBoundingClientRect(); if (r.width < 2 || r.height < 2) continue;
+    if (el.tagName === 'A' && inText(el)) continue;
+    checked++;
+    if (r.width + 0.5 < min || r.height + 0.5 < min) small.push({ el: desc(el), text: (el.innerText || el.getAttribute('aria-label') || '').trim().replace(/\\s+/g, ' ').slice(0, 30), w: Math.round(r.width), h: Math.round(r.height) });
+  }
+  const drag = [];
+  for (const el of document.querySelectorAll('[draggable="true"], [data-drag]')) {
+    const alt = el.getAttribute('data-drag-alt'); let ok = false;
+    if (alt) { try { ok = !!document.querySelector(alt); } catch (e) { ok = false; } }
+    if (!ok) drag.push(desc(el));
+  }
+  return { checked, small, drag };
+}`;
+
+// Раскладка: дети, вылезающие из однострочного flex-ряда, и скрытая горизонтальная прокрутка
+const LAYOUT_JS = `() => { ${DESC_JS}
+  const scrollOk = (el) => el.matches('.is-scroll, [data-scroll], .ps-table-wrap, pre, .ps-code, textarea, html, body');
+  const issues = [];
+  for (const el of document.querySelectorAll('body *')) {
+    if (el.closest('[aria-hidden="true"], template, #hs-ui, svg')) continue;
+    const s = getComputedStyle(el);
+    if (s.display === 'none' || s.visibility === 'hidden') continue;
+    const r = el.getBoundingClientRect(); if (!r.width || !r.height) continue;
+    if (/(auto|scroll)/.test(s.overflowX) && el.scrollWidth > el.clientWidth + 1 && !scrollOk(el)) {
+      issues.push({ type: 'hidden_scroll', el: desc(el), over: el.scrollWidth - el.clientWidth }); continue; }
+    if (!/flex/.test(s.display) || !/^row/.test(s.flexDirection) || s.flexWrap !== 'nowrap' || scrollOk(el)) continue;
+    const right = r.right - parseFloat(s.paddingRight) - parseFloat(s.borderRightWidth);
+    const left = r.left + parseFloat(s.paddingLeft) + parseFloat(s.borderLeftWidth);
+    for (const c of el.children) {
+      const cs = getComputedStyle(c); if (cs.position === 'absolute' || cs.position === 'fixed' || cs.display === 'none') continue;
+      const cr = c.getBoundingClientRect(); if (!cr.width) continue;
+      if (cr.right > right + 1.5 || cr.left < left - 1.5) {
+        issues.push({ type: 'flex_overflow', el: desc(el), child: desc(c), text: (c.innerText || '').trim().replace(/\\s+/g, ' ').slice(0, 30), over: Math.round(Math.max(cr.right - right, left - cr.left)) });
+        break;
+      }
+    }
+  }
+  return issues.slice(0, 50);
+}`;
+
+// Подсветка элементов макета (data-hs-*): число, зоны в координатах страницы
+const HS_JS = `() => {
+  const by = new Map(); const untitled = []; const dup = [];
+  for (const el of document.querySelectorAll('[data-hs]')) {
+    if (el.closest('template')) continue;
+    const id = el.getAttribute('data-hs'); if (!id) continue;
+    let it = by.get(id); if (!it) { it = { id, el: null, parts: [] }; by.set(id, it); }
+    if (el.hasAttribute('data-hs-title')) { if (it.el) dup.push(id); else it.el = el; } else it.parts.push(el);
+  }
+  const zones = []; let n = 0;
+  for (const it of by.values()) {
+    if (!it.el) { untitled.push(it.id); continue; }
+    let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+    for (const e of [it.el, ...it.parts]) { const r = e.getBoundingClientRect(); if (!r.width && !r.height) continue;
+      x1 = Math.min(x1, r.left); y1 = Math.min(y1, r.top); x2 = Math.max(x2, r.right); y2 = Math.max(y2, r.bottom); }
+    const g = (a) => (it.el.getAttribute(a) || '').trim();
+    const z = { id: it.id, n: ++n, title: g('data-hs-title'), what: g('data-hs-what'), why: g('data-hs-why'),
+      p: g('data-hs-p').split(/[\\s,]+/).filter(Boolean), sec: g('data-hs-sec').split(/[\\s,]+/).filter(Boolean) };
+    if (x1 !== Infinity) Object.assign(z, { x: Math.round(x1 + scrollX), y: Math.round(y1 + scrollY), w: Math.round(x2 - x1), h: Math.round(y2 - y1) });
+    zones.push(z);
+  }
+  return { count: zones.length, untitled, duplicates: [...new Set(dup)], incomplete: zones.filter((z) => !z.what || !z.why).map((z) => z.id), zones };
+}`;
+
+// Сводка страницы: бейдж концепта (по классу; старые макеты — по тексту), переполнение, запасные цвета по темам и режимам
+const INFO_FN = ([src, vw, core, optional]) => {
+  const re = new RegExp(src, 'i');
+  const de = document.documentElement;
+  const vis = (e) => { const r = e.getBoundingClientRect(); const s = getComputedStyle(e); return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none'; };
+  const byClass = [...document.querySelectorAll('.ps-concept-badge')].filter(vis);
+  let badgeEl = byClass[0] || null; let by = badgeEl ? 'class' : null;
+  if (!badgeEl) {
+    const cand = [...document.querySelectorAll('[class*=concept i], [data-badge], [class*=badge i], [id*=concept i]')];
+    badgeEl = cand.find((e) => re.test(e.textContent || '')) || null;
+    if (badgeEl) by = 'text';
+  }
+  const text = document.body ? document.body.innerText : '';
+  if (!badgeEl && re.test(text)) by = 'text';
+  const truncated = byClass.filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => ({ text: (e.textContent || '').trim().slice(0, 80), need: e.scrollWidth, have: e.clientWidth }));
+  const roots = []; const themes = new Set();
+  for (const el of [de, ...document.querySelectorAll('[data-theme], [data-mode]')]) {
+    const t = (el.getAttribute('data-theme') || (el.closest('[data-theme]') || de).getAttribute('data-theme') || 'light') + (el.closest('[data-mode]') ? ':' + el.closest('[data-mode]').getAttribute('data-mode') : '');
+    if (!themes.has(t)) { themes.add(t); roots.push([t, el]); }
+  }
+  const colors = []; let kit = false; let mono = null;
+  for (const [t, el] of roots) {
+    const cs = getComputedStyle(el);
+    if (!cs.getPropertyValue('--k-def-accent').trim()) continue;
+    kit = true;
+    if (mono === null) mono = cs.getPropertyValue('--font-mono').trim();
+    for (const role of [...core, ...optional]) {
+      const v = cs.getPropertyValue('--c-' + role).trim(); const d = cs.getPropertyValue('--k-def-' + role).trim();
+      const isColor = !!v && CSS.supports('color', v);
+      colors.push({ theme: t, role, value: v, fallback: !!v && v.toLowerCase() === d.toLowerCase(), bad: !isColor, core: core.includes(role) });
+    }
+  }
+  return { badge: !!by, badge_by: by, badge_truncated: truncated, overflow: de.scrollWidth > Math.min(de.clientWidth, vw) + 1, w: de.scrollWidth, h: de.scrollHeight,
+    viewportMeta: !!document.querySelector('meta[name=viewport]'), contrast: window.psContrast || null,
+    board: !!document.querySelector('.pm-board, .pm-frame'), kit, colors, mono, theme: de.getAttribute('data-theme') || 'light' };
+};
 
 function inside(p) {
   let real; try { real = fs.realpathSync(p); } catch { real = path.resolve(p); }
@@ -311,7 +494,8 @@ catch (e) {
   process.exit(3);
 }
 
-const DATE = new Date().toISOString().slice(0, 10);
+const _d = new Date();
+const DATE = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}`;   // локальная дата, не UTC
 const results = [];
 for (const it of items) {
   if (!it || typeof it !== 'object') continue;
@@ -346,53 +530,45 @@ for (const it of items) {
     return route.abort('blockedbyclient');
   });
   const page = await ctx.newPage();
+  let sink = rec.console_errors;                                   // ошибки консоли второй темы — отдельно
   page.on('dialog', (d) => d.dismiss().catch(() => {}));
-  page.on('console', (msg) => { if (msg.type() === 'error' && !/net::ERR_BLOCKED_BY_CLIENT|ERR_ACCESS_DENIED/.test(msg.text())) rec.console_errors.push(msg.text().slice(0, 200)); });
-  page.on('pageerror', (e) => rec.console_errors.push('pageerror: ' + String(e).slice(0, 200)));
+  page.on('console', (msg) => { if (msg.type() === 'error' && !/net::ERR_BLOCKED_BY_CLIENT|ERR_ACCESS_DENIED/.test(msg.text())) sink.push(msg.text().slice(0, 200)); });
+  page.on('pageerror', (e) => sink.push('pageerror: ' + String(e).slice(0, 200)));
+  const targetMin = TARGETS === 'touch' ? 44 : TARGETS === 'pointer' ? 32 : width < 600 ? 44 : 32;
+  const fallbackOf = (info, decl) => info.colors.filter((c) => c.fallback && !declared(decl, c.theme.startsWith('dark') ? 'dark' : 'light', c.role))
+    .map((c) => ({ theme: c.theme, var: '--c-' + c.role, value: c.value, core: c.core }));
+  let decl = null;
   try {
     await page.goto(pathToFileURL(htmlAbs).href, { waitUntil: 'load', timeout: 30000 });
     await page.evaluate(() => document.fonts && document.fonts.ready).catch(() => {});
     await page.waitForTimeout(300);
     if (opt.contrast) await page.evaluate(`window.psContrast ? 0 : ${CONTRAST_JS}`).catch((e) => rec.console_errors.push('проверка контраста: ' + String(e).slice(0, 120)));
-    const info = await page.evaluate(([src, vw, core, optional]) => {
-      const re = new RegExp(src, 'i');
-      const de = document.documentElement;
-      const cand = [...document.querySelectorAll('[class*=concept i], [data-badge], [class*=badge i], [id*=concept i]')];
-      const badgeEl = cand.find((e) => re.test(e.textContent || '')) || null;
-      const text = document.body ? document.body.innerText : '';
-      // запасные цвета набора: по одной точке на каждую тему страницы
-      const roots = []; const themes = new Set();
-      for (const el of [de, ...document.querySelectorAll('[data-theme]')]) {
-        const t = el.getAttribute('data-theme') || 'light';
-        if (!themes.has(t)) { themes.add(t); roots.push([t, el]); }
-      }
-      const colors = []; let kit = false; let mono = null;
-      for (const [t, el] of roots) {
-        const cs = getComputedStyle(el);
-        if (!cs.getPropertyValue('--k-def-accent').trim()) continue;
-        kit = true;
-        if (mono === null) mono = cs.getPropertyValue('--font-mono').trim();
-        for (const role of [...core, ...optional]) {
-          const v = cs.getPropertyValue('--c-' + role).trim(); const d = cs.getPropertyValue('--k-def-' + role).trim();
-          const isColor = !!v && CSS.supports('color', v);
-          colors.push({ theme: t, role, value: v, fallback: !!v && v.toLowerCase() === d.toLowerCase(), bad: !isColor, core: core.includes(role) });
-        }
-      }
-      return { badge: !!badgeEl || re.test(text), overflow: de.scrollWidth > Math.min(de.clientWidth, vw) + 1, w: de.scrollWidth, h: de.scrollHeight,
-        viewportMeta: !!document.querySelector('meta[name=viewport]'), contrast: window.psContrast || null,
-        board: !!document.querySelector('.pm-board, .pm-frame'), kit, colors, mono };
-    }, [BADGE_RE.source, width, CORE_ROLES, OPT_ROLES]);
+    const info = await page.evaluate(INFO_FN, [BADGE_RE.source, width, CORE_ROLES, OPT_ROLES]);
     rec.viewport_meta = info.viewportMeta;
-    rec.badge = info.badge; rec.overflow_x = info.overflow; rec.scroll_width = info.w; rec.scroll_height = info.h;
-    if (info.contrast) rec.contrast = { checked: info.contrast.checked, fails: (info.contrast.fails || []).length };
+    rec.badge = info.badge; rec.badge_by = info.badge_by; rec.overflow_x = info.overflow; rec.scroll_width = info.w; rec.scroll_height = info.h;
+    if (info.badge_truncated.length) rec.badge_truncated = info.badge_truncated;
+    if (info.badge_by === 'text' && rec.kind === 'concept') rec.warnings.push('бейдж найден по тексту, без класса .ps-concept-badge — разметьте бейдж классом набора');
+    if (info.contrast) rec.contrast = { checked: info.contrast.checked, fails: (info.contrast.fails || []).length, svg: info.contrast.svg || 0 };
     if (info.kit) {
       // запасной = значение совпало с --k-def-* И роль не объявлена страницей (ни --c-*, ни имя моста) для этой темы
-      const decl = pageDecls(htmlAbs);
+      decl = pageDecls(htmlAbs);
       rec.page_vars = decl.light.size + decl.dark.size;
-      rec.fallback_colors = info.colors.filter((c) => c.fallback && !declared(decl, c.theme === 'dark' ? 'dark' : 'light', c.role)).map((c) => ({ theme: c.theme, var: '--c-' + c.role, value: c.value, core: c.core }));
+      rec.fallback_colors = fallbackOf(info, decl);
       const bad = info.colors.filter((c) => c.bad);
       if (bad.length) rec.bad_colors = bad.map((c) => ({ theme: c.theme, var: '--c-' + c.role, value: c.value }));
       if (info.mono && !/Menlo|SF Mono|Consolas/i.test(info.mono)) rec.warnings.push(`--font-mono «${info.mono.slice(0, 60)}» без Menlo/"SF Mono"/Consolas перед monospace — кириллица на macOS выйдет шрифтом с засечками`);
+    }
+    if (TARGETS) {
+      const t = await page.evaluate(`(${TARGETS_JS})(${targetMin})`);
+      rec.targets = { mode: TARGETS === 'auto' ? (targetMin === 44 ? 'touch' : 'pointer') : TARGETS, min: targetMin, checked: t.checked, small: t.small.slice(0, 20), small_total: t.small.length, drag_without_buttons: t.drag };
+    }
+    if (LAYOUT) rec.layout = await page.evaluate(`(${LAYOUT_JS})()`);
+    const hs = await page.evaluate(`(${HS_JS})()`);
+    if (hs.count || hs.untitled.length) {
+      rec.hotspots = Object.assign(hs, { scale: width < 600 ? 2 : 1 });
+      if (hs.duplicates.length) rec.warnings.push('data-hs: повторяется data-hs-title у id ' + hs.duplicates.slice(0, 5).join(', '));
+      if (hs.untitled.length) rec.warnings.push('data-hs без data-hs-title ни у одного элемента: ' + hs.untitled.slice(0, 5).join(', '));
+      if (hs.incomplete.length) rec.warnings.push(`подсказки без «что это»/«для чего» (data-hs-what/-why): ${hs.incomplete.length}`);
     }
     fs.mkdirSync(path.dirname(pngAbs), { recursive: true });
     const so = { path: pngAbs, timeout: 20000 };
@@ -404,6 +580,30 @@ for (const it of items) {
       else rec.warnings.push(msg + ' (если прокрутка по замыслу — снимайте с --full-page)');
     }
     await page.screenshot(so);
+    // вторая тема: тот же макет с противоположным data-theme на <html>
+    if (opt['other-theme'] && rec.kind !== 'kit') {
+      const theme = info.theme === 'dark' ? 'light' : 'dark';
+      const rootColors = () => page.evaluate(() => { const cs = getComputedStyle(document.documentElement);
+        return ['--c-bg', '--c-surface', '--c-text'].map((v) => cs.getPropertyValue(v).trim()).join('|') + '|' + getComputedStyle(document.body).backgroundColor; });
+      const before = await rootColors();
+      const o = { theme, png: rec.png.replace(/\.png$/i, '') + `.theme-${theme}.png`, console_errors: [], problems: [] };
+      sink = o.console_errors;
+      await page.evaluate((t) => { document.documentElement.setAttribute('data-theme', t); delete window.psContrast; }, theme);
+      await page.waitForTimeout(200);
+      if (opt.contrast || info.contrast) await page.evaluate(CONTRAST_JS).catch((e) => o.console_errors.push('проверка контраста: ' + String(e).slice(0, 120)));
+      const i2 = await page.evaluate(INFO_FN, [BADGE_RE.source, width, CORE_ROLES, OPT_ROLES]);
+      if (info.kit && before === await rootColors()) o.problems.push(`вторая тема не отличается от первой (фон и текст те же) — в tokens.css нет блока [data-theme="${theme}"] или он перекрыт :root`);
+      if (i2.overflow) o.problems.push(`горизонтальное переполнение ${i2.w}px > ${width}px`);
+      if (i2.contrast && i2.contrast.fails.length) { o.contrast = { checked: i2.contrast.checked, fails: i2.contrast.fails.length }; o.problems.push(`нарушений контраста ${i2.contrast.fails.length}`); }
+      if (i2.kit) {
+        const fb = fallbackOf(i2, decl || pageDecls(htmlAbs)).filter((c) => c.core && c.theme.startsWith(theme));
+        if (fb.length && (TOKENS_VARS > 0 || rec.page_vars > 0)) o.problems.push(`использован запасной цвет набора (${fb.map((c) => c.var).join(', ')}) — в tokens.css нет блока [data-theme="${theme}"] для этих ролей`);
+      }
+      const other = o.console_errors.filter((e) => !/^контраст /.test(e));
+      if (other.length) o.problems.push(`ошибок консоли ${other.length}`);
+      await page.screenshot(Object.assign({}, so, { path: path.resolve(OUT, o.png) }));
+      rec.other_theme = o;
+    }
   } catch (e) { rec.error = String(e.message || e).split('\n')[0].slice(0, 200); }
   await ctx.close();
   const problems = [];
@@ -411,10 +611,17 @@ for (const it of items) {
   if (rec.console_errors.length) problems.push(`ошибок консоли ${rec.console_errors.length}`);
   if (rec.external_requests.length) problems.push(`внешних запросов ${rec.external_requests.length}`);
   if (rec.overflow_x) problems.push(`горизонтальное переполнение ${rec.scroll_width}px > ${width}px`);
-  if (rec.kind === 'concept' && rec.badge === false) problems.push('нет бейджа «Концепт»');
+  if (rec.kind === 'concept' && rec.badge === false) problems.push('нет бейджа «Концепт» (.ps-concept-badge)');
+  if (rec.kind !== 'current' && rec.badge_truncated) problems.push('текст бейджа концепта обрезан: «' + rec.badge_truncated[0].text.slice(0, 50) + `» (нужно ${rec.badge_truncated[0].need}px, есть ${rec.badge_truncated[0].have}px) — короче текст или .is-strip/.is-inline`);
   if (width < 600 && rec.viewport_meta === false) problems.push('мобильный макет без <meta name=viewport>');
   if (rec.contrast && rec.contrast.fails) problems.push(`нарушений контраста ${rec.contrast.fails}`);
   if (rec.tall) problems.push(rec.tall);
+  if (rec.targets && rec.targets.small_total) problems.push(`цели нажатия меньше ${rec.targets.min}px (${rec.targets.mode}): ${rec.targets.small_total} — ` +
+    rec.targets.small.slice(0, 3).map((x) => `${x.el}${x.text ? ' «' + x.text + '»' : ''} ${x.w}×${x.h}`).join('; '));
+  if (rec.targets && rec.targets.drag_without_buttons.length) problems.push(`перетаскивание без дублирования кнопками (data-drag-alt): ${rec.targets.drag_without_buttons.slice(0, 3).join(', ')}`);
+  if (rec.layout && rec.layout.length) problems.push(`элементы обрезаны/вылезают из ряда: ${rec.layout.length} — ` +
+    rec.layout.slice(0, 3).map((x) => x.type === 'hidden_scroll' ? `${x.el} прячет ${x.over}px за прокруткой` : `${x.child}${x.text ? ' «' + x.text + '»' : ''} вылезает из ${x.el} на ${x.over}px`).join('; '));
+  if (HS_MIN && rec.kind === 'concept' && !rec.error && (rec.hotspots ? rec.hotspots.count : 0) < HS_MIN) problems.push(`размечено элементов data-hs ${(rec.hotspots ? rec.hotspots.count : 0)} < ${HS_MIN} (стандарт — 12–25, references/design.md)`);
   if (rec.bad_colors) problems.push('значение роли — не цвет: ' + rec.bad_colors.map((c) => `${c.var} (${c.theme}) = «${c.value.slice(0, 40)}»`).join(', ') +
     ' — в tokens.css задайте цвет целиком (#hex, rgb(), hsl()), «голые» тройки HSL набор не понимает');
   const fbCore = rec.fallback_colors.filter((c) => c.core); const fbOpt = rec.fallback_colors.filter((c) => !c.core);
@@ -424,13 +631,15 @@ for (const it of items) {
     if (TOKENS_VARS > 0 || rec.page_vars > 0) {
       problems.push(`использован запасной цвет набора (${fbText(fbCore)}) — токены продукта не дошли до набора: в mockups/tokens.css нет --c-* ` +
         'и имён моста (--primary, --bg, --surface/--card, --text, --muted, --border)' +
-        (fbCore.some((c) => c.theme === 'dark') ? '; для тёмной темы нужен блок [data-theme="dark"]' : ''));
+        (fbCore.some((c) => c.theme.startsWith('dark')) ? '; для тёмной темы нужен блок [data-theme="dark"]' : '') +
+        (fbCore.some((c) => c.theme.includes(':')) ? '; для режима — --c-* в tokens-<режим>.css под [data-mode="<режим>"]' : ''));
     } else rec.warnings.push(`tokens.css пуст — макет нарисован запасной палитрой набора (${fbText(fbCore)})`);
   }
   if (fbOpt.length && (TOKENS_VARS > 0 || rec.page_vars > 0)) rec.warnings.push(`запасные значения необязательных ролей (${fbText(fbOpt)})`);
+  if (rec.other_theme) for (const pr of rec.other_theme.problems) problems.push(`тема ${rec.other_theme.theme}: ${pr}`);
   rec.problems = problems; rec.ok = problems.length === 0;
   finish();
-  console.log(`${rec.ok ? 'OK  ' : 'FAIL'} ${it.key} ${width}x${height} → ${rec.png}${problems.length ? ' | ' + problems.join('; ') : ''}`);
+  console.log(`${rec.ok ? 'OK  ' : 'FAIL'} ${it.key} ${width}x${height} → ${rec.png}${rec.other_theme ? ' + ' + rec.other_theme.png : ''}${problems.length ? ' | ' + problems.join('; ') : ''}`);
   for (const w of rec.warnings) console.log(`     предупреждение ${it.key}: ${w}`);
 }
 await browser.close();
@@ -456,6 +665,21 @@ if (!opt.kit && !WRITE_SHARED) {
       external: merged.filter((r) => (r.external_requests || []).length).length, overflow: merged.filter((r) => r.overflow_x).length,
       console: merged.filter((r) => (r.console_errors || []).length).length, not_shot: keys.length - merged.length };
     writeAtomic(path.join(DATA, 'mockups-check.json'), JSON.stringify({ date: DATE, tool: 'shoot_mockups.mjs', summary, items: merged }, null, 2) + '\n');
+    // координаты подсказок для просмотра макетов на странице (E): mockups/hotspots.json, r — доли ширины и высоты PNG (0…1)
+    const hsOut = { version: 1, date: DATE, tool: 'shoot_mockups.mjs', mockups: {} };
+    for (const r of merged) {
+      const zs = (r.hotspots && r.hotspots.zones) || [];
+      const dim = zs.length ? pngSize(path.resolve(OUT, r.png || '')) : null;
+      if (!dim) continue;
+      const sc = (r.hotspots && r.hotspots.scale) || 1, W = dim.w / sc, H = dim.h / sc, f = (v) => Math.round(v * 10000) / 10000;
+      const items = zs.filter((z) => z.w && z.h).map((z) => ({ n: z.n, id: z.id, title: z.title, what: z.what, why: z.why, p: z.p, sec: z.sec,
+        r: [f(z.x / W), f(z.y / H), f(z.w / W), f(z.h / H)] }));
+      if (items.length) hsOut.mockups[r.key] = { items };
+    }
+    if (Object.keys(hsOut.mockups).length) {
+      fs.mkdirSync(path.join(OUT, 'mockups'), { recursive: true });
+      writeAtomic(path.join(OUT, 'mockups', 'hotspots.json'), JSON.stringify(hsOut, null, 1) + '\n');
+    }
     console.log(`итого в этом запуске: ${runSummary.ok}/${runSummary.total} без замечаний; в агрегате ${summary.ok}/${summary.total}` +
       `${summary.not_shot ? ` (не снято ${summary.not_shot})` : ''} → data/mockups-check.json`);
   });

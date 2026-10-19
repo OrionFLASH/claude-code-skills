@@ -1,4 +1,4 @@
-/* Мобильный слой набора макетов product-strategy (префикс pm-). Версия 1.0.
+/* Мобильный слой набора макетов product-strategy (префикс pm-). Версия 1.1.
    Подключение после токенов и набора:
      <link rel="stylesheet" href="../tokens.css"> <link rel="stylesheet" href="_kit.css">
      <link rel="stylesheet" href="_icons.css"> <link rel="stylesheet" href="_mobile.css">
@@ -10,7 +10,7 @@
    (4 экрана: 1720×1000, 3 — 1320×1000, 2 — 900×1000; высота ≥ 960, иначе подписи обрезаются). */
 
 :root, [data-theme] {
-  --pm-w: 390px; --pm-h: 844px; --pm-status-h: 40px; --pm-appbar-h: 56px; --pm-tabbar-h: 68px; --pm-gesture-h: 22px;
+  --pm-w: 390px; --pm-h: 844px; --pm-status-h: 40px; --pm-appbar-h: 56px; --pm-tabbar-h: 68px; --pm-gesture-h: 22px; --pm-actionbar-h: 76px;
   --pm-radius-sheet: 24px; --pm-radius-card: 16px; --pm-gap: 12px; --pm-pad: 16px;
   /* обои экрана блокировки и рабочего стола: тёмные в обеих темах, текст на них — белый (контраст ≥ 4,5:1 при любом акценте) */
   --pm-wall-1: color-mix(in srgb, var(--c-accent) 38%, #070a12);
@@ -77,8 +77,11 @@ body.pm-single .pm-phone { border-radius: 0; box-shadow: none; }
 .pm-search { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 16px; border-radius: 999px; background: var(--k-surface-2);
   color: var(--c-muted); border: 1px solid var(--c-border); }
 .pm-search .ps-i { width: 20px; height: 20px; color: var(--c-text); }
-.pm-chips { display: flex; gap: 8px; overflow: visible; flex-wrap: nowrap; }
-.pm-chips .ps-chip { min-height: 34px; }
+.pm-chips { display: flex; gap: 8px; overflow: visible; }
+.pm-chips .ps-chip { min-height: max(34px, var(--k-target)); }
+/* ряд чипов шире экрана — только с явной прокруткой (.is-scroll), иначе переносится: край телефона не обрезает чипы */
+.pm-chips { flex-wrap: wrap; }
+.pm-chips.is-scroll { flex-wrap: nowrap; overflow-x: auto; margin-right: calc(-1 * var(--pm-pad)); padding-right: var(--pm-pad); }
 
 /* карточки и строки списка */
 .pm-card { position: relative; background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--pm-radius-card); padding: 14px 16px;
@@ -142,16 +145,25 @@ body.pm-single .pm-phone { border-radius: 0; box-shadow: none; }
   padding: 22px 22px 16px; background: var(--c-surface); color: var(--c-text); border-radius: 26px; box-shadow: 0 24px 48px -20px rgba(0, 0, 0, .6); }
 .pm-dialog .pm-dialog-ico { align-self: center; color: var(--k-accent-ink); }
 .pm-dialog .pm-dialog-ico .ps-i { width: 28px; height: 28px; }
-.pm-dialog .pm-actions.is-row .ps-btn { min-height: 40px; }
+.pm-dialog .pm-actions.is-row .ps-btn { min-height: max(40px, var(--k-target)); }
 
-/* снекбар: над панелью вкладок (или над жестовой полосой с .is-low) */
+/* нижняя панель действий экрана (оформить, сохранить): над жестовой полосой, вместо панели вкладок */
+.pm-actionbar { position: relative; flex: none; z-index: 8; display: flex; align-items: center; gap: 10px; min-height: var(--pm-actionbar-h);
+  padding: 10px var(--pm-pad); background: var(--c-surface); border-top: 1px solid var(--c-border); }
+.pm-actionbar .pm-grow { flex: 1; min-width: 0; font-size: 13px; color: var(--c-muted); }
+.pm-actionbar .pm-grow b { display: block; color: var(--c-text); font-size: 17px; }
+.pm-actionbar .ps-btn { min-height: max(48px, var(--k-target)); }
+
+/* снекбар: над панелью вкладок (или над жестовой полосой с .is-low); 1.1 — учитывает собственную нижнюю панель экрана
+   (.pm-actionbar) и экран без панели вкладок (сам опускается к жестовой полосе) */
 .pm-snackbar { position: absolute; z-index: 25; left: 12px; right: 12px; bottom: calc(var(--pm-tabbar-h) + var(--pm-gesture-h) + 12px);
   display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 8px 8px 8px 16px; border-radius: 12px; background: var(--pm-snack-bg);
   color: var(--pm-snack-fg); box-shadow: 0 10px 24px -12px rgba(0, 0, 0, .6); font-size: 14px; }
 .pm-snackbar .pm-grow { flex: 1; min-width: 0; }
-.pm-snackbar .pm-snack-action { flex: none; min-height: 36px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent;
+.pm-snackbar .pm-snack-action { flex: none; min-height: max(36px, var(--k-target)); padding: 0 12px; border: 0; border-radius: 8px; background: transparent;
   color: var(--pm-snack-action); font: 700 14px var(--font); cursor: pointer; }
-.pm-snackbar.is-low { bottom: calc(var(--pm-gesture-h) + 12px); }
+.pm-snackbar.is-low, .pm-phone:not(:has(.pm-tabbar)) .pm-snackbar:not(.is-static) { bottom: calc(var(--pm-gesture-h) + 12px); }
+.pm-phone:has(.pm-actionbar) .pm-snackbar:not(.is-static) { bottom: calc(var(--pm-actionbar-h) + var(--pm-gesture-h) + 12px); }
 .pm-snackbar.is-static { position: relative; left: auto; right: auto; bottom: auto; }
 
 /* уведомление: в шторке/на экране блокировки (.pm-notifs) или всплывающее сверху (.is-heads-up) */
@@ -164,7 +176,7 @@ body.pm-single .pm-phone { border-radius: 0; box-shadow: none; }
 .pm-notif-title { font-weight: 700; font-size: 15px; }
 .pm-notif-text { font-size: 14px; color: var(--c-text); }
 .pm-notif-actions { display: flex; gap: 6px; margin-top: 4px; }
-.pm-notif-actions button { min-height: 32px; padding: 0 12px; border: 0; border-radius: 16px; background: var(--k-accent-soft); color: var(--k-accent-ink);
+.pm-notif-actions button { min-height: var(--k-target); padding: 0 12px; border: 0; border-radius: 16px; background: var(--k-accent-soft); color: var(--k-accent-ink);
   font: 700 13px var(--font); cursor: pointer; }
 .pm-notif.is-heads-up { position: absolute; z-index: 40; left: 10px; right: 10px; top: calc(var(--pm-status-h) + 26px); }
 .pm-notifs { display: flex; flex-direction: column; gap: 8px; }
@@ -195,4 +207,4 @@ body.pm-single .pm-phone { border-radius: 0; box-shadow: none; }
 .pm-widget-bars { display: flex; align-items: flex-end; gap: 5px; height: 44px; }
 .pm-widget-bars i { flex: 1; border-radius: 4px 4px 2px 2px; background: var(--c-accent); opacity: .85; }
 .pm-widget-bars i.is-dim { background: var(--k-border-strong); }
-.pm-widget .ps-btn { min-height: 36px; }
+.pm-widget .ps-btn { min-height: max(36px, var(--k-target)); }

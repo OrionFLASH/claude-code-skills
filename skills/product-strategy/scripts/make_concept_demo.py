@@ -11,7 +11,7 @@
 data/idea.json, research/product-understanding.md, build/search-plan.md, build/seeds.md), data/typesafe-concept.json
 (эвристика, Jev не вызывался), реестр с метками mvp/v1/later, competitors.json с kind и планируемой идеей (self, planned),
 swot.json, personas.json, сообщества, запросы, события, источники, Гант, Kanban, схему, макеты-заглушки с бейджем
-«Концепт продукта, не существующая функция», референс, research/strategy.md по references/concept-outline.md.
+`.ps-concept-badge` «Концепт, не существующая функция · <продукт> · <дата>» (FB-033), референс, research/strategy.md по references/concept-outline.md.
 Только стандартная библиотека.
 """
 import argparse
@@ -27,6 +27,8 @@ import concept_dossier  # noqa: E402
 import intake  # noqa: E402
 import make_demo  # noqa: E402
 import typesafe_concept  # noqa: E402
+
+BADGE_TEXT = "Концепт, не существующая функция"   # константа набора макетов (mockup_kit.BADGE_TEXT)
 
 IDEA = "Демо: приложение для обмена книгами между соседями по дому. Взял почитать — вернул, без денег и курьеров."
 ANSWERS = {   # ответы карточек как вернул бы AskUserQuestion (header → label или свой текст)
@@ -162,10 +164,10 @@ def main(argv=None):
                            "cards": [{"id": p["id"], "title": p["title"], "column": cols[k % 3], "goal": "демо-цель", "steps": ["шаг 1"],
                                       "kpi": "активные соседи", "links": [], "tags": p["tags"], "priority": "P1", "effort_days": p["effort_days"]}
                                      for k, p in enumerate(props[:20])]})
-    # узел — <g data-node> с фигурой и подписью внутри (как в брифе flows.md): check_flow.mjs считает подпись своей
+    # узел — <g data-node> с <title> первым (текст из nodes[].what, FB-038), фигурой и подписью внутри (бриф flows.md)
     svg = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 120">'
-           + "".join('<g data-node="first-use:%d"><rect x="%d" y="30" width="180" height="60" rx="8" fill="%s"/>'
-                     '<text x="%d" y="65" text-anchor="middle">%s</text></g>' % (k + 1, 10 + 220 * k, fill, 100 + 220 * k, lab)
+           + "".join('<g data-node="first-use:%d"><title>%s: демо</title><rect x="%d" y="30" width="180" height="60" rx="8" fill="%s"/>'
+                     '<text x="%d" y="65" text-anchor="middle">%s</text></g>' % (k + 1, lab, 10 + 220 * k, fill, 100 + 220 * k, lab)
                      for k, (lab, fill) in enumerate(zip(('Узнал от соседа', 'Нашёл книгу', 'Вернул'), ("#eef", "#efe", "#fee"))))
            + "</svg>")
     w("charts/flows/first-use.svg", svg)
@@ -175,11 +177,13 @@ def main(argv=None):
     w("data/mockups-index.json", [{"key": "M%02d-demo" % k, "html": "mockups/concepts/M%02d-demo.html" % k, "png": "mockups/concepts/M%02d-demo.png" % k,
                                    "title": "Демо-экран концепции %d" % k, "proposals": [props[k - 1]["id"]], "viewport": "1440x900", "kind": "concept"}
                                   for k in range(1, nm + 1)])
+    # FB-033: единый бейдж набора — класс .ps-concept-badge и текст «Концепт, не существующая функция · <продукт> · <дата>»
+    badge = "%s · %s · %s" % (BADGE_TEXT, name, date.today().isoformat())
     for k in range(1, nm + 1):
         w("mockups/concepts/M%02d-demo.html" % k,
-          '<!doctype html><meta charset="utf-8"><title>Демо-экран %d</title><body style="font:16px system-ui;margin:0">'
-          '<div class="badge-concept" style="position:fixed;top:8px;right:8px;background:#b42318;color:#fff;padding:4px 8px">Концепт продукта, не существующая функция</div>'
-          '<h1 style="padding:40px">Демо-экран концепции %d</h1></body>' % (k, k))
+          '<!doctype html><meta charset="utf-8"><title>Демо-экран %d</title><body style="font:16px system-ui;margin:0">' % k
+          + '<div class="ps-concept-badge" style="position:fixed;top:8px;right:8px;background:#b42318;color:#fff;padding:4px 8px">%s</div>' % badge
+          + '<h1 style="padding:40px">Демо-экран концепции %d</h1></body>' % k)
     w("design-refs/01-demo.json", {"file": "mockups/concepts/M01-demo.html", "png": "design-refs/01-demo.png", "scale": 1, "width": 1440, "height": 900,
                                    "title": "Демо-референс концепции", "proposals": [props[0]["id"]], "kind": "page", "summary": "демо", "entry": "демо",
                                    "shared": [], "new_elements": ["каталог"], "hotspots": [{"n": 1, "x": 40, "y": 30, "w": 400, "h": 60, "title": "Заголовок",

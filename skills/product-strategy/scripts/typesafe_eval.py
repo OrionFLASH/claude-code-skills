@@ -13,6 +13,8 @@
 --redo — переспросить уже оценённые; иначе оценки дописываются к имеющимся (можно продолжить после обрыва).
   --redo тратит запросы заново, поэтому требует подтверждения: в терминале — вопрос «Продолжить? [y/N]», без
   терминала (агент, CI) — только с --yes. Перед запросами печатается, сколько их будет («Будет запросов: N»).
+Личный режим (project.audience = personal | circle | personal_then_public): вместо p_acquisition и p_revenue —
+p_time_saved (польза владельцу) и p_maintainable (поддержка посильна одному), impact — влияние на задачу владельца.
 Адрес API можно переопределить TYPESAFE_API_URL (только для тестов). Только стандартная библиотека.
 """
 import argparse
@@ -56,8 +58,46 @@ QUESTIONS = {
     "kano": {"type": "choice", "instructions": "К какому классу модели Кано относится предложение для пользователей?",
              "criteria": {"must": "Ожидается по умолчанию, отсутствие раздражает", "linear": "Чем больше, тем лучше — линейная ценность",
                           "delight": "Приятный сюрприз, не ожидается", "indifferent": "Пользователям безразлично"}}}
+# личный режим (project.audience = personal | circle | personal_then_public, SM 4.3): вместо вопросов о привлечении и выручке —
+# польза владельцу и посильность поддержки; влияние — на задачу владельца, а не на рост аудитории
+PERSONAL_AUDIENCES = ("personal", "circle", "personal_then_public")
+PERSONAL_REPLACE = {
+    "p_acquisition": ("p_time_saved", {"type": "noul", "instructions": "Сэкономит ли предложение владельцу заметное время, деньги или ошибки в его задаче?",
+                                       "criteria": {"true": "Да, польза владельцу ощутима", "false": "Нет, польза слабая"}}),
+    "p_revenue": ("p_maintainable", {"type": "noul", "instructions": "Посильна ли поддержка результата одному владельцу (обновления, данные, зависимости)?",
+                                     "criteria": {"true": "Поддержка посильна", "false": "Поддержка тяжёлая"}}),
+}
+PERSONAL_IMPACT = {"type": "score", "instructions": "Ожидаемое влияние предложения на задачу владельца (экономия времени, денег, ошибок, качество решений) в пределах горизонта.",
+                   "criteria": ["Почти нет", "Небольшое", "Заметное", "Большое", "Меняет то, как владелец решает задачу"]}
 PROPOSAL_FIELDS = ["title", "category", "segment", "description", "rationale", "current_feature", "effort_days",
                    "risks", "cheap_test", "horizon", "evidence_class"]
+
+
+def is_personal(cfg):
+    return str(((cfg or {}).get("project") or {}).get("audience") or "public").lower() in PERSONAL_AUDIENCES
+
+
+def questions_for(cfg):
+    """Набор вопросов прогона: публичный (по умолчанию) или личного режима."""
+    if not is_personal(cfg):
+        return dict(QUESTIONS)
+    q = {}
+    for k, v in QUESTIONS.items():
+        if k in PERSONAL_REPLACE:
+            nk, nv = PERSONAL_REPLACE[k]
+            q[nk] = nv
+        elif k == "impact":
+            q[k] = PERSONAL_IMPACT
+        else:
+            q[k] = v
+    return q
+
+
+def use_questions(cfg):
+    """Переключить вопросы модуля на набор прогона (ask, parse_answers, skeleton читают QUESTIONS)."""
+    global QUESTIONS
+    QUESTIONS = questions_for(cfg)
+    return QUESTIONS
 
 
 def ssl_context():
@@ -90,6 +130,8 @@ def context_from_config(cfg):
         parts.append("Рынки: %s." % ", ".join(map(str, strat["markets"])))
     if strat.get("constraints"):
         parts.append("Ограничения: %s" % str(strat["constraints"])[:300])
+    if is_personal(cfg):
+        parts.append("Личный инструмент владельца (аудитории и монетизации нет): ценность — экономия времени, денег и ошибок владельца.")
     return " ".join(parts) or "Цифровой продукт; контекст не задан."
 
 
@@ -202,6 +244,7 @@ def main(argv=None):
     cfg_path = out_dir / "build" / "run-config.json"
     cfg = json.loads(cfg_path.read_text(encoding="utf-8")) if cfg_path.exists() else {}
     context = context_from_config(cfg)
+    use_questions(cfg)
     todo = props[:a.limit] if a.limit else props
     prev = json.loads(out_path.read_text(encoding="utf-8")) if out_path.exists() else None
     prev_items = (prev or {}).get("items") or {}

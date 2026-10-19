@@ -9,7 +9,8 @@
   * старые прогоны без charts/<ключ>.meta.json — статичные картинки и предупреждение;
   * в Chromium (Playwright): разбор ссылок роутером, полный обход КАЖДОГО элемента каждого графика (панель непустая), клавиатура
     (Enter, ←/→, Esc с возвратом фокуса), глубокая ссылка #chart/<ключ>/<id>, старые ссылки #p=…, #lb=c-<ключ>, #s-N, навигация
-    #registry не сбрасывает фильтры, ссылки из панели закрывают её.
+    #registry не сбрасывает фильтры, ссылки из панели закрывают её; «🔍 Увеличить» открывает просмотр с живым SVG (1.5, FB-035;
+    до 1.5 — плоская картинка в лайтбоксе: проверка изменена осознанно).
 Пропуск Playwright-тестов — как в соседних тестах (нет node, playwright или браузера).
   python3 -m pytest skills/product-strategy/tests/test_charts_ui.py -q
 """
@@ -322,8 +323,10 @@ await p2.waitForFunction(() => window.PS_ROUTER && PS_ROUTER.state().open, null,
 res.deep = await p2.evaluate(() => ({ s: PS_ROUTER.state(), a: document.activeElement && document.activeElement.getAttribute('data-ps-el'), title: document.getElementById('cp-title').textContent }));
 await p2.evaluate(k => { PS_ROUTER.close(); location.hash = '#lb=c-' + k; }, deep.key); await p2.waitForTimeout(400);
 res.lb = await p2.evaluate(() => { const f = document.querySelector('figure.ps-ichart.ps-flash'); return { flash: f ? f.dataset.chart : null, lbOpen: !!document.querySelector('#lb.open') }; });
-await p2.evaluate(() => { const b = document.querySelector('figure.ps-ichart.ps-ready .lb[data-key]'); b.click(); }); await p2.waitForTimeout(200);
-res.zoom = await p2.evaluate(() => ({ open: !!document.querySelector('#lb.open'), src: (document.getElementById('lbimg').getAttribute('src') || '').slice(0, 26) }));
+// «🔍 Увеличить» (1.5, FB-035): просмотр с ЖИВЫМ SVG (элементы кликаются), а не плоская картинка в лайтбоксе
+await p2.evaluate(() => { const b = document.querySelector('figure.ps-ichart.ps-ready .psi-zoom'); b.click(); }); await p2.waitForTimeout(300);
+res.zoom = await p2.evaluate(() => ({ open: !!(window.PSI && PSI.state().open), live: !!document.querySelector('#psi-lb .psi-canvas svg[data-ps-chart] .ps-el'),
+  img: !!document.querySelector('#psi-lb img'), lb: !!document.querySelector('#lb.open') }));
 await p2.keyboard.press('Escape');
 await p2.evaluate(() => { location.hash = '#p=' + document.querySelector('#tb tr.row').dataset.id; }); await p2.waitForTimeout(200);
 res.legacyP = await p2.evaluate(() => !!document.querySelector('#pm.open'));
@@ -397,5 +400,5 @@ def test_panel_router_keyboard_deeplink(request, mode, tmp_path):
     d = res["deep"]
     assert d["s"]["open"] and d["s"]["key"] == res["deepTarget"]["key"] and d["s"]["id"] == res["deepTarget"]["id"] and d["a"] == d["s"]["id"] and d["title"]
     assert res["lb"]["flash"] == res["deepTarget"]["key"] and not res["lb"]["lbOpen"]
-    assert res["zoom"]["open"] and res["zoom"]["src"].startswith("data:image/svg+xml")
+    assert res["zoom"]["open"] and res["zoom"]["live"] and not res["zoom"]["img"] and not res["zoom"]["lb"]
     assert res["legacyP"]

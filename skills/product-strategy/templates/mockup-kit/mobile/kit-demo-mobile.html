@@ -168,9 +168,34 @@
     <div class="pm-cap"><span class="pm-step">5</span>Рабочий стол: уведомление и виджет<small>.pm-notif.is-heads-up · .pm-widget (4×2, .is-2x2) · .pm-home-grid > .pm-app · .pm-dock</small></div>
   </div>
 </template>
+<template id="kd-phones-13">
+  <!-- 6. (1.3) Оформление: нижняя панель действий, снекбар над ней, счётчик, степпер, ползунок, свежесть данных, чат -->
+  <div class="pm-frame">
+    <div class="pm-phone">
+      <div class="ps-concept-badge is-strip">Концепт, не существующая функция · Дела · проверка набора</div>
+      <div class="pm-status"><span>9:46</span><span class="pm-status-icons"><i class="ps-i ps-i-signal"></i><i class="ps-i ps-i-wifi-off"></i><i class="ps-i ps-i-battery"></i></span></div>
+      <header class="pm-appbar"><button class="pm-iconbtn" aria-label="Назад"><i class="ps-i ps-i-back"></i></button><h1>Новый список</h1><button class="pm-iconbtn" aria-label="Отменить действие"><i class="ps-i ps-i-undo"></i></button></header>
+      <main class="pm-body">
+        <ol class="ps-stepper"><li class="is-done"><b>1</b>Состав</li><li class="is-now"><b>2</b>Срок</li><li><b>3</b>Готово</li></ol>
+        <div class="pm-item is-card"><span class="pm-lead"><i class="ps-i ps-i-box"></i></span><div class="pm-grow"><b>Коробки для переезда</b><small>шт.</small></div>
+          <div class="ps-counter" role="group" aria-label="Количество"><button aria-label="Меньше">−</button><output>4</output><button aria-label="Больше">+</button></div></div>
+        <label class="ps-slider"><span>Напомнить за <output>2 ч</output></span><input type="range" min="0" max="12" value="2" aria-label="Напомнить за"></label>
+        <div class="pm-chips"><span class="ps-fresh is-delayed">нет сети · сохранено на телефоне</span></div>
+        <div class="ps-chat"><div class="ps-msg"><span class="ps-msg-who">ИИ</span><br>Добавить скотч и маркер?<span class="ps-msg-meta">подсказка · 9:46</span></div>
+          <div class="ps-msg is-me">Да, оба<span class="ps-msg-meta">вы</span></div></div>
+      </main>
+      <div class="pm-snackbar"><span class="pm-grow">Добавлено 2 пункта</span><button class="pm-snack-action">Отменить</button></div>
+      <div class="pm-actionbar"><div class="pm-grow">Итого<b>6 пунктов · <i class="ps-i ps-i-coin is-16"></i> 1 240 ₽</b></div><button class="ps-btn is-primary">Сохранить</button></div>
+      <div class="pm-gesture"></div>
+    </div>
+    <div class="pm-cap"><span class="pm-step">6</span>Оформление: панель действий и снекбар<small>.pm-actionbar · снекбар сам поднимается над панелью · .ps-counter · .ps-stepper · .ps-slider · .ps-fresh · .ps-msg</small></div>
+  </div>
+</template>
 
 <section class="kd-theme" data-theme="light"><div class="pm-board"><h2 class="kd-title">Светлая тема</h2><div class="kd-slot" style="display:contents"></div></div></section>
 <section class="kd-theme" data-theme="dark"><div class="pm-board"><h2 class="kd-title">Тёмная тема</h2><div class="kd-slot" style="display:contents"></div></div></section>
+<section class="kd-theme" data-theme="light"><div class="pm-board"><h2 class="kd-title">Набор 1.3 — светлая</h2><div class="kd-slot-13" style="display:contents"></div></div></section>
+<section class="kd-theme" data-theme="dark"><div class="pm-board"><h2 class="kd-title">Набор 1.3 — тёмная</h2><div class="kd-slot-13" style="display:contents"></div></div></section>
 <section class="kd-theme" data-theme="light" style="background:var(--c-bg)">
   <div class="kd-icons-head"><h2>Иконки <span class="ps-muted ps-small">— class="ps-i ps-i-&lt;имя&gt;", цвет currentColor</span></h2></div>
   <div class="kd-icons" id="kd-icons"></div>
@@ -181,11 +206,14 @@
 (function () {
   var tpl = document.getElementById('kd-phones');
   document.querySelectorAll('.kd-slot').forEach(function (slot) { slot.appendChild(tpl.content.cloneNode(true)); });
+  // 1.3 — отдельные секции после основных (номера кадров основных экранов не меняются)
+  var tpl13 = document.getElementById('kd-phones-13');
+  document.querySelectorAll('.kd-slot-13').forEach(function (slot) { slot.appendChild(tpl13.content.cloneNode(true)); });
   var ICONS = ['menu', 'back', 'forward', 'close', 'search', 'more', 'more-h', 'plus', 'minus', 'check', 'chevron-right', 'chevron-left', 'chevron-down',
     'chevron-up', 'home', 'list', 'grid', 'settings', 'sliders', 'user', 'users', 'bell', 'mic', 'mic-off', 'play', 'pause', 'stop', 'record', 'wave',
     'star', 'heart', 'bookmark', 'trash', 'share', 'edit', 'copy', 'download', 'upload', 'send', 'calendar', 'clock', 'lock', 'camera', 'image', 'pin',
     'chat', 'mail', 'phone', 'wifi', 'signal', 'battery', 'flashlight', 'filter', 'info', 'alert', 'shield', 'gift', 'cart', 'card', 'chart', 'doc',
-    'folder', 'globe', 'sun', 'moon', 'eye', 'link', 'refresh', 'sparkle', 'text', 'headphones', 'volume', 'qr', 'book', 'tag', 'logout'];
+    'folder', 'globe', 'sun', 'moon', 'eye', 'link', 'refresh', 'sparkle', 'text', 'headphones', 'volume', 'qr', 'book', 'tag', 'logout', 'undo', 'box', 'coin', 'wifi-off'];
   var box = document.getElementById('kd-icons');
   box.innerHTML = ICONS.map(function (n) { return '<div><i class="ps-i ps-i-' + n + '"></i>' + n + '</div>'; }).join('');
 })();

@@ -26,9 +26,27 @@
   dispatch.py <OUT> triage W [--run <typesafe_triage.py> | --apply triage-result.json] [--confirmed]
                                                 build/triage-<W>.json из очереди; --run — вызвать typesafe_triage.py --batch,
                                                 --apply — взять готовый JSON; модель и effort записываются в задания волны
-  dispatch.py <OUT> forecast [--depth D] [--parallel N] [--json] [--from-agents]
-                                                прогноз до «Начинаю?»: агенты, токены (по моделям), часы — по фазам
+  dispatch.py <OUT> forecast [--depth D] [--parallel N] [--json] [--from-agents] [--fast]
+                                                прогноз до «Начинаю?»: агенты, токены (по моделям), часы — по фазам;
+                                                режим идеи — фазы C4…C8.5 (интеграция с платформой, право, прототип — по
+                                                run-config); --fast — «быстрая концепция» (≈10 агентов, 2–3 ч, SM 10.7)
+  dispatch.py <OUT> fast-plan [--write]         состав «быстрой концепции»: задания по волнам и что опускается;
+                                                --write — build/tasks-fast.json (дальше dispatch.py <OUT> load …)
+  dispatch.py <OUT> owners [--json]             общие пути: шаблоны выдачи, которые есть у двух и более заданий одной
+                                                волны (два агента не пишут в один файл — назначьте владельца)
 
+Политика агентов (FB-003) — run-config tools.agents {model_policy: triage | default | custom, effort_policy: explicit | none, note}:
+effort выдаётся в `ready` только при effort_policy = explicit (нет поля tools.agents — как в 1.4: effort, если задан);
+model_policy = triage — `ready` напоминает про `triage <волна>` для заданий без триажа, custom — печатает tools.agents.note,
+default — модели по правилам скилла.
+Новые брифы 1.5 (WP-G): вид и волна выводятся из имени брифа, если --kind/--model не заданы (research-integration →
+integration/C4, research-datasources → datasources, research-ai → ai, research-owner-refs → owner_refs,
+concept-ai-observability и concept-admin → module/C7, strategy-summary → summary/C7, prototype-core|shell|mode-*|regression →
+prototype_core|prototype_shell|prototype_mode|prototype_regression/C8.5); прогноз режима идеи добавляет модули C4/C7 по
+idea.facets (ai_role, data_sources_needed, owner_repos/owner_docs, admin_needed) и шаги C8.5 (ядро → оболочка → режимы × N →
+регрессия). Агенты пишут в общий <OUT>:
+isolation (worktree) не ставится никогда — build/triage-<волна>.json несёт "shared_out": true, а isolation из ответа
+триажа снимается (FB-013).
 Прогноз: таблица глубины (references/phases.md) × типовые затраты на задание; калибровка — два реальных прогона
 (standard ≈ 27 агентов / 6,3 млн токенов / 6 ч при 5 параллельных; deep ≈ 50 / 11 млн / 4–5 ч); точность ±30 %.
 Выключенные направления (scope.*=false, phases.gap_audit=false) из прогноза убираются.
@@ -54,12 +72,65 @@ KINDS = {
     "ux": ("sonnet", 150, 20), "titles": ("sonnet", 60, 8), "details": ("sonnet", 180, 22), "audit": ("opus", 280, 30),
     "scorer": ("opus", 200, 20), "section": ("opus", 220, 28), "specs": ("opus", 250, 30), "experiments": ("opus", 200, 25),
     "plan": ("sonnet", 120, 15), "mockups": ("opus", 230, 30), "flows": ("opus", 140, 20), "refs": ("opus", 180, 25),
-    "fixes": ("sonnet", 100, 15),
+    "fixes": ("sonnet", 100, 15), "integration": ("opus", 280, 30), "canvas": ("opus", 180, 20), "design": ("opus", 200, 25),
+    "prototype": ("opus", 300, 40),
+    # 1.5.0 (WP-G): модули C4/C7, резюме, фаза C8.5 по шагам — references/orchestration.md, «Модель по умолчанию»
+    "datasources": ("sonnet", 230, 25), "ai": ("opus", 260, 30), "owner_refs": ("opus", 180, 20), "module": ("opus", 200, 25),
+    "summary": ("opus", 120, 15), "prototype_core": ("opus", 300, 40), "prototype_shell": ("opus", 260, 35),
+    "prototype_mode": ("sonnet", 200, 30), "prototype_regression": ("sonnet", 220, 30),
 }
+# бриф → вид задания (для add без --kind; G7): новые брифы 1.5.0 и их волны
+BRIEF_KINDS = {"research-integration": ("integration", "C4"), "research-datasources": ("datasources", "C4"), "research-ai": ("ai", "C4"),
+               "research-owner-refs": ("owner_refs", "C4"), "concept-ai-observability": ("module", "C7"), "concept-admin": ("module", "C7"),
+               "strategy-summary": ("summary", "C7"), "prototype-core": ("prototype_core", "C8.5"),
+               "prototype-shell": ("prototype_shell", "C8.5"), "prototype-mode": ("prototype_mode", "C8.5"),
+               "prototype-regression": ("prototype_regression", "C8.5")}
+# порядок шагов C8.5: ядро → оболочка → режимы (параллельно, общих путей нет) → регрессия
+PROTO_ORDER = ["prototype_core", "prototype_shell", "prototype_mode", "prototype_regression"]
 KIND_TITLES = {"research": "сбор данных фазы 4", "legal": "правовой обзор", "cards": "карточки конкурентов", "readers": "инвентарь функций по папкам",
                "ux": "UX-разбор скриншотов", "titles": "реестр, проход 1", "details": "реестр, проход 2", "audit": "аудит пробелов",
                "scorer": "второй оценщик", "section": "разделы стратегии", "specs": "спецификации", "experiments": "эксперименты",
-               "plan": "Гант и Kanban", "mockups": "макеты", "flows": "блок-схемы", "refs": "design-refs", "fixes": "правки по дефектам"}
+               "plan": "Гант и Kanban", "mockups": "макеты", "flows": "блок-схемы", "refs": "design-refs", "fixes": "правки по дефектам",
+               "integration": "техническая интеграция с платформой", "canvas": "канвасы и SWOT", "design": "направления дизайна",
+               "prototype": "рабочий прототип", "datasources": "источники данных и лицензии", "ai": "ИИ в продукте",
+               "owner_refs": "референсы владельца", "module": "модули C7 (ИИ-наблюдаемость, администрирование)",
+               "summary": "резюме (раздел 1)", "prototype_core": "прототип: ядро", "prototype_shell": "прототип: оболочка",
+               "prototype_mode": "прототип: режим", "prototype_regression": "прототип: регрессия"}
+# режим идеи (mode: concept): фазы C4…C8.5; аналоги/сообщества/запросы/события — research, право и интеграция — по run-config
+CONCEPT_AGENTS = {
+    "quick": {"C4": {"research": 2}, "C5": {"details": 3}, "C7": {"canvas": 1, "section": 2, "specs": 1, "experiments": 1},
+              "C8": {"design": 1, "mockups": 1, "flows": 1}},
+    "standard": {"C4": {"research": 4, "legal": 1, "cards": 1}, "C5": {"titles": 5, "details": 5}, "C5.5": {"audit": 1},
+                 "C7": {"canvas": 1, "section": 4, "specs": 1, "experiments": 1}, "C8": {"design": 1, "mockups": 2, "flows": 1, "refs": 1}},
+    "deep": {"C4": {"research": 4, "legal": 1, "cards": 2}, "C5": {"titles": 6, "details": 6}, "C5.5": {"audit": 1}, "C6": {"scorer": 1},
+             "C7": {"canvas": 1, "section": 5, "specs": 2, "experiments": 1}, "C8": {"design": 1, "mockups": 3, "flows": 2, "refs": 2},
+             "C9": {"fixes": 1}},
+    "exhaustive": {"C4": {"research": 4, "legal": 1, "cards": 3}, "C5": {"titles": 8, "details": 8}, "C5.5": {"audit": 2}, "C6": {"scorer": 1},
+                   "C7": {"canvas": 1, "section": 5, "specs": 3, "experiments": 2}, "C8": {"design": 1, "mockups": 4, "flows": 2, "refs": 3},
+                   "C9": {"fixes": 2}},
+}
+# «быстрая концепция» (SM 10.7): ≈10 агентов, 2–3 часа; что опускается — FAST_SKIPPED
+FAST_AGENTS = {"C4": {"research": 2}, "C5": {"details": 2}, "C7": {"section": 2, "experiments": 1}, "C8": {"mockups": 1}}
+FAST_SKIPPED = ["второй проход реестра (titles) — один проход details с разведением тем через OTHER_TITLES",
+                "отдельные агенты запросов и событий — свёрнуты в один бриф рынка (сообщества + спрос + события)",
+                "карточки конкурентов по скриншотам — только снимки shoot_competitors.mjs",
+                "аудит предпосылок C5.5 — оркестратор сам по gap-audit-facts.md (топ-15)",
+                "канвасы — в части разделов; спеки — в брифе экспериментов (топ-3)",
+                "design-refs, вторые схемы, второй оценщик, рабочий прототип",
+                "направления дизайна — одно рекомендованное + вопрос владельцу, 4 макета"]
+FAST_TASKS = [   # состав «быстрой концепции»: id, бриф, kind, волна, зависимости
+    {"id": "A1", "brief": "build/briefs/concept-analogs.md", "kind": "research", "wave": "C4"},
+    {"id": "M1", "brief": "build/briefs/research-communities.md", "kind": "research", "wave": "C4",
+     "task": "рынок одним агентом: сообщества, спрос и события (быстрая концепция)"},
+    {"id": "L1", "brief": "build/briefs/research-legal.md", "kind": "legal", "wave": "C4", "when": "legal"},
+    {"id": "I1", "brief": "build/briefs/research-integration.md", "kind": "integration", "wave": "C4", "when": "platform"},
+    {"id": "G1", "brief": "build/briefs/registry-generator-G1.md", "kind": "details", "wave": "C5", "deps": ["A1", "M1"]},
+    {"id": "G2", "brief": "build/briefs/registry-generator-G2.md", "kind": "details", "wave": "C5", "deps": ["A1", "M1"]},
+    {"id": "S1", "brief": "build/briefs/strategy-section-S1.md", "kind": "section", "wave": "C7", "deps": ["G1", "G2"]},
+    {"id": "S2", "brief": "build/briefs/strategy-section-S2.md", "kind": "section", "wave": "C7", "deps": ["G1", "G2"]},
+    {"id": "X1", "brief": "build/briefs/experiments.md", "kind": "experiments", "wave": "C7", "deps": ["G1", "G2"]},
+    {"id": "D1", "brief": "build/briefs/concept-design.md", "kind": "mockups", "wave": "C8", "deps": ["G1", "G2"]},
+]
 # число заданий по фазам и глубине (references/phases.md → «Масштабирование по глубине»)
 DEPTH_AGENTS = {
     "quick": {"4": {"research": 3, "cards": 1}, "5": {"details": 3},
@@ -122,6 +193,24 @@ def max_parallel(cfg, override=None):
     return max(1, int(t.get("max_parallel_agents") or 5))
 
 
+def agents_policy(cfg):
+    """run-config tools.agents → (model_policy | None, effort_policy | None). Нет поля — (None, None): поведение 1.4."""
+    ag = (cfg.get("tools") or {}).get("agents")
+    if not isinstance(ag, dict):
+        return None, None
+    mp = str(ag.get("model_policy") or "").strip().lower() or None
+    ep = str(ag.get("effort_policy") or "").strip().lower() or None
+    return mp, ep
+
+
+def effort_out(cfg, effort):
+    """effort для вызова Agent: только при effort_policy = explicit (FB-003); без политики — как задан (1.4)."""
+    _mp, ep = agents_policy(cfg)
+    if ep is None:
+        return effort
+    return effort if ep == "explicit" else None
+
+
 def out_display(out):
     """<OUT> от корня репозитория (для промпта агенту без домашней папки)."""
     try:
@@ -165,14 +254,28 @@ def split_list(v):
     return [x.strip() for x in str(v).split(",") if x.strip()]
 
 
+def brief_kind(brief):
+    """build/briefs/prototype-mode-pro.md → ("prototype_mode", "C8.5"); не новый бриф 1.5.0 → None."""
+    stem = Path(str(brief or "")).stem
+    for name in sorted(BRIEF_KINDS, key=len, reverse=True):
+        if stem == name or stem.startswith(name + "-"):
+            return BRIEF_KINDS[name]
+    return None
+
+
 def make_task(out, d):
     if not d.get("id"):
         raise ValueError("у задания нет id")
     kind = d.get("kind")
     if kind and kind not in KINDS:
         raise ValueError("неизвестный kind %s (есть: %s)" % (kind, ", ".join(KINDS)))
-    model = d.get("model") or (KINDS[kind][0] if kind else "sonnet")
     brief = d.get("brief") or ""
+    bk = brief_kind(brief)
+    if not kind and not d.get("model") and bk:          # новые брифы 1.5.0: вид и волна по имени брифа (G7)
+        kind = bk[0]
+        if not d.get("wave") and not d.get("phase"):
+            d = dict(d, wave=bk[1])
+    model = d.get("model") or (KINDS[kind][0] if kind else "sonnet")
     paths = split_list(d.get("paths")) or (brief_paths(out, brief) if brief else [])
     return {"id": str(d["id"]), "wave": str(d.get("wave") or d.get("phase") or "1"), "phase": str(d.get("phase") or ""),
             "kind": kind, "brief": brief, "task": d.get("task") or (brief_goal(out, brief) if brief else ""),
@@ -200,6 +303,23 @@ def add_tasks(out, items):
 
 def overlap(p1, p2):
     return p1 == p2 or fnmatch.fnmatchcase(p1, p2) or fnmatch.fnmatchcase(p2, p1)
+
+
+def shared_paths(st):
+    """Общие пути выдачи у заданий одной волны (SM 6.3: параллельные агенты перезаписывали общие снимки) →
+    [{"wave", "path", "tasks": [id…]}]."""
+    res = []
+    by_wave = {}
+    for t in st["tasks"]:
+        by_wave.setdefault(t["wave"], []).append(t)
+    for w, ts in by_wave.items():
+        for i, a in enumerate(ts):
+            for b in ts[i + 1:]:
+                for pa in a["paths"]:
+                    for pb in b["paths"]:
+                        if overlap(pa, pb):
+                            res.append({"wave": w, "path": pa if pa == pb else "%s ~ %s" % (pa, pb), "tasks": [a["id"], b["id"]]})
+    return res
 
 
 def ready_tasks(st, limit):
@@ -340,7 +460,33 @@ def report_md(st, cfg):
     L += ["", "Всего агентов: %d (выполнено %d, не выполнено %d); токены: %s; минут агентов: %s. Веб-поиск агентов: %s из %s запланированных." % (
         len(tasks), sum(1 for t in tasks if t["status"] == "done"), sum(1 for t in tasks if t["status"] == "failed"), fmt_tokens(tok),
         round(mins), sf or "—", sb or "—")]
+    waves = wave_totals(st)                              # учёт токенов по волнам (SM 6.3, 12 п. 19)
+    if waves:
+        L += ["", "| Волна | Агентов | Токены | Минут агентов | Модели (факт) |", "|---|---|---|---|---|"]
+        for w in waves:
+            L.append("| %s | %d | %s | %s | %s |" % (w["wave"], w["agents"], fmt_tokens(w["tokens"]), round(w["minutes"]) if w["minutes"] else "—",
+                                                    ", ".join("%s × %d" % kv for kv in sorted(w["models"].items())) or "—"))
+    no_tok = [t["id"] for t in tasks if t["status"] == "done" and not t.get("tokens")]
+    if no_tok:
+        L.append("Без записанных токенов: %s (dispatch.py <OUT> done <id> --tokens N — из уведомления о завершении)." % ", ".join(no_tok))
     return L
+
+
+def wave_totals(st):
+    """Сумма по волнам: агенты, токены, минуты, фактические модели."""
+    res = []
+    for t in st["tasks"]:
+        w = next((x for x in res if x["wave"] == t["wave"]), None)
+        if w is None:
+            w = {"wave": t["wave"], "agents": 0, "tokens": 0, "minutes": 0.0, "models": {}}
+            res.append(w)
+        w["agents"] += 1
+        w["tokens"] += t.get("tokens") or 0
+        w["minutes"] += t.get("minutes") or 0
+        m = t.get("model_actual") or t.get("model")
+        if m:
+            w["models"][m] = w["models"].get(m, 0) + 1
+    return res
 
 
 def status_lines(st, limit):
@@ -398,26 +544,106 @@ def wave_minutes(minutes, parallel):
     return sum(xs[i] for i in range(0, len(xs), parallel)) if xs else 0
 
 
-def forecast(depth, parallel, cfg):
-    plan = scoped_agents(depth, cfg)
+def concept_flags(cfg):
+    """Признаки режима идеи для состава агентов: чувствительная область (право), внешняя платформа, прототип, один проход."""
+    idea = cfg.get("idea") or {}
+    fc = idea.get("facets") or {}
+    sc = cfg.get("scope") or {}
+    legal = sc.get("legal") is True or bool(fc.get("sensitive"))
+    if sc.get("legal") is False:
+        legal = False
+    platform = bool(fc.get("platform_dependency"))
+    proto = (cfg.get("phases") or {}).get("prototype") is True or bool(fc.get("prototype_needed"))
+    one_pass = str((cfg.get("registry") or {}).get("passes") or "") == "1"
+    ai_role = fc.get("ai_role") if fc.get("ai_role") is not None else fc.get("ai")
+    ai = bool(ai_role) and str(ai_role).lower() not in ("none", "no", "нет", "без ии", "false", "[]")
+    datasrc = bool(fc.get("data_sources_needed"))
+    docs = [x for x in (cfg.get("sources") or {}).get("owner_docs") or [] if isinstance(x, dict)]
+    owner_refs = bool(fc.get("owner_repos")) or any(str(x.get("role") or "") in ("base", "follow", "ref") for x in docs)
+    admin = fc.get("admin_needed") is True or bool(fc.get("admin_who") or fc.get("admin_settings"))
+    modes = [m for m in ((cfg.get("design") or {}).get("modes") or []) if m]
+    return {"legal": legal, "platform": platform, "prototype": proto, "one_pass": one_pass, "ai": ai, "datasources": datasrc,
+            "owner_refs": owner_refs, "admin": admin, "modes": len(modes) or 1}
+
+
+def concept_agents(depth, cfg, fast=False):
+    """Задания по фазам режима идеи (C4…C9) с учётом run-config."""
+    fl = concept_flags(cfg)
+    plan = {ph: dict(k) for ph, k in (FAST_AGENTS if fast else CONCEPT_AGENTS[depth]).items()}
+    sc = cfg.get("scope") or {}
+    c4 = plan.setdefault("C4", {})
+    if not fast and "research" in c4:
+        enabled = 1 + sum(1 for k in ("communities", "keywords", "events") if sc.get(k, True) is not False)   # + аналоги
+        c4["research"] = min(c4["research"], enabled)
+    if fl["legal"]:
+        c4["legal"] = max(1, c4.get("legal", 0))
+    else:
+        c4.pop("legal", None)
+    if fl["platform"]:
+        c4["integration"] = 1
+    if not fast:                                          # модули C4/C7 по признакам идеи (G7, WP-G)
+        if fl["datasources"]:
+            c4["datasources"] = 1
+        if fl["ai"]:
+            c4["ai"] = 1
+        if fl["owner_refs"]:
+            c4["owner_refs"] = 1
+        c7 = plan.setdefault("C7", {})
+        if fl["ai"]:
+            c7["module"] = c7.get("module", 0) + 1
+        if fl["admin"]:
+            c7["module"] = c7.get("module", 0) + 1
+    if sc.get("competitors") is False:
+        c4.pop("cards", None)
+    if fl["one_pass"] and "titles" in plan.get("C5", {}):
+        plan["C5"].pop("titles", None)
+    if (cfg.get("phases") or {}).get("gap_audit") is False:
+        plan.pop("C5.5", None)
+    c8 = plan.get("C8", {})
+    if sc.get("design_mockups") is False:
+        c8.pop("mockups", None)
+        c8.pop("design", None)
+    if sc.get("design_refs") is False:
+        c8.pop("refs", None)
+    if sc.get("experiments") == 0:
+        plan.get("C7", {}).pop("experiments", None)
+    if fl["prototype"] and not fast:                      # ядро → оболочка → режимы × N → регрессия (references/prototype.md)
+        if depth == "quick":
+            plan["C8.5"] = {"prototype_core": 1}
+        else:
+            plan["C8.5"] = {"prototype_core": 1, "prototype_shell": 1,
+                            "prototype_mode": fl["modes"] if depth in ("deep", "exhaustive") else 1, "prototype_regression": 1}
+    return {ph: {k: v for k, v in kinds.items() if v} for ph, kinds in plan.items()}
+
+
+CONCEPT_ORDER = ["C4", "C5", "C5.5", "C6", "C7", "C8", "C8.5", "C9"]
+
+
+def forecast(depth, parallel, cfg, fast=False):
+    concept = (cfg or {}).get("mode") == "concept"
+    plan = concept_agents(depth, cfg, fast) if (concept or fast) else scoped_agents(depth, cfg)
+    order = CONCEPT_ORDER if (concept or fast) else PHASE_ORDER
     tm, mm = TOKEN_MULT[depth], MINUTE_MULT[depth]
     rows, by_model = [], {}
     total_agents = total_tok = 0
     pool78 = []
     total_min = 0.0
-    for ph in PHASE_ORDER:
+    for ph in order:
         kinds = plan.get(ph) or {}
         n = sum(kinds.values())
         tok = sum(KINDS[k][1] * c for k, c in kinds.items()) * tm
         for k, c in kinds.items():
             by_model[KINDS[k][0]] = by_model.get(KINDS[k][0], 0) + KINDS[k][1] * c * tm
         mins_list = [KINDS[k][2] * mm for k, c in kinds.items() for _ in range(c)]
-        if ph == "5":                                     # проход 1 и проход 2 — последовательно
+        if ph in ("5", "C5"):                             # проход 1 и проход 2 — последовательно
             mins = wave_minutes([KINDS["titles"][2] * mm] * kinds.get("titles", 0), parallel) + \
                 wave_minutes([KINDS["details"][2] * mm] * kinds.get("details", 0), parallel)
-        elif ph in ("7", "8"):                            # фазы 7 и 8 идут общими волнами
+        elif ph in ("7", "8", "C7", "C8"):                # фазы 7 и 8 идут общими волнами
             pool78 += mins_list
             mins = None
+        elif ph == "C8.5" and any(k in kinds for k in PROTO_ORDER):   # шаги прототипа последовательно, режимы — параллельно
+            mins = sum(wave_minutes([KINDS[k][2] * mm] * kinds.get(k, 0), parallel) for k in PROTO_ORDER) + \
+                wave_minutes([KINDS[k][2] * mm for k, c in kinds.items() if k not in PROTO_ORDER for _ in range(c)], parallel)
         else:
             mins = wave_minutes(mins_list, parallel)
         if mins is not None:
@@ -430,19 +656,39 @@ def forecast(depth, parallel, cfg):
     m78 = wave_minutes(pool78, parallel)
     total_min += m78
     for r in rows:
-        if r["phase"] in ("7", "8") and r["minutes"] is None:
+        if r["phase"] in ("7", "8", "C7", "C8") and r["minutes"] is None:
             r["minutes"] = "≈%d (7+8 вместе)" % round(m78)
     o_tok, o_min = ORCH[depth]
+    if fast:
+        o_tok, o_min = ORCH["quick"]
     by_model["opus (оркестратор)"] = o_tok * 1.0
     total_tok += o_tok
     total_min += o_min
     hours = total_min / 60
-    return {"depth": depth, "parallel": parallel, "agents": total_agents, "tokens_m": round(total_tok / 1000, 1),
-            "tokens_range_m": [round(total_tok * 0.7 / 1000, 1), round(total_tok * 1.3 / 1000, 1)],
-            "hours": round(hours, 1), "hours_range": [round(hours * 0.7, 1), round(hours * 1.3, 1)],
-            "tokens_by_model_m": {k: round(v / 1000, 2) for k, v in sorted(by_model.items())},
-            "orchestrator": {"tokens_m": round(o_tok / 1000, 2), "minutes": o_min}, "phases": rows,
-            "basis": "таблица глубины × типовые затраты; калибровка: standard ≈ 27 агентов / 6,3 млн / 6 ч, deep ≈ 50 / 11 млн / 4–5 ч; ±30 %"}
+    res = {"depth": depth, "parallel": parallel, "agents": total_agents, "tokens_m": round(total_tok / 1000, 1),
+           "tokens_range_m": [round(total_tok * 0.7 / 1000, 1), round(total_tok * 1.3 / 1000, 1)],
+           "hours": round(hours, 1), "hours_range": [round(hours * 0.7, 1), round(hours * 1.3, 1)],
+           "tokens_by_model_m": {k: round(v / 1000, 2) for k, v in sorted(by_model.items())},
+           "orchestrator": {"tokens_m": round(o_tok / 1000, 2), "minutes": o_min}, "phases": rows,
+           "basis": "таблица глубины × типовые затраты; калибровка: standard ≈ 27 агентов / 6,3 млн / 6 ч, deep ≈ 50 / 11 млн / 4–5 ч; ±30 %"}
+    if concept or fast:
+        res["mode"] = "concept-fast" if fast else "concept"
+    if fast:
+        res["skipped"] = FAST_SKIPPED
+    return res
+
+
+def fast_tasks(cfg):
+    """Состав «быстрой концепции» с учётом run-config (право — только в чувствительной области, интеграция — при платформе)."""
+    fl = concept_flags(cfg)
+    res = []
+    for t in FAST_TASKS:
+        if t.get("when") == "legal" and not fl["legal"]:
+            continue
+        if t.get("when") == "platform" and not fl["platform"]:
+            continue
+        res.append({k: v for k, v in t.items() if k != "when"})
+    return res
 
 
 def forecast_lines(fc, actual=None):
@@ -456,6 +702,8 @@ def forecast_lines(fc, actual=None):
                                                  r["tokens_m"], r["minutes"]))
     L.append("  | оркестратор | — | опрос, синтез, слияние, оценка, сборка, QA | %.2f | %d |" % (fc["orchestrator"]["tokens_m"], fc["orchestrator"]["minutes"]))
     L.append("  Основа: " + fc["basis"])
+    if fc.get("skipped"):
+        L.append("  Быстрая концепция опускает: " + "; ".join(fc["skipped"]))
     if actual:
         L.append("  Факт по build/agents.json: агентов %d, токены %s, минут агентов %d" % (actual["agents"], fmt_tokens(actual["tokens"]), actual["minutes"]))
     return L
@@ -467,16 +715,19 @@ def triage_file(out, st, wave):
     tasks = [t for t in st["tasks"] if t["wave"] == wave and t["status"] == "pending"]
     if not tasks:
         raise ValueError("в волне %s нет заданий в очереди" % wave)
-    items = [{"id": t["id"], "task": t["task"] or (KIND_TITLES.get(t["kind"]) or t["id"]), "paths": t["paths"]} for t in tasks]
+    # shared_out: агенты пишут в общий <OUT> — isolation (worktree) не нужен и вреден: результат из worktree не вернётся (FB-013)
+    items = [{"id": t["id"], "task": t["task"] or (KIND_TITLES.get(t["kind"]) or t["id"]), "paths": t["paths"], "shared_out": True}
+             for t in tasks]
     path = out / "build" / ("triage-%s.json" % wave)
     path.write_text(json.dumps(items, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return path, items
 
 
-def apply_triage(st, wave, result, confirmed=False):
+def apply_triage(st, wave, result, confirmed=False, cfg=None):
     rows = (result or {}).get("tasks") or []
     by_id = {t["id"]: t for t in st["tasks"] if t["wave"] == wave}
     applied = []
+    _mp, ep = agents_policy(cfg or {})
     for r in rows:
         t = by_id.get(str(r.get("id")))
         if not t:
@@ -485,8 +736,10 @@ def apply_triage(st, wave, result, confirmed=False):
         effort = r.get("effort") if confirmed or not r.get("effort_confirm") else (r.get("effort_fallback") or r.get("effort"))
         if model:
             t["model"] = model
-        t["effort"] = effort
+        t["effort"] = effort if ep in (None, "explicit") else None      # effort_policy = none — не регулировать (FB-003)
         t["triage"] = "typesafe-triage"
+        if r.get("isolation"):
+            t["note"] = ((t.get("note") or "") + " isolation снят: агенты пишут в общий <OUT>").strip()
         applied.append((t["id"], t["model"], t["effort"]))
     if result and result.get("ask") and not confirmed:
         st["waves"].setdefault(wave, {})["triage_ask"] = result["ask"]
@@ -548,14 +801,31 @@ def main(argv=None):
     p.add_argument("--parallel", type=int)
     p.add_argument("--json", action="store_true")
     p.add_argument("--from-agents", action="store_true", help="рядом — факт из build/agents.json")
+    p.add_argument("--fast", action="store_true", help="«быстрая концепция»: ≈10 агентов (что опускается — в выводе)")
+    p = sub.add_parser("fast-plan", help="состав «быстрой концепции» (задания по волнам)")
+    p.add_argument("--write", action="store_true", help="записать build/tasks-fast.json")
+    p = sub.add_parser("owners", help="общие пути выдачи у заданий одной волны")
+    p.add_argument("--json", action="store_true")
     a = ap.parse_args(argv)
     out = Path(a.out).expanduser().resolve()
     cfg = load_cfg(out)
+    if a.cmd == "fast-plan":
+        tasks = fast_tasks(cfg)
+        if a.write:
+            (out / "build").mkdir(parents=True, exist_ok=True)
+            (out / "build" / "tasks-fast.json").write_text(json.dumps({"tasks": tasks}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            print("→ build/tasks-fast.json (%d заданий): dispatch.py <OUT> load build/tasks-fast.json" % len(tasks))
+        for t in tasks:
+            print("- %s · волна %s · %s · %s%s" % (t["id"], t["wave"], KIND_TITLES.get(t["kind"], t["kind"]), t["brief"],
+                                                ("; после %s" % ", ".join(t["deps"])) if t.get("deps") else ""))
+        print("Опускается: " + "; ".join(FAST_SKIPPED))
+        return 0
     if a.cmd == "forecast":
         depth = a.depth or (cfg.get("strategy") or {}).get("depth") or "standard"
         if depth not in DEPTH_AGENTS:
             depth = "standard"
-        fc = forecast(depth, max_parallel(cfg, a.parallel), cfg)
+        fast = a.fast or bool((cfg.get("strategy") or {}).get("fast_concept"))
+        fc = forecast(depth, max_parallel(cfg, a.parallel), cfg, fast=fast)
         actual = None
         if a.from_agents:
             st = load_state(out)
@@ -580,24 +850,53 @@ def main(argv=None):
             print("добавлено заданий: %d (%s)" % (len(added), ", ".join(added)))
             if unknown:
                 print("ВНИМАНИЕ: зависимости без заданий: %s" % ", ".join(unknown), file=sys.stderr)
+            for s in shared_paths(load_state(out)):
+                if set(s["tasks"]) & set(added):
+                    print("ВНИМАНИЕ: общий путь %s у %s (волна %s) — одновременно не запустятся; назначьте владельца общего файла"
+                          % (s["path"], " и ".join(s["tasks"]), s["wave"]), file=sys.stderr)
             return 0
         st = load_state(out)
+        if a.cmd == "owners":
+            sh = shared_paths(st)
+            if a.json:
+                print(json.dumps(sh, ensure_ascii=False, indent=2))
+            else:
+                for s in sh:
+                    print("общий путь %s: %s (волна %s)" % (s["path"], ", ".join(s["tasks"]), s["wave"]))
+                if not sh:
+                    print("общих путей выдачи нет")
+            return 1 if sh else 0
         if a.cmd == "ready":
             res, blocked, slots = ready_tasks(st, limit)
             started = mark_running(out, st, [t["id"] for t in res]) if a.start else []
             if a.start:
                 save_state(out, st)
             od = out_display(out)
-            items = [{"id": t["id"], "wave": t["wave"], "model": t["model"], "effort": t["effort"], "brief": t["brief"],
-                      "prompt": PROMPT.format(brief=("%s/%s" % (od, t["brief"])) if od else t["brief"])} for t in res]
+            mp, ep = agents_policy(cfg)
+            items = [{"id": t["id"], "wave": t["wave"], "model": t["model"], "effort": effort_out(cfg, t["effort"]), "brief": t["brief"],
+                      "isolation": None, "prompt": PROMPT.format(brief=("%s/%s" % (od, t["brief"])) if od else t["brief"])} for t in res]
+            untriaged = [t["id"] for t in res if not t.get("triage")] if mp == "triage" else []
             if a.json:
                 print(json.dumps({"ready": items, "blocked": [{"id": i, "why": w} for i, w in blocked], "free_slots": slots,
-                                  "started": started}, ensure_ascii=False, indent=2))
+                                  "started": started, "policy": {"model": mp, "effort": ep,
+                                                                 "note": ((cfg.get("tools") or {}).get("agents") or {}).get("note") if mp == "custom" else None},
+                                  "untriaged": untriaged,
+                                  "isolation": "не ставить: агенты пишут в общий <OUT>"}, ensure_ascii=False, indent=2))
             else:
                 running = sum(1 for t in st["tasks"] if t["status"] == "running")
                 print("свободных слотов: %d из %d; готово к запуску: %d%s" % (slots, limit, len(items), " (отмечены «работает»)" if a.start else ""))
                 for it in items:
                     print("- %s · Agent(model=\"%s\"%s) · %s" % (it["id"], it["model"], (", effort=\"%s\"" % it["effort"]) if it["effort"] else "", it["prompt"]))
+                if items:
+                    print("  isolation не ставить: агенты пишут в общий <OUT>, пути разведены брифами")
+                if untriaged:
+                    print("  политика моделей triage: без триажа — %s → dispatch.py <OUT> triage <волна> --run <typesafe_triage.py>" % ", ".join(untriaged))
+                if items and mp == "custom":
+                    print("  политика моделей custom: %s" % (((cfg.get("tools") or {}).get("agents") or {}).get("note") or "правила владельца не записаны (tools.agents.note)"))
+                elif items and mp == "default":
+                    print("  политика моделей default: модели по правилам скилла (references/orchestration.md, «Выбор модели»)")
+                if items and ep not in (None, "explicit"):
+                    print("  effort не задаётся (tools.agents.effort_policy = %s)" % ep)
                 for i, w in blocked:
                     print("  ждёт %s: %s" % (i, w))
                 if not items and not running and all(t["status"] in ("done", "failed") for t in st["tasks"]):
@@ -634,6 +933,13 @@ def main(argv=None):
             return 0
         if a.cmd == "report":
             text = "\n".join(report_md(st, cfg)) + "\n"
+            if (cfg.get("disclosure") or "full").lower() != "summary" and st["tasks"]:
+                depth = (cfg.get("strategy") or {}).get("depth") or "standard"
+                fc = forecast(depth if depth in DEPTH_AGENTS else "standard", max_parallel(cfg), cfg,
+                              fast=bool((cfg.get("strategy") or {}).get("fast_concept")))
+                text += ("\nПрогноз до старта: агентов %d, токенов %.1f млн, %.1f ч; факт: агентов %d, токенов %s, минут агентов %d.\n" % (
+                    fc["agents"], fc["tokens_m"], fc["hours"], len(st["tasks"]), fmt_tokens(sum(t["tokens"] or 0 for t in st["tasks"])),
+                    round(sum(t["minutes"] or 0 for t in st["tasks"]))))
             if a.write:
                 (out / "build" / "agents-report.md").write_text("## 11. Использованные инструменты и токены\n\n" + text, encoding="utf-8")
                 print("→ build/agents-report.md")
@@ -652,7 +958,7 @@ def main(argv=None):
             elif a.apply:
                 result = json.loads(Path(a.apply).read_text(encoding="utf-8"))
             if result is not None:
-                applied = apply_triage(st, a.wave, result, a.confirmed)
+                applied = apply_triage(st, a.wave, result, a.confirmed, cfg)
                 save_state(out, st)
                 for i, m, e in applied:
                     print("  %s → model=%s, effort=%s" % (i, m, e or "—"))

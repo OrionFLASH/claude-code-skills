@@ -165,7 +165,8 @@ def test_concept_briefs(concept, name, extra):
     if name == "concept-design":
         assert "1-3" in t and "Стиль: Тёплый и дружелюбный" in t                # STEPS по автопилоту, ответы «дизайн»
     if name == "concept-analogs":
-        assert "Демо-аналог А, Демо-аналог Б" in t and "демо, обмена, книгами" in t
+        # 1.5 (FB-022): ключевые слова — без ярлыка «Демо:» перед двоеточием и без слов формы
+        assert "Демо-аналог А, Демо-аналог Б" in t and "обмена, книгами, соседями" in t
 
 
 def test_concept_registry_generator(concept):

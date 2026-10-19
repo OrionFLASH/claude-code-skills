@@ -1,0 +1,65 @@
+/* Базовые стили прототипа: токены светлой и тёмной темы, цели нажатия ≥ 32 px (мышь) и ≥ 44 px (тач), видимый фокус,
+ * reduced motion. Токены выбранного направления дизайна — заменить значениями из mockups/tokens.css; для режимов —
+ * css/tokens-<режим>.css с селектором :root[data-mode="<режим>"]. Без внешних шрифтов и ресурсов. */
+:root {
+  --pk-bg: #f7f7f5;
+  --pk-surface: #ffffff;
+  --pk-text: #1b1d21;
+  --pk-muted: #545a63;
+  --pk-border: #d6d8dc;
+  --pk-accent: #1f5fbf;
+  --pk-accent-text: #ffffff;
+  --pk-warn-bg: #fff1c2;
+  --pk-warn-text: #4d3800;
+  --pk-radius: 8px;
+  --pk-gap: 16px;
+  --pk-target: 32px;
+  --pk-font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --pk-bg: #15171a; --pk-surface: #1e2125; --pk-text: #eceef1; --pk-muted: #a9afb8; --pk-border: #3a3f46;
+    --pk-accent: #7fb0ff; --pk-accent-text: #0b1220; --pk-warn-bg: #4d3b00; --pk-warn-text: #ffe9a8;
+  }
+}
+:root[data-theme="dark"] {
+  --pk-bg: #15171a; --pk-surface: #1e2125; --pk-text: #eceef1; --pk-muted: #a9afb8; --pk-border: #3a3f46;
+  --pk-accent: #7fb0ff; --pk-accent-text: #0b1220; --pk-warn-bg: #4d3b00; --pk-warn-text: #ffe9a8;
+}
+@media (pointer: coarse) { :root { --pk-target: 44px; } }
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--pk-bg); color: var(--pk-text); font: 16px/1.5 var(--pk-font); }
+.pk-skip { position: absolute; left: -999px; }
+.pk-skip:focus { left: 8px; top: 8px; background: var(--pk-surface); padding: 8px; z-index: 10; }
+:focus-visible { outline: 3px solid var(--pk-accent); outline-offset: 2px; }
+
+.pk-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px var(--pk-gap); padding: 8px var(--pk-gap);
+  background: var(--pk-surface); border-bottom: 1px solid var(--pk-border); }
+.pk-name { font-size: 18px; margin-right: auto; }
+.pk-modes { display: flex; flex-wrap: wrap; gap: 4px; }
+.pk-btn { min-height: var(--pk-target); min-width: var(--pk-target); padding: 4px 12px; border-radius: var(--pk-radius);
+  border: 1px solid var(--pk-border); background: var(--pk-surface); color: var(--pk-text); font: inherit; cursor: pointer; }
+.pk-btn:hover { border-color: var(--pk-accent); }
+.pk-mode[aria-selected="true"] { background: var(--pk-accent); color: var(--pk-accent-text); border-color: var(--pk-accent); }
+.pk-badge { display: inline-flex; align-items: center; min-height: 24px; padding: 2px 8px; border-radius: 999px; font-size: 13px;
+  background: var(--pk-warn-bg); color: var(--pk-warn-text); }
+
+.pk-view { max-width: 1200px; margin: 0 auto; padding: var(--pk-gap); }
+.pk-card { background: var(--pk-surface); border: 1px solid var(--pk-border); border-radius: var(--pk-radius); padding: var(--pk-gap); }
+.pk-card h1 { font-size: 22px; margin: 0 0 12px; }
+.pk-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.pk-field { display: grid; gap: 4px; color: var(--pk-muted); font-size: 14px; }
+.pk-field input { min-height: var(--pk-target); padding: 4px 8px; font: inherit; color: var(--pk-text); background: var(--pk-bg);
+  border: 1px solid var(--pk-border); border-radius: var(--pk-radius); }
+.pk-result { display: block; margin: 16px 0 8px; font-size: 20px; font-weight: 600; }
+.pk-how { color: var(--pk-muted); }
+.pk-how summary { min-height: var(--pk-target); display: flex; align-items: center; cursor: pointer; }
+.pk-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.pk-ai { color: var(--pk-muted); }
+.pk-foot { max-width: 1200px; margin: 0 auto; padding: 8px var(--pk-gap) 24px; color: var(--pk-muted); font-size: 13px; }
+
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+@media (max-width: 600px) { .pk-name { width: 100%; } }

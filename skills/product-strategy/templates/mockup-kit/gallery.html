@@ -1,0 +1,49 @@
+<!doctype html>
+<!-- Галерея вариантов дизайна: по 2–3 рабочих экрана на каждый вариант (направление или режим интерфейса), чтобы владелец
+     сравнил «как один и тот же сценарий выглядит в N стилях» до выбора. Собирает scripts/mockup_kit.py gallery <OUT>
+     → <OUT>/mockups/gallery.html (вручную не править: перезаписывается). Метки {{…}} заполняет скрипт.
+     Данные — атрибуты макетов: data-variant / ps:variant (вариант, например «A · Терминал»), data-screen-id / ps:screen
+     (сценарий, одинаковый у вариантов: goal-calc, futures…), data-variant-note / ps:variant-note (одна фраза о варианте),
+     data-variant-status / ps:variant-status (rejected — вариант отклонён, показывается в конце). Без сети: только локальные
+     файлы рядом. Бейдж «Концепт» — в шапке. -->
+<html lang="{{LANG}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{TITLE}}</title>
+<style>
+  :root { color-scheme: light dark; --bg: #f6f7f9; --t: #15181d; --m: #4f5866; --s: #ffffff; --b: #d9dee5; --a: #2346c2; --badge: #16233a; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #101318; --t: #e8ebef; --m: #a9b2bf; --s: #181c23; --b: #2a303a; --a: #9db1ff; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--t); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding: 24px 16px 40px; }
+  main { max-width: 1320px; margin: 0 auto; }
+  h1 { font-size: 26px; margin: 0 0 6px; } h2 { font-size: 20px; margin: 32px 0 2px; } h3 { font-size: 16px; margin: 0; }
+  p { color: var(--m); margin: 0 0 12px; }
+  a { color: var(--a); }
+  .badge { display: inline-block; margin: 0 0 14px; padding: 6px 12px; border-radius: 12px; background: var(--badge); color: #ffffff; font-size: 13px; font-weight: 600; }
+  .g { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+  .c { background: var(--s); border: 1px solid var(--b); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+  .c img { width: 100%; height: auto; max-height: 480px; object-fit: contain; object-position: top; border-radius: 8px; border: 1px solid var(--b); display: block; background: var(--bg); }
+  .c .meta { font-size: 13px; color: var(--m); }
+  .c .noimg { display: grid; place-items: center; min-height: 160px; border: 1px dashed var(--b); border-radius: 8px; color: var(--m); font-size: 14px; }
+  .cap { font-size: 14px; }
+  .cmp { width: 100%; border-collapse: collapse; margin-top: 8px; background: var(--s); border: 1px solid var(--b); border-radius: 12px; overflow: hidden; }
+  .cmp th, .cmp td { padding: 8px 10px; border-bottom: 1px solid var(--b); text-align: left; vertical-align: top; font-size: 14px; }
+  .cmp th { color: var(--m); font-weight: 600; }
+  .cmp img { width: 220px; max-width: 100%; height: auto; border: 1px solid var(--b); border-radius: 6px; display: block; }
+  .wrap { overflow-x: auto; }
+  .rejected { opacity: .85; }
+  @media (max-width: 640px) { body { padding: 16px 12px 32px; } .g { grid-template-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body>
+<main>
+  <div class="badge">{{BADGE}}</div>
+  <h1>{{TITLE}}</h1>
+  <p>{{INTRO}}</p>
+{{COMPARE}}
+{{SECTIONS}}
+</main>
+<script src="concepts/_hotspots.js"></script>
+</body>
+</html>

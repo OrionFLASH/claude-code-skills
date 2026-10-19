@@ -19,8 +19,8 @@
 | `charts/` | графики SVG и блок-схемы |
 | `mockups/` | `current/` — скриншоты текущего состояния (факт); `concepts/` — макеты-концепты (не существующие функции); `tokens.css` |
 | `design-refs/` | карточки референсов: `.md` + `.json` (кликабельные зоны) + `.png` |
-| `competitors/shots/` | скриншоты конкурентов (для внутреннего анализа) |
-| `build/` | конфиг прогона, чекпоинты, брифы агентов, части стратегии (`build/parts/`), отчёты слияния и сборки |
+| `competitors/shots/` | скриншоты конкурентов (для внутреннего анализа; права — у владельцев сайтов: при публичном репозитории — только локально или сжатые превью, `output.competitor_shots`) |
+| `build/` | конфиг прогона, чекпоинты (`STATUS.md`), брифы агентов, части стратегии (`build/parts/`), отчёты слияния и сборки (`build-all-last.json` — шаги и ворота полноты), журнал ручных вмешательств (`interventions.jsonl`), учёт агентов (`agents.json`); черновик страницы — `build/preview/` (в git не входит) |
 
 ## Как пересобрать
 Все результаты собираются из `data/` и `research/` — правьте исходники, а не готовые файлы.
@@ -41,7 +41,10 @@ node    $S/node/shoot_mockups.mjs $OUT       # PNG макетов + индекс
 python3 $S/link_mockups.py $OUT         # связь макетов с предложениями
 python3 $S/merge_sources.py $OUT --keep-ids   # источники
 python3 $S/assemble_strategy.py $OUT --insert-mockups   # research/strategy.md из build/parts/
-python3 $S/build_all.py $OUT            # HTML, XLSX, колода, PPTX, PDF (включённые форматы)
+python3 $S/build_all.py $OUT            # HTML, XLSX, колода, PPTX, PDF (включённые форматы) + ворота полноты
+python3 $S/build_all.py $OUT --preview  # черновая страница в build/preview/ (deliverables/ не трогается)
+python3 $S/report.py $OUT --check       # REPORT.md: все разделы, без мест «<заполнить»
+python3 $S/init_run.py $OUT --status    # фазы, что открыть, сколько осталось
 python3 $S/build_html.py $OUT --lite    # лёгкая страница (картинки — в deliverables/assets/)
 python3 $S/check_links.py $OUT          # ссылки
 node    $S/node/smoke_html.mjs $OUT          # автотест веб-страницы

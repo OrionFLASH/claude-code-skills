@@ -74,14 +74,42 @@ strategy.monetization = one_time → one_time_purchase; иначе saas.
 traffic_hint/фактов) → sensitivity-only: сценарии считаются (для графиков), но это иллюстрация; блок sensitivity —
 как меняются выручка, активная база и безубыточность базового сценария при ±20 % по каждому ключевому параметру.
 Явно: run-config strategy.model_mode или поле mode в build/model-params.json.
+В режиме sensitivity-only денежные итоги сценариев помечены illustrative: true и продублированы в блоке illustration
+(label «[иллюстрация при допущениях]»); assemble_strategy.py подставляет {model:…} таких итогов только с этой меткой (FB-027).
+
+Ёмкость (все профили, FB-028): одна функция scripts/capacity.py → capacity(cfg, months) из run-config project.capacity
+(иначе ответ опроса idea.facets.hours_week, иначе project.capacity_days_month, иначе дефолты 10 ч/нед × 70 % × 8 ч).
+Блок capacity в model.json (dev_days_total, day_hours, line …) — те же числа, что в факт-листе, плане и брифах.
+Прежние solo.days_per_month / solo.hours_per_day в build/model-params.json 1.4 больше не задают ёмкость (печатается заметка).
+
+Профили 1.5:
+  web-direct — веб/PWA с оплатой напрямую через платёжный сервис: посетители вместо установок, магазина нет (store_fee 0),
+               payment_fee и налог (tax_rate, режим — project.tax_regime, иначе по умолчанию пакета) — из пакета локали
+               references/locales/<рынок>.md (блок ```json model-defaults```), метка «допущение». Выбор: strategy.model_profile,
+               strategy.payment_channel = direct, или product.type = mobile при веб-форме (product.forms: web|pwa).
+  personal   — личный инструмент (project.audience = personal | circle | personal_then_public): «стоимость владения и
+               окупаемость личных усилий» — часы разработки и поддержки (ёмкость capacity.py) против сэкономленного времени,
+               денег и ошибок; сценарии «минимальный / обычный / с поддержкой» (ключи pessimistic / base / optimistic);
+               воронки, CAC и LTV нет; помесячный расчёт — в блоке personal.
+Налог: common.tax_rate (доля выручки) умножается в net_of после комиссий и возвратов; нет параметра — 0 (как в 1.4).
+Сверка с планом: common.revenue_start_month — месяц начала выручки (до него платящих нет); при создании параметров берётся из
+data/plan-baseline.json (milestones.paid, иначе launch), иначе 1 (как раньше). Расхождение с планом — блок reconciliation.
 Только стандартная библиотека.
 """
 import argparse
 import copy
 import json
 import math
+import re
 import sys
 from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+if str(HERE) not in sys.path:
+    sys.path.insert(0, str(HERE))
+import capacity as capmod  # noqa: E402
+
+SKILL = HERE.parent
 
 SCENARIOS = ["pessimistic", "base", "optimistic"]
 A = "допущение"
@@ -161,8 +189,15 @@ CURRENCIES = {
 }
 MONEY_COMMON = ("price_month", "price_one_time", "donation_month", "sponsors_month")
 MONEY_SCEN = ("fixed_cost_month", "cost_per_paid_signup", "cost_per_install", "paid_budget_month")
-MODEL_PROFILES = ("saas", "one_time_purchase", "mobile-app", "oss")
+MODEL_PROFILES = ("saas", "one_time_purchase", "mobile-app", "oss", "web-direct", "personal")
 MODES = ("forecast", "sensitivity-only")
+PERSONAL_AUDIENCES = ("personal", "circle", "personal_then_public")
+ILLUSTRATION_LABEL = "[иллюстрация при допущениях]"
+# денежные и прогнозные итоги сценария: в режиме sensitivity-only — только с меткой иллюстрации
+ILLUSTRATIVE_KEYS = ("net_revenue", "revenue_last", "revenue_first", "roi", "ltv", "ltv_cac", "ltv_cac_paid", "cac", "cac_paid",
+                     "payback_months", "breakeven_month", "arpu", "arppu", "users_last", "paying_last", "new_paying", "cost",
+                     "marketing", "cum_margin_last", "cum_cost_last", "net_value", "value")
+SCENARIO_LABELS_PERSONAL = {"pessimistic": "минимальный", "base": "обычный", "optimistic": "с поддержкой"}
 
 
 def _p(value, note):
@@ -233,7 +268,34 @@ PROFILE_PRESETS = {
             fixed_cost_month=((0.0, 5.0, 20.0), "постоянные затраты в месяц (домен, хостинг, CI)"),
         ).items()),
     },
+    "web-direct": {   # payment_fee и tax_rate — из пакета локали (default_params), здесь — запасные значения
+        "common": {
+            "price_month": _p(5.0, "цена подписки в месяц при оплате на сайте; заменить ценой продукта или аналогов"),
+            "price_one_time": _p(15.0, "цена разовой покупки на сайте (для revenue_model = one_time)"),
+            "store_fee": _p(0.0, "магазина приложений нет: веб/PWA, оплата напрямую через платёжный сервис"),
+            "refund_rate": _p(0.05, "доля возвратов (веб-оплата, отказ от подписки)"),
+            "gross_margin": _p(0.90, "валовая маржа после переменных затрат (хостинг, рассылки)"),
+        },
+        "scenarios": _scen(
+            visitors_month=((1000, 3000, 9000), "посетителей сайта в первый месяц (установок нет: веб/PWA)"),
+            paid_share=((0.0, 0.1, 0.2), "доля регистраций из платных каналов"),
+            fixed_cost_month=((5.0, 15.0, 40.0), "постоянные затраты в месяц (VPS или хостинг, домен, почта)"),
+        ),
+    },
 }
+# личный инструмент: ценность — сэкономленное время, деньги и ошибки владельца (и его круга), затраты — время и сервисы (USD)
+PERSONAL_SCEN = {
+    "hours_saved_per_week": ((0.5, 1.5, 3.0), "сэкономленных часов в неделю на пользователя после начала использования"),
+    "money_saved_month": ((0.0, 5.0, 10.0), "сэкономленных денег в месяц на пользователя (заменённые подписки, сервисы)"),
+    "errors_avoided_month": ((0.0, 1.0, 2.0), "предотвращённых ошибок или потерь в месяц на пользователя"),
+    "cost_per_error": ((10.0, 20.0, 30.0), "цена одной ошибки или потери"),
+    "support_hours_month": ((2.0, 4.0, 8.0), "часов поддержки и обновлений в месяц после начала использования"),
+    "fixed_cost_month": ((0.0, 5.0, 15.0), "постоянные затраты в месяц (хостинг, API, домен)"),
+}
+PERSONAL_MONEY = ("money_saved_month", "cost_per_error", "fixed_cost_month")
+PERSONAL_SENS = (("hours_saved_per_week", "сэкономленные часы"), ("money_saved_month", "сэкономленные деньги"),
+                 ("errors_avoided_month", "предотвращённые ошибки"), ("support_hours_month", "часы поддержки"),
+                 ("fixed_cost_month", "постоянные затраты"))
 AUDIENCE_KEYS = ("visitors_month", "installs_month", "visit_to_signup", "install_to_signup", "signup_to_active",
                  "active_to_paying", "active_to_donor")
 SENS_KEYS = (("visitors_month", "трафик"), ("installs_month", "установки"), ("visit_to_signup", "визит → регистрация"),
@@ -246,9 +308,7 @@ SOLO_SCEN = {  # профиль zero-budget-solo: без платных кана
     "base": {"visitors_month": 800, "traffic_growth": 0.06, "fixed_cost_month": 6.0},
     "optimistic": {"visitors_month": 2500, "traffic_growth": 0.10, "fixed_cost_month": 12.0},
 }
-SOLO_PARAMS = {
-    "days_per_month": {"value": 12, "label": A, "note": "рабочих дней в месяц на проект на человека (личный проект — по вечерам и выходным)"},
-    "hours_per_day": {"value": 6, "label": A, "note": "продуктивных часов в рабочий день"},
+SOLO_PARAMS = {   # ёмкость (часы в неделю, доля разработки, часов в дне) — не здесь, а в run-config project.capacity (capacity.py)
     "team_size": {"value": 1, "label": A, "note": "людей в команде (project.team_size)"},
     "hourly_rate": {"value": 40, "label": A, "note": "цена часа разработчика (упущенная ставка) — для «безубыточности по времени»"},
     "growth_time_share": {"value": 0.3, "label": A, "note": "доля ёмкости на привлечение и активацию (контент, сообщества, онбординг)"},
@@ -283,16 +343,98 @@ def select_profile(cfg):
     explicit = st.get("model_profile")
     if explicit in MODEL_PROFILES:
         return explicit, "run-config strategy.model_profile"
+    aud = str(pj.get("audience") or "").lower()
+    if aud in PERSONAL_AUDIENCES:
+        return "personal", "project.audience = %s (личный инструмент)" % aud
     mon = str(st.get("monetization") or "").lower()
     if mon in ("donations", "donation", "oss", "sponsorship"):
         return "oss", "strategy.monetization = %s" % mon
     if pj.get("goal") == "oss" and mon in ("", "none", "free"):
         return "oss", "project.goal = oss без платной модели"
+    pay = str(st.get("payment_channel") or "").lower()
+    if pay == "direct":
+        return "web-direct", "strategy.payment_channel = direct (оплата напрямую через платёжный сервис)"
+    if pay == "store":
+        return "mobile-app", "strategy.payment_channel = store (оплата через магазин приложений)"
+    if pay == "donations":
+        return "oss", "strategy.payment_channel = donations"
+    forms = {str(f).lower() for f in (pr.get("forms") or []) if f}
     if str(pr.get("type") or "").lower() in ("mobile", "mobile-app", "android", "ios"):
+        # mobile_web (адаптивный веб, PWA) — тоже оплата на сайте; формы «на потом» (product.future_forms) не считаются
+        if forms & {"web", "mobile_web", "mobile-web", "pwa", "site", "web-app"}:
+            return "web-direct", "product.type = %s, но есть веб-форма (%s): оплата на сайте без комиссии магазина; уточните " \
+                                 "strategy.payment_channel" % (pr.get("type"), ", ".join(sorted(forms)))
         return "mobile-app", "product.type = %s" % pr.get("type")
     if mon in ("one_time", "one-time", "one_time_purchase"):
         return "one_time_purchase", "strategy.monetization = one_time"
     return "saas", "по умолчанию"
+
+
+LOCALE_BLOCK_RE = re.compile(r"```json[ \t]+model-defaults[ \t]*\n(.*?)\n```", re.S)
+
+
+def locale_defaults(cfg):
+    """(код локали, блок model-defaults) из references/locales/<рынок>.md: первый рынок strategy.markets с блоком,
+    иначе по валюте (RUB → ru), иначе en; нет блока → (None, {})."""
+    cfg = cfg or {}
+    cands = [str(m).lower() for m in ((cfg.get("strategy") or {}).get("markets") or []) if m]
+    cur = str((cfg.get("project") or {}).get("currency") or "").upper()
+    cands += ["ru"] if cur in ("RUB", "BYN", "KZT") else []
+    cands += ["en"]
+    for code in cands:
+        f = SKILL / "references" / "locales" / ("%s.md" % code)
+        try:
+            m = LOCALE_BLOCK_RE.search(f.read_text(encoding="utf-8"))
+        except OSError:
+            continue
+        if m:
+            try:
+                return code, json.loads(m.group(1))
+            except ValueError:
+                continue
+    return None, {}
+
+
+def tax_param(cfg, loc_code, loc, default_needed):
+    """common.tax_rate по project.tax_regime (явно) или режиму по умолчанию пакета локали → параметр | None."""
+    pj = (cfg or {}).get("project") or {}
+    regimes = ((loc.get("tax") or {}).get("regimes")) or {}
+    want = pj.get("tax_regime")
+    if want is None and not default_needed:
+        return None
+    team = pj.get("team_size") if isinstance(pj.get("team_size"), int) else 1
+    key = want or (loc.get("tax") or {}).get("default_solo" if team <= 1 else "default_team")
+    r = regimes.get(str(key)) if key else None
+    if not isinstance(r, dict):
+        if want is not None:
+            return {"value": 0.0, "label": A, "note": "project.tax_regime = %s — нет в пакете локали %s; налог не учтён, задайте tax_rate" % (want, loc_code)}
+        return None
+    payer_b2b = str((cfg.get("idea") or {}).get("facets", {}).get("segment") or "").lower() in ("b2b", "smb", "enterprise")
+    rate = r.get("rate_b2b") if payer_b2b and r.get("rate_b2b") is not None else r.get("rate", 0.0)
+    src = "run-config project.tax_regime" if want else "режим по умолчанию"
+    return {"value": float(rate), "label": A,
+            "note": "налог: %s (%s; пакет локали %s) — проверить актуальную ставку по первоисточнику" % (r.get("label") or key, src, loc_code)}
+
+
+def load_plan(out_dir):
+    """data/plan-baseline.json (plan_baseline.py) или None."""
+    if out_dir is None:
+        return None
+    try:
+        d = json.loads((Path(out_dir) / "data" / "plan-baseline.json").read_text(encoding="utf-8"))
+        return d if isinstance(d, dict) else None
+    except (OSError, ValueError):
+        return None
+
+
+def plan_month(plan, *kinds):
+    """Месяц первой вехи из перечисленных видов в plan-baseline (milestones.<вид>.month) или None."""
+    ms = (plan or {}).get("milestones") or {}
+    for k in kinds:
+        v = ms.get(k)
+        if isinstance(v, dict) and isinstance(v.get("month"), (int, float)):
+            return int(v["month"])
+    return None
 
 
 def apply_preset(P, profile):
@@ -349,11 +491,22 @@ def default_params(cfg, profile=None, out_dir=None):
     if profile is None:
         profile, why = select_profile(cfg)
     code, preset = currency_preset(project.get("currency") or "USD")
+    if profile == "personal":
+        return personal_params(cfg, code, preset, why, out_dir)
     P = copy.deepcopy(DEFAULT_PARAMS)
     P["currency"] = code
     P["model_profile"] = {"value": profile, "label": "факт" if why.startswith("run-config strategy.model") else A,
-                          "note": "профиль модели: %s (%s); saas | one_time_purchase | mobile-app | oss" % (profile, why)}
+                          "note": "профиль модели: %s (%s); %s" % (profile, why, " | ".join(MODEL_PROFILES))}
     apply_preset(P, profile)
+    loc_code, loc = locale_defaults(cfg)
+    if profile == "web-direct":
+        d = ((loc.get("payment") or {}).get("direct")) or {}
+        if is_number(d.get("payment_fee")):
+            P["common"]["payment_fee"] = {"value": float(d["payment_fee"]), "label": A,
+                                          "note": "%s (пакет локали %s)" % (d.get("note") or "комиссия платёжного сервиса", loc_code)}
+    tx = tax_param(cfg, loc_code, loc, profile == "web-direct")
+    if tx is not None:
+        P["common"]["tax_rate"] = tx
     mon = str(st.get("monetization") or "").lower()
     if profile == "mobile-app" and mon in ("one_time", "one-time"):
         P["revenue_model"] = _p("one_time", "mobile-app: покупка в приложении (strategy.monetization = one_time)")
@@ -408,6 +561,46 @@ def default_params(cfg, profile=None, out_dir=None):
     mode = st.get("model_mode")
     if mode in MODES:
         P["mode"] = {"value": mode, "label": "факт", "note": "run-config strategy.model_mode"}
+    plan = load_plan(out_dir)
+    start = plan_month(plan, "paid", "launch")
+    if start and start > 1:
+        P["common"]["revenue_start_month"] = {"value": start, "label": "факт",
+                                              "note": "месяц начала выручки — из data/plan-baseline.json (веха %s)" % (
+                                                  "paid" if plan_month(plan, "paid") else "launch")}
+    return P
+
+
+def personal_params(cfg, code, preset, why, out_dir=None):
+    """Параметры профиля personal: ценность для владельца против времени и затрат (USD-дефолты × пресет валюты)."""
+    cfg = cfg or {}
+    pj = cfg.get("project") or {}
+    aud = str(pj.get("audience") or "personal").lower()
+    f = preset["factor"] if preset else 1.0
+    rate = preset["hourly_rate"] if preset else SOLO_PARAMS["hourly_rate"]["value"]
+    users = 1 if aud in ("personal", "personal_then_public") else 3
+    plan = load_plan(out_dir)
+    start = plan_month(plan, "beta", "mvp", "launch")
+    P = {"version": 1, "currency": code,
+         "model_profile": {"value": "personal", "label": "факт" if why.startswith("run-config strategy.model") else A,
+                           "note": "профиль модели: personal (%s) — стоимость владения и окупаемость личных усилий" % why},
+         "revenue_model": _p("none", "личный инструмент: выручки нет; ценность — сэкономленное время, деньги и ошибки"),
+         "scenario_labels": dict(SCENARIO_LABELS_PERSONAL),
+         "common": {
+             "hourly_rate": _p(rate, "цена часа владельца (упущенная ставка) — переводит часы в деньги"),
+             "users": {"value": users, "label": A if aud != "personal" else "факт",
+                       "note": "пользователей: %s (project.audience = %s)" % (users, aud)},
+             "use_start_month": ({"value": start, "label": "факт", "note": "начало использования — веха из data/plan-baseline.json"}
+                                 if start else _p(3, "месяц, с которого инструментом пользуются (до него — разработка)")),
+         },
+         "scenarios": {n: {} for n in SCENARIOS}}
+    for k, (vals, note) in PERSONAL_SCEN.items():
+        for n, v in zip(SCENARIOS, vals):
+            P["scenarios"][n][k] = _p(nice(v * f) if (k in PERSONAL_MONEY and f != 1.0) else v, note)
+    if not preset:
+        P.setdefault("notes", []).append("нет пресета для валюты %s — суммы в масштабе USD-дефолтов, замените" % code)
+    mode = (cfg.get("strategy") or {}).get("model_mode")
+    if mode in MODES:
+        P["mode"] = {"value": mode, "label": "факт", "note": "run-config strategy.model_mode"}
     return P
 
 
@@ -460,7 +653,8 @@ def net_factor(g):
 
 def net_of(x, g):
     """Сумма после комиссий провайдера и магазина и возвратов (порядок умножения как в 1.0 — без расхождений округления)."""
-    return x * (1 - pick(g, "payment_fee")) * (1 - pick(g, "store_fee")) * (1 - pick(g, "refund_rate"))
+    y = x * (1 - pick(g, "payment_fee")) * (1 - pick(g, "store_fee")) * (1 - pick(g, "refund_rate"))
+    return y * (1 - pick(g, "tax_rate")) if "tax_rate" in g else y
 
 
 def simulate(common, sc, months, model_kind):
@@ -480,6 +674,7 @@ def simulate(common, sc, months, model_kind):
     paid_share = pick(s, "paid_share")
     sponsors = pick(g, "sponsors_month") if model_kind == "donations" else 0.0
     paid_mode = "budget" if budget > 0 else ("share" if paid_share > 0 and unit_cost > 0 else "none")
+    rev_start = int(pick(g, "revenue_start_month", default=1.0) or 1)
     active = paying = referred = 0.0
     monthly, tot = [], dict(visitors=0.0, signups=0.0, activated=0.0, new_paying=0.0, net=0.0, marketing=0.0,
                             cost=0.0, active=0.0, paying=0.0, referred=0.0, paid_signups=0.0, new_paying_paid=0.0)
@@ -503,6 +698,8 @@ def simulate(common, sc, months, model_kind):
         active = active * s["retention_monthly"] + activated
         new_paying_paid = act_paid * a2p
         new_paying = (activated - act_paid) * a2p + new_paying_paid
+        if m < rev_start:                              # платная часть ещё не запущена (план): платящих нет
+            new_paying = new_paying_paid = 0.0
         if model_kind == "one_time":
             paying = new_paying
             revenue = new_paying * price
@@ -630,11 +827,48 @@ def load_effort_plan(out_dir):
     return {"order_by": by, "items": plan}, None
 
 
-def solo_block(params, res, months, out_dir, profile_name="zero-budget-solo"):
+def capacity_block(cfg, months, support_hours_total, out_dir, team_size=None):
+    """Блок capacity model.json из capacity.py (одно определение дня и ёмкости) + сколько P0–P1 помещается."""
+    cfg = copy.deepcopy(cfg or {})
+    if team_size and not (cfg.get("project") or {}).get("team_size"):
+        cfg.setdefault("project", {})["team_size"] = int(team_size)
+    c = capmod.capacity(cfg, months)
+    sup_days = support_hours_total / c["day_hours"] if c["day_hours"] else 0.0
+    avail = max(0.0, c["dev_days"] - sup_days)
+    clean = lambda x: int(x) if float(x).is_integer() else x
+    cap = {"team_size": c["team_size"], "hours_per_week": clean(c["hours_per_week"]), "dev_share": c["dev_share"],
+           "day_hours": clean(c["day_hours"]), "days_per_month": c["dev_days_month"], "hours_per_day": clean(c["day_hours"]),
+           "hours_month": c["hours_month"], "horizon_months": months, "dev_hours_total": c["dev_hours"],
+           "dev_days_total": c["dev_days"], "support_days_base": round(sup_days, 1), "dev_days_available": round(avail, 1),
+           "source": c["source"], "line": c["line"],
+           "note": "ёмкость — scripts/capacity.py (run-config project.capacity): часы в неделю × доля разработки ÷ часов в дне; "
+                   "минус поддержка базового сценария"}
+    plan, why = load_effort_plan(out_dir)
+    if plan is None:
+        cap["p0_p1"] = {"skipped": why}
+    else:
+        acc, fits, rest = 0.0, [], []
+        for pid, lo, mid in plan["items"]:   # строгий префикс по порядку: следующее не начинается раньше предыдущего
+            if not rest and acc + mid <= avail + 1e-9:
+                acc += mid
+                fits.append(pid)
+            else:
+                rest.append(pid)
+        tot_mid = sum(x[2] for x in plan["items"])
+        cap["p0_p1"] = {"count": len(plan["items"]), "order_by": plan["order_by"],
+                        "effort_days_min_total": round(sum(x[1] for x in plan["items"]), 1),
+                        "effort_days_mid_total": round(tot_mid, 1), "fits_count": len(fits), "fits_ids": fits,
+                        "not_fit_ids": rest, "utilization": round(tot_mid / avail, 2) if avail else None}
+    return cap
+
+
+def solo_block(params, res, months, out_dir, profile_name="zero-budget-solo", cfg=None):
     """Метрики профиля zero-budget-solo / oss (время вместо денег) → (solo, capacity)."""
-    so = {k: float(val(v)) for k, v in (params.get("solo") or SOLO_PARAMS).items()}
+    so = {k: float(val(v)) for k, v in dict(SOLO_PARAMS, **(params.get("solo") or {})).items() if is_number(val(v))}
     g = {k: float(val(v)) for k, v in params["common"].items() if is_number(val(v))}
-    cap_h = so["team_size"] * so["days_per_month"] * so["hours_per_day"]
+    cfg = cfg or {}
+    cap_h = capmod.capacity(dict(cfg, project=dict(cfg.get("project") or {}, team_size=(cfg.get("project") or {}).get("team_size") or int(so["team_size"]))),
+                            months)["hours_month"]
     rate = so["hourly_rate"]
     kind = res["revenue_model"]
     per_pay = net_of(unit_price(g, kind), g) * g["gross_margin"]
@@ -679,31 +913,8 @@ def solo_block(params, res, months, out_dir, profile_name="zero-budget-solo"):
             "support_cost_total": round(sup_tot * rate, 2), "support_capacity_month": cap_month,
             "paying_new_total": sc["totals"]["new_paying"], "paying_end": sc["monthly"][-1]["paying"] if sc["monthly"] else 0,
             "net_revenue_total": sc["totals"]["net_revenue"], "monthly": monthly}
-    plan, why = load_effort_plan(out_dir)
     base = out["scenarios"].get("base") or next(iter(out["scenarios"].values()))
-    days_total = so["team_size"] * so["days_per_month"] * months
-    sup_days = base["support_hours_total"] / so["hours_per_day"] if so["hours_per_day"] else 0.0
-    avail = max(0.0, days_total - sup_days)
-    clean = lambda x: int(x) if float(x).is_integer() else x
-    cap = {"team_size": clean(so["team_size"]), "days_per_month": clean(so["days_per_month"]), "hours_per_day": clean(so["hours_per_day"]),
-           "horizon_months": months, "dev_days_total": round(days_total, 1), "support_days_base": round(sup_days, 1),
-           "dev_days_available": round(avail, 1),
-           "note": "ёмкость = людей × дней/мес × месяцев; минус поддержка базового сценария; всё — допущения solo.*"}
-    if plan is None:
-        cap["p0_p1"] = {"skipped": why}
-    else:
-        acc, fits, rest = 0.0, [], []
-        for pid, lo, mid in plan["items"]:   # строгий префикс по порядку: следующее не начинается раньше предыдущего
-            if not rest and acc + mid <= avail + 1e-9:
-                acc += mid
-                fits.append(pid)
-            else:
-                rest.append(pid)
-        tot_mid = sum(x[2] for x in plan["items"])
-        cap["p0_p1"] = {"count": len(plan["items"]), "order_by": plan["order_by"],
-                        "effort_days_min_total": round(sum(x[1] for x in plan["items"]), 1),
-                        "effort_days_mid_total": round(tot_mid, 1), "fits_count": len(fits), "fits_ids": fits,
-                        "not_fit_ids": rest, "utilization": round(tot_mid / avail, 2) if avail else None}
+    cap = capacity_block(cfg, months, base["support_hours_total"], out_dir, so["team_size"])
     out["capacity"] = cap
     b = out["scenarios"].get("base", base)
     out["notes"] = [
@@ -720,6 +931,170 @@ def solo_block(params, res, months, out_dir, profile_name="zero-budget-solo"):
     return out, cap
 
 
+def personal_simulate(common, sc, months, hours_month):
+    """Помесячный расчёт личного инструмента: до начала использования — часы разработки (вся ёмкость), после — поддержка."""
+    g = {k: float(val(v)) for k, v in common.items() if is_number(val(v))}
+    s = {k: float(val(v)) for k, v in sc.items() if is_number(val(v))}
+    rate, users = g.get("hourly_rate", 0.0), max(1.0, g.get("users", 1.0))
+    start = max(1, int(g.get("use_start_month", 1)))
+    cum_v = cum_c = cum_hs = cum_hsp = 0.0
+    pay_m = hours_m = None
+    monthly = []
+    for m in range(1, months + 1):
+        using = m >= start
+        spent_h = s.get("support_hours_month", 0.0) if using else hours_month
+        saved_h = s.get("hours_saved_per_week", 0.0) * capmod.WEEKS_PER_MONTH * users if using else 0.0
+        value = (saved_h * rate + (s.get("money_saved_month", 0.0) + s.get("errors_avoided_month", 0.0) * s.get("cost_per_error", 0.0)) * users
+                 ) if using else 0.0
+        cost = spent_h * rate + s.get("fixed_cost_month", 0.0)
+        cum_v += value
+        cum_c += cost
+        cum_hs += saved_h
+        cum_hsp += spent_h
+        if pay_m is None and cum_c > 0 and cum_v >= cum_c:
+            pay_m = m
+        if hours_m is None and cum_hsp > 0 and cum_hs >= cum_hsp:
+            hours_m = m
+        monthly.append({"month": m, "using": using, "hours_spent": round(spent_h, 1), "hours_saved": round(saved_h, 1),
+                        "value": round(value, 2), "cost": round(cost, 2), "cum_value": round(cum_v, 2), "cum_cost": round(cum_c, 2),
+                        "cum_hours_saved": round(cum_hs, 1), "cum_hours_spent": round(cum_hsp, 1)})
+    n_use = max(0, months - start + 1)
+    other = sum(x["value"] for x in monthly) - sum(x["hours_saved"] for x in monthly) * rate
+    per_hour_week = capmod.WEEKS_PER_MONTH * users * rate * n_use
+    need = (cum_c - other) / per_hour_week if per_hour_week > 0 else None
+    return {"monthly": monthly, "payback_month": pay_m, "hours_payback_month": hours_m, "use_start_month": start,
+            "totals": {"hours_spent": round(cum_hsp, 1), "hours_saved": round(cum_hs, 1), "value": round(cum_v, 2),
+                       "cost": round(cum_c, 2), "net_value": round(cum_v - cum_c, 2)},
+            "roi": round((cum_v - cum_c) / cum_c, 2) if cum_c > 0 else None,
+            "hours_saved_per_week_to_break_even": round(max(0.0, need), 2) if need is not None else None}
+
+
+def personal_build(params, months, cfg, out_dir, res):
+    """Профиль personal: стоимость владения и окупаемость личных усилий → заполняет res (сценарии, personal, capacity)."""
+    common = params["common"]
+    c = capmod.capacity(cfg, months)
+    labels = params.get("scenario_labels") or SCENARIO_LABELS_PERSONAL
+    pers = {"scenario_labels": labels, "hours_month_build": c["hours_month"], "scenarios": {}, "notes": []}
+    for name in SCENARIOS:
+        sc = params["scenarios"][name]
+        r = personal_simulate(common, sc, months, c["hours_month"])
+        assumptions = {k: labelled(v) for k, v in common.items()}
+        assumptions.update({k: labelled(v) for k, v in sc.items()})
+        assumptions["revenue_model"] = labelled(params.get("revenue_model", "none"))
+        res["scenarios"][name] = {"assumptions": assumptions, "label": labels.get(name, name), "totals": r["totals"],
+                                  "net_value": r["totals"]["net_value"], "value": r["totals"]["value"], "cost": r["totals"]["cost"],
+                                  "hours_spent": r["totals"]["hours_spent"], "hours_saved": r["totals"]["hours_saved"],
+                                  "breakeven_month": r["payback_month"], "hours_breakeven_month": r["hours_payback_month"],
+                                  "roi": r["roi"], "cac": None, "ltv": None, "payback_months": None,
+                                  "hours_saved_per_week_to_break_even": r["hours_saved_per_week_to_break_even"]}
+        pers["scenarios"][name] = r
+    # чувствительность: ±20 % по каждому ключевому параметру базового сценария → чистая ценность
+    base_sc = params["scenarios"]["base"]
+    b0 = personal_simulate(common, base_sc, months, c["hours_month"])["totals"]["net_value"]
+    items = []
+    for key, label in PERSONAL_SENS:
+        v0 = val(base_sc.get(key))
+        if not is_number(v0) or v0 == 0:
+            continue
+        out = {}
+        for tag, k in (("low", 0.8), ("high", 1.2)):
+            s2 = copy.deepcopy(base_sc)
+            s2[key] = v0 * k
+            out[tag] = {"value": round(v0 * k, 6), "net_value": personal_simulate(common, s2, months, c["hours_month"])["totals"]["net_value"]}
+        items.append({"param": key, "label": label, "base_value": v0, "low": out["low"], "high": out["high"],
+                      "swing_net_value": round(abs(out["high"]["net_value"] - out["low"]["net_value"]), 2)})
+    items.sort(key=lambda x: -x["swing_net_value"])
+    res["sensitivity"] = {"scenario": "base", "step": 0.2, "base": {"net_value": b0}, "items": items,
+                          "note": "каждый параметр по отдельности ×0,8 и ×1,2, остальные — как в обычном сценарии"}
+    b = pers["scenarios"]["base"]
+    sym = res["currency_symbol"]
+    pers["notes"] = [
+        "Профиль personal: выручки, воронки, CAC и LTV нет; ценность — сэкономленное время × цена часа %s %s + сэкономленные деньги "
+        "+ предотвращённые ошибки; затраты — часы разработки до месяца %s (вся ёмкость, %s ч/мес.) и поддержки после, плюс сервисы."
+        % (fmt_money(val(common.get("hourly_rate")) or 0), sym, b["use_start_month"], c["hours_month"]),
+        "Окупаемость личных усилий (обычный сценарий): по деньгам — %s, по часам — %s; чтобы окупиться за горизонт, нужно "
+        "экономить ≈ %s ч в неделю." % ("месяц %s" % b["payback_month"] if b["payback_month"] else "не за горизонт",
+                                         "месяц %s" % b["hours_payback_month"] if b["hours_payback_month"] else "не за горизонт",
+                                         b["hours_saved_per_week_to_break_even"]),
+    ]
+    if str(((cfg or {}).get("project") or {}).get("audience") or "") == "personal_then_public":
+        pers["notes"].append("Выпуск наружу возможен позже: при переходе к аудитории пересоздайте build/model-params.json с профилем "
+                             "web-direct или saas (strategy.model_profile) — раздел «Если захочется выпустить наружу».")
+    res["personal"] = pers
+    sup = sum(x["hours_spent"] for x in b["monthly"] if x["using"])
+    res["capacity"] = capacity_block(cfg, months, sup, out_dir)
+
+
+def fmt_money(x):
+    return ("%d" % x) if float(x).is_integer() else ("%.2f" % x)
+
+
+ACT_RE = re.compile(r"\bактивац|\bactivation", re.I)   # не «реактивация»
+RANGE_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*(?:[–—-]|\.\.)\s*(\d+(?:[.,]\d+)?)\s*%")
+
+
+def registry_items(params, res, out_dir):
+    """Сверка модели с реестром: доля активации в модели против диапазона effect_kpi «активация» у предложений (SM 6.1)."""
+    if out_dir is None or res.get("model_profile") == "personal":
+        return []
+    try:
+        props = json.loads((Path(out_dir) / "data" / "proposals.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    v = val((params["scenarios"].get("base") or {}).get("signup_to_active"))
+    if not is_number(v):
+        return []
+    items = []
+    for p in props if isinstance(props, list) else []:
+        for k in (p.get("effect_kpi") or []) if isinstance(p, dict) else []:
+            if not isinstance(k, dict) or not ACT_RE.search(str(k.get("kpi") or "")):
+                continue
+            m = RANGE_RE.search(str(k.get("range") or ""))
+            if not m or str(k.get("range") or "").lstrip().startswith(("+", "−", "-")):
+                continue                                                   # прирост «+5..10 п. п.» — не уровень
+            lo, hi = (float(x.replace(",", ".")) / 100.0 for x in m.groups())
+            if not (lo - 1e-9 <= v <= hi + 1e-9):
+                items.append({"what": "activation", "model": v, "registry": [lo, hi], "proposal": p.get("id"),
+                              "message": "активация в модели %s (base.signup_to_active), а %s ожидает «%s» %s — одно определение активации"
+                                         % (v, p.get("id"), k.get("kpi"), k.get("range"))})
+            break
+        if len(items) >= 5:
+            break
+    return items
+
+
+def reconcile(params, res, out_dir):
+    """Сверка модели с планом (data/plan-baseline.json): начало выручки, горизонт, ёмкость → список расхождений."""
+    plan = load_plan(out_dir)
+    items = registry_items(params, res, out_dir)
+    if not plan:
+        return {"plan": None, "items": items, "ok": not items} if items else None
+    if res.get("model_profile") != "personal" and res.get("revenue_model") != "donations":
+        want = plan_month(plan, "paid", "launch")
+        have = int(val(params["common"].get("revenue_start_month")) or 1)
+        if want and have < want:
+            items.append({"what": "revenue_start", "model": have, "plan": want,
+                          "message": "выручка в модели с месяца %d, а платная часть в плане — с месяца %d: задайте common.revenue_start_month = %d"
+                                     % (have, want, want)})
+    ph = plan.get("horizon_months")
+    if isinstance(ph, (int, float)) and int(ph) != res["horizon_months"]:
+        items.append({"what": "horizon", "model": res["horizon_months"], "plan": int(ph),
+                      "message": "горизонт модели %d мес., плана — %d мес." % (res["horizon_months"], ph)})
+    pc = (plan.get("capacity") or {}).get("dev_days")
+    mc = (res.get("capacity") or {}).get("dev_days_total")
+    if isinstance(pc, (int, float)) and isinstance(mc, (int, float)) and int(ph or 0) == res["horizon_months"] and abs(pc - mc) > 0.11:
+        items.append({"what": "capacity", "model": mc, "plan": pc,
+                      "message": "ёмкость модели %s дн., в plan-baseline — %s дн.: перезапустите plan_baseline.py после правки project.capacity"
+                                 % (mc, pc)})
+    for sc in res["scenarios"].values():
+        be = sc.get("breakeven_month")
+        mo = sc.get("monthly") or []
+        if isinstance(be, int) and 1 <= be <= len(mo) and mo[be - 1].get("cum_cost", 0) and mo[be - 1]["cum_cost"] < 3 * (mo[0].get("cost") or 0) + 1e-9 \
+                and be <= 2:
+            sc["breakeven_note"] = "безубыточность в месяц %d на очень малых суммах (затраты %s) — не вывод о модели" % (be, mo[be - 1]["cum_cost"])
+    return {"plan": "data/plan-baseline.json", "items": items, "ok": not items}
+
+
 def build(params, months, cfg=None, out_dir=None):
     """Модель по параметрам → объект data/model.json."""
     kind = val(params.get("revenue_model", "subscription"))
@@ -730,40 +1105,62 @@ def build(params, months, cfg=None, out_dir=None):
     if mprofile not in MODEL_PROFILES:
         mprofile = "saas"
     code, preset = currency_preset(params.get("currency", "USD"))
-    has_data = audience_data(params)
+    if mprofile == "personal":
+        has_data = any(isinstance(sc.get(k), dict) and sc[k].get("label") in ("факт", "оценка")
+                       for sc in params["scenarios"].values() for k in ("hours_saved_per_week", "money_saved_month"))
+    else:
+        has_data = audience_data(params)
     mode = val(params.get("mode")) or (cfg.get("strategy") or {}).get("model_mode")
     mode = mode if mode in MODES else ("forecast" if has_data else "sensitivity-only")
     res = {"currency": params.get("currency", "USD"), "currency_symbol": (preset or {}).get("symbol", code),
            "profile": profile, "model_profile": mprofile, "revenue_model": kind, "horizon_months": months,
            "mode": mode, "forecast": mode == "forecast", "audience_data": has_data, "scenarios": {}, "notes": []}
-    for name in SCENARIOS:
-        sc = params["scenarios"][name]
-        r = simulate(common, sc, months, kind)
-        assumptions = {k: labelled(v) for k, v in common.items()}
-        assumptions.update({k: labelled(v) for k, v in sc.items()})
-        assumptions["revenue_model"] = labelled(params.get("revenue_model", "subscription"))
-        res["scenarios"][name] = dict(assumptions=assumptions, **r)
-    res["sensitivity"] = sensitivity(common, params["scenarios"]["base"], months, kind)
-    n_assumed = sum(1 for sc in res["scenarios"].values() for a in sc["assumptions"].values() if a["label"] == A)
-    res["notes"] = [
-        "Все входы — помеченные параметры из build/model-params.json; допущений: %d. Замените их фактами владельца." % n_assumed,
-        "CAC — смешанный, на нового платящего (маркетинг / все новые платящие); cac_paid — только платный канал "
-        "(маркетинг / новые платящие из платного канала, блок paid); органика учитывается через постоянные затраты.",
-        "LTV для подписки ограничен %s мес.; для разовой покупки — чистая цена × маржа × (1 + повторные покупки)."
-        % val(common.get("ltv_cap_months", 36)),
-        "Формулы — в docstring scripts/model.py и references/scoring.md.",
-    ] + list(params.get("notes") or [])
+    legacy = [k for k in ("days_per_month", "hours_per_day") if k in (params.get("solo") or {})]
+    if mprofile == "personal":
+        personal_build(params, months, cfg, out_dir, res)
+        n_assumed = sum(1 for sc in res["scenarios"].values() for a in sc["assumptions"].values() if a["label"] == A)
+        res["notes"] = ["Все входы — помеченные параметры из build/model-params.json; допущений: %d. Замените их оценками владельца." % n_assumed] \
+            + res["personal"]["notes"] + list(params.get("notes") or [])
+    else:
+        for name in SCENARIOS:
+            sc = params["scenarios"][name]
+            r = simulate(common, sc, months, kind)
+            assumptions = {k: labelled(v) for k, v in common.items()}
+            assumptions.update({k: labelled(v) for k, v in sc.items()})
+            assumptions["revenue_model"] = labelled(params.get("revenue_model", "subscription"))
+            res["scenarios"][name] = dict(assumptions=assumptions, **r)
+        res["sensitivity"] = sensitivity(common, params["scenarios"]["base"], months, kind)
+        n_assumed = sum(1 for sc in res["scenarios"].values() for a in sc["assumptions"].values() if a["label"] == A)
+        res["notes"] = [
+            "Все входы — помеченные параметры из build/model-params.json; допущений: %d. Замените их фактами владельца." % n_assumed,
+            "CAC — смешанный, на нового платящего (маркетинг / все новые платящие); cac_paid — только платный канал "
+            "(маркетинг / новые платящие из платного канала, блок paid); органика учитывается через постоянные затраты.",
+            "LTV для подписки ограничен %s мес.; для разовой покупки — чистая цена × маржа × (1 + повторные покупки)."
+            % val(common.get("ltv_cap_months", 36)),
+            "Формулы — в docstring scripts/model.py и references/scoring.md.",
+        ] + list(params.get("notes") or [])
     if mprofile == "mobile-app":
         res["notes"].append("Профиль mobile-app: верх воронки — установки (installs_month), комиссия магазина store_fee = %s, возвраты %s."
                             % (val(common.get("store_fee", 0)), val(common.get("refund_rate", 0))))
     elif mprofile == "one_time_purchase":
         res["notes"].append("Профиль one_time_purchase: выручка — разовые покупки; отток не используется, LTV учитывает повторные покупки.")
+    elif mprofile == "web-direct":
+        res["notes"].append("Профиль web-direct: веб/PWA, оплата напрямую через платёжный сервис — верх воронки посетители, магазина нет; "
+                            "комиссия провайдера payment_fee = %s, налог tax_rate = %s (пакет локали; проверить по первоисточнику)."
+                            % (val(common.get("payment_fee", 0)), val(common.get("tax_rate", 0))))
+    if int(val(common.get("revenue_start_month")) or 1) > 1 and mprofile != "personal":
+        res["notes"].append("Выручка — с месяца %s (common.revenue_start_month, по плану); до него платящих нет." % val(common["revenue_start_month"]))
+    if legacy:
+        res["notes"].append("solo.%s в build/model-params.json больше не задают ёмкость: она считается scripts/capacity.py из run-config "
+                            "project.capacity (одно определение рабочего дня для модели, плана и текстов)." % " и solo.".join(legacy))
     if mode == "sensitivity-only":
         res["notes"].append("Режим sensitivity-only: %s; числа сценариев — иллюстрация, а не прогноз. Опора решений — блок sensitivity "
-                            "(какие параметры сильнее всего меняют выручку и базу)." % (
-                                "данных об аудитории нет (все входы воронки — допущения)" if not has_data else "задан явно"))
-    if profile == "zero-budget-solo" or mprofile == "oss":
-        solo, cap = solo_block(params, res, months, out_dir, "oss" if mprofile == "oss" else "zero-budget-solo")
+                            "(какие параметры сильнее всего меняют %s)." % (
+                                ("оценок владельца нет (все входы — допущения)" if mprofile == "personal" else
+                                 "данных об аудитории нет (все входы воронки — допущения)") if not has_data else "задан явно",
+                                "чистую ценность" if mprofile == "personal" else "выручку и базу"))
+    if mprofile != "personal" and (profile == "zero-budget-solo" or mprofile == "oss"):
+        solo, cap = solo_block(params, res, months, out_dir, "oss" if mprofile == "oss" else "zero-budget-solo", cfg)
         na = "неприменимо (OSS: доход — поддержка, затраты — время)" if mprofile == "oss" else ROI_NA
         for name, sc in res["scenarios"].items():
             sc["roi"] = na
@@ -779,6 +1176,21 @@ def build(params, months, cfg=None, out_dir=None):
         res["notes"][1] = ("Профиль oss: CAC и ROI неприменимы (доход — донаты и спонсоры, затраты — время), метрики усилий — в solo."
                            if mprofile == "oss" else
                            "Профиль zero-budget-solo: CAC и ROI неприменимы (нулевой бюджет), метрики усилий — в solo.")
+    elif mprofile != "personal":
+        res["capacity"] = capacity_block(cfg, months, 0.0, out_dir)
+    if mode == "sensitivity-only":
+        ill = {}
+        for name, sc in res["scenarios"].items():
+            sc["illustrative"] = True
+            row = {k: sc.get(k) for k in ILLUSTRATIVE_KEYS if is_number(sc.get(k))}
+            row.update({k: v for k, v in (sc.get("totals") or {}).items() if k in ("net_revenue", "value", "net_value", "cost") and is_number(v)})
+            ill[name] = row
+        res["illustration"] = {"label": ILLUSTRATION_LABEL, "scenarios": ill,
+                               "note": "режим sensitivity-only: денежные итоги — иллюстрация при допущениях, не прогноз; в тексте — только "
+                                       "с меткой %s (assemble_strategy.py ставит её к {model:…} сам)" % ILLUSTRATION_LABEL}
+    rc = reconcile(params, res, out_dir)
+    if rc is not None:
+        res["reconciliation"] = rc
     return res
 
 
@@ -826,24 +1238,32 @@ def main(argv=None):
     print("Модель: %s, профиль %s, горизонт %d мес., валюта %s, режим %s" % (model["revenue_model"], model["model_profile"], months, cur,
                                                                           model["mode"]))
     for name, sc in model["scenarios"].items():
+        if model["model_profile"] == "personal":
+            print("  %-11s (%s) ценность %s, затраты %s, чистая %s %s; окупаемость: деньги мес. %s, часы мес. %s; нужно экономить %s ч/нед"
+                  % (name, sc.get("label"), sc["value"], sc["cost"], sc["net_value"], model["currency_symbol"], sc["breakeven_month"],
+                     sc["hours_breakeven_month"], sc["hours_saved_per_week_to_break_even"]))
+            continue
         print("  %-11s CAC %s (платный %s), LTV %s, окупаемость %s мес., безубыточность мес. %s, ROI %s, выручка %s"
               % (name, sc["cac"], sc.get("cac_paid"), sc["ltv"], sc["payback_months"], sc["breakeven_month"], sc["roi"],
                  sc["totals"]["net_revenue"]))
     if model["mode"] == "sensitivity-only":
         top = model["sensitivity"]["items"][:3]
-        print("  sensitivity-only: данных об аудитории нет — прогноз не публиковать; сильнее всего влияют: %s"
-              % ", ".join("%s (±%s)" % (i["label"], i["swing_net_revenue"]) for i in top))
+        print("  sensitivity-only: денежные итоги — иллюстрация %s, прогноз не публиковать; сильнее всего влияют: %s"
+              % (ILLUSTRATION_LABEL, ", ".join("%s (±%s)" % (i["label"], i.get("swing_net_revenue", i.get("swing_net_value"))) for i in top)))
     if model.get("solo"):
         so = model["solo"]
         for name, x in so["scenarios"].items():
             print("  %-11s ч на активированного %s, выручка на час %s %s, безубыточность по времени мес. %s, поддержка %s ч"
                   % (name, x["hours_per_activated"], x["revenue_per_hour"], model["currency_symbol"], x["time_breakeven_month"],
                      x["support_hours_total"]))
-        c = model["capacity"]
+    c = model.get("capacity")
+    if c:
         pp = c.get("p0_p1") or {}
-        print("  ёмкость: %s дн. за %s мес. (после поддержки %s); P0–P1: %s"
-              % (c["dev_days_total"], c["horizon_months"], c["dev_days_available"],
+        print("  ёмкость: %s дн. за %s мес. (после поддержки %s); %s; P0–P1: %s"
+              % (c["dev_days_total"], c["horizon_months"], c["dev_days_available"], c.get("line", ""),
                  pp.get("skipped") or "%s из %s помещаются (сумма середин %s дн.)" % (pp["fits_count"], pp["count"], pp["effort_days_mid_total"])))
+    for it in (model.get("reconciliation") or {}).get("items") or []:
+        print("  ! сверка с планом: %s" % it["message"])
     return 0
 
 

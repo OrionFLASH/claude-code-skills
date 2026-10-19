@@ -290,13 +290,33 @@ def test_extra_css_js_included_when_present(run_dir, tmp_path):
     assert "extra." not in page
 
 
-def test_extra_ignored_in_single_with_warning(run_dir, tmp_path):
+def test_extra_inlined_in_single_and_lite(run_dir, tmp_path):
+    """1.5 (SM, раздел 8: хуки расширения совместимы с --single/--lite): build/extra.css|js и build/extra/*.css|js встраиваются
+    в автономную страницу — стили отдельным <style>, скрипты отдельными <script> после основного, у каждого свой хеш в CSP.
+    Раньше в single/lite они не подключались (с предупреждением) — поведение изменено осознанно."""
+    import base64
     out = tmp_path / "run"
     shutil.copytree(run_dir, out)
-    (out / "build").mkdir(exist_ok=True)
+    (out / "build" / "extra").mkdir(parents=True, exist_ok=True)
     (out / "build" / "extra.css").write_text("body{outline:0}\n", encoding="utf-8")
-    stdout, page = build(out, "--single")
-    assert "outline:0" not in page and "extra.css|js не подключены" in stdout
+    (out / "build" / "extra.js").write_text("window.__extra=1;\n", encoding="utf-8")
+    (out / "build" / "extra" / "20-layer.js").write_text("window.PS.on('ready',function(){window.__layer=2;});\n", encoding="utf-8")
+    (out / "build" / "extra" / "10-layer.css").write_text(".x{color:red}\n", encoding="utf-8")
+    for flag in ("--single", "--lite"):
+        stdout, page = build(out, flag)
+        assert "<style>body{outline:0}\n</style>" in page and "<style>.x{color:red}\n</style>" in page
+        scripts = re.findall(r"<script>(.*?)</script>", page, re.S)
+        assert scripts[-2:] == ["window.__extra=1;\n", "window.PS.on('ready',function(){window.__layer=2;});\n"]
+        csp = re.search(r'Content-Security-Policy" content="([^"]+)"', page).group(1)
+        for s in scripts:
+            assert "'sha256-%s'" % base64.b64encode(hashlib.sha256(s.encode("utf-8")).digest()).decode() in csp
+        assert "не подключены" not in stdout and "Расширения страницы (хуки): assets/extra.css, assets/extra.js, assets/extra/10-layer.css, assets/extra/20-layer.js" in stdout
+    # site: те же слои — файлами (папка assets/extra/), с версией по содержимому
+    _, page = build(out, "--site")
+    refs = [u.split("?")[0] for u in refs_of(page)]
+    assert refs == ["assets/app.css", "assets/extra.css", "assets/extra/10-layer.css", "assets/head.js", "assets/data.js", "assets/app.js",
+                    "assets/extra.js", "assets/extra/20-layer.js"]
+    assert (out / "deliverables" / "assets" / "extra" / "20-layer.js").is_file()
 
 
 # ---------------------------------------------------------------- CSP: запасной вариант
@@ -359,7 +379,7 @@ def test_concept_demo_build_all(tmp_path, flags):
     d = out / "deliverables"
     page = (d / "index.html").read_text(encoding="utf-8")
     assert "<title>Концепция продукта Книжная полка (демо)</title>" in page
-    assert 'id="viability"' in page and "Концепт продукта, не существующая функция" in page and 'id="current"' not in page
+    assert 'id="viability"' in page and "Концепт, не существующая функция" in page and 'id="current"' not in page
     if flags:
         assert not (d / "assets").exists() and "sha256-" in page
     else:

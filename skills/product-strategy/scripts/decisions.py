@@ -4,7 +4,13 @@
   decisions.py <OUT> --init [--force]          заготовка data/decisions.json (templates/decisions.example.json,
                                                 P-id ставок — лидеры P0 из data/scores.json, если он есть)
   decisions.py <OUT> --check [--json]          проверка схемы (код 1 — ошибки)
-  decisions.py <OUT> --list-placeholders [--json]   все ключи {bet:…}, {north_star}, {model:…}, {exp:…} с текущими значениями
+  decisions.py <OUT> --list-placeholders [--json]   все ключи {bet:…}, {north_star}, {model:…}, {exp:…}, {plan:…} с текущими значениями
+  decisions.py <OUT> --init --draft [--force]  черновик из данных прогона (FB-048/049): ставки — лидеры P0 по категориям
+                                                (scores.json + proposals.json), критерии отказа — из cheap_test/effect_kpi и вех
+                                                plan-baseline.json, North Star — north-star.json / analytics / success_criteria,
+                                                анти-цели — опровергнутые предпосылки (premises.json), запреты legal.md и
+                                                отложенные P3, развилки — research/questions-owner.md, ёмкость — capacity.py;
+                                                поле draft {sources: {путь → откуда}} — пока оно есть, решения считаются черновиком
 
 Схема (подробно — references/decisions.md):
   bets[]       {id 1..3, name, what, why, effect, proposals [P-id], attention_share,
@@ -14,8 +20,9 @@
   north_star   {metric, definition, target, inputs [..]}
   anti_goals   [строка | {text, why}]
   forks        [{id F1…, question, default, cost, decision}]
-  capacity     {team_size, hours_per_week, note …}
+  capacity     {team_size, hours_per_week, dev_share, day_hours, dev_days, text, note …}  (--init — из scripts/capacity.py)
   bans         [строка]
+  draft        {generated, by, sources {путь: источник}} — черновик; удалите поле, когда владелец/оркестратор подтвердил
 
 Плейсхолдеры (подставляет assemble_strategy.py; в коде `…` и в ограждённых блоках не трогаются):
   {bet:1.name} {bet:1.what} {bet:1.kill} {bet:1.kill.metric|threshold|baseline|date|n|weeks|status} {bet:1.pids}
@@ -23,6 +30,9 @@
   {fork:F1} {fork:F1.default} {capacity} {capacity.team_size} {bans}
   {model:base.ltv} {model:pess.cac} {model:base.users_last} …   — из data/model.json (model.py)
   {exp:E01.n} {exp:E01.weeks} {exp:K1.status} …                   — из data/experiments.json (sample_size.py)
+  {plan:beta} {plan:launch} {plan:mvp_ids} {plan:kill.1.date} {plan:capacity} {plan:capacity.dev_days} {plan:day_hours} …
+                                                                   — из data/plan-baseline.json (plan_baseline.py)
+  {capacity} без decisions.capacity — строка ёмкости из capacity.py (одна для модели, плана и текста).
   Формат после «|»: {model:base.ltv|money} (с символом валюты), {model:base.churn|%} (доля → проценты), {…|0}/{…|1}/{…|2}
   (знаков после запятой). Неизвестный ключ — ошибка сборки.
 Только стандартная библиотека.
@@ -37,13 +47,15 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 SKILL = HERE.parent
+if str(HERE) not in sys.path:
+    sys.path.insert(0, str(HERE))
 EXAMPLE = SKILL / "templates" / "decisions.example.json"
 NBSP = " "
 SCEN_ALIAS = {"pess": "pessimistic", "pessimistic": "pessimistic", "base": "base", "opt": "optimistic", "optimistic": "optimistic"}
 BARE = ("north_star", "anti_goals", "capacity", "bans")
-KINDS = ("bet", "fork", "model", "exp")
+KINDS = ("bet", "fork", "model", "exp", "plan")
 # {bet:1.kill} | {north_star.target} | {model:base.ltv|money}
-PH_RE = re.compile(r"\{(?:(bet|fork|model|exp)[ \t]*:[ \t]*([^{}|\n]*?)|(north_star|anti_goals|capacity|bans)((?:\.[A-Za-z0-9_]+)*))"
+PH_RE = re.compile(r"\{(?:(bet|fork|model|exp|plan)[ \t]*:[ \t]*([^{}|\n]*?)|(north_star|anti_goals|capacity|bans)((?:\.[A-Za-z0-9_]+)*))"
                    r"[ \t]*(?:\|[ \t]*([%A-Za-z0-9_.]+)[ \t]*)?\}")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 PID_RE = re.compile(r"^P\d{3}$")
@@ -273,6 +285,8 @@ def validate(d, proposals=None):
             warns.append("forks[%d] (%s): нет default — вариант по умолчанию" % (k, f["id"]))
     if d.get("capacity") is not None and not isinstance(d.get("capacity"), dict):
         errs.append("capacity: объект")
+    if d.get("draft"):
+        warns.append("decisions.json — черновик (поле draft): значения предложены по данным, подтвердите их и удалите draft")
     return errs, warns
 
 
@@ -443,6 +457,13 @@ class Registry:
         self.dec = decision_values(self.decisions, self.criteria)
         self.mod = model_values(self.model)
         self.exp = exp_values(self.experiments)
+        self.plan = load_json(out / "data" / "plan-baseline.json", None)
+        try:
+            import plan_baseline
+            self.pln = plan_baseline.plan_values(self.plan)
+        except ImportError:
+            self.pln = {}
+        self._cap_line = None
         self.symbol = (self.model or {}).get("currency_symbol") or (self.model or {}).get("currency") or ""
 
     def key_of(self, kind, key, bare, tail):
@@ -463,12 +484,21 @@ class Registry:
         if not key:                                        # голые north_star / anti_goals / capacity / bans
             kind, key = None, full
         if kind in (None, "bet", "fork"):
+            if full in self.dec:
+                return self.dec[full], None
+            if kind is None and key.split(".")[0] == "capacity":          # ёмкость без decisions.capacity — из capacity.py
+                v = self.capacity_value(key)
+                if v is not None:
+                    return v, None
             if self.decisions is None:
-                return None, "нет data/decisions.json (decisions.py <OUT> --init)"
-            k = full
-            if k in self.dec:
-                return self.dec[k], None
-            return None, "нет ключа «%s» в data/decisions.json" % k
+                return None, "нет data/decisions.json (decisions.py <OUT> --init [--draft])"
+            return None, "нет ключа «%s» в data/decisions.json" % full
+        if kind == "plan":
+            if self.plan is None:
+                return None, "нет data/plan-baseline.json (plan_baseline.py <OUT>)"
+            if key in self.pln:
+                return self.pln[key], None
+            return None, "нет ключа «%s» в data/plan-baseline.json" % key
         if kind == "model":
             if self.model is None:
                 return None, "нет data/model.json (model.py <OUT>)"
@@ -482,6 +512,23 @@ class Registry:
                 return None, "нет data/experiments.json (sample_size.py <OUT> --add …)"
             return None, "нет ключа «%s» в data/experiments.json" % key
         return None, "неизвестный вид плейсхолдера «%s»" % kind
+
+    def capacity_value(self, key):
+        """{capacity} / {capacity.dev_days} … по capacity.py (run-config), если в decisions.json ёмкости нет."""
+        try:
+            import capacity as capmod
+        except ImportError:
+            return None
+        cfg = capmod.load_cfg(self.out)
+        months = (cfg.get("strategy") or {}).get("horizon_months") or 12
+        c = capmod.capacity(cfg, months)
+        if key == "capacity":
+            return c["line"]
+        sub = key.split(".", 1)[1] if "." in key else ""
+        return c.get(sub) if not isinstance(c.get(sub), dict) else None
+
+    def is_draft(self):
+        return isinstance(self.decisions, dict) and bool(self.decisions.get("draft"))
 
     def render(self, full, spec):
         val, why = self.lookup(full)
@@ -501,6 +548,12 @@ class Registry:
             rows.append(("{model:%s}" % k, apply_format(x, None), "data/model.json"))
         for k, x in self.exp.items():
             rows.append(("{exp:%s}" % k, apply_format(x, None), "data/experiments.json"))
+        for k, x in self.pln.items():
+            rows.append(("{plan:%s}" % k, apply_format(x, None), "data/plan-baseline.json"))
+        if "capacity" not in self.dec:
+            v = self.capacity_value("capacity")
+            if v:
+                rows.append(("{capacity}", v, "scripts/capacity.py (run-config project.capacity)"))
         return rows
 
 
@@ -529,6 +582,213 @@ def scaffold(out):
     pj = cfg.get("project") or {}
     if isinstance(pj.get("team_size"), int):
         d.setdefault("capacity", {})["team_size"] = pj["team_size"]
+    d["capacity"] = dict(d.get("capacity") or {}, **capacity_doc(cfg))
+    return d
+
+
+def capacity_doc(cfg):
+    """Ёмкость для decisions.json — из capacity.py (одно определение рабочего дня)."""
+    try:
+        import capacity as capmod
+    except ImportError:
+        return {}
+    c = capmod.capacity(cfg, (cfg.get("strategy") or {}).get("horizon_months") or 12)
+    return {"team_size": c["team_size"], "hours_per_week": c["hours_per_week"], "dev_share": c["dev_share"],
+            "day_hours": c["day_hours"], "dev_days": c["dev_days"], "text": c["line"], "note": "scripts/capacity.py; источник: %s" % c["source"]}
+
+
+# ---------------------------------------------------------------- черновик из данных прогона (FB-048/049)
+PCT_RE = re.compile(r"(\d+(?:[.,]\d+)?)[ \u00a0]?%")
+OF_RE = re.compile(r"(\d+)\s+из\s+(\d+)")
+RANGE_PCT_RE = re.compile(r"(\d+(?:[.,]\d+)?)[ \u00a0]*[–—-][ \u00a0]*\d+(?:[.,]\d+)?[ \u00a0]?%")
+LEGAL_BAN_RE = re.compile(r"запрещ|нельзя|не допускается|недопустим|не вправе|без согласия|не использ", re.I)
+
+
+def _first_sentence(t, n=160):
+    t = re.sub(r"\s+", " ", str(t or "")).strip()
+    m = re.match(r"(.+?[.!?])(\s|$)", t)
+    t = m.group(1) if m else t
+    return t if len(t) <= n else t[:n - 1].rstrip() + "…"
+
+
+def _short(t, n=60):
+    t = re.sub(r"\s+", " ", str(t or "")).strip()
+    t = re.split(r"[:;(—]", t)[0].strip() or t
+    return t if len(t) <= n else t[:n - 1].rstrip() + "…"
+
+
+def _threshold_from(text):
+    """Порог-доля из текста проверки: «≥ 8 из 200» → 0.04, «5 %» → 0.05; иначе None."""
+    m = RANGE_PCT_RE.search(text or "")             # «30–50 %» → нижняя граница ожидаемого эффекта
+    if m:
+        v = float(m.group(1).replace(",", ".")) / 100.0
+        if 0 < v < 1:
+            return round(v, 4), m.group(0)
+    m = OF_RE.search(text or "")
+    if m and int(m.group(2)) > 0 and 0 < int(m.group(1)) < int(m.group(2)):
+        return round(int(m.group(1)) / float(m.group(2)), 4), m.group(0)
+    m = PCT_RE.search(text or "")
+    if m:
+        v = float(m.group(1).replace(",", ".")) / 100.0
+        if 0 < v < 1:
+            return round(v, 4), m.group(0)
+    return None, None
+
+
+def _questions(out):
+    f = Path(out) / "research" / "questions-owner.md"
+    qs = []
+    if f.is_file():
+        for line in f.read_text(encoding="utf-8").splitlines():
+            m = re.match(r"\s*(\d+)\.\s+(.*)", line)
+            if m:
+                qs.append(m.group(2).strip())
+    return qs
+
+
+def draft(out):
+    """Черновик decisions.json из файлов прогона; ничего не выдумывается — у каждого значения источник в draft.sources."""
+    out = Path(out)
+    cfg = load_json(out / "build" / "run-config.json", {}) or {}
+    st = cfg.get("strategy") or {}
+    props = {p["id"]: p for p in load_json(out / "data" / "proposals.json", []) or [] if isinstance(p, dict) and p.get("id")}
+    scores = [x for x in load_json(out / "data" / "scores.json", []) or [] if isinstance(x, dict) and x.get("id")]
+    plan = load_json(out / "data" / "plan-baseline.json", None) or {}
+    src = {}
+    d = {"version": 1, "updated": date.today().isoformat(), "bets": [], "north_star": {}, "anti_goals": [], "forks": [],
+         "capacity": capacity_doc(cfg), "bans": []}
+    src["capacity"] = "scripts/capacity.py (%s)" % (d["capacity"].get("note") or "run-config")
+    # ставки: лидеры P0 (иначе P1) по composite в трёх разных категориях; внутри — порядок dep_rank
+    pool = [x for x in scores if x.get("priority") == "P0"] or [x for x in scores if x.get("priority") == "P1"] or scores
+    pool.sort(key=lambda x: -(x.get("composite") or 0))
+    cats = []
+    for x in pool:
+        c = x.get("category") or (props.get(x["id"]) or {}).get("category")
+        if c not in cats:
+            cats.append(c)
+        if len(cats) == 3:
+            break
+    kill_date = None
+    launch = ((plan.get("milestones") or {}).get("launch") or {}).get("date")
+    end = ((plan.get("milestones") or {}).get("horizon_end") or {}).get("date")
+    if launch:
+        try:
+            ld = date.fromisoformat(launch)
+            kd = date.fromordinal(ld.toordinal() + 56)
+            kill_date = min(kd, date.fromisoformat(end)) if end else kd
+        except ValueError:
+            kill_date = None
+    if kill_date is None and end:
+        try:
+            kill_date = date.fromisoformat(end)
+        except ValueError:
+            kill_date = None
+    if kill_date is None:
+        m = int(st.get("horizon_months") or 6)
+        t = date.today()
+        y, mo = divmod(t.month - 1 + m, 12)
+        kill_date = date(t.year + y, mo + 1, 1)
+    kd_src = ("plan-baseline: запуск %s + 8 недель" % launch) if launch else ("plan-baseline: конец горизонта" if end else "сегодня + горизонт")
+    total = sum((x.get("composite") or 0) for x in pool[:9]) or 1.0
+    for i, c in enumerate(cats, 1):
+        members = sorted([x for x in pool if (x.get("category") or (props.get(x["id"]) or {}).get("category")) == c],
+                         key=lambda x: (x.get("dep_rank") or x.get("rank") or 10 ** 6))[:3]
+        lead = max(members, key=lambda x: x.get("composite") or 0)
+        lp = props.get(lead["id"]) or {}
+        k0 = (lp.get("effect_kpi") or [{}])[0] if isinstance((lp.get("effect_kpi") or [None])[0], dict) else {}
+        thr, thr_src = _threshold_from(k0.get("range"))          # порог той же метрики, что и kill.metric
+        thr_from = "effect_kpi %s" % lead["id"]
+        if thr is None:
+            thr, thr_src = _threshold_from(lp.get("cheap_test"))
+            thr_from = "cheap_test %s" % lead["id"]
+        kill = {"metric": k0.get("kpi") or "ключевая метрика ставки «%s»" % _short(lp.get("title") or lead.get("title")),
+                "date": kill_date.isoformat(), "direction": "above" if k0.get("direction") == "down" else "below"}
+        if thr is not None:
+            kill.update({"threshold": thr, "kind": "share"})
+            src["bets.%d.kill.threshold" % i] = "%s («%s»)" % (thr_from, thr_src)
+        else:
+            kill.update({"threshold": 1, "kind": "other", "threshold_text": _first_sentence(lp.get("cheap_test") or k0.get("range") or "порог задать", 120)})
+            src["bets.%d.kill.threshold" % i] = "cheap_test %s (текстом: порог-число не найден)" % lead["id"]
+        src["bets.%d.kill.metric" % i] = "effect_kpi %s" % lead["id"] if k0.get("kpi") else "название %s" % lead["id"]
+        src["bets.%d.kill.date" % i] = kd_src
+        prem = []
+        for x in members:
+            r = (props.get(x["id"]) or {}).get("risks") or {}
+            top = sorted(((k, v) for k, v in r.items() if isinstance(v, (int, float)) and not isinstance(v, bool)), key=lambda kv: -kv[1])
+            if r.get("note"):
+                prem.append({"cause": "%s: %s" % (x["id"], _first_sentence(r["note"], 140)),
+                             "signal": "риск %s = %s" % (top[0][0], top[0][1]) if top else "риск из реестра"})
+        if lp.get("cheap_test"):
+            prem.append({"cause": "дешёвая проверка не подтвердила ставку", "signal": _first_sentence(lp["cheap_test"], 140)})
+        d["bets"].append({"id": i, "name": _short(lp.get("title") or lead.get("title")), "what": _first_sentence(lp.get("description")).rstrip("."),
+                          "why": _first_sentence(lp.get("rationale")).rstrip("."),
+                          "effect": ("%s %s (%s)" % (k0.get("kpi"), k0.get("range"), k0.get("label") or "оценка")) if k0.get("kpi") else "",
+                          "proposals": [x["id"] for x in members], "attention_share": round(sum((x.get("composite") or 0) for x in members) / total, 2),
+                          "kill": kill, "premortem": prem[:3]})
+        src["bets.%d" % i] = "scores.json: лидеры %s категории «%s» по composite (%s), порядок dep_rank" % (
+            pool[0].get("priority") or "P0", c, ", ".join(x["id"] for x in members))
+    sh = sum(b["attention_share"] for b in d["bets"]) or 1.0
+    for b in d["bets"]:
+        b["attention_share"] = round(b["attention_share"] / sh, 2)
+    # North Star
+    nsj = load_json(out / "data" / "north-star.json", None)
+    if isinstance(nsj, dict) and nsj.get("metric"):
+        d["north_star"] = {k: nsj.get(k) for k in ("metric", "definition", "target", "inputs") if nsj.get(k)}
+        src["north_star"] = "data/north-star.json"
+    else:
+        ns_p = next((props[x["id"]] for x in sorted(scores, key=lambda x: x.get("rank") or 10 ** 6)
+                     if (props.get(x["id"]) or {}).get("category") == "analytics" and re.search(r"north|полярн", json.dumps(props[x["id"]], ensure_ascii=False), re.I)), None)
+        kpi = None
+        if ns_p:
+            kpi = next((k.get("kpi") for k in ns_p.get("effect_kpi") or [] if isinstance(k, dict) and k.get("kpi")), None)
+        sc = st.get("success_criteria")
+        metric = kpi or (_short(sc, 80) if sc else None)
+        if metric:
+            d["north_star"] = {"metric": metric, "definition": _first_sentence(ns_p.get("description")) if ns_p else "",
+                               "target": sc or "", "inputs": [k.get("kpi") for b in d["bets"] for k in (props.get(b["proposals"][0]) or {}).get("effect_kpi") or []
+                                                         if isinstance(k, dict) and k.get("kpi") and k.get("kpi") != metric][:4]}
+            src["north_star"] = ("analytics %s (effect_kpi)" % ns_p["id"]) if kpi else "run-config strategy.success_criteria"
+        else:
+            d["north_star"] = {"metric": "<заполнить>"}
+            src["north_star"] = "нет данных: north-star.json, analytics с North Star и success_criteria отсутствуют"
+    # анти-цели: опровергнутые предпосылки, запреты права, сознательно отложенное (P3 / vision)
+    prem_f = load_json(out / "data" / "premises.json", None)
+    items = prem_f.get("premises") if isinstance(prem_f, dict) else prem_f
+    for x in items or []:
+        if isinstance(x, dict) and str(x.get("status") or "").lower() in ("refuted", "опровергнута", "rejected", "false"):
+            d["anti_goals"].append({"text": "не опираемся на «%s»" % _short(x.get("text") or x.get("premise") or x.get("title"), 90),
+                                    "why": "предпосылка опровергнута: %s" % (x.get("source") or "premises.json")})
+    legal = Path(out) / "research" / "legal.md"
+    if legal.is_file():
+        for line in legal.read_text(encoding="utf-8").splitlines():
+            t = line.strip(" -*#|")
+            if 20 <= len(t) <= 300 and LEGAL_BAN_RE.search(t):
+                d["bans"].append(_first_sentence(t, 200))
+            if len(d["bans"]) >= 4:
+                break
+        if d["bans"]:
+            src["bans"] = "research/legal.md (строки с «запрещено / нельзя / без согласия»)"
+    if st.get("constraints"):
+        d["bans"].insert(0, str(st["constraints"]))
+        src["bans"] = "run-config strategy.constraints" + ("; " + src["bans"] if src.get("bans") else "")
+    later = sorted((x for x in scores if x.get("priority") == "P3" or x.get("horizon") in ("vision",)),
+                   key=lambda x: -((x.get("effort_days_mid") or 0)))[:max(0, 3 - len(d["anti_goals"]))]
+    for x in later:
+        d["anti_goals"].append({"text": "не делаем в горизонте: %s (%s)" % (_short(x.get("title") or (props.get(x["id"]) or {}).get("title"), 70), x["id"]),
+                                "why": "%s, горизонт %s, усилия ≈ %s дн." % (x.get("priority"), x.get("horizon"), x.get("effort_days_mid"))})
+    if d["anti_goals"]:
+        src["anti_goals"] = "data/premises.json (опровергнутые) и scores.json (P3/vision с наибольшими усилиями)"
+    # развилки из вопросов владельцу
+    for k, q in enumerate(_questions(out)[:6], 1):
+        m = re.search(r"([^,;.?!:()«»]{2,60}?)\s*\(по умолчанию\)|по умолчанию\s*[—:-]\s*([^.;?]+)", q, re.I)
+        default = ((m.group(1) or m.group(2) or "").strip(" —-*")) if m else ""
+        head = re.match(r"\*\*([^*]+?)\.?\*\*\s*(.*)", q)
+        d["forks"].append({"id": "F%d" % k, "question": _first_sentence((head.group(1) + ": " + head.group(2)) if head else q, 200),
+                           "default": default.strip(), "cost": "", "decision": ""})
+    if d["forks"]:
+        src["forks"] = "research/questions-owner.md"
+    d["draft"] = {"generated": date.today().isoformat(), "by": "decisions.py --init --draft",
+                  "note": "черновик из данных прогона: подтвердите или поправьте значения и удалите поле draft", "sources": src}
     return d
 
 
@@ -540,6 +800,7 @@ def main(argv=None):
     g.add_argument("--check", action="store_true", help="проверить схему data/decisions.json")
     g.add_argument("--list-placeholders", action="store_true", help="все ключи плейсхолдеров с текущими значениями")
     ap.add_argument("--force", action="store_true", help="--init: перезаписать существующий файл")
+    ap.add_argument("--draft", action="store_true", help="--init: черновик из данных прогона вместо примера (FB-048)")
     ap.add_argument("--json", action="store_true", help="вывод JSON")
     a = ap.parse_args(argv)
     out = Path(a.out).resolve()
@@ -551,8 +812,12 @@ def main(argv=None):
         if path.exists() and not a.force:
             print("data/decisions.json уже есть — не перезаписываю (--force перезапишет)", file=sys.stderr)
             return 1
-        path.write_text(json.dumps(scaffold(out), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        print("записано %s — заполните ставки, North Star, анти-цели и развилки" % path)
+        doc = draft(out) if a.draft else scaffold(out)
+        path.write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        if a.draft:
+            print("записан черновик %s (источники — draft.sources); подтвердите значения и удалите поле draft" % path)
+        else:
+            print("записано %s — заполните ставки, North Star, анти-цели и развилки" % path)
         return 0
     if a.list_placeholders:
         rows = Registry(out).listing()

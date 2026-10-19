@@ -857,9 +857,32 @@ def test_without_progress_matches_pre_tracking_builder(rich, tmp_path):
 
     def norm(x):
         x = re.sub(r"<script>.*?</script>", "<script/>", x, flags=re.S)
-        return qa_page_norm(re.sub(r'Content-Security-Policy" content="[^"]+"', "CSP", x))
+        return qa_page_norm(ps15_norm(re.sub(r'Content-Security-Policy" content="[^"]+"', "CSP", x)))
     assert norm(a) == norm(b)
-    assert qa_page_norm(css_of(a)) == qa_page_norm(css_of(b))
+    assert qa_page_norm(ps15_norm(css_of(a))) == qa_page_norm(ps15_norm(css_of(b)))
+
+
+def ps15_norm(x):
+    """Намеренные отличия 1.5 (слой интерактивности FB-035–FB-039, SM раздел 8) убираются с обеих сторон: стили слоёв (блок
+    ps-1.5), строки-подсказки, обёртки «🔍 Увеличить» у графиков и схем (вместо «⤢ открыть схему как картинку»), доступность схем
+    (role=group, <title> и aria-label блоков), размеры ленивых картинок, атрибуты макетов для просмотра (data-mock/-pids/-html/-alt),
+    элементы просмотра (P-id, интерактивный макет, тема), ширины колонок таблиц. Всё остальное — байт в байт."""
+    x = re.sub(r"/\* ps-1\.5:start.*?/\* ps-1\.5:end \*/", "", x, flags=re.S)
+    x = re.sub(r'<p class="psi-hint"[^>]*>.*?</p>', "", x, flags=re.S)
+    x = x.replace('badge-concept ps-concept-badge', 'badge-concept').replace('Концепт продукта, не существующая функция', 'Концепт, не существующая функция')
+    x = re.sub(r'<div class="psi-wrap psi-(?:chart|flow)">', "", x)
+    x = re.sub(r'<button type="button" class="psi-zoom".*?</button><span class="psi-cue"[^>]*>[^<]*</span></div>', "", x, flags=re.S)
+    x = re.sub(r'(<p class="muted small">Нажмите на блок схемы — откроется расшифровка: что это, как сейчас, что сделать, как измерять и связанные предложения)'
+               r'[^<]*(?:<button[^>]*>[^<]*</button>)?</p>', r"\1</p>", x)
+    x = re.sub(r'<title class="ps-nt">[^<]*</title>', "", x)
+    x = re.sub(r' aria-label="[^"]* — открыть расшифровку"', "", x)
+    x = re.sub(r'(<svg\b[^>]*?) role="group"', r"\1", x)
+    x = re.sub(r'(<svg\b[^>]*?class="flow-svg[^"]*"[^>]*?) aria-label="[^"]*"', r"\1", x)
+    x = re.sub(r' style="width:\d+px;aspect-ratio:\d+ / \d+"', "", x)
+    x = re.sub(r' data-(?:mock|pids|html|alt|alt-theme)="[^"]*"', "", x)
+    x = re.sub(r'(<div class="ph mock-ph"[^>]*?) tabindex="-1"', r"\1", x)
+    x = re.sub(r'<span id="lbpids" hidden></span>(?:<a id="lbopen".*?</a>)?(?:<button type="button" id="lbtheme"[^>]*>[^<]*</button>)?', "", x, flags=re.S)
+    return re.sub(r"<colgroup>.*?</colgroup>", "", x, flags=re.S)
 
 
 def qa_page_norm(x):

@@ -78,6 +78,33 @@
 Отчёт — stdout и build/merge-report.json (слияния с баллами и причиной выбора победителя, не слитые, кандидаты на
 ручную проверку, смысловые подсказки, ручные нарушения минимумов, карта id, непереведённые ссылки, патчи);
 --dry-run пишет только отчёт и build/merge-candidates.json. Только стандартная библиотека.
+
+Дополнения 1.5 (все необязательны; без флагов и полей run-config — поведение 1.4):
+  merge_proposals.py <OUT> --write-distinct [FILE]   решения [x]/[ ] (build/merge-candidates.json или сохранённый вывод
+                                                     --dry-run/--suggest) → build/merge-map.json: [ ] → distinct, [x] → merge
+                                                     (однопроходный реестр без ручной правки merge-map.json)
+  merge_proposals.py <OUT> --sync-decisions [--cap-now [K]]   к готовому реестру: горизонты/теги по data/decisions.json
+  merge_proposals.py <OUT> … --cap-now [K]                    потолок суммы середин effort_days горизонта now
+  - Патч overrides понимает "_add": {"dependencies": ["P033"], "tags": ["x"]} — дописать в список без повторов
+    (deps-patch из collect_reports.py --deps).
+  - Решения владельца (data/decisions.json → horizons[] {proposals, horizon, tag?} и forks[].apply при заданном decision)
+    применяются после overrides при каждом слиянии: horizon и тег mvp|v1|v2|later берутся из решения.
+  - --cap-now [K] (или run-config registry.capacity_cap: true, K — registry.cap_factor, по умолчанию 1,3): ёмкость
+    горизонта now — check_registry.now_capacity (scripts/capacity.py, день = project.capacity.day_hours; длина now —
+    registry.now_months, иначе idea.facets.mvp_weeks, иначе 3 мес.). Если сумма середин effort_days предложений now
+    больше ёмкости × K, now заполняется по приоритету (dep_rank/rank из data/scores.json, иначе Кано must → ценность →
+    стоимость → класс доказательств) вместе с предпосылками внутри now; закреплённые решениями владельца и overrides
+    (horizon: now) остаются. В режиме минимумов priority (личный режим, registry.capacity_cap) сначала берётся лучшее
+    предложение каждой обязательной категории. Не поместившиеся → horizon next (тег mvp → v1), поле horizon_reason.
+    При slicing.enabled очереди slicing.queues заполняются по порядку кусками той же ёмкости (первая — now, остальные —
+    next; последняя берёт остаток), поле queue; заданная вручную существующая очередь не меняется.
+  - Зависимости от черновиков, названные текстом в research/gap-audit.md («P035 ← G7-02», «P035 <- G7-02, P031»,
+    строки таблицы раздела «Предпосылки», где во второй ячейке — G-NN) и полем unlocks черновиков
+    ("unlocks": ["P013"] — черновик нужен до P013), дописываются в data/gap-audit-deps.json и переводятся в P-id.
+  - --append: ссылки на черновики добавленных групп переводятся и в файлах прогона — mockups/concepts/*.html,
+    design-refs/*.json|*.md, data/mockups-index.json, data/fact-check.json (--no-remap-files — не трогать).
+  - --suggest печатает решения в формате --dry-run («[ ] B «…» → A «…»»), сохранённый вывод читают
+    --pairs-from-dry-run и --write-distinct. run-config registry.passes (1|2) — в отчёте.
 """
 import argparse
 import copy
@@ -90,10 +117,11 @@ from collections import Counter
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from check_registry import category_requirements  # noqa: E402
+from check_registry import (PERSONAL_CATEGORIES, NOW_CAP_FACTOR, category_mode, category_requirements,  # noqa: E402
+                            decision_horizons, effort_mid, now_capacity, slicing_queues)
 
 CATEGORY_ORDER = ["product", "acquisition", "conversion", "retention", "monetization", "analytics", "partnerships",
-                  "localization", "new_lines", "platform"]
+                  "localization", "new_lines", "platform"] + PERSONAL_CATEGORIES
 CLASS_RANK = {"A": 0, "B": 1, "C": 2, "D": 3}
 DEFAULT_THRESHOLD = 0.275
 APPEND_THRESHOLD = 0.40       # --append --allow-merge: порог выше (ложное слияние 0,30 «оценка» ↔ «обновление»)
@@ -690,6 +718,278 @@ def remap_gap_deps(out_dir, idmap, write=True):
     return {"changed": changed, "unresolved": sorted(set(unresolved), key=draft_sort_key), "missing": False}
 
 
+ARROW_RE = re.compile(r"\b((?:P\d{3,}|G\d+-\d+))\s*(?:←|<-|⟵|<—)\s*((?:P\d{3,}|G\d+-\d+)(?:\s*(?:,|;|и|and)\s*(?:P\d{3,}|G\d+-\d+))*)")
+ID_RE = re.compile(r"\b(?:P\d{3,}|G\d+-\d+)\b")
+
+
+def text_gap_deps(out_dir, groups=None):
+    """Зависимости от черновиков, названные вне data/gap-audit-deps.json → [(зависимое, предпосылка, источник)].
+
+    research/gap-audit.md: стрелки «P035 ← G7-02, P031» (также <-) в любом месте; строки таблиц раздела «Предпосылки»,
+    где в первой ячейке ровно один id, а во второй есть ссылки на черновики G-NN. Черновики групп (groups или все
+    data/proposals-draft-G*.json): поле unlocks ["P013"] — черновик нужен до P013."""
+    out_dir = Path(out_dir)
+    pairs, seen = [], set()
+
+    def put(dep, pre, src):
+        if dep != pre and (dep, pre) not in seen:
+            seen.add((dep, pre))
+            pairs.append((dep, pre, src))
+
+    md = out_dir / "research" / "gap-audit.md"
+    if md.exists():
+        text = md.read_text(encoding="utf-8")
+        for m in ARROW_RE.finditer(text):
+            for pre in ID_RE.findall(m.group(2)):
+                put(m.group(1), pre, "research/gap-audit.md")
+        section = None
+        for line in text.splitlines():
+            h = re.match(r"^#{1,6}\s+(.+)$", line)
+            if h:
+                section = "prereq" if re.search(r"предпосылк|prerequisit", h.group(1), re.I) else None
+                continue
+            if section != "prereq" or not line.strip().startswith("|"):
+                continue
+            cells = [c.strip() for c in line.strip().strip("|").split("|")]
+            if len(cells) < 2:
+                continue
+            deps = ID_RE.findall(cells[0])
+            pres = [x for x in ID_RE.findall(cells[1]) if GREF_RE.fullmatch(x)]
+            if len(set(deps)) == 1 and pres:
+                for pre in pres:
+                    put(deps[0], pre, "research/gap-audit.md (таблица «Предпосылки»)")
+    files = sorted((out_dir / "data").glob("proposals-draft-G*.json")) if (out_dir / "data").exists() else []
+    for f in files:
+        g = f.stem[len("proposals-draft-"):]
+        if groups and g not in groups:
+            continue
+        try:
+            raw = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        raw = raw.get("proposals", []) if isinstance(raw, dict) else raw
+        for p in raw if isinstance(raw, list) else []:
+            if not isinstance(p, dict) or not p.get("id"):
+                continue
+            for target in p.get("unlocks") or []:
+                if isinstance(target, str) and ID_RE.fullmatch(target):
+                    put(target, str(p["id"]), "%s: unlocks" % f.name)
+    return pairs
+
+
+def add_gap_deps(out_dir, pairs, idmap=None, write=True, known=None):
+    """Дописать пары (зависимое, предпосылка, …) в data/gap-audit-deps.json без повторов; id сразу переводятся по карте
+    (если в ней есть). known — множество id реестра: пары с другими id (после перевода) пропускаются.
+    Возвращает {"added": N, "pairs": ["P035 ← P141 (источник)"…], "skipped": [...]}."""
+    if not pairs:
+        return {"added": 0, "pairs": [], "skipped": []}
+    if known is not None:
+        idm = idmap or {}
+        keep, skipped = [], []
+        for row in pairs:
+            a, b = idm.get(row[0], row[0]), idm.get(row[1], row[1])
+            (keep if a in known and b in known else skipped).append(row)
+        pairs = keep
+        res = add_gap_deps(out_dir, pairs, idmap, write) if pairs else {"added": 0, "pairs": []}
+        res["skipped"] = ["%s ← %s" % (r[0], r[1]) for r in skipped]
+        return res
+    path = Path(out_dir) / "data" / "gap-audit-deps.json"
+    try:
+        d = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    except json.JSONDecodeError:
+        return {"added": 0, "pairs": [], "error": "data/gap-audit-deps.json не разбирается как JSON"}
+    if not isinstance(d, dict):
+        return {"added": 0, "pairs": [], "error": "data/gap-audit-deps.json не объект"}
+    idmap = idmap or {}
+    tr = (lambda x: idmap.get(x, x))
+    norm = {}
+    for k, v in d.items():
+        norm.setdefault(tr(k), [])
+        for x in (v if isinstance(v, list) else [v]):
+            if tr(x) not in norm[tr(k)]:
+                norm[tr(k)].append(tr(x))
+    added = []
+    for row in pairs:
+        dep, pre, src = tr(row[0]), tr(row[1]), (row[2] if len(row) > 2 else "")
+        if dep == pre or pre in norm.get(dep, []):
+            continue
+        norm.setdefault(dep, []).append(pre)
+        added.append("%s ← %s%s" % (dep, pre, " (%s)" % src if src else ""))
+    if added and write:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(norm, ensure_ascii=False, indent=2), encoding="utf-8")
+    return {"added": len(added), "pairs": added}
+
+
+RUN_FILES = ("mockups/concepts/*.html", "design-refs/*.json", "design-refs/*.md", "data/mockups-index.json",
+             "data/fact-check.json")
+
+
+def remap_run_files(out_dir, idmap, groups, write=True):
+    """Ссылки на черновики добавленных групп (G8-03 → P141) в файлах прогона (RUN_FILES). → {файл: число замен}."""
+    nums = {re.sub(r"\D", "", g) for g in groups if re.fullmatch(r"G\d+", g)}
+    if not nums or not idmap:
+        return {}
+    rx = re.compile(r"\bG(%s)-\d+\b" % "|".join(sorted(nums)))
+    out = {}
+    for pat in RUN_FILES:
+        for f in sorted(Path(out_dir).glob(pat)):
+            try:
+                text = f.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            n = [0]
+
+            def rep(m):
+                t = idmap.get(m.group(0))
+                if t is None:
+                    return m.group(0)
+                n[0] += 1
+                return t
+            new = rx.sub(rep, text)
+            if n[0]:
+                out[str(f.relative_to(out_dir))] = n[0]
+                if write:
+                    f.write_text(new, encoding="utf-8")
+    return out
+
+
+KANO_ORDER = {"must": 0, "linear": 1, "delight": 2, "indifferent": 3}
+
+
+def load_scores_rank(out_dir, ids):
+    """{id: позиция} из data/scores.json (dep_rank, иначе rank), если файл покрывает реестр; иначе {}."""
+    p = Path(out_dir) / "data" / "scores.json"
+    try:
+        rows = json.loads(p.read_text(encoding="utf-8")) if p.exists() else []
+    except (OSError, json.JSONDecodeError):
+        rows = []
+    r = {s.get("id"): (s.get("dep_rank") or s.get("rank")) for s in rows if isinstance(s, dict) and s.get("id")}
+    return r if r and set(ids) <= set(r) else {}
+
+
+def sync_decisions(props, out_dir):
+    """Горизонт и тег релиза по решениям владельца (data/decisions.json). → [{id, horizon_was, horizon, tag, source}]."""
+    by_id = {p.get("id"): p for p in props}
+    changed = []
+    for d in decision_horizons(out_dir):
+        p = by_id.get(d["id"])
+        if p is None:
+            continue
+        was_h, was_t = p.get("horizon"), list(p.get("tags") or [])
+        if d["horizon"]:
+            p["horizon"] = d["horizon"]
+        if d["tag"]:
+            tags = [t for t in (p.get("tags") or []) if t not in ("mvp", "v1", "v2", "later")]
+            p["tags"] = tags + [d["tag"]]
+        if p.get("horizon") != was_h or list(p.get("tags") or []) != was_t:
+            p["horizon_reason"] = "решение владельца (%s)%s" % (d["source"], ": " + d["why"] if d["why"] else "")
+            changed.append({"id": d["id"], "horizon_was": was_h, "horizon": p.get("horizon"), "tag": d["tag"], "source": d["source"]})
+    return changed
+
+
+def cap_now(props, cfg, out_dir, factor=None, pinned=(), min_n=100):
+    """Потолок суммы середин effort_days горизонта now (ёмкость × factor); очереди slicing. Меняет props на месте."""
+    factor = float(factor or (cfg.get("registry") or {}).get("cap_factor") or NOW_CAP_FACTOR)
+    cap = now_capacity(cfg, props, factor)
+    if cap is None:
+        return {"skipped": "нет scripts/capacity.py"}
+    ceiling = cap["ceiling"]
+    queues = slicing_queues(cfg)
+    qids = [q["id"] for q in queues]
+    by_id = {p["id"]: p for p in props}
+    now_ids = [p["id"] for p in props if p.get("horizon") == "now"]
+    if queues:
+        preset = {pid for pid in now_ids if by_id[pid].get("queue") in qids}
+    else:
+        preset = set()
+    rep = {"capacity": cap, "ceiling": ceiling, "factor": factor, "before_days": cap["now_days"], "demoted": [],
+           "queues": {}, "pinned": sorted(set(pinned) & set(now_ids))}
+    if cap["now_days"] <= ceiling + 1e-9 and not queues:
+        rep.update(after_days=cap["now_days"], changed=False)
+        return rep
+    rank = load_scores_rank(out_dir, now_ids)
+
+    def key(pid):
+        p = by_id[pid]
+        sc = p.get("scores") or {}
+        base = (rank.get(pid, 10 ** 6),) if rank else (
+            KANO_ORDER.get(p.get("kano"), 9), -(sc.get("value") or 0), sc.get("cost") or 9,
+            {"A": 0, "B": 1, "C": 2, "D": 3}.get(p.get("evidence_class"), 9), effort_mid(p))
+        return (0 if pid in pinned else 1,) + base + (pid,)
+
+    nowset = set(now_ids)
+
+    def closure(pid, kept):
+        out, stack = [], [pid]
+        while stack:
+            v = stack.pop()
+            if v in kept or v in out:
+                continue
+            out.append(v)
+            stack += [d for d in (by_id[v].get("dependencies") or []) if d in nowset]
+        return out
+
+    order = sorted(now_ids, key=key)
+    reqs = category_requirements(cfg, min_n)
+    first = []
+    if category_mode(cfg) == "priority":
+        for c, r in reqs.items():
+            if r["required"]:
+                best = next((pid for pid in order if by_id[pid].get("category") == c and pid not in pinned), None)
+                if best:
+                    first.append(best)
+        cat_n = Counter(by_id[pid].get("category") for pid in now_ids)
+        first.sort(key=lambda pid: (cat_n[by_id[pid].get("category")], order.index(pid)))   # редкие категории — первыми
+    buckets = []                       # [(queue_id|None, [ids])]
+    remaining = [pid for pid in order if pid not in preset]
+    n_chunks = max(1, len(queues)) if queues else 1
+    for qi in range(n_chunks):
+        qid = qids[qi] if queues else None
+        last = queues and qi == n_chunks - 1
+        kept, used = [], sum(effort_mid(by_id[x]) for x in preset if by_id[x].get("queue") == qid) if qid else 0.0
+        seq = ([x for x in remaining if x in pinned] + [x for x in first if x in remaining] + remaining) if qi == 0 else remaining
+        for pid in seq:
+            if pid in kept or pid not in remaining:
+                continue
+            cl = [x for x in closure(pid, set(kept)) if x in remaining]
+            cost = sum(effort_mid(by_id[x]) for x in cl)
+            if last or pid in pinned or used + cost <= ceiling + 1e-9:
+                kept += [x for x in cl if x not in kept]
+                used += cost
+        remaining = [x for x in remaining if x not in kept]
+        buckets.append((qid, kept))
+        if not remaining:
+            break
+    concept = cfg.get("mode") == "concept"
+    for qi, (qid, ids) in enumerate(buckets):
+        for pid in ids:
+            p = by_id[pid]
+            if qid:
+                p["queue"] = qid
+            if qi > 0:
+                demote(p, concept, "очередь %s: ёмкость горизонта now %.1f дн." % (qid, ceiling))
+                rep["demoted"].append({"id": pid, "title": p.get("title"), "effort_mid": effort_mid(p), "to": "next", "queue": qid})
+    for pid in remaining:                       # без очередей: не поместились в now
+        p = by_id[pid]
+        demote(p, concept, "ёмкость горизонта now %.1f дн. (%s)" % (ceiling, cap["line"]))
+        rep["demoted"].append({"id": pid, "title": p.get("title"), "effort_mid": effort_mid(p), "to": "next", "queue": None})
+    for q in qids:
+        ids = [p["id"] for p in props if p.get("queue") == q]
+        rep["queues"][q] = {"count": len(ids), "effort_days": round(sum(effort_mid(by_id[x]) for x in ids), 1), "ids": ids}
+    after = round(sum(effort_mid(p) for p in props if p.get("horizon") == "now"), 1)
+    rep.update(after_days=after, changed=bool(rep["demoted"]) or bool(queues),
+               over_by_pinned=after > ceiling + 1e-9)
+    return rep
+
+
+def demote(p, concept, why):
+    p["horizon"] = "next"
+    if concept and "mvp" in (p.get("tags") or []):
+        p["tags"] = ["v1" if t == "mvp" else t for t in p["tags"]]
+    p["horizon_reason"] = "перенесено из now: " + why
+
+
 def _delete_path(obj, dotted):
     parts = str(dotted).split(".")
     for part in parts[:-1]:
@@ -703,11 +1003,22 @@ def _delete_path(obj, dotted):
 
 
 def apply_patch(target, patch):
-    """Патч на месте: сначала "_delete" (ключи уровня или пути через точку), затем словари — рекурсивно, прочее — замена."""
+    """Патч на месте: сначала "_delete" (ключи уровня или пути через точку), затем "_add" ({ключ: [значения]} — дописать
+    в список без повторов; нет списка — создать), затем словари — рекурсивно, прочее — замена."""
     for key in patch.get("_delete") or []:
         _delete_path(target, key)
+    add = patch.get("_add")
+    if isinstance(add, dict):
+        for k, vals in add.items():
+            vals = vals if isinstance(vals, list) else [vals]
+            cur = target.get(k)
+            if not isinstance(cur, list):
+                cur = target[k] = []
+            for x in vals:
+                if x not in cur and x != target.get("id"):
+                    cur.append(copy.deepcopy(x))
     for k, v in patch.items():
-        if k == "_delete":
+        if k in ("_delete", "_add"):
             continue
         if isinstance(v, dict) and isinstance(target.get(k), dict):
             apply_patch(target[k], v)
@@ -1080,6 +1391,21 @@ def print_suggest(sim, items, top, thr):
               % (n, mark, r["score"], a, by[a].get("category"), by[a].get("title"), b, by[b].get("category"),
                  by[b].get("title"), r["title_cos"], r["title_tri"], r["desc_cos"], r["desc_jac"], r["full_cos"]))
     print("Шаблон ручных пар: {\"победитель\": [\"проигравший\"]} → --pairs build/merge-pairs.json")
+    # те же пары в формате решений: отметьте [x] — слить, [ ] — разные; сохранённый вывод читают
+    # --pairs-from-dry-run (слить отмеченные) и --write-distinct (записать решения в build/merge-map.json)
+    dec, seen = [], set()
+    for c in sem:
+        seen.add(frozenset((c["a"], c["b"])))
+        dec.append({"drop": c["b"], "keep": c["a"], "merge": False, "similarity": c["similarity"], "semantic": c["semantic"],
+                    "drop_title": c["b_title"], "keep_title": c["a_title"], "source": "semantic"})
+    for i, j, r in rows[:top]:
+        a, b = sim.ids[i], sim.ids[j]
+        if frozenset((a, b)) in seen or r["score"] < thr - REVIEW_MARGIN:
+            continue
+        seen.add(frozenset((a, b)))
+        dec.append({"drop": b, "keep": a, "merge": r["score"] >= thr, "similarity": round(r["score"], 3), "semantic": None,
+                    "drop_title": by[b].get("title"), "keep_title": by[a].get("title"), "source": "lexical"})
+    print_decisions(dec)
 
 
 def write_decisions(out_dir, decisions, mode):
@@ -1104,19 +1430,71 @@ def print_decisions(decisions):
                                                   d.get("source")))
 
 
-def finish_common(out_dir, props, run_map, prior, a, report, warns):
-    """Общий хвост: карта id, патчи overrides.json, перевод ссылок, gap-audit-deps.json. Меняет props на месте."""
+def cap_requested(a, cfg):
+    """--cap-now [K] или run-config registry.capacity_cap: true."""
+    return getattr(a, "cap_now", None) is not None or bool((cfg.get("registry") or {}).get("capacity_cap"))
+
+
+def pinned_now(ov, acc, out_dir):
+    """Предложения, закреплённые в now решением владельца или overrides (horizon: now) — --cap-now их не переносит."""
+    pins = {acc.get(k, k) for k, patch in (ov or {}).items() if isinstance(patch, dict) and patch.get("horizon") == "now"}
+    pins |= {d["id"] for d in decision_horizons(out_dir) if d["horizon"] == "now"}
+    return pins
+
+
+def print_cap(rep):
+    if rep.get("skipped"):
+        print("  ! --cap-now пропущен: %s" % rep["skipped"])
+        return
+    c = rep["capacity"]
+    print("Ёмкость now (--cap-now): %.1f → %.1f дн. при потолке %.1f дн. (%.1f дн. за %g мес. × %.1f); перенесено в next: %d%s"
+          % (rep["before_days"], rep["after_days"], rep["ceiling"], c["dev_days"], c["months"], rep["factor"], len(rep["demoted"]),
+             "; ! закреплённые решениями предложения превышают потолок" if rep.get("over_by_pinned") else ""))
+    for q, v in rep.get("queues", {}).items():
+        print("  очередь %s: %d предложений, %.1f дн." % (q, v["count"], v["effort_days"]))
+
+
+def finish_common(out_dir, props, run_map, prior, a, report, warns, groups=None):
+    """Общий хвост: карта id, патчи overrides.json, решения владельца, перевод ссылок, gap-audit-deps.json (в т. ч.
+    зависимости из текста аудита), --cap-now, ссылки в файлах прогона (--append). Меняет props на месте."""
     acc = dict(prior)
     acc.update(run_map)
+    cfg = load_config(out_dir)
     ov, ov_err = load_overrides(out_dir / "build" / "overrides.json")
     warns += ov_err
     applied, unknown, ov_warn = apply_overrides(props, ov, acc)
     warns += ov_warn
+    decided = sync_decisions(props, out_dir)
     changed, unresolved = translate_refs(props, acc)
+    known = {p.get("id") for p in props}
+    gtext = add_gap_deps(out_dir, text_gap_deps(out_dir, groups), acc, write=not a.dry_run, known=known)
     gap = remap_gap_deps(out_dir, acc, write=not a.dry_run)
+    gap["added_from_text"] = gtext.get("pairs", [])
+    gap["skipped_from_text"] = gtext.get("skipped", [])
+    caprep = None
+    if cap_requested(a, cfg):
+        min_n = getattr(a, "min", None) or (cfg.get("strategy") or {}).get("proposals_min") or 100
+        caprep = cap_now(props, cfg, out_dir, getattr(a, "cap_now", None), pinned_now(ov, acc, out_dir), min_n)
+    files = {}
+    if groups and not getattr(a, "no_remap_files", False):
+        files = remap_run_files(out_dir, acc, groups, write=not a.dry_run)
     report.update({"id_map": acc, "id_map_run": run_map, "translated_refs": changed, "unresolved_refs": unresolved,
                    "overrides": {"file": "build/overrides.json" if ov or ov_err else None, "applied": applied, "unknown": unknown},
-                   "gap_audit_deps": gap})
+                   "gap_audit_deps": gap, "decisions_sync": decided, "cap_now": caprep, "remapped_files": files,
+                   "registry_passes": (cfg.get("registry") or {}).get("passes")})
+    if decided:
+        print("Решения владельца (data/decisions.json) применены к горизонтам: %s"
+              % ", ".join("%s %s→%s" % (d["id"], d["horizon_was"], d["horizon"]) for d in decided))
+    if gtext.get("added"):
+        print("data/gap-audit-deps.json: дописано из текста аудита и unlocks черновиков: %d (%s)%s"
+              % (gtext["added"], "; ".join(gtext["pairs"][:8]), " (--dry-run, файл не менялся)" if a.dry_run else ""))
+    if gtext.get("skipped"):
+        print("  ! зависимости из текста аудита с неизвестными id пропущены: %s" % "; ".join(gtext["skipped"][:10]))
+    if caprep is not None:
+        print_cap(caprep)
+    if files:
+        print("Ссылки на черновики %s переведены в файлах прогона: %s%s" % (
+            ", ".join(sorted(groups)), ", ".join("%s (%d)" % kv for kv in files.items()), " (--dry-run, файлы не менялись)" if a.dry_run else ""))
     if applied:
         print("Патчи build/overrides.json применены: %s" % ", ".join(applied))
     if changed:
@@ -1299,6 +1677,13 @@ def run_append(out_dir, a, cfg, reqs):
         p["merged_from"] = list(dict.fromkeys([orig] + it["absorbed"])) if it["absorbed"] else []
         added.append(p)
     warns += remap_dependencies(added, id_map, alias, keep_ids=old_ids | set(id_map.values()), fallback=prior)
+    for p in added:                                   # черновики G8 от link_mockups.py --collect-gaps: оценки дописываются до --append
+        if p.get("needs_details"):
+            orig = next((k for k, v in id_map.items() if v == p["id"] and k != p["id"]), "?")
+            w = ("%s (%s) — оценки не дописаны: черновик с needs_details: true (scores/effort_days/steps — дописать в "
+                 "data/proposals-draft-%s.json или build/overrides.json, затем score.py)" % (p["id"], orig, p.get("source_group") or "G8"))
+            warns.append(w)
+            print("  ! " + w)
     run_map = {}
     for it in new_kept:
         run_map[it["p"]["id"]] = id_map[it["p"]["id"]]
@@ -1328,7 +1713,7 @@ def run_append(out_dir, a, cfg, reqs):
         print("Пары-кандидаты для ручного решения: %d" % len(candidates))
     print_decisions(decisions)
     all_props = out + added
-    finish_common(out_dir, all_props, run_map, prior, a, report, warns)
+    finish_common(out_dir, all_props, run_map, prior, a, report, warns, groups=groups)
     for w in warns:
         print("  ! " + w)
     (out_dir / "build").mkdir(parents=True, exist_ok=True)
@@ -1342,7 +1727,108 @@ def run_append(out_dir, a, cfg, reqs):
     return 0
 
 
-def run_apply_overrides(out_dir, files):
+def load_all_decisions(path):
+    """Все решения (и [x], и [ ]) → [(drop, keep, merge)] из JSON build/merge-candidates.json или текста вывода."""
+    text = Path(path).read_text(encoding="utf-8")
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        data = None
+    out = []
+    if data is not None:
+        rows = data.get("decisions", []) if isinstance(data, dict) else data
+        for r in rows if isinstance(rows, list) else []:
+            if isinstance(r, dict) and r.get("drop") and r.get("keep"):
+                out.append((str(r["drop"]), str(r["keep"]), r.get("merge") is True))
+        return out
+    for line in text.splitlines():
+        m = DECISION_LINE.match(line)
+        if m:
+            out.append((m.group(2).strip("«»,;"), m.group(3).strip("«»,;"), m.group(1) in "xX+"))
+    return out
+
+
+def run_write_distinct(out_dir, path):
+    """--write-distinct: решения → build/merge-map.json ([ ] → distinct, [x] → merge); прежние записи сохраняются."""
+    try:
+        rows = load_all_decisions(path)
+    except OSError as e:
+        print("не прочитать решения %s: %s" % (path, e), file=sys.stderr)
+        return 1
+    mp_path = out_dir / "build" / "merge-map.json"
+    try:
+        m = json.loads(mp_path.read_text(encoding="utf-8")) if mp_path.exists() else {}
+    except json.JSONDecodeError as e:
+        print("build/merge-map.json не разбирается как JSON: %s" % e, file=sys.stderr)
+        return 1
+    if isinstance(m, dict) and m and "merge" not in m and "distinct" not in m:      # упрощённый формат {drop: into}
+        m = {"merge": [{"drop": k, "into": (v if isinstance(v, str) else v.get("into")), "reason": "ручная карта"}
+                       for k, v in m.items()], "distinct": []}
+    m = m if isinstance(m, dict) else {}
+    m.setdefault("merge", [])
+    m.setdefault("distinct", [])
+    have_d = {frozenset(x) for x in m["distinct"] if isinstance(x, list)}
+    have_m = {e.get("drop") for e in m["merge"] if isinstance(e, dict)}
+    nd = nm = 0
+    for drop, keep, merge in rows:
+        pair = frozenset((drop, keep))
+        if merge:
+            if drop not in have_m:
+                m["merge"].append({"drop": drop, "into": keep, "reason": "решение [x] (--write-distinct)"})
+                have_m.add(drop)
+                nm += 1
+            if pair in have_d:
+                m["distinct"] = [x for x in m["distinct"] if frozenset(x) != pair]
+                have_d.discard(pair)
+        elif pair not in have_d and drop not in have_m:
+            m["distinct"].append(sorted(pair, key=draft_sort_key))
+            have_d.add(pair)
+            nd += 1
+    m["_comment"] = "distinct — пары «похожи, но разные» (автослияние запрещено); merge — решения слить. Пишет --write-distinct."
+    mp_path.parent.mkdir(parents=True, exist_ok=True)
+    mp_path.write_text(json.dumps(m, ensure_ascii=False, indent=2), encoding="utf-8")
+    print("build/merge-map.json: добавлено distinct %d, merge %d (всего distinct %d, merge %d) из %s"
+          % (nd, nm, len(m["distinct"]), len(m["merge"]), path))
+    return 0
+
+
+def postprocess_ready(out_dir, a, props, report):
+    """Решения владельца и --cap-now к готовому реестру. Меняет props на месте; печатает итог."""
+    cfg = load_config(out_dir)
+    decided = sync_decisions(props, out_dir)
+    report["decisions_sync"] = decided
+    if decided:
+        print("Решения владельца применены: %s" % ", ".join("%s %s→%s" % (d["id"], d["horizon_was"], d["horizon"]) for d in decided))
+    else:
+        print("Решения владельца: реестр уже согласован с data/decisions.json (или решений о горизонтах нет)")
+    if cap_requested(a, cfg):
+        ov, _ = load_overrides(out_dir / "build" / "overrides.json")
+        min_n = getattr(a, "min", None) or (cfg.get("strategy") or {}).get("proposals_min") or 100
+        rep = cap_now(props, cfg, out_dir, getattr(a, "cap_now", None), pinned_now(ov, load_id_map(out_dir), out_dir), min_n)
+        report["cap_now"] = rep
+        print_cap(rep)
+
+
+def run_sync_decisions(out_dir, a):
+    """--sync-decisions [--cap-now]: горизонты/теги по data/decisions.json к готовому реестру."""
+    reg = out_dir / "data" / "proposals.json"
+    if not reg.exists():
+        print("нет data/proposals.json", file=sys.stderr)
+        return 1
+    props = [p for p in json.loads(reg.read_text(encoding="utf-8")) if isinstance(p, dict)]
+    report = {"mode": "sync-decisions"}
+    postprocess_ready(out_dir, a, props, report)
+    if a.dry_run:
+        print("--dry-run: реестр не менялся")
+        return 0
+    reg.write_text(json.dumps(props, ensure_ascii=False, indent=2), encoding="utf-8")
+    (out_dir / "build").mkdir(parents=True, exist_ok=True)
+    (out_dir / "build" / "sync-report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    print("Записано: data/proposals.json, build/sync-report.json — дальше score.py и Гант")
+    return 0
+
+
+def run_apply_overrides(out_dir, files, a=None):
     """--apply-overrides: патчи к готовому data/proposals.json (без слияния)."""
     reg = out_dir / "data" / "proposals.json"
     if not reg.exists():
@@ -1367,6 +1853,8 @@ def run_apply_overrides(out_dir, files):
     changed, unresolved = translate_refs(props, idmap)
     for u in unresolved[:20]:
         print("  ! непереведённая ссылка %s.%s → %s" % (u["id"], u["field"], u["ref"]))
+    if a is not None and getattr(a, "cap_now", None) is not None:
+        postprocess_ready(out_dir, a, props, {})
     reg.write_text(json.dumps(props, ensure_ascii=False, indent=2), encoding="utf-8")
     print("Записано: data/proposals.json (патчей %d)" % len(total))
     return 1 if bad else 0
@@ -1396,12 +1884,25 @@ def main(argv=None):
     ap.add_argument("--apply-overrides", nargs="*", default=None, metavar="FILE",
                     help="наложить патчи (по умолчанию build/overrides.json) на готовый реестр без слияния")
     ap.add_argument("--dry-run", action="store_true", help="только отчёт и build/merge-candidates.json, без записи реестра")
+    ap.add_argument("--write-distinct", nargs="?", const="__default__", default=None, metavar="FILE",
+                    help="решения [x]/[ ] (build/merge-candidates.json по умолчанию или сохранённый вывод) → build/merge-map.json")
+    ap.add_argument("--sync-decisions", action="store_true",
+                    help="к готовому реестру: горизонты и теги по data/decisions.json (с --cap-now — и потолок now)")
+    ap.add_argument("--cap-now", nargs="?", type=float, const=0.0, default=None, metavar="K",
+                    help="потолок суммы середин effort_days горизонта now: ёмкость × K (по умолчанию registry.cap_factor или 1,3)")
+    ap.add_argument("--no-remap-files", action="store_true",
+                    help="с --append: не переводить ссылки G-NN в макетах, design-refs и data/*.json прогона")
     a = ap.parse_args(argv)
     out_dir = Path(a.out).resolve()
     if a.pairs_from_dry_run == "__default__":
         a.pairs_from_dry_run = str(out_dir / "build" / CANDIDATES_FILE)
+    if a.write_distinct is not None:
+        return run_write_distinct(out_dir, out_dir / "build" / CANDIDATES_FILE if a.write_distinct == "__default__"
+                                  else Path(a.write_distinct))
+    if a.sync_decisions:
+        return run_sync_decisions(out_dir, a)
     if a.apply_overrides is not None:
-        return run_apply_overrides(out_dir, a.apply_overrides)
+        return run_apply_overrides(out_dir, a.apply_overrides, a)
     cfg = load_config(out_dir)
     min_n = a.min if a.min is not None else (cfg.get("strategy") or {}).get("proposals_min") or 100
     reqs = category_requirements(cfg, min_n)

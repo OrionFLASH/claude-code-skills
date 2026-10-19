@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "label": "демо-данные",
+  "note": "Канон демо-данных: единственный источник чисел для макетов, прототипа и текстов. Числа вымышлены. Макеты помечают значения атрибутом data-canon=\"<id кейса>.<поле>\"; ядро обязано воспроизвести expected (node js/core.test.js), макеты — тоже (python3 tools/check_canon.py).",
+  "cases": [
+    {"id": "C01", "title": "Обычный сценарий", "fn": "payback",
+     "inputs": {"buildHours": 40, "maintainHoursPerWeek": 0.5, "savedHoursPerWeek": 2.5},
+     "expected": {"netSavedPerWeek": 2, "paybackWeeks": 20, "yearNetHours": 64},
+     "mockups": ["M01-example"]},
+    {"id": "C02", "title": "Поддержка съедает экономию", "fn": "payback",
+     "inputs": {"buildHours": 40, "maintainHoursPerWeek": 3, "savedHoursPerWeek": 2},
+     "expected": {"netSavedPerWeek": -1, "paybackWeeks": null},
+     "mockups": []},
+    {"id": "C03", "title": "Минимальный сценарий", "fn": "payback",
+     "inputs": {"buildHours": 30, "maintainHoursPerWeek": 0.25, "savedHoursPerWeek": 1.75},
+     "expected": {"netSavedPerWeek": 1.5, "paybackWeeks": 20, "yearNetHours": 48},
+     "mockups": ["M01-example"]}
+  ]
+}
